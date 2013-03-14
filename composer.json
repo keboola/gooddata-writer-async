@@ -1,0 +1,44 @@
+{
+	"name": "keboola/wr-gooddata",
+	"type": "symfony-bundle",
+	"description": "Keboola GoodData Writer",
+	"keywords": [],
+	"authors": [
+		{
+			"name": "Jakub Matějka",
+			"email": "jakub@keboola.com"
+		}
+	],
+	"repositories": [
+		{
+			"type": "vcs",
+			"url": "git@bitbucket.org:keboola/syrup-development-bundle.git"
+		}
+	],
+	"require": {
+		"php": ">=5.3.5"
+	},
+	"require-dev": {
+		"syrup/component-bundle": "1.0.*",
+		"syrup/development-bundle": ">=1.0.8"
+	},
+	"scripts": {
+		"post-install-cmd": [
+			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap",
+			"cp /www/syrup-development-bundle/app/config/parameters.yml  vendor/syrup/development-bundle/app/config/"
+		],
+		"post-update-cmd": [
+			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap",
+			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::clearCache"
+		]
+	},
+	"minimum-stability": "alpha",
+	"autoload": {
+		"psr-0": { "Keboola\\GoodDataWriterBundle": "" }
+	},
+	"target-dir": "Keboola/GoodDataWriterBundle",
+	"extra": {
+		"symfony-app-dir": "vendor/syrup/development-bundle/app",
+		"symfony-web-dir": "vendor/syrup/development-bundle/web"
+	}
+}

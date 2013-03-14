@@ -1,0 +1,11 @@
+scripts/debug.php
+*.log
+.idea
+application/configs/config.ini
+cache.properties
+composer.lock
+tmp
+
+# osx noise
+.DS_Store
+profile

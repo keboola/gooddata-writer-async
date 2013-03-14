@@ -1,0 +1,7 @@
+parameters:
+#    syrup_db.example.class: Syrup\DbBundle\Example
+
+services:
+#    syrup_db.example:
+#        class: %syrup_db.example.class%
+#        arguments: [@service_id, "plain_value", %parameter%]
