@@ -10,10 +10,12 @@
          stopOnFailure="false"
          syntaxCheck="false"
          bootstrap="vendor/autoload.php">
-
+	<php>
+		<server name="KERNEL_DIR" value="vendor/syrup/development-bundle/app/" />
+	</php>
     <testsuites>
-        <testsuite name="Keboola Facebook Extractor">
-            <directory>Tests</directory>
+        <testsuite name="Keboola GoodData Writer">
+            <directory>Tests/GoodData</directory>
         </testsuite>
     </testsuites>
 </phpunit>

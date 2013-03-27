@@ -20,7 +20,8 @@
 	},
 	"require-dev": {
 		"syrup/component-bundle": "1.0.*",
-		"syrup/development-bundle": ">=1.0.8"
+		"syrup/development-bundle": ">=1.0.8",
+		"phpunit/phpunit": "3.7.*"
 	},
 	"scripts": {
 		"post-install-cmd": [
