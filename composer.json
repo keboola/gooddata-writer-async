@@ -1,5 +1,5 @@
 {
-	"name": "keboola/wr-gooddata",
+	"name": "keboola/wr-gooddata-4",
 	"type": "symfony-bundle",
 	"description": "Keboola GoodData Writer",
 	"keywords": [],
