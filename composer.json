@@ -21,7 +21,8 @@
 	"require-dev": {
 		"syrup/component-bundle": "1.0.*",
 		"syrup/development-bundle": ">=1.0.8",
-		"phpunit/phpunit": "3.7.*"
+		"phpunit/phpunit": "3.7.*",
+		"emagister/zendframework1": "1.*"
 	},
 	"scripts": {
 		"post-install-cmd": [

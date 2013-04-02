@@ -23,7 +23,7 @@ class ListProjectsTest extends WebTestCase
 	{
 		$client = static::createClient();
 		$this->_storageApi = new \Keboola\StorageApi\Client($client->getContainer()->getParameter('storageApi.test.token'),
-			$client->getContainer()->getParameter('storageApi.test.url'));
+			$client->getContainer()->getParameter('storageApi.url'));
 
 		if ($this->_storageApi->bucketExists(self::BUCKET_ID)) {
 			$bucketInfo = $this->_storageApi->getBucket(self::BUCKET_ID);
