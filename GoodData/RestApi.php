@@ -71,6 +71,38 @@ class RestApi
 
 
 	/**
+	 * Get project info
+	 *
+	 * @param $pid
+	 * @throws RestApiException|\Exception
+	 * @return array
+	 */
+	public function getProject($pid)
+	{
+		try {
+			$result = $this->_jsonRequest(sprintf('/gdc/projects/%s', $pid), 'GET', array(), array(), false);
+			return $result;
+		} catch (RestApiException $e) {
+			$errorJson = json_decode($e->getMessage(), true);
+			if ($errorJson) {
+				if (isset($errorJson['error']['errorClass'])) {
+					switch ($errorJson['error']['errorClass']) {
+						case 'GDC::Exception::Forbidden':
+							throw new RestApiException(sprintf('Access to project %s denied', $pid));
+							break;
+						case 'GDC::Exception::NotFound':
+							throw new RestApiException(sprintf('Project %s not exists', $pid));
+							break;
+					}
+				}
+			}
+			throw $e;
+		}
+
+	}
+
+
+	/**
 	 * Create project
 	 * @param $name
 	 * @param $authToken
@@ -417,7 +449,7 @@ class RestApi
 				'headers' => $headers,
 				'exception' => $e
 			));
-			throw new RestApiException('API error - bad response: ' . $e->getMessage());
+			throw new RestApiException('Rest API: ' . $e->getMessage());
 		}
 	}
 

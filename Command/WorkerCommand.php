@@ -47,6 +47,7 @@ class WorkerCommand extends ContainerAwareCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
+		$this->_log = $this->getContainer()->get('logger');
 		$mainConfig = $this->getContainer()->getParameter('gd_writer');
 		$this->_db = new \Zend_Db_Adapter_Pdo_Mysql(array(
 			'host' => $mainConfig['db']['host'],
@@ -104,7 +105,7 @@ class WorkerCommand extends ContainerAwareCommand
 	{
 		$this->_output->writeln('Executing job: ' . $jobId);
 
-		$executor = new JobExecutor($this->_sapiSharedConfig, $this->_log);
+		$executor = new JobExecutor($this->_sapiSharedConfig, $this->_log, $this->getContainer());
 		$executor->runJob($jobId);
 	}
 

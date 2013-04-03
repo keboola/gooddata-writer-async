@@ -59,6 +59,8 @@ class JobManager
 			'runId' => $runId,
 			'projectId' => $this->configuration->projectId,
 			'writerId' => $this->configuration->writerId,
+			'sapiUrl' => $this->_storageApi->getApiUrl(),
+			'token' => $this->_storageApi->token,
 			'tokenId' => $this->configuration->tokenInfo['id'],
 			'tokenDesc' => $this->configuration->tokenInfo['description'],
 			'tokenOwnerName' => $this->configuration->tokenInfo['owner']['name'],
@@ -102,7 +104,7 @@ class JobManager
 		return $jobInfo;
 	}
 
-	public function finishJob($jobId, $status, $params, $logUrl)
+	public function finishJob($jobId, $status, $params, $logUrl = null)
 	{
 		$params = array_merge($params, array(
 			'status' => $status,
@@ -121,14 +123,13 @@ class JobManager
 		$this->_log->log($logLevel, $params);
 	}
 
-	public function finishJobWithError($jobId, $command, $calls, $error)
+	public function finishJobWithError($jobId, $command, $logUrl = null, $error = null)
 	{
-		$logUrl = $this->_logUploader->uploadString('calls-' . $jobId, $calls);
-		$exceptionUrl = $this->_logUploader->uploadString('exception-' . $jobId, json_encode($error));
-		$this->finishJob($jobId, 'error', array(
-			'command' => $command,
-			'result' => array('exception' => $exceptionUrl)
-		), $logUrl);
+		$data = array(
+			'command' => $command
+		);
+		if ($error) $data['result'] = array('error' => $error);
+		$this->finishJob($jobId, 'error', $data, $logUrl);
 	}
 
 	protected function _updateJobs($jobId, $params)
@@ -137,6 +138,12 @@ class JobManager
 			$encodedParameters = json_encode($params['parameters']);
 			if ($encodedParameters) {
 				$params['parameters'] = $encodedParameters;
+			}
+		}
+		if (isset($params['result'])) {
+			$encodedResult = json_encode($params['result']);
+			if ($encodedResult) {
+				$params['result'] = $encodedResult;
 			}
 		}
 

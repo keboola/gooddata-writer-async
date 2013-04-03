@@ -6,50 +6,58 @@
 
 namespace Keboola\GoodDataWriterBundle\Writer;
 
-
-use Keboola\GoodDataWriterBundle\Exception\JobExecutorException;
-use Symfony\Component\Security\Acl\Exception\Exception;
+use Keboola\GoodDataWriterBundle\Exception\JobExecutorException,
+	Keboola\StorageApi\Client as StorageApiClient,
+	Keboola\StorageApi\Event as StorageApiEvent,
+	\Keboola\StorageApi\Table as StorageApiTable;
+use Keboola\GoodDataWriterBundle\GoodData\RestApi;
+use Monolog\Logger;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class JobExecutor
 {
+	const APP_NAME = 'wr-gooddata';
 
 	/**
-	 * @var \Keboola\StorageApi\Client
+	 * @var StorageApiClient
 	 */
 	protected $_sapiSharedConfig;
-
 	/**
-	 * @var \Monolog\Logger
+	 * @var Logger
 	 */
 	protected $_log;
-
 	/**
 	 * Current job
 	 * @var
 	 */
 	protected $_job = null;
-
 	/**
-	 * SAPI client for current job
-	 * @var \Keboola\StorageApi\Client
+	 * @var StorageApiClient
 	 */
 	protected $_sapiClient = null;
+	/**
+	 * @var ContainerInterface
+	 */
+	protected $_container;
 
 
 	/**
-	 * @param \Keboola\StorageApi\Client $sharedConfig
-	 * @param \Monolog\Logger $log
+	 * @param StorageApiClient $sharedConfig
+	 * @param Logger $log
+	 * @param ContainerInterface $container
 	 */
-	public function __construct(\Keboola\StorageApi\Client $sharedConfig, \Monolog\Logger $log)
+	public function __construct(StorageApiClient $sharedConfig, Logger $log, ContainerInterface $container)
 	{
 		$this->_sapiSharedConfig = $sharedConfig;
 		$this->_log = $log;
+		$this->_container = $container;
 	}
 
 	/**
 	 * Job execution
 	 * Performs execution of job tasks and logging
 	 * @param $jobId
+	 * @throws JobExecutorException
 	 */
 	public function runJob($jobId)
 	{
@@ -60,132 +68,43 @@ class JobExecutor
 		}
 
 		try {
-			$this->_sapiClient = new \Keboola\StorageApi\Client(
+			$this->_sapiClient = new StorageApiClient(
 				$job['token'],
-				$this->_config->storageApi->url,
-				$this->_config->app->name
+				$job['sapiUrl'],
+				self::APP_NAME
 			);
 		} catch(\Keboola\StorageApi\Exception $e) {
-			throw new Service_JobExecutorException("Invalid token for job $jobId", 0, $e);
+			throw new JobExecutorException("Invalid token for job $jobId", 0, $e);
 		}
 		$this->_sapiClient->setRunId($jobId);
 
-		NDebugger::timer('orchestration');
+		$time = time();
 		// start work on job
 		$this->_updateJob($jobId, array(
 			'status' => 'processing',
-			'startTime' => date('c'),
+			'startTime' => date('c', $time),
 		));
 
-		$this->_logEvent(
-			$this->_prepareSapiEventForJob($job)
-				->setMessage("Orchestration job $job[id] start")
-		);
-
-		// read and validate tasks
-		$notificationsEmail = null;
-		try {
-			$configurationTable = $this->_sapiClient->getTable($job['configurationId']);
-			foreach ($configurationTable['attributes'] as $attribute) {
-				if ($attribute['name'] !== 'notificationsEmail') {
-					continue;
-				}
-				$notificationsEmail = $attribute['value'];
-				break;
-			}
-
-			$tasks = \Keboola\StorageApi\Client::parseCsv($this->_sapiClient->exportTable($job['configurationId']));
-
-		} catch(\Exception $e) {
-			$this->_updateJob($jobId, array(
-				'status' => 'error',
-				'endTime' => date('c'),
-				'results' => \Zend_Json::encode(array(
-					'error' => 'Error on configuration read',
-					'exception' => $e->getMessage(),
-				))
-			));
-			$event = $this->_prepareSapiEventForJob($job)
-				->setType(\Keboola\StorageApi\Event::TYPE_ERROR)
-				->setMessage("Orchestration job $job[id] end")
-				->setDuration(NDebugger::timer('orchestration'))
-				->setResults(array(
-					'error' => 'Error on configuration read',
-					'exception' => $e->getMessage(),
-				))
-				->setDescription('Error on configuration read.');
-			$this->_logEvent($event);
-
-			if ($notificationsEmail) {
-				$this->_notifyUser($notificationsEmail, $event, $job);
-			}
-			return;
-		}
-
-
-		// iterate tasks - execute them and log results
-		$results = array();
-		foreach ($tasks as $task) {
-			$result = $this->_executeJobTask($job, $task);
-			$results[] = $result;
-			if ($result['status'] == 'error') {
-				break;
-			}
-		}
-
-		$errors = array_filter($results, function($result) {
-			return $result['status'] === 'error';
-		});
-
-		$jobStatus = count($errors) ? \Keboola\StorageApi\Event::TYPE_ERROR : \Keboola\StorageApi\Event::TYPE_SUCCESS;
-
+		$result = $this->_executeJob($job);
+		$jobStatus = ($result['status'] === 'error') ? StorageApiEvent::TYPE_ERROR : StorageApiEvent::TYPE_SUCCESS;
 
 		// end work on job
-		$this->_updateJob($jobId, array(
+		$jobInfo = array(
 			'status' => $jobStatus,
-			'results' => \Zend_Json::encode(array(
-				'tasks' => $results,
-			)),
 			'endTime' => date('c'),
-		));
-		$event = $this->_prepareSapiEventForJob($job)
-			->setMessage("Orchestration job $job[id] end")
-			->setDuration(NDebugger::timer('orchestration'))
-			->setType($jobStatus)
-			->setResults(array(
-				'tasks' => $results,
-			));
-		$this->_logEvent($event);
-
-		if ($notificationsEmail && $jobStatus == \Keboola\StorageApi\Event::TYPE_ERROR) {
-			$this->_notifyUser($notificationsEmail, $event, $job);
+		);
+		if (isset($result['response']['gdWriteStartTime'])) {
+			$jobInfo['gdWriteStartTime'] = $result['response']['gdWriteStartTime'];
+			unset($result['response']['gdWriteStartTime']);
 		}
-
-	}
-
-	protected function _notifyUser($email, \Keboola\StorageApi\Event $event, $job)
-	{
-		$view = new \Zend_View();
-		$view
-			->assign(array(
-				'email' => $email,
-				'results' => $event->getResults(),
-				'job' => $job,
-			))
-			->setScriptPath(APPLICATION_PATH . '/views/emails');
-		$mail = new \Zend_Mail('utf8');
-		$mail->addTo($email)
-			->setSubject(sprintf("[KBC] %s orchestrator %s error", $job['tokenOwnerName'], $job['configurationId']))
-			->setBodyHtml($view->render('orchestration-error.phtml'))
-			->setFrom('support@keboola.com');
-
-		$mail->send();
+		$jobInfo['result'] = json_encode($result);
+		$this->_updateJob($jobId, $jobInfo);
 	}
 
 	protected function _fetchJob($jobId)
 	{
 		$csv = $this->_sapiSharedConfig->exportTable(
-			'in.c-orchestrator.jobs',
+			'in.c-wr-gooddata.jobs',
 			null,
 			array(
 				'whereColumn' => 'id',
@@ -193,13 +112,13 @@ class JobExecutor
 			)
 		);
 
-		$jobs = \Keboola\StorageApi\Client::parseCsv($csv, true);
+		$jobs = StorageApiClient::parseCsv($csv, true);
 		return reset($jobs);
 	}
 
 	protected function _updateJob($jobId, $fields)
 	{
-		$jobsTable = new \Keboola\StorageApi\Table($this->_sapiSharedConfig, 'in.c-orchestrator.jobs');
+		$jobsTable = new StorageApiTable($this->_sapiSharedConfig, 'in.c-wr-gooddata.jobs');//@TODO
 		$jobsTable->setHeader(array_merge(array('id'), array_keys($fields)));
 		$jobsTable->setFromArray(array(array_merge(array($jobId), $fields)));
 		$jobsTable->setPartial(true);
@@ -209,10 +128,10 @@ class JobExecutor
 
 	protected function _prepareSapiEventForJob($job)
 	{
-		$event = new Keboola\StorageApi\Event();
+		$event = new StorageApiEvent();
 		$event
-			->setComponent($this->_config->app->name)
-			->setConfigurationId($job['configurationId'])
+			->setComponent(self::APP_NAME)
+			->setConfigurationId($job['writerId'])
 			->setRunId($job['id']);
 
 		return $event;
@@ -220,30 +139,30 @@ class JobExecutor
 
 	/**
 	 * Log event to client SAPI and to system log
-	 * @param Keboola\StorageApi\Event $event
+	 * @param StorageApiEvent $event
 	 */
-	protected function _logEvent(\Keboola\StorageApi\Event $event)
+	protected function _logEvent(StorageApiEvent $event)
 	{
 		$event->setParams(array_merge($event->getParams(), array(
 			'jobId' => $this->_job['id'],
-			'orchestrationId' => $this->_job['orchestrationId']
+			'writerId' => $this->_job['writerId']
 		)));
 		$this->_sapiClient->createEvent($event);
 
 		// convert priority
 		switch ($event->getType()) {
-			case \Keboola\StorageApi\Event::TYPE_ERROR:
-				$priority = \Zend_Log::ERR;
+			case StorageApiEvent::TYPE_ERROR:
+				$priority = Logger::ERROR;
 				break;
-			case \Keboola\StorageApi\Event::TYPE_WARN:
-				$priority = \Zend_Log::WARN;
+			case StorageApiEvent::TYPE_WARN:
+				$priority = Logger::WARNING;
 				break;
 			default:
-				$priority = \Zend_Log::INFO;
+				$priority = Logger::INFO;
 		}
 
 		$this->_log($event->getMessage(), $priority, array(
-			'configurationId' => $event->getConfigurationId(),
+			'writerId' => $event->getConfigurationId(),
 			'runId' => $event->getRunId(),
 			'description' => $event->getDescription(),
 			'params' => $event->getParams(),
@@ -254,7 +173,7 @@ class JobExecutor
 
 	protected function _log($message, $priority, array $data)
 	{
-		$this->_log->log($message, $priority, array_merge($data, array(
+		$this->_log->log($priority, $message, array_merge($data, array(
 			'runId' => $this->_sapiClient->getRunId(),
 			'token' => $this->_sapiClient->getLogData(),
 			'jobId' => $this->_job['id'],
@@ -263,39 +182,35 @@ class JobExecutor
 
 	/**
 	 * Excecute task and returns task execution result
-	 * @param Keboola\StorageApi\Client $sapiClient
 	 * @param $job
-	 * @param $task
+	 * @throws JobExecutorException
 	 * @return array
 	 */
-	protected function 	_executeJobTask($job, $task)
+	protected function _executeJob($job)
 	{
-
-		NDebugger::timer('task');
+		$time = time();
 		$sapiEvent = $this->_prepareSapiEventForJob($job);
-		$sapiEvent->setMessage("Component $task[runUrl] start");
+		$sapiEvent->setMessage("Job $job[id] start");
 		$this->_logEvent($sapiEvent);
 
 		$result = array(
-			'id' => $task['id'],
-			'runUrl' => $task['runUrl'],
-			'runParameters' => $task['runParameters'],
+			'id' => $job['id'],
 			'status' => 'ok',
 		);
 
 
 		try {
-			$this->_validateJobTask($task);
-			$response = $this->_taskRunRequest(
-				$task['runUrl'],
-				$this->_sapiClient->token,
-				$this->_decodeParameters($task['runParameters']),
-				$job['id']
-			);
+			$parameters = $this->_decodeParameters($job['parameters']);
 
-			$duration = round(NDebugger::timer('task'));
+			$commandName = $job['command'];
+			if (!method_exists($this, $commandName)) {
+				throw new JobExecutorException(sprintf('Command %s does not exist', $commandName));
+			}
+			$response = $this->$commandName($job, $parameters);
+
+			$duration = time() - $time;
 			$sapiEvent
-				->setMessage("Component $task[runUrl] end")
+				->setMessage("Job $job[id] end")
 				->setDuration($duration);
 			$this->_logEvent($sapiEvent);
 
@@ -303,19 +218,14 @@ class JobExecutor
 			$result['duration'] = $duration;
 			return $result;
 
-		} catch (Service_TaskRunException $e) {
-			$duration = NDebugger::timer('task');
+		} catch (JobExecutorException $e) {
+			$duration = $time - time();
 
 			$sapiEvent
-				->setMessage("Component $task[runUrl] end")
-				->setType(\Keboola\StorageApi\Event::TYPE_WARN)
+				->setMessage("Job $job[id] end")
+				->setType(StorageApiEvent::TYPE_WARN)
 				->setDescription($e->getMessage())
 				->setDuration($duration);
-
-			if ($e instanceof Service_TaskRunInvalidResponseException) {
-				$sapiEvent->setResults($e->getResponse());
-				$result['response'] = $e->getResponse();
-			}
 			$this->_logEvent($sapiEvent);
 
 			$result['status'] = 'error';
@@ -325,69 +235,64 @@ class JobExecutor
 		}
 	}
 
-	/**
-	 * @param $task
-	 * @throws Service_TaskRunException
-	 */
-	private function _validateJobTask($task)
-	{
-		if ((isset($task['id']) && isset($task['runUrl']) && isset($task['runParameters']))) {
-			return;
-		}
-		throw new Service_TaskRunException('Invalid task configuration format.');
-	}
 
 	/**
 	 * @param $paramsString
+	 * @throws JobExecutorException
 	 * @return mixed
-	 * @throws Service_TaskRunException
 	 */
 	private function _decodeParameters($paramsString)
 	{
 		try {
 			return \Zend_Json::decode($paramsString);
-		} catch(Zend_Json_Exception $e) {
-			throw new Service_TaskRunException("Params decoding failed.", 0, $e);
+		} catch(\Zend_Json_Exception $e) {
+			throw new JobExecutorException("Params decoding failed.", 0, $e);
 		}
 	}
 
+
 	/**
-	 * @param $url
-	 * @param $token
-	 * @param array $parameters
-	 * @param $runId
-	 * @return mixed
-	 * @throws Service_TaskRunInvalidResponseException
-	 * @throws Service_TaskRunException
+	 * @param $job
+	 * @param $params
+	 * @throws \Keboola\GoodDataWriterBundle\Exception\JobExecutorException
+	 * @return array
 	 */
-	private function _taskRunRequest($url, $token, $parameters = array(), $runId)
+	public function createProject($job, $params)
 	{
-		try {
-			$client = new \Zend_Http_Client($url, array(
-				'timeout' => 5 * 60 * 60,
-			));
-			$client
-				->setHeaders('X-StorageApi-Token', $token)
-				->setHeaders('X-KBC-RunId', $runId)
-				->setHeaders('X-User-Agent', $this->_config->app->name . " - JobExecutor");
-
-			if (!empty($parameters)) {
-				$client->setRawData(Zend_Json::encode($parameters), 'application/json');
-			}
-
-			$response = Zend_Json::decode($client->request('POST')->getBody());
-
-		} catch(\Exception $e) {
-			throw new Service_TaskRunException('Error on task run: ' . $e->getMessage(), 0, $e);
+		if (empty($params['accessToken'])) {
+			throw new JobExecutorException("Parameter accessToken is missing");
+		}
+		if (empty($params['projectName'])) {
+			throw new JobExecutorException("Parameter projectName is missing");
 		}
 
-		if (!(isset($response['status']) && $response['status'] == 'ok')) { // fuj - mel by se kontrolovat response code
-			$e = new Service_TaskRunInvalidResponseException('Error response from task');
-			$e->setResponse((array) $response);
-			throw $e;
-		}
+		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
+		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
+		$mainConfig = $this->_container->getParameter('gd_writer');
 
-		return $response;
+
+		$gdWriteStartTime = date('c');
+		$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
+		$restApi = new RestApi($backendUrl, $this->_log);
+		$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
+
+		$projectPid = $restApi->createProject($params['projectName'], $params['accessToken']);
+
+		$username = $job['projectId'] . '-' . $job['writerId'] . '@clients.keboola.com';
+		$password = md5(uniqid());
+		$userUri = $restApi->createUserInDomain($mainConfig['gd']['domain'], $username, $password, 'KBC', 'Writer');
+
+		$restApi->addUserToProject($userUri, $projectPid);
+
+		// Save data to configuration bucket
+		$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.pid', $projectPid);
+		$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.username', $username);
+		$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.password', $password, true);
+		$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.userUri', $userUri);
+
+		return array(
+			'gdWriteStartTime' => $gdWriteStartTime
+		);
 	}
 
 }

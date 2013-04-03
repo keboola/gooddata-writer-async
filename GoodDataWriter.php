@@ -65,10 +65,6 @@ class GoodDataWriter extends Component
 
 		// Init main temp directory
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
-		if (!file_exists($tmpDir)) {
-			mkdir($tmpDir);
-		}
-
 		$this->configuration = new Configuration($params['writerId'], $this->_storageApi, $tmpDir);
 
 		$this->_mainConfig = $this->_container->getParameter('gd_writer');
@@ -134,11 +130,27 @@ class GoodDataWriter extends Component
 		if (!isset($params['writerId'])) {
 			throw new WrongParametersException('Missing parameter \'writerId\'');
 		}
+		if (!preg_match('/^[a-zA-z0-9_]+$/', $params['writerId'])) {
+			throw new WrongParametersException('Parameter writerId may contain only basic letters, numbers and underscores');
+		}
 
 		$this->_init($params);
 
 		if ($this->configuration->configurationBucket($params['writerId'])) {
 			throw new WrongParametersException('Writer with id \'writerId\' already exists');
+		}
+
+		$this->_storageApi->createBucket('wr-gooddata-' . $params['writerId'], 'sys', 'GoodData Writer Configuration');
+		$this->_storageApi->setBucketAttribute('sys.c-wr-gooddata-' . $params['writerId'], 'writer', 'gooddata');
+		$this->_storageApi->setBucketAttribute('sys.c-wr-gooddata-' . $params['writerId'], 'writerId', $params['writerId']);
+		if (isset($params['backendUrl'])) {
+			$this->_storageApi->setBucketAttribute('sys.c-wr-gooddata-' . $params['writerId'], 'gd.backendUrl', $params['backendUrl']);
+		}
+		$this->configuration->bucketId = 'sys.c-wr-gooddata-' . $params['writerId'];
+		try {
+			$this->configuration->prepareProjects();
+		} catch (WrongConfigurationException $e) {
+			// Ignore that table is empty
 		}
 
 		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->_mainConfig['gd']['access_token'];
@@ -215,7 +227,7 @@ class GoodDataWriter extends Component
 
 
 		$restApi = new GoodData\RestApi($this->configuration->backendUrl, $this->_log);
-		$jobId = $this->_jobManager->createJob(array(
+		$jobInfo = $this->_jobManager->createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
@@ -229,7 +241,14 @@ class GoodDataWriter extends Component
 		try {
 			$gdWriteStartTime = time();
 
-			$restApi->login($this->_mainConfig['gd']['username'], $this->_mainConfig['gd']['gd.password']);
+
+			// Check access to source project
+			$mainProject = $this->configuration->projectsCsv->current();
+			$restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+			$restApi->getProject($mainProject[0]);
+
+
+			$restApi->login($this->_mainConfig['gd']['username'], $this->_mainConfig['gd']['password']);
 
 			// Get user uri if not set
 			if (empty($this->configuration->bucketInfo['gd']['userUri'])) {
@@ -239,15 +258,13 @@ class GoodDataWriter extends Component
 			}
 
 			$projectPid = $restApi->createProject($projectName, $accessToken);
-
-			$mainProject = $this->configuration->projectsCsv->current();
 			$restApi->cloneProject($mainProject[0], $projectPid);
-
 			$restApi->addUserToProject($this->configuration->bucketInfo['gd']['userUri'], $projectPid);
+
 			$this->configuration->addProjectToConfiguration($projectPid);
 
-			$logUrl = $this->_logUploader->uploadString('calls-' . $jobId, $restApi->callsLog());
-			$this->_jobManager->finishJob($jobId, 'success', array(
+			$logUrl = $this->_logUploader->uploadString('calls-' . $jobInfo['id'], $restApi->callsLog());
+			$this->_jobManager->finishJob($jobInfo['id'], 'success', array(
 				'gdWriteStartTime' => date('c', $gdWriteStartTime),
 				'result' => array('pid' => $projectPid)
 			), $logUrl);
@@ -257,10 +274,10 @@ class GoodDataWriter extends Component
 			);
 
 		} catch (Exception\UnauthorizedException $e) {
-			$this->_jobManager->finishJobWithError($jobId, $command, $restApi->callsLog(), $e);
-			throw new WrongConfigurationException('Clone project failed');
+			$this->_finishJobWithError($jobInfo['id'], $command, null, 'Login failed');
+			throw new WrongConfigurationException('Login failed');
 		} catch (Exception\RestApiException $e) {
-			$this->_jobManager->finishJobWithError($jobId, $command, $restApi->callsLog(), $e);
+			$this->_finishJobWithError($jobInfo['id'], $command, $restApi->callsLog(), $e->getMessage());
 			throw $e;
 		}
 
@@ -331,7 +348,7 @@ class GoodDataWriter extends Component
 
 
 		$restApi = new GoodData\RestApi($this->configuration->backendUrl, $this->_log);
-		$jobId = $this->_jobManager->createJob(array(
+		$jobInfo = $this->_jobManager->createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params,
@@ -349,18 +366,18 @@ class GoodDataWriter extends Component
 
 			$this->configuration->addProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
 
-			$logUrl = $this->_logUploader->uploadString('calls-' . $jobId, $restApi->callsLog());
-			$this->_jobManager->finishJob($jobId, 'success', array(
+			$logUrl = $this->_logUploader->uploadString('calls-' . $jobInfo['id'], $restApi->callsLog());
+			$this->_jobManager->finishJob($jobInfo['id'], 'success', array(
 				'gdWriteStartTime' => date('c', $gdWriteStartTime)
 			), $logUrl);
 
 			return array();
 
 		} catch (Exception\UnauthorizedException $e) {
-			$this->_jobManager->finishJobWithError($jobId, $command, $restApi->callsLog(), $e);
-			throw new WrongConfigurationException('Add user to project failed');
+			$this->_finishJobWithError($jobInfo['id'], $command, null, 'Login failed');
+			throw new WrongConfigurationException('Login failed');
 		} catch (Exception\RestApiException $e) {
-			$this->_jobManager->finishJobWithError($jobId, $command, $restApi->callsLog(), $e);
+			$this->_finishJobWithError($jobInfo['id'], $command, $restApi->callsLog(), $e->getMessage());
 			throw $e;
 		}
 
@@ -430,7 +447,7 @@ class GoodDataWriter extends Component
 
 
 		$restApi = new GoodData\RestApi($this->configuration->backendUrl, $this->_log);
-		$jobId = $this->_jobManager->createJob(array(
+		$jobInfo = $this->_jobManager->createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params,
@@ -445,20 +462,27 @@ class GoodDataWriter extends Component
 			$userUri = $restApi->createUserInDomain($params['domain'], $params['email'], $params['password'], $params['firstName'], $params['lastName']);
 			$this->configuration->addUserToConfiguration($params['email'], $userUri);
 
-			$logUrl = $this->_logUploader->uploadString('calls-' . $jobId, $restApi->callsLog());
-			$this->_jobManager->finishJob($jobId, 'success', array(
+			$logUrl = $this->_logUploader->uploadString('calls-' . $jobInfo['id'], $restApi->callsLog());
+			$this->_jobManager->finishJob($jobInfo['id'], 'success', array(
 				'gdWriteStartTime' => date('c', $gdWriteStartTime),
 				'result' => array('uri' => $userUri)
 			), $logUrl);
 
 		} catch (Exception\UnauthorizedException $e) {
-			$this->_jobManager->finishJobWithError($jobId, $command, $restApi->callsLog(), $e);
-			throw new WrongConfigurationException('Create user failed');
+			$this->_finishJobWithError($jobInfo['id'], $command, null, 'Login failed');
+			throw new WrongConfigurationException('Login failed');
 		} catch (Exception\RestApiException $e) {
-			$this->_jobManager->finishJobWithError($jobId, $command, $restApi->callsLog(), $e);
+			$this->_finishJobWithError($jobInfo['id'], $command, $restApi->callsLog(), $e->getMessage());
 			throw $e;
 		}
 
+	}
+	
+	private function _finishJobWithError($jobId, $command, $callsLog = null, $error = null)
+	{
+		$logUrl = $callsLog ? $this->_logUploader->uploadString('calls-' . $jobId, $callsLog) : null;
+		$this->_jobManager->finishJobWithError($jobId, $command, $logUrl, $error);
+		return $logUrl;
 	}
 
 
