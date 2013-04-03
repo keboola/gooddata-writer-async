@@ -1,9 +1,14 @@
 <?php
+/**
+ * Configuration Wrapper
+ *
+ * @author Jakub Matejka <jakub@keboola.com>
+ * @created 2013-04-02
+ */
 
 namespace Keboola\GoodDataWriterBundle\Writer;
 
-use Keboola\GoodDataWriterBundle\Writer\Queue,
-	Keboola\StorageApi\Table as StorageApiTable,
+use Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Exception as StorageApiException,
 	Keboola\StorageApi\Config\Reader,

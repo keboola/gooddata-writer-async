@@ -20,20 +20,20 @@ class Queue
 
 	public function enqueueJob($job)
 	{
-		$queue = $this->_getQueueForJob($job);
+		$queue = $this->getQueue($job['projectId'] . "-" . $job['writerId']);
 		$queue->send($job['id']);
 	}
 
 	/**
-	 * @param $job
+	 * @param $name
 	 * @return \Zend_Queue
 	 */
-	private function _getQueueForJob($job)
+	public function getQueue($name)
 	{
 		$queue = new \Zend_Queue(
 			'Db',
 			array(
-				'name' => $job['projectId'] . "-" . $job['writerId'],
+				'name' => $name,
 				'dbAdapter' => $this->_db,
 				'options' => array(
 					\Zend_Db_Select::FOR_UPDATE => true,
@@ -41,6 +41,18 @@ class Queue
 			)
 		);
 		return $queue;
+	}
+
+	public function fetchAllQueuesNamesOrderedByMessageAge()
+	{
+		return $this->_db->fetchCol("
+			SELECT q.queue_name, MIN(m.created) as minTime
+			FROM message m
+			JOIN queue q ON (q.queue_id=m.queue_id)
+			WHERE m.handle is NULL
+			GROUP BY m.queue_id
+			ORDER BY minTime ASC
+		");
 	}
 
 }

@@ -1,4 +1,10 @@
 <?php
+/**
+ * Job Manager
+ *
+ * @author Jakub Matejka <jakub@keboola.com>
+ * @created 2013-04-02
+ */
 
 namespace Keboola\GoodDataWriterBundle\Writer;
 
@@ -44,10 +50,13 @@ class JobManager
 		$this->_queue = $queue;
 	}
 
-	public function createJob($params)
+	public function createJob($params, $enqueue = true)
 	{
+		$runId = $this->_storageApi->getRunId();
+		$jobId = $this->_storageApi->generateId();
 		$jobInfo = array(
-			'runId' => $this->_storageApi->getRunId(),
+			'id' => $jobId,
+			'runId' => $runId,
 			'projectId' => $this->configuration->projectId,
 			'writerId' => $this->configuration->writerId,
 			'tokenId' => $this->configuration->tokenInfo['id'],
@@ -71,10 +80,11 @@ class JobManager
 			'log' => null
 		);
 		$jobInfo = array_merge($jobInfo, $params);
-		$jobId = $this->_storageApi->generateId();
 		$this->_updateJobs($jobId, $jobInfo);
 
-		$this->_queue->enqueueJob($params);
+		if ($enqueue) {
+			$this->_queue->enqueueJob($jobInfo);
+		}
 
 		// log event
 		$event = new StorageApiEvent();
@@ -123,6 +133,13 @@ class JobManager
 
 	protected function _updateJobs($jobId, $params)
 	{
+		if (isset($params['parameters'])) {
+			$encodedParameters = json_encode($params['parameters']);
+			if ($encodedParameters) {
+				$params['parameters'] = $encodedParameters;
+			}
+		}
+
 		$jobInfo = array_merge(array('id' => $jobId), $params);
 
 		$table = new StorageApiTable($this->_sharedStorageApi, self::JOBS_TABLE_ID);
@@ -138,7 +155,7 @@ class JobManager
 	protected function _logClientEvent(StorageApiEvent $event)
 	{
 		$this->_storageApi->createEvent($event);
-		$this->_log->log($event->getMessage(), Logger::INFO, array(
+		$this->_log->log(Logger::INFO, $event->getMessage(), array(
 			'token' => $this->_storageApi->getLogData(),
 			'configurationId' => $event->getConfigurationId(),
 			'runId' => $event->getRunId(),

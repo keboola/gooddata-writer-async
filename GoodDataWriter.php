@@ -8,11 +8,10 @@
 
 namespace Keboola\GoodDataWriterBundle;
 
-
-use Keboola\GoodDataWriterBundle\Writer\Configuration;
 use Syrup\ComponentBundle\Component\Component;
 use Symfony\Component\HttpFoundation\Request;
-use Keboola\GoodDataWriterBundle\Writer\JobManager,
+use Keboola\GoodDataWriterBundle\Writer\Configuration,
+	Keboola\GoodDataWriterBundle\Writer\JobManager,
 	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Config\Reader,
@@ -38,10 +37,6 @@ class GoodDataWriter extends Component
 	 */
 	public $configuration;
 
-	/**
-	 * @var StorageApiClient
-	 */
-	private $_sharedStorageApi;
 	/**
 	 * @var JobManager
 	 */
@@ -92,7 +87,7 @@ class GoodDataWriter extends Component
 			'password' => $this->_mainConfig['db']['password'],
 			'dbname' => $this->_mainConfig['db']['name']
 		)));
-		$sharedStorageApi = new StorageApiClient($this->_mainConfig['shared_token'], $url);
+		$sharedStorageApi = new StorageApiClient($this->_mainConfig['shared_sapi']['token'], $this->_mainConfig['shared_sapi']['url']);
 		$this->_jobManager = new JobManager(
 			$queue,
 			$this->configuration,
@@ -133,6 +128,9 @@ class GoodDataWriter extends Component
 
 	public function postWriters($params)
 	{
+		$command = 'createProject';
+		$createdTime = time();
+
 		if (!isset($params['writerId'])) {
 			throw new WrongParametersException('Missing parameter \'writerId\'');
 		}
@@ -143,8 +141,20 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException('Writer with id \'writerId\' already exists');
 		}
 
-		echo 1;
+		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->_mainConfig['gd']['access_token'];
+		$projectName = sprintf($this->_mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 
+
+		$jobId = $this->_jobManager->createJob(array(
+			'command' => $command,
+			'createdTime' => date('c', $createdTime),
+			'parameters' => array(
+				'accessToken' => $accessToken,
+				'projectName' => $projectName
+			)
+		));
+
+		return array('job' => $jobId);
 	}
 
 	
@@ -214,7 +224,7 @@ class GoodDataWriter extends Component
 				'pidSource' => $mainProject[1]
 			),
 			'status' => 'processing'
-		));
+		), false);
 
 		try {
 			$gdWriteStartTime = time();
@@ -326,7 +336,7 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params,
 			'status' => 'processing'
-		));
+		), false);
 
 		try {
 			$gdWriteStartTime = time();
@@ -425,7 +435,7 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params,
 			'status' => 'processing'
-		));
+		), false);
 
 		try {
 			$gdWriteStartTime = time();
