@@ -49,6 +49,10 @@ class GoodDataWriter extends Component
 	 * @var \Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader
 	 */
 	private $_logUploader;
+	/**
+	 * @var Writer\Queue
+	 */
+	private $_queue;
 
 
 	/**
@@ -65,32 +69,25 @@ class GoodDataWriter extends Component
 
 		// Init main temp directory
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
+		$this->_mainConfig = $this->_container->getParameter('gd_writer');
+		$this->_logUploader = $this->_container->get('syrup.monolog.s3_uploader');
+		$sharedStorageApi = new StorageApiClient($this->_mainConfig['shared_sapi']['token'], $this->_mainConfig['shared_sapi']['url']);
+
+
 		$this->configuration = new Configuration($params['writerId'], $this->_storageApi, $tmpDir);
 
-		$this->_mainConfig = $this->_container->getParameter('gd_writer');
-
-		$request = Request::createFromGlobals();
-		$url = null;
-		if ($request->headers->has('X-StorageApi-Url')) {
-			$url = $request->headers->get('X-StorageApi-Url');
-		}
-
-		$this->_logUploader = $this->_container->get('syrup.monolog.s3_uploader');
-
-		$queue = new Writer\Queue(new \Zend_Db_Adapter_Pdo_Mysql(array(
+		$this->_queue = new Writer\Queue(new \Zend_Db_Adapter_Pdo_Mysql(array(
 			'host' => $this->_mainConfig['db']['host'],
 			'username' => $this->_mainConfig['db']['user'],
 			'password' => $this->_mainConfig['db']['password'],
 			'dbname' => $this->_mainConfig['db']['name']
 		)));
-		$sharedStorageApi = new StorageApiClient($this->_mainConfig['shared_sapi']['token'], $this->_mainConfig['shared_sapi']['url']);
+
 		$this->_jobManager = new JobManager(
-			$queue,
 			$this->configuration,
 			$this->_storageApi,
 			$sharedStorageApi,
-			$this->_log,
-			$this->_logUploader
+			$this->_log
 		);
 	}
 
@@ -169,7 +166,7 @@ class GoodDataWriter extends Component
 		$projectName = sprintf($this->_mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 
 
-		$jobId = $this->_jobManager->createJob(array(
+		$jobInfo = $this->_jobManager->createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
@@ -177,8 +174,9 @@ class GoodDataWriter extends Component
 				'projectName' => $projectName
 			)
 		));
+		$this->_queue->enqueueJob($jobInfo);
 
-		return array('job' => $jobId);
+		return array('job' => $jobInfo['id']);
 	}
 
 	
@@ -210,7 +208,7 @@ class GoodDataWriter extends Component
 				$header = false;
 			}
 		}
-		return $projects;
+		return array('projects' => $projects);
 	}
 
 
@@ -234,62 +232,40 @@ class GoodDataWriter extends Component
 		$this->configuration->prepareProjects();
 		$this->configuration->checkGoodDataSetup();
 
-		$mainProject = $this->configuration->bucketInfo['gd']['project'];
 
-
-		$restApi = new GoodData\RestApi($this->configuration->backendUrl, $this->_log);
 		$jobInfo = $this->_jobManager->createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
 				'accessToken' => $accessToken,
 				'projectName' => $projectName,
-				'pidSource' => $mainProject
-			),
-			'status' => 'processing'
-		), false);
+				'pidSource' => $this->configuration->bucketInfo['gd']['pid']
+			)
+		));
+		$this->_queue->enqueueJob($jobInfo);
 
-		try {
-			$gdWriteStartTime = time();
-
-			// Check access to source project
-			$restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$restApi->getProject($mainProject);
+		return array('job' => $jobInfo['id']);
+	}
 
 
-			$restApi->login($this->_mainConfig['gd']['username'], $this->_mainConfig['gd']['password']);
 
-			// Get user uri if not set
-			if (empty($this->configuration->bucketInfo['gd']['userUri'])) {
-				$userUri = $restApi->userUri($this->configuration->bucketInfo['gd']['username'], $this->_mainConfig['gd']['domain']);
-				$this->_storageApi->setBucketAttribute($this->configuration->bucketId, 'gd.userUri', $userUri);
-				$this->configuration->bucketInfo['gd']['userUri'] = $userUri;
+	public function postProjectsWait($params)
+	{
+		$result = $this->postProjects($params);
+		$jobFinished = false;
+		do {
+			$job = $this->getJob(array('id' => $result['job'], 'writerId' => $params['writerId']));
+			if (isset($job['job']['status']) && ($job['job']['status'] == 'success' || $job['job']['status'] == 'error')) {
+				$jobFinished = true;
 			}
+			if (!$jobFinished) sleep(30);
+		} while(!$jobFinished);
 
-			$projectPid = $restApi->createProject($projectName, $accessToken);
-			$restApi->cloneProject($mainProject, $projectPid);
-			$restApi->addUserToProject($this->configuration->bucketInfo['gd']['userUri'], $projectPid);
-
-			$this->configuration->addProjectToConfiguration($projectPid);
-
-			$logUrl = $this->_logUploader->uploadString('calls-' . $jobInfo['id'], $restApi->callsLog());
-			$this->_jobManager->finishJob($jobInfo['id'], 'success', array(
-				'gdWriteStartTime' => date('c', $gdWriteStartTime),
-				'result' => array('pid' => $projectPid)
-			), $logUrl);
-
-			return array(
-				'pid' => $projectPid
-			);
-
-		} catch (Exception\UnauthorizedException $e) {
-			$this->_finishJobWithError($jobInfo['id'], $command, null, 'Login failed');
-			throw new WrongConfigurationException('Login failed');
-		} catch (Exception\RestApiException $e) {
-			$this->_finishJobWithError($jobInfo['id'], $command, $restApi->callsLog(), $e->getMessage());
-			throw $e;
+		if ($job['job']['status'] == 'success' && isset ($job['job']['result']['response']['pid'])) {
+			return array('pid' => $job['job']['result']['response']['pid']);
+		} else {
+			return array('response' => $job['job']['result'], 'log' => $job['job']['log']);
 		}
-
 	}
 
 
@@ -362,7 +338,7 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params,
 			'status' => 'processing'
-		), false);
+		));
 
 		try {
 			$gdWriteStartTime = time();
@@ -461,7 +437,7 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params,
 			'status' => 'processing'
-		), false);
+		));
 
 		try {
 			$gdWriteStartTime = time();
@@ -485,6 +461,33 @@ class GoodDataWriter extends Component
 			throw $e;
 		}
 
+	}
+
+
+
+	/***********************
+	 * @section Jobs
+	 */
+
+	/**
+	 * Get Job
+	 * @param $params
+	 * @throws Exception\WrongParametersException
+	 * @return array
+	 */
+	public function getJob($params)
+	{
+		$this->_init($params);
+		if (empty($params['id'])) {
+			throw new WrongParametersException("Parameter 'id' is missing");
+		}
+
+		$job = $this->_jobManager->fetchJob($params['id']);
+		if ($job['projectId'] != $this->configuration->projectId || $job['writerId'] != $this->configuration->writerId) {
+			throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['id'], $this->configuration->writerId));
+		}
+		$job = $this->_jobManager->jobToApiResponse($job);
+		return array('job' => $job);
 	}
 	
 	private function _finishJobWithError($jobId, $command, $callsLog = null, $error = null)

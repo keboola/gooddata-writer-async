@@ -8,7 +8,8 @@
 
 namespace Keboola\GoodDataWriterBundle\Writer;
 
-use Keboola\StorageApi\Event as StorageApiEvent,
+use Keboola\StorageApi\Client as StorageApiClient,
+	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Table as StorageApiTable;
 use Monolog\Logger;
 
@@ -19,10 +20,6 @@ class JobManager
 
 
 	public $configuration;
-	/**
-	 * @var Queue
-	 */
-	private $_queue;
 	/**
 	 * @var \Keboola\StorageApi\Client
 	 */
@@ -35,22 +32,16 @@ class JobManager
 	 * @var Logger
 	 */
 	private $_log;
-	/**
-	 * @var \Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader
-	 */
-	private $_logUploader;
 
-	public function __construct($queue, $configuration, $storageApi, $sharedStorageApi, $log, $logUploader)
+	public function __construct($configuration, $storageApi, $sharedStorageApi, $log)
 	{
 		$this->configuration = $configuration;
 		$this->_storageApi = $storageApi;
 		$this->_sharedStorageApi = $sharedStorageApi;
 		$this->_log = $log;
-		$this->_logUploader = $logUploader;
-		$this->_queue = $queue;
 	}
 
-	public function createJob($params, $enqueue = true)
+	public function createJob($params)
 	{
 		$runId = $this->_storageApi->getRunId();
 		$jobId = $this->_storageApi->generateId();
@@ -82,11 +73,7 @@ class JobManager
 			'log' => null
 		);
 		$jobInfo = array_merge($jobInfo, $params);
-		$this->_updateJobs($jobId, $jobInfo);
-
-		if ($enqueue) {
-			$this->_queue->enqueueJob($jobInfo);
-		}
+		$this->updateJob($jobId, $jobInfo);
 
 		// log event
 		$event = new StorageApiEvent();
@@ -111,7 +98,7 @@ class JobManager
 			'log' => $logUrl
 		));
 
-		$this->_updateJobs($jobId, $params);
+		$this->updateJob($jobId, $params);
 
 		$params = array_merge($params, array(
 			'projectId' => $this->configuration->projectId,
@@ -132,7 +119,7 @@ class JobManager
 		$this->finishJob($jobId, 'error', $data, $logUrl);
 	}
 
-	protected function _updateJobs($jobId, $params)
+	public function updateJob($jobId, $params)
 	{
 		if (isset($params['parameters'])) {
 			$encodedParameters = json_encode($params['parameters']);
@@ -157,6 +144,20 @@ class JobManager
 		$table->save();
 	}
 
+	public function fetchJob($jobId)
+	{
+		$csv = $this->_sharedStorageApi->exportTable(
+			self::JOBS_TABLE_ID,
+			null,
+			array(
+				'whereColumn' => 'id',
+				'whereValues' => array($jobId),
+			)
+		);
+
+		$jobs = StorageApiClient::parseCsv($csv, true);
+		return reset($jobs);
+	}
 
 
 	protected function _logClientEvent(StorageApiEvent $event)
@@ -172,12 +173,17 @@ class JobManager
 		));
 	}
 
-	protected function _jobToApiResponse(array $job)
+	public function jobToApiResponse(array $job)
 	{
 		try {
 			$result = \Zend_Json::decode($job['result']);
 		} catch (\Exception $e) {
 			$result = $job['result'];
+		}
+		try {
+			$params = \Zend_Json::decode($job['parameters']);
+		} catch (\Exception $e) {
+			$params = $job['parameters'];
 		}
 
 		return array(
@@ -198,7 +204,7 @@ class JobManager
 			'dataset' => $job['dataset'],
 			'xmlFile' => $job['xmlFile'],
 			'csvFile' => $job['csvFile'],
-			'parameters' => $job['parameters'],
+			'parameters' => $params,
 			'result' => $result,
 			'gdWriteStartTime' => $job['gdWriteStartTime'],
 			'gdWriteBytes' => $job['gdWriteBytes'],
