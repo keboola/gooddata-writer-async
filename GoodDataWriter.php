@@ -179,6 +179,40 @@ class GoodDataWriter extends Component
 		return array('job' => $jobInfo['id']);
 	}
 
+
+	/**
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
+	public function postRunAndWait($params)
+	{
+		if (empty($params['command'])) {
+			throw new WrongParametersException("Parameter 'command' is required");
+		}
+		$methodName = 'post' . ucfirst($params['command']);
+		if (!method_exists($this, $methodName)) {
+			throw new WrongParametersException(sprintf("Command '%s' does not exist", $params['command']));
+		}
+		$params = array_diff_key($params, array('command' => ''));
+
+		$result = $this->$methodName($params);
+		$jobFinished = false;
+		do {
+			$job = $this->getJob(array('id' => $result['job'], 'writerId' => $params['writerId']));
+			if (isset($job['job']['status']) && ($job['job']['status'] == 'success' || $job['job']['status'] == 'error')) {
+				$jobFinished = true;
+			}
+			if (!$jobFinished) sleep(30);
+		} while(!$jobFinished);
+
+		if ($job['job']['status'] == 'success' && isset ($job['job']['result']['response']['pid'])) {
+			return array('pid' => $job['job']['result']['response']['pid']);
+		} else {
+			return array('response' => $job['job']['result'], 'log' => $job['job']['log']);
+		}
+	}
+
 	
 	
 	/***********************
@@ -245,27 +279,6 @@ class GoodDataWriter extends Component
 		$this->_queue->enqueueJob($jobInfo);
 
 		return array('job' => $jobInfo['id']);
-	}
-
-
-
-	public function postProjectsWait($params)
-	{
-		$result = $this->postProjects($params);
-		$jobFinished = false;
-		do {
-			$job = $this->getJob(array('id' => $result['job'], 'writerId' => $params['writerId']));
-			if (isset($job['job']['status']) && ($job['job']['status'] == 'success' || $job['job']['status'] == 'error')) {
-				$jobFinished = true;
-			}
-			if (!$jobFinished) sleep(30);
-		} while(!$jobFinished);
-
-		if ($job['job']['status'] == 'success' && isset ($job['job']['result']['response']['pid'])) {
-			return array('pid' => $job['job']['result']['response']['pid']);
-		} else {
-			return array('response' => $job['job']['result'], 'log' => $job['job']['log']);
-		}
 	}
 
 
