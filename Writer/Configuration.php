@@ -128,6 +128,17 @@ class Configuration
 		return $configurationBucket;
 	}
 
+
+	public function checkGoodDataSetup()
+	{
+		$valid = !empty($this->bucketInfo['gd']['pid'])
+			&& !empty($this->bucketInfo['gd']['username'])
+			&& !empty($this->bucketInfo['gd']['password']);
+		if (!$valid) {
+			throw new WrongConfigurationException('Writer is missing GoodData configuration');
+		}
+	}
+
 	/**
 	 * Check configuration table of projects
 	 * @throws WrongConfigurationException
@@ -136,9 +147,9 @@ class Configuration
 	{
 		$csvFile = $this->tmpDir . 'projects.csv';
 		try {
-			$this->_storageApi->exportTable($this->bucketId . '.' . Configuration::PROJECTS_TABLE_NAME, $csvFile);
+			$this->_storageApi->exportTable($this->bucketId . '.' . self::PROJECTS_TABLE_NAME, $csvFile);
 		} catch (StorageApiException $e) {
-			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . Configuration::PROJECTS_TABLE_NAME);
+			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECTS_TABLE_NAME);
 			$table->setHeader(array('pid', 'active'));
 			$table->save();
 			throw new WrongConfigurationException('Projects table in configuration appears to be empty');

@@ -95,7 +95,10 @@ class GoodDataWriter extends Component
 	}
 
 
-
+	/**
+	 * List all configured writers
+	 * @return array
+	 */
 	public function getWriters()
 	{
 		$writers = array();
@@ -109,19 +112,28 @@ class GoodDataWriter extends Component
 				if ($attribute['name'] == 'writer') {
 					$foundWriterType = $attribute['value'] == $this->_name;
 				}
+				if ($writerId && $foundWriterType) {
+					break;
+				}
 			}
 			if ($writerId && $foundWriterType) {
 				$writers[] = array(
 					'id' => $writerId,
 					'bucket' => $bucket['id']
 				);
-				break;
 			}
 		}
 
 		return array('writers' => $writers);
 	}
 
+
+	/**
+	 * Create new writer with main GoodData project and user
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
 	public function postWriters($params)
 	{
 		$command = 'createProject';
@@ -220,10 +232,9 @@ class GoodDataWriter extends Component
 		$projectName = !empty($params['name']) ? $params['name']
 			: sprintf($this->_mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 		$this->configuration->prepareProjects();
-		$mainProject = $this->configuration->projectsCsv->current();
-		if (!$mainProject[1]) {
-			throw new WrongConfigurationException('Main project is not active, check projects configuration table');
-		}
+		$this->configuration->checkGoodDataSetup();
+
+		$mainProject = $this->configuration->bucketInfo['gd']['project'];
 
 
 		$restApi = new GoodData\RestApi($this->configuration->backendUrl, $this->_log);
@@ -233,7 +244,7 @@ class GoodDataWriter extends Component
 			'parameters' => array(
 				'accessToken' => $accessToken,
 				'projectName' => $projectName,
-				'pidSource' => $mainProject[1]
+				'pidSource' => $mainProject
 			),
 			'status' => 'processing'
 		), false);
@@ -241,11 +252,9 @@ class GoodDataWriter extends Component
 		try {
 			$gdWriteStartTime = time();
 
-
 			// Check access to source project
-			$mainProject = $this->configuration->projectsCsv->current();
 			$restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$restApi->getProject($mainProject[0]);
+			$restApi->getProject($mainProject);
 
 
 			$restApi->login($this->_mainConfig['gd']['username'], $this->_mainConfig['gd']['password']);
@@ -258,7 +267,7 @@ class GoodDataWriter extends Component
 			}
 
 			$projectPid = $restApi->createProject($projectName, $accessToken);
-			$restApi->cloneProject($mainProject[0], $projectPid);
+			$restApi->cloneProject($mainProject, $projectPid);
 			$restApi->addUserToProject($this->configuration->bucketInfo['gd']['userUri'], $projectPid);
 
 			$this->configuration->addProjectToConfiguration($projectPid);
