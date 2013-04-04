@@ -16,13 +16,13 @@
 		}
 	],
 	"require": {
-		"php": ">=5.3.5"
+		"php": ">=5.3.5",
+		"emagister/zendframework1": "1.*"
 	},
 	"require-dev": {
 		"syrup/component-bundle": "1.0.*",
 		"syrup/development-bundle": ">=1.0.8",
-		"phpunit/phpunit": "3.7.*",
-		"emagister/zendframework1": "1.*"
+		"phpunit/phpunit": "3.7.*"
 	},
 	"scripts": {
 		"post-install-cmd": [
