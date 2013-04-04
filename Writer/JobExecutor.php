@@ -24,6 +24,13 @@ class JobExecutor
 	const PROJECTS_TABLE_ID = 'in.c-wr-gooddata.projects';
 	const USERS_TABLE_ID = 'in.c-wr-gooddata.users';
 
+	protected $_roles = array(
+		'admin' => 'adminRole',
+		'editor' => 'editorRole',
+		'readOnly' => 'readOnlyUserRole',
+		'dashboardOnly' => 'dashboardOnlyRole'
+	);
+
 	/**
 	 * @var StorageApiClient
 	 */
@@ -234,6 +241,15 @@ class JobExecutor
 				->setDuration($duration);
 			$this->_logEvent($sapiEvent);
 
+			if (isset($response['status'])) {
+				$result['status'] = $response['status'];
+				unset($response['status']);
+			}
+			if (isset($response['error'])) {
+				$result['error'] = $response['error'];
+				unset($response['error']);
+			}
+
 			$result['response'] = $response;
 			$result['duration'] = $duration;
 			return $result;
@@ -304,6 +320,23 @@ class JobExecutor
 	}
 
 
+
+	protected function _prepareResult($jobId, $data = array(), $callsLog = null)
+	{
+		$logUploader = $this->_container->get('syrup.monolog.s3_uploader');
+		$logUrl = null;
+		if ($callsLog) {
+			$logUrl = $logUploader->uploadString('calls-' . $jobId, $callsLog);
+		}
+
+		if ($logUrl) {
+			$data['log'] = $logUrl;
+		}
+
+		return $data;
+	}
+
+
 	/**
 	 * @param $job
 	 * @param $params
@@ -322,20 +355,18 @@ class JobExecutor
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
 		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
 		$mainConfig = $this->_container->getParameter('gd_writer');
-		$logUploader = $this->_container->get('syrup.monolog.s3_uploader');
 
 
 		$gdWriteStartTime = date('c');
-		$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
-		$restApi = new RestApi($backendUrl, $this->_log);
-		$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
-
-		$projectPid = $restApi->createProject($params['projectName'], $params['accessToken']);
-
 		$username = $job['projectId'] . '-' . $job['writerId'] . '@clients.keboola.com';
 		$password = md5(uniqid());
-		$userUri = $restApi->createUserInDomain($mainConfig['gd']['domain'], $username, $password, 'KBC', 'Writer');
+		$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
 
+
+		$restApi = new RestApi($backendUrl, $this->_log);
+		$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
+		$projectPid = $restApi->createProject($params['projectName'], $params['accessToken']);
+		$userUri = $restApi->createUserInDomain($mainConfig['gd']['domain'], $username, $password, 'KBC', 'Writer');
 		$restApi->addUserToProject($userUri, $projectPid);
 
 		// Save data to configuration bucket
@@ -348,19 +379,8 @@ class JobExecutor
 		$this->addProjectToConfiguration($projectPid, $params['accessToken'], $backendUrl, $job);
 		$this->addUserToConfiguration($userUri, $username, $job);
 
-		$callsLog = $restApi->callsLog();
-		$logUrl = null;
-		if ($callsLog) {
-			$logUrl = $logUploader->uploadString('calls-' . $job['id'], $callsLog);
-		}
 
-		$result = array(
-			'gdWriteStartTime' => $gdWriteStartTime
-		);
-		if ($logUrl) {
-			$result['log'] = $logUrl;
-		}
-		return $result;
+		return $this->_prepareResult($job['id'], array('pid' => $projectPid, 'gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
 	}
 
 
@@ -379,7 +399,6 @@ class JobExecutor
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
 		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
 		$mainConfig = $this->_container->getParameter('gd_writer');
-		$logUploader = $this->_container->get('syrup.monolog.s3_uploader');
 
 
 		$gdWriteStartTime = date('c');
@@ -393,16 +412,13 @@ class JobExecutor
 			$restApi->login($configuration->bucketInfo['gd']['username'], $configuration->bucketInfo['gd']['password']);
 			$restApi->getProject($configuration->bucketInfo['gd']['pid']);
 
-
 			$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
-
 			// Get user uri if not set
 			if (empty($configuration->bucketInfo['gd']['userUri'])) {
 				$userUri = $restApi->userUri($configuration->bucketInfo['gd']['username'], $mainConfig['gd']['domain']);
 				$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.userUri', $userUri);
 				$configuration->bucketInfo['gd']['userUri'] = $userUri;
 			}
-
 			$projectPid = $restApi->createProject($params['projectName'], $params['accessToken']);
 			$restApi->cloneProject($configuration->bucketInfo['gd']['pid'], $projectPid);
 			$restApi->addUserToProject($configuration->bucketInfo['gd']['userUri'], $projectPid);
@@ -411,39 +427,101 @@ class JobExecutor
 			$this->addProjectToConfiguration($projectPid, $params['accessToken'], $backendUrl, $job);
 
 
-			$callsLog = $restApi->callsLog();
-			$logUrl = null;
-			if ($callsLog) {
-				$logUrl = $logUploader->uploadString('calls-' . $job['id'], $callsLog);
-			}
-
-			$result = array(
-				'gdWriteStartTime' => $gdWriteStartTime,
-				'pid' => $projectPid
-			);
-			if ($logUrl) {
-				$result['log'] = $logUrl;
-			}
-			return $result;
+			return $this->_prepareResult($job['id'], array('pid' => $projectPid, 'gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
 
 
 		} catch (UnauthorizedException $e) {
-			return array('result' => 'error', 'error' => 'Login failed');
+			throw new JobExecutorException('Login failed');
 		} catch (RestApiException $e) {
-			$callsLog = $restApi->callsLog();
-			$logUrl = null;
-			if ($callsLog) {
-				$logUrl = $logUploader->uploadString('calls-' . $job['id'], $callsLog);
+			return $this->_prepareResult($job['id'], array('status' => 'error', 'error' => $e->getMessage(), 'gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
+		}
+	}
+
+
+	public function addUserToProject($job, $params)
+	{
+		if (empty($params['pid'])) {
+			throw new JobExecutorException("Parameter 'pid' is missing");
+		}
+		if (empty($params['email'])) {
+			throw new JobExecutorException("Parameter 'email' is missing");
+		}
+		if (empty($params['role'])) {
+			throw new JobExecutorException("Parameter 'role' is missing");
+		}
+
+		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
+		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
+		$mainConfig = $this->_container->getParameter('gd_writer');
+
+
+		$gdWriteStartTime = date('c');
+		$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
+
+		try {
+			$restApi = new RestApi($backendUrl, $this->_log);
+
+			// Get user uri
+			$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
+			$userUri = $restApi->userUri($params['email'], $mainConfig['gd']['domain']);
+			if (!$userUri) {
+				throw new JobExecutorException(sprintf("User '%s' does not exist in domain", $params['email']));
 			}
-			$result = array(
-				'gdWriteStartTime' => $gdWriteStartTime,
-				'result' => 'error',
-				'error' => $e->getMessage()
-			);
-			if ($logUrl) {
-				$result['log'] = $logUrl;
-			}
-			return $result;
+
+			$restApi->addUserToProject($userUri, $params['pid'], $this->_roles[$params['role']]);
+
+			$configuration->addProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
+
+
+			return $this->_prepareResult($job['id'], array('gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
+
+		} catch (UnauthorizedException $e) {
+			throw new JobExecutorException('Login failed');
+		} catch (RestApiException $e) {
+			return $this->_prepareResult($job['id'], array('status' => 'error', 'error' => $e->getMessage(), 'gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
+		}
+	}
+
+
+	public function createUser($job, $params)
+	{
+		if (empty($params['email'])) {
+			throw new JobExecutorException("Parameter 'email' is missing");
+		}
+		if (empty($params['password'])) {
+			throw new JobExecutorException("Parameter 'password' is missing");
+		}
+		if (empty($params['firstName'])) {
+			throw new JobExecutorException("Parameter 'firstName' is missing");
+		}
+		if (empty($params['lastName'])) {
+			throw new JobExecutorException("Parameter 'lastName' is missing");
+		}
+
+		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
+		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
+		$mainConfig = $this->_container->getParameter('gd_writer');
+
+
+		$gdWriteStartTime = date('c');
+		$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
+
+		try {
+			$restApi = new RestApi($backendUrl, $this->_log);
+
+			$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
+			$userUri = $restApi->createUserInDomain($mainConfig['gd']['domain'], $params['email'], $params['password'], $params['firstName'], $params['lastName']);
+
+			$configuration->addUserToConfiguration($params['email'], $userUri);
+			$this->addUserToConfiguration($userUri, $params['email'], $job);
+
+
+			return $this->_prepareResult($job['id'], array('uri' => $userUri, 'gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
+
+		} catch (UnauthorizedException $e) {
+			throw new JobExecutorException('Login failed');
+		} catch (RestApiException $e) {
+			return $this->_prepareResult($job['id'], array('status' => 'error', 'error' => $e->getMessage(), 'gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
 		}
 	}
 }

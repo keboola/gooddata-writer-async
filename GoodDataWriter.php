@@ -21,15 +21,15 @@ use Keboola\GoodDataWriterBundle\Exception\WrongParametersException,
 
 class GoodDataWriter extends Component
 {
+	protected $_name = 'gooddata';
+	protected $_prefix = 'wr';
+
 	protected $_roles = array(
 		'admin' => 'adminRole',
 		'editor' => 'editorRole',
 		'readOnly' => 'readOnlyUserRole',
 		'dashboardOnly' => 'dashboardOnlyRole'
 	);
-
-	protected $_name = 'gooddata';
-	protected $_prefix = 'wr';
 
 
 	/**
@@ -180,41 +180,6 @@ class GoodDataWriter extends Component
 	}
 
 
-	/**
-	 * @param $params
-	 * @return array
-	 * @throws Exception\WrongParametersException
-	 */
-	public function postRunAndWait($params)
-	{
-		if (empty($params['command'])) {
-			throw new WrongParametersException("Parameter 'command' is required");
-		}
-		$methodName = 'post' . ucfirst($params['command']);
-		if (!method_exists($this, $methodName)) {
-			throw new WrongParametersException(sprintf("Command '%s' does not exist", $params['command']));
-		}
-		$params = array_diff_key($params, array('command' => ''));
-
-		$result = $this->$methodName($params);
-		$jobFinished = false;
-		do {
-			$job = $this->getJob(array('id' => $result['job'], 'writerId' => $params['writerId']));
-			if (isset($job['job']['status']) && ($job['job']['status'] == 'success' || $job['job']['status'] == 'error')) {
-				$jobFinished = true;
-			}
-			if (!$jobFinished) sleep(30);
-		} while(!$jobFinished);
-
-		if ($job['job']['status'] == 'success' && isset ($job['job']['result']['response']['pid'])) {
-			return array('pid' => $job['job']['result']['response']['pid']);
-		} else {
-			return array('response' => $job['job']['result'], 'log' => $job['job']['log']);
-		}
-	}
-
-	
-	
 	/***********************
 	 * @section Projects
 	 */
@@ -278,8 +243,28 @@ class GoodDataWriter extends Component
 		));
 		$this->_queue->enqueueJob($jobInfo);
 
-		return array('job' => $jobInfo['id']);
+
+		if (empty($params['wait'])) {
+			return array('job' => $jobInfo['id']);
+		} else {
+			$jobId = $jobInfo['id'];
+			$jobFinished = false;
+			do {
+				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
+				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep(30);
+			} while(!$jobFinished);
+
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['pid'])) {
+				return array('pid' => $jobInfo['job']['result']['response']['pid']);
+			} else {
+				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+			}
+		}
 	}
+
 
 
 	/**
@@ -342,43 +327,35 @@ class GoodDataWriter extends Component
 		}
 		$this->_init($params);
 		$this->configuration->prepareProjectUsers();
-		$params['domain'] = $this->_mainConfig['gd']['domain'];
 
 
-		$restApi = new GoodData\RestApi($this->configuration->backendUrl, $this->_log);
 		$jobInfo = $this->_jobManager->createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => $params,
-			'status' => 'processing'
+			'parameters' => $params
 		));
+		$this->_queue->enqueueJob($jobInfo);
 
-		try {
-			$gdWriteStartTime = time();
 
-			$restApi->login($this->_mainConfig['gd']['username'], $this->_mainConfig['gd']['password']);
-			$userUri = $restApi->userUri($params['email'], $params['domain']);
+		if (empty($params['wait'])) {
+			return array('job' => $jobInfo['id']);
+		} else {
+			$jobId = $jobInfo['id'];
+			$jobFinished = false;
+			do {
+				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
+				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep(30);
+			} while(!$jobFinished);
 
-			$restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$restApi->addUserToProject($userUri, $params['pid'], $this->_roles[$params['role']]);
-
-			$this->configuration->addProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
-
-			$logUrl = $this->_logUploader->uploadString('calls-' . $jobInfo['id'], $restApi->callsLog());
-			$this->_jobManager->finishJob($jobInfo['id'], 'success', array(
-				'gdWriteStartTime' => date('c', $gdWriteStartTime)
-			), $logUrl);
-
-			return array();
-
-		} catch (Exception\UnauthorizedException $e) {
-			$this->_finishJobWithError($jobInfo['id'], $command, null, 'Login failed');
-			throw new WrongConfigurationException('Login failed');
-		} catch (Exception\RestApiException $e) {
-			$this->_finishJobWithError($jobInfo['id'], $command, $restApi->callsLog(), $e->getMessage());
-			throw $e;
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['pid'])) {
+				return array('pid' => $jobInfo['job']['result']['response']['pid']);
+			} else {
+				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+			}
 		}
-
 	}
 
 	
@@ -439,41 +416,41 @@ class GoodDataWriter extends Component
 		if (empty($params['password'])) {
 			throw new WrongParametersException("Parameter 'password' is missing");
 		}
-		$params['domain'] = $this->_mainConfig['gd']['domain'];
+		if (strlen($params['password']) < 7) {
+			throw new WrongParametersException("Parameter 'password' must have at least seven characters");
+		}
 		$this->_init($params);
 		$this->configuration->prepareUsers();
 
 
-		$restApi = new GoodData\RestApi($this->configuration->backendUrl, $this->_log);
 		$jobInfo = $this->_jobManager->createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => $params,
-			'status' => 'processing'
+			'parameters' => $params
 		));
 
-		try {
-			$gdWriteStartTime = time();
+		$this->_queue->enqueueJob($jobInfo);
 
-			$restApi->login($this->_mainConfig['gd']['username'], $this->_mainConfig['gd']['password']);
 
-			$userUri = $restApi->createUserInDomain($params['domain'], $params['email'], $params['password'], $params['firstName'], $params['lastName']);
-			$this->configuration->addUserToConfiguration($params['email'], $userUri);
+		if (empty($params['wait'])) {
+			return array('job' => $jobInfo['id']);
+		} else {
+			$jobId = $jobInfo['id'];
+			$jobFinished = false;
+			do {
+				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
+				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep(30);
+			} while(!$jobFinished);
 
-			$logUrl = $this->_logUploader->uploadString('calls-' . $jobInfo['id'], $restApi->callsLog());
-			$this->_jobManager->finishJob($jobInfo['id'], 'success', array(
-				'gdWriteStartTime' => date('c', $gdWriteStartTime),
-				'result' => array('uri' => $userUri)
-			), $logUrl);
-
-		} catch (Exception\UnauthorizedException $e) {
-			$this->_finishJobWithError($jobInfo['id'], $command, null, 'Login failed');
-			throw new WrongConfigurationException('Login failed');
-		} catch (Exception\RestApiException $e) {
-			$this->_finishJobWithError($jobInfo['id'], $command, $restApi->callsLog(), $e->getMessage());
-			throw $e;
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['pid'])) {
+				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			} else {
+				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+			}
 		}
-
 	}
 
 

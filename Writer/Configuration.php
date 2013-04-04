@@ -149,7 +149,7 @@ class Configuration
 		try {
 			$this->_storageApi->exportTable($this->bucketId . '.' . self::PROJECTS_TABLE_NAME, $csvFile);
 		} catch (StorageApiException $e) {
-			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECTS_TABLE_NAME);
+			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECTS_TABLE_NAME, null, 'pid');
 			$table->setHeader(array('pid', 'active'));
 			$table->save();
 			throw new WrongConfigurationException('Projects table in configuration appears to be empty');
@@ -185,9 +185,10 @@ class Configuration
 		try {
 			$this->_storageApi->exportTable($this->bucketId . '.' . self::USERS_TABLE_NAME, $csvFile);
 		} catch (StorageApiException $e) {
-			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::USERS_TABLE_NAME);
+			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::USERS_TABLE_NAME, null, 'email');
 			$table->setHeader(array('email', 'uri'));
 			$table->save();
+			$this->_storageApi->exportTable($this->bucketId . '.' . self::USERS_TABLE_NAME, $csvFile);
 		}
 
 		try {
@@ -216,10 +217,11 @@ class Configuration
 		try {
 			$this->_storageApi->exportTable($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, $csvFile);
 		} catch (StorageApiException $e) {
-			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME);
+			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
 			$table->setHeader(array('id', 'pid', 'email', 'role', 'action'));
 			$table->save();
 			$this->_storageApi->markTableColumnAsIndexed($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, 'pid');
+			$this->_storageApi->exportTable($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, $csvFile);
 		}
 
 		try {
