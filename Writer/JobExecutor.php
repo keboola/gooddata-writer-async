@@ -290,6 +290,8 @@ class JobExecutor
 		$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.password', $password, true);
 		$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.userUri', $userUri);
 
+		$configuration->addProjectToConfiguration($projectPid);
+
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);
