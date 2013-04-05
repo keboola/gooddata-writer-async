@@ -226,11 +226,11 @@ class Configuration
 
 		try {
 			$this->projectUsersCsv = new CsvFile($csvFile);
-			if ($this->projectUsersCsv->getColumnsCount() != 4) {
+			if ($this->projectUsersCsv->getColumnsCount() != 5) {
 				throw new WrongConfigurationException('Project users table in configuration contains invalid number of columns');
 			}
 			$headers = $this->projectUsersCsv->getHeader();
-			if ($headers[0] != 'id' && $headers[1] != 'pid' && $headers[1] != 'email' && $headers[1] != 'role') {
+			if ($headers[0] != 'id' && $headers[1] != 'pid' && $headers[2] != 'email' && $headers[3] != 'role' && $headers[4] != 'action') {
 				throw new WrongConfigurationException('Project users table in configuration appears to be wrongly configured');
 			}
 			$this->projectUsersCsv->next();
@@ -256,6 +256,8 @@ class Configuration
 		$table->setPartial(true);
 		$table->setIncremental(true);
 		$table->save();
+
+		$this->projectsCsv->writeRow(array_values($data));
 	}
 
 	/**
@@ -274,6 +276,8 @@ class Configuration
 		$table->setPartial(true);
 		$table->setIncremental(true);
 		$table->save();
+
+		$this->usersCsv->writeRow(array_values($data));
 	}
 
 
@@ -298,5 +302,7 @@ class Configuration
 		$table->setPartial(true);
 		$table->setIncremental(true);
 		$table->save();
+
+		$this->projectUsersCsv->writeRow(array_values($data));
 	}
 }
