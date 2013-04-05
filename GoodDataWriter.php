@@ -245,7 +245,7 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('job' => $jobInfo['id']);
+			return array('job' => (int)$jobInfo['id']);
 		} else {
 			$jobId = $jobInfo['id'];
 			$jobFinished = false;
@@ -294,7 +294,7 @@ class GoodDataWriter extends Component
 				$header = false;
 			}
 		}
-		return $users;
+		return array('users' => $users);
 	}
 
 
@@ -338,7 +338,7 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('job' => $jobInfo['id']);
+			return array('job' => (int)$jobInfo['id']);
 		} else {
 			$jobId = $jobInfo['id'];
 			$jobFinished = false;
@@ -386,7 +386,7 @@ class GoodDataWriter extends Component
 				$header = false;
 			}
 		}
-		return $users;
+		return array('users' => $users);
 	}
 
 	/**
@@ -433,7 +433,7 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('job' => $jobInfo['id']);
+			return array('job' => (int)$jobInfo['id']);
 		} else {
 			$jobId = $jobInfo['id'];
 			$jobFinished = false;
