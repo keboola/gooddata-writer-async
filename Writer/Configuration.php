@@ -257,7 +257,7 @@ class Configuration
 		$table->setIncremental(true);
 		$table->save();
 
-		$this->projectsCsv->writeRow(array_values($data));
+		//@TODO $this->projectsCsv->writeRow(array_values($data));
 	}
 
 	/**
@@ -277,7 +277,7 @@ class Configuration
 		$table->setIncremental(true);
 		$table->save();
 
-		$this->usersCsv->writeRow(array_values($data));
+		//@TODO $this->usersCsv->writeRow(array_values($data));
 	}
 
 
@@ -303,6 +303,6 @@ class Configuration
 		$table->setIncremental(true);
 		$table->save();
 
-		$this->projectUsersCsv->writeRow(array_values($data));
+		//@TODO $this->projectUsersCsv->writeRow(array_values($data));
 	}
 }
