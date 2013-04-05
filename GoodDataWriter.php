@@ -201,7 +201,7 @@ class GoodDataWriter extends Component
 			if (!$header) {
 				$projects[] = array(
 					'pid' => $p[0],
-					'active' => $p[1]
+					'active' => (int)$p[1]
 				);
 			} else {
 				$header = false;
@@ -350,8 +350,8 @@ class GoodDataWriter extends Component
 				if (!$jobFinished) sleep(30);
 			} while(!$jobFinished);
 
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['pid'])) {
-				return array('pid' => $jobInfo['job']['result']['response']['pid']);
+			if ($jobInfo['job']['status'] == 'success') {
+				return array();
 			} else {
 				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
 			}
@@ -445,7 +445,7 @@ class GoodDataWriter extends Component
 				if (!$jobFinished) sleep(30);
 			} while(!$jobFinished);
 
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['pid'])) {
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
 				return array('uri' => $jobInfo['job']['result']['response']['uri']);
 			} else {
 				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
