@@ -153,7 +153,6 @@ class Configuration
 				$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECTS_TABLE_NAME, null, 'pid');
 				$table->setHeader(array('pid', 'active'));
 				$table->save();
-				throw new WrongConfigurationException('Projects table in configuration appears to be empty');
 			}
 
 			try {
@@ -167,9 +166,6 @@ class Configuration
 				}
 
 				$this->projectsCsv->next();
-				if (!$this->projectsCsv->current()) {
-					throw new WrongConfigurationException('Projects table in configuration appears to be empty');
-				}
 
 			} catch (CsvFileException $e) {
 				throw new WrongConfigurationException($e->getMessage());

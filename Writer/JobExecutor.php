@@ -375,7 +375,6 @@ class JobExecutor
 		$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.password', $password, true);
 		$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.userUri', $userUri);
 
-		$configuration->addProjectToConfiguration($projectPid);
 		$this->addProjectToConfiguration($projectPid, $params['accessToken'], $backendUrl, $job);
 		$this->addUserToConfiguration($userUri, $username, $job);
 
