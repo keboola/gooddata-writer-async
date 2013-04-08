@@ -188,7 +188,7 @@ class JobManager
 
 		return array(
 			'id' => (int) $job['id'],
-			'runId' => (int) $job['id'],
+			'runId' => (int) $job['runId'],
 			'projectId' => (int) $job['projectId'],
 			'writerId' => (string) $job['writerId'],
 			'token' => array(

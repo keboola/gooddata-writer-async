@@ -188,11 +188,15 @@ class GoodDataWriter extends Component
 	/**
 	 * List projects from configuration
 	 * @param $params
+	 * @throws Exception\WrongParametersException
 	 * @return array
 	 */
 	public function getProjects($params)
 	{
 		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
 		$this->configuration->prepareProjects();
 
 		$projects = array();
@@ -214,8 +218,7 @@ class GoodDataWriter extends Component
 	/**
 	 * Clone project
 	 * @param $params
-	 * @throws Exception\WrongConfigurationException
-	 * @throws \Exception|Exception\RestApiException
+	 * @throws Exception\WrongParametersException
 	 * @return array
 	 */
 	public function postProjects($params)
@@ -225,6 +228,9 @@ class GoodDataWriter extends Component
 
 		// Init parameters
 		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
 		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->_mainConfig['gd']['access_token'];
 		$projectName = !empty($params['name']) ? $params['name']
 			: sprintf($this->_mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
@@ -280,6 +286,9 @@ class GoodDataWriter extends Component
 		}
 
 		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
 		$this->configuration->prepareProjectUsers();
 
 		$users = array();
@@ -326,6 +335,78 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', array_keys($this->_roles)));
 		}
 		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+		$this->configuration->prepareProjectUsers();
+		if (!$this->configuration->checkProject($params['pid'])) {
+			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
+		}
+		if (!$this->configuration->checkUser($params['email'])) {
+			throw new WrongParametersException(sprintf("User '%s' is not configured for the writer", $params['email']));
+		}
+
+
+		$jobInfo = $this->_jobManager->createJob(array(
+			'command' => $command,
+			'createdTime' => date('c', $createdTime),
+			'parameters' => $params
+		));
+		$this->_queue->enqueueJob($jobInfo);
+
+
+		if (empty($params['wait'])) {
+			return array('job' => (int)$jobInfo['id']);
+		} else {
+			$jobId = $jobInfo['id'];
+			$jobFinished = false;
+			do {
+				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
+				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep(30);
+			} while(!$jobFinished);
+
+			if ($jobInfo['job']['status'] == 'success') {
+				return array();
+			} else {
+				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+			}
+		}
+	}
+
+	/**
+	 * Invite User to Project
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongConfigurationException
+	 * @throws Exception\WrongParametersException
+	 * @throws \Exception|Exception\RestApiException
+	 */
+	public function postProjectInvitations($params)
+	{
+		$command = 'inviteUserToProject';
+		$createdTime = time();
+
+
+		// Init parameters
+		if (empty($params['email'])) {
+			throw new WrongParametersException("Parameter 'email' is missing");
+		}
+		if (empty($params['role'])) {
+			throw new WrongParametersException("Parameter 'role' is missing");
+		}
+		if (!in_array($params['role'], array_keys($this->_roles))) {
+			throw new WrongParametersException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', array_keys($this->_roles)));
+		}
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+		if (!empty($params['pid']) && !$this->configuration->checkProject($params['pid'])) {
+			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
+		}
 		$this->configuration->prepareProjectUsers();
 
 
@@ -367,11 +448,15 @@ class GoodDataWriter extends Component
 	/**
 	 * List users from configuration
 	 * @param $params
+	 * @throws Exception\WrongParametersException
 	 * @return array
 	 */
 	public function getUsers($params)
 	{
 		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
 		$this->configuration->prepareUsers();
 
 		$users = array();
@@ -420,6 +505,9 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'password' must have at least seven characters");
 		}
 		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
 		$this->configuration->prepareUsers();
 
 
@@ -468,6 +556,9 @@ class GoodDataWriter extends Component
 	public function getJob($params)
 	{
 		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
 		if (empty($params['id'])) {
 			throw new WrongParametersException("Parameter 'id' is missing");
 		}
@@ -478,13 +569,6 @@ class GoodDataWriter extends Component
 		}
 		$job = $this->_jobManager->jobToApiResponse($job);
 		return array('job' => $job);
-	}
-	
-	private function _finishJobWithError($jobId, $command, $callsLog = null, $error = null)
-	{
-		$logUrl = $callsLog ? $this->_logUploader->uploadString('calls-' . $jobId, $callsLog) : null;
-		$this->_jobManager->finishJobWithError($jobId, $command, $logUrl, $error);
-		return $logUrl;
 	}
 
 

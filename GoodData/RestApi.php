@@ -390,6 +390,73 @@ class RestApi
 	}
 
 	/**
+	 * Invites user to the project
+	 *
+	 * @param $email
+	 * @param $pid
+	 * @param string $role
+	 * @throws \Exception|\Guzzle\Http\Exception\ClientErrorResponseException
+	 * @throws RestApiException
+	 */
+	public function inviteUserToProject($email, $pid, $role = 'adminRole')
+	{
+		$rolesUri = sprintf('/gdc/projects/%s/roles', $pid);
+		$rolesResult = $this->_jsonRequest($rolesUri);
+		$projectRoleUri = '';
+		if (isset($rolesResult['projectRoles']['roles'])) {
+			foreach($rolesResult['projectRoles']['roles'] as $roleUri) {
+				$roleResult = $this->_jsonRequest($roleUri);
+				if (isset($roleResult['projectRole']['meta']['identifier']) && $roleResult['projectRole']['meta']['identifier'] == $role) {
+					$projectRoleUri = $roleUri;
+					break;
+				}
+			}
+
+			if ($projectRoleUri) {
+
+				$uri = sprintf('/gdc/projects/%s/invitations', $pid);
+				$params = array(
+					'invitations' => array(
+						array(
+							'invitation' => array(
+								'content' => array(
+									'email' => $email,
+									'role' => $projectRoleUri
+								)
+							)
+						)
+					)
+				);
+				$result = $this->_jsonRequest($uri, 'POST', $params);
+
+				if (isset($result['createdInvitations']['uri']) && count($result['createdInvitations']['uri'])) {
+					// SUCCESS
+				} else {
+					$this->_log->alert('inviteUserToProject() has not invited user to project', array(
+						'uri' => $uri,
+						'params' => $params,
+						'result' => $result
+					));
+					throw new RestApiException('Error in invitation to project');
+				}
+
+			} else {
+				$this->_log->alert('inviteUserToProject() has not found role in project', array(
+					'role' => $role,
+					'result' => $rolesResult
+				));
+				throw new RestApiException('Role in project not found');
+			}
+		} else {
+			$this->_log->alert('inviteUserToProject() has bad response', array(
+				'uri' => $rolesUri,
+				'result' => $rolesResult
+			));
+			throw new RestApiException('Roles in project could not be fetched');
+		}
+	}
+
+	/**
 	 * Poll task uri and wait for its finish
 	 * @param $uri
 	 * @throws RestApiException

@@ -235,7 +235,7 @@ class JobExecutor
 			}
 			$response = $this->$commandName($job, $parameters);
 
-			$duration = time() - $time;
+			$duration = $time - time();
 			$sapiEvent
 				->setMessage("Job $job[id] end")
 				->setDuration($duration);
@@ -472,6 +472,47 @@ class JobExecutor
 
 			$configuration->addProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
 
+
+			return $this->_prepareResult($job['id'], array('gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
+
+		} catch (UnauthorizedException $e) {
+			throw new JobExecutorException('Login failed');
+		} catch (RestApiException $e) {
+			return $this->_prepareResult($job['id'], array('status' => 'error', 'error' => $e->getMessage(), 'gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
+		}
+	}
+
+
+	public function inviteUserToProject($job, $params)
+	{
+		if (empty($params['email'])) {
+			throw new JobExecutorException("Parameter 'email' is missing");
+		}
+		if (empty($params['role'])) {
+			throw new JobExecutorException("Parameter 'role' is missing");
+		}
+
+		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
+		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
+
+		if (empty($params['pid'])) {
+			if (empty($configuration->bucketInfo['gd']['pid'])) {
+				throw new JobExecutorException("Parameter 'pid' is missing and writer does not have primary project");
+			}
+			$params['pid'] = $configuration->bucketInfo['gd']['pid'];
+		}
+
+
+		$gdWriteStartTime = date('c');
+		$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
+
+		try {
+			$restApi = new RestApi($backendUrl, $this->_log);
+
+			$restApi->login($configuration->bucketInfo['gd']['username'], $configuration->bucketInfo['gd']['password']);
+			$restApi->inviteUserToProject($params['email'], $params['pid'], $this->_roles[$params['role']]);
+
+			$configuration->addProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
 
 			return $this->_prepareResult($job['id'], array('gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
 

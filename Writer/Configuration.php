@@ -145,33 +145,35 @@ class Configuration
 	 */
 	public function prepareProjects()
 	{
-		$csvFile = $this->tmpDir . 'projects.csv';
-		try {
-			$this->_storageApi->exportTable($this->bucketId . '.' . self::PROJECTS_TABLE_NAME, $csvFile);
-		} catch (StorageApiException $e) {
-			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECTS_TABLE_NAME, null, 'pid');
-			$table->setHeader(array('pid', 'active'));
-			$table->save();
-			throw new WrongConfigurationException('Projects table in configuration appears to be empty');
-		}
-
-		try {
-			$this->projectsCsv = new CsvFile($csvFile);
-			if ($this->projectsCsv->getColumnsCount() != 2) {
-				throw new WrongConfigurationException('Projects table in configuration contains invalid number of columns');
-			}
-			$headers = $this->projectsCsv->getHeader();
-			if ($headers[0] != 'pid' && $headers[1] != 'active') {
-				throw new WrongConfigurationException('Projects table in configuration appears to be wrongly configured');
-			}
-
-			$this->projectsCsv->next();
-			if (!$this->projectsCsv->current()) {
+		if (!$this->projectsCsv) {
+			$csvFile = $this->tmpDir . 'projects.csv';
+			try {
+				$this->_storageApi->exportTable($this->bucketId . '.' . self::PROJECTS_TABLE_NAME, $csvFile);
+			} catch (StorageApiException $e) {
+				$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECTS_TABLE_NAME, null, 'pid');
+				$table->setHeader(array('pid', 'active'));
+				$table->save();
 				throw new WrongConfigurationException('Projects table in configuration appears to be empty');
 			}
 
-		} catch (CsvFileException $e) {
-			throw new WrongConfigurationException($e->getMessage());
+			try {
+				$this->projectsCsv = new CsvFile($csvFile);
+				if ($this->projectsCsv->getColumnsCount() != 2) {
+					throw new WrongConfigurationException('Projects table in configuration contains invalid number of columns');
+				}
+				$headers = $this->projectsCsv->getHeader();
+				if ($headers[0] != 'pid' && $headers[1] != 'active') {
+					throw new WrongConfigurationException('Projects table in configuration appears to be wrongly configured');
+				}
+
+				$this->projectsCsv->next();
+				if (!$this->projectsCsv->current()) {
+					throw new WrongConfigurationException('Projects table in configuration appears to be empty');
+				}
+
+			} catch (CsvFileException $e) {
+				throw new WrongConfigurationException($e->getMessage());
+			}
 		}
 	}
 
@@ -181,29 +183,31 @@ class Configuration
 	 */
 	public function prepareUsers()
 	{
-		$csvFile = $this->tmpDir . 'users.csv';
-		try {
-			$this->_storageApi->exportTable($this->bucketId . '.' . self::USERS_TABLE_NAME, $csvFile);
-		} catch (StorageApiException $e) {
-			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::USERS_TABLE_NAME, null, 'email');
-			$table->setHeader(array('email', 'uri'));
-			$table->save();
-			$this->_storageApi->exportTable($this->bucketId . '.' . self::USERS_TABLE_NAME, $csvFile);
-		}
-
-		try {
-			$this->usersCsv = new CsvFile($csvFile);
-			if ($this->usersCsv->getColumnsCount() != 2) {
-				throw new WrongConfigurationException('Users table in configuration contains invalid number of columns');
+		if (!$this->usersCsv) {
+			$csvFile = $this->tmpDir . 'users.csv';
+			try {
+				$this->_storageApi->exportTable($this->bucketId . '.' . self::USERS_TABLE_NAME, $csvFile);
+			} catch (StorageApiException $e) {
+				$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::USERS_TABLE_NAME, null, 'email');
+				$table->setHeader(array('email', 'uri'));
+				$table->save();
+				$this->_storageApi->exportTable($this->bucketId . '.' . self::USERS_TABLE_NAME, $csvFile);
 			}
-			$headers = $this->usersCsv->getHeader();
-			if ($headers[0] != 'email' && $headers[1] != 'uri') {
-				throw new WrongConfigurationException('Users table in configuration appears to be wrongly configured');
-			}
-			$this->usersCsv->next();
 
-		} catch (CsvFileException $e) {
-			throw new WrongConfigurationException($e->getMessage());
+			try {
+				$this->usersCsv = new CsvFile($csvFile);
+				if ($this->usersCsv->getColumnsCount() != 2) {
+					throw new WrongConfigurationException('Users table in configuration contains invalid number of columns');
+				}
+				$headers = $this->usersCsv->getHeader();
+				if ($headers[0] != 'email' && $headers[1] != 'uri') {
+					throw new WrongConfigurationException('Users table in configuration appears to be wrongly configured');
+				}
+				$this->usersCsv->next();
+
+			} catch (CsvFileException $e) {
+				throw new WrongConfigurationException($e->getMessage());
+			}
 		}
 	}
 
@@ -213,30 +217,32 @@ class Configuration
 	 */
 	public function prepareProjectUsers()
 	{
-		$csvFile = $this->tmpDir . 'project_users.csv';
-		try {
-			$this->_storageApi->exportTable($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, $csvFile);
-		} catch (StorageApiException $e) {
-			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
-			$table->setHeader(array('id', 'pid', 'email', 'role', 'action'));
-			$table->save();
-			$this->_storageApi->markTableColumnAsIndexed($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, 'pid');
-			$this->_storageApi->exportTable($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, $csvFile);
-		}
-
-		try {
-			$this->projectUsersCsv = new CsvFile($csvFile);
-			if ($this->projectUsersCsv->getColumnsCount() != 5) {
-				throw new WrongConfigurationException('Project users table in configuration contains invalid number of columns');
+		if (!$this->projectUsersCsv) {
+			$csvFile = $this->tmpDir . 'project_users.csv';
+			try {
+				$this->_storageApi->exportTable($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, $csvFile);
+			} catch (StorageApiException $e) {
+				$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
+				$table->setHeader(array('id', 'pid', 'email', 'role', 'action'));
+				$table->save();
+				$this->_storageApi->markTableColumnAsIndexed($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, 'pid');
+				$this->_storageApi->exportTable($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, $csvFile);
 			}
-			$headers = $this->projectUsersCsv->getHeader();
-			if ($headers[0] != 'id' && $headers[1] != 'pid' && $headers[2] != 'email' && $headers[3] != 'role' && $headers[4] != 'action') {
-				throw new WrongConfigurationException('Project users table in configuration appears to be wrongly configured');
-			}
-			$this->projectUsersCsv->next();
 
-		} catch (CsvFileException $e) {
-			throw new WrongConfigurationException($e->getMessage());
+			try {
+				$this->projectUsersCsv = new CsvFile($csvFile);
+				if ($this->projectUsersCsv->getColumnsCount() != 5) {
+					throw new WrongConfigurationException('Project users table in configuration contains invalid number of columns');
+				}
+				$headers = $this->projectUsersCsv->getHeader();
+				if ($headers[0] != 'id' && $headers[1] != 'pid' && $headers[2] != 'email' && $headers[3] != 'role' && $headers[4] != 'action') {
+					throw new WrongConfigurationException('Project users table in configuration appears to be wrongly configured');
+				}
+				$this->projectUsersCsv->next();
+
+			} catch (CsvFileException $e) {
+				throw new WrongConfigurationException($e->getMessage());
+			}
 		}
 	}
 
@@ -304,5 +310,33 @@ class Configuration
 		$table->save();
 
 		//@TODO $this->projectUsersCsv->writeRow(array_values($data));
+	}
+
+	/**
+	 * Check if pid exists in configuration table of projects
+	 * @param $pid
+	 * @return bool
+	 */
+	public function checkProject($pid)
+	{
+		$this->prepareProjects();
+		foreach ($this->projectsCsv as $project) {
+			if ($project[0] == $pid) return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Check if email exists in configuration table of users
+	 * @param $email
+	 * @return bool
+	 */
+	public function checkUser($email)
+	{
+		$this->prepareUsers();
+		foreach ($this->usersCsv as $user) {
+			if ($user[0] == $email) return true;
+		}
+		return false;
 	}
 }
