@@ -22,6 +22,8 @@ class Configuration
 	const PROJECTS_TABLE_NAME = 'projects';
 	const USERS_TABLE_NAME = 'users';
 	const PROJECT_USERS_TABLE_NAME = 'project_users';
+	const PROJECTS_TO_DELETE_TABLE_NAME = 'projects_to_delete';
+	const USERS_TO_DELETE_TABLE_NAME = 'users_to_delete';
 
 
 	/**
@@ -316,8 +318,10 @@ class Configuration
 	public function checkProject($pid)
 	{
 		$this->prepareProjects();
+		$firstLine = true;
 		foreach ($this->projectsCsv as $project) {
-			if ($project[0] == $pid) return true;
+			if (!$firstLine && $project[0] == $pid) return true;
+			$firstLine = false;
 		}
 		return false;
 	}
@@ -330,8 +334,10 @@ class Configuration
 	public function checkUser($email)
 	{
 		$this->prepareUsers();
+		$firstLine = true;
 		foreach ($this->usersCsv as $user) {
-			if ($user[0] == $email) return true;
+			if (!$firstLine && $user[0] == $email) return true;
+			$firstLine = false;
 		}
 		return false;
 	}

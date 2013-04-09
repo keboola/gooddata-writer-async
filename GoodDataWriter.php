@@ -133,7 +133,7 @@ class GoodDataWriter extends Component
 	 */
 	public function postWriters($params)
 	{
-		$command = 'createProject';
+		$command = 'createWriter';
 		$createdTime = time();
 
 		if (!isset($params['writerId'])) {
@@ -162,8 +162,9 @@ class GoodDataWriter extends Component
 			// Ignore that table is empty
 		}
 
-		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->_mainConfig['gd']['access_token'];
-		$projectName = sprintf($this->_mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
+		$mainConfig = empty($params['dev']) ? $this->_mainConfig['gd']['prod'] : $this->_mainConfig['gd']['dev'];
+		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $mainConfig['access_token'];
+		$projectName = sprintf($mainConfig['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 
 
 		$jobInfo = $this->_jobManager->createJob(array(
@@ -171,7 +172,37 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
 				'accessToken' => $accessToken,
-				'projectName' => $projectName
+				'projectName' => $projectName,
+				'dev' => empty($params['dev'])
+			)
+		));
+		$this->_queue->enqueueJob($jobInfo);
+
+		return array('job' => $jobInfo['id']);
+	}
+
+
+	/**
+	 * Delete writer with projects and users
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
+	public function postDeleteWriters($params)
+	{
+		$command = 'dropWriter';
+		$createdTime = time();
+
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$jobInfo = $this->_jobManager->createJob(array(
+			'command' => $command,
+			'createdTime' => date('c', $createdTime),
+			'parameters' => array(
+				'dev' => empty($params['dev'])
 			)
 		));
 		$this->_queue->enqueueJob($jobInfo);
@@ -231,9 +262,10 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->_mainConfig['gd']['access_token'];
+		$mainConfig = empty($params['dev']) ? $this->_mainConfig['gd']['prod'] : $this->_mainConfig['gd']['dev'];
+		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $mainConfig['access_token'];
 		$projectName = !empty($params['name']) ? $params['name']
-			: sprintf($this->_mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
+			: sprintf($mainConfig['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 		$this->configuration->prepareProjects();
 		$this->configuration->checkGoodDataSetup();
 
@@ -244,7 +276,8 @@ class GoodDataWriter extends Component
 			'parameters' => array(
 				'accessToken' => $accessToken,
 				'projectName' => $projectName,
-				'pidSource' => $this->configuration->bucketInfo['gd']['pid']
+				'pidSource' => $this->configuration->bucketInfo['gd']['pid'],
+				'dev' => empty($params['dev'])
 			)
 		));
 		$this->_queue->enqueueJob($jobInfo);

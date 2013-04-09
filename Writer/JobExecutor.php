@@ -23,6 +23,8 @@ class JobExecutor
 	const JOBS_TABLE_ID = 'in.c-wr-gooddata.jobs';
 	const PROJECTS_TABLE_ID = 'in.c-wr-gooddata.projects';
 	const USERS_TABLE_ID = 'in.c-wr-gooddata.users';
+	const PROJECTS_TO_DELETE_TABLE_ID = 'in.c-wr-gooddata.projects_to_delete';
+	const USERS_TO_DELETE_TABLE_ID = 'in.c-wr-gooddata.users_to_delete';
 
 	protected $_roles = array(
 		'admin' => 'adminRole',
@@ -343,7 +345,7 @@ class JobExecutor
 	 * @throws \Keboola\GoodDataWriterBundle\Exception\JobExecutorException
 	 * @return array
 	 */
-	public function createProject($job, $params)
+	public function createWriter($job, $params)
 	{
 		if (empty($params['accessToken'])) {
 			throw new JobExecutorException("Parameter accessToken is missing");
@@ -355,18 +357,19 @@ class JobExecutor
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
 		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
 		$mainConfig = $this->_container->getParameter('gd_writer');
+		$mainConfig = empty($params['dev']) ? $mainConfig['gd']['prod'] : $mainConfig['gd']['dev'];
 
 
 		$gdWriteStartTime = date('c');
-		$username = $job['projectId'] . '-' . $job['writerId'] . '@clients.keboola.com';
+		$username = sprintf($mainConfig['user_email'], $job['projectId'], $job['writerId']);
 		$password = md5(uniqid());
 		$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
 
 
 		$restApi = new RestApi($backendUrl, $this->_log);
-		$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
+		$restApi->login($mainConfig['username'], $mainConfig['password']);
 		$projectPid = $restApi->createProject($params['projectName'], $params['accessToken']);
-		$userUri = $restApi->createUserInDomain($mainConfig['gd']['domain'], $username, $password, 'KBC', 'Writer');
+		$userUri = $restApi->createUserInDomain($mainConfig['domain'], $username, $password, 'KBC', 'Writer', $mainConfig['ssoProvider']);
 		$restApi->addUserToProject($userUri, $projectPid);
 
 		// Save data to configuration bucket
@@ -380,6 +383,41 @@ class JobExecutor
 
 
 		return $this->_prepareResult($job['id'], array('pid' => $projectPid, 'gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
+	}
+
+
+	/**
+	 * @param $job
+	 * @param $params
+	 */
+	public function dropWriter($job, $params)
+	{
+		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
+		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
+
+		$configuration->prepareProjects();
+		$configuration->prepareUsers();
+
+		$firstLine = true;
+		foreach ($configuration->projectsCsv as $project) {
+			if (!$firstLine)
+				$this->_enqueueProjectToDelete($job['projectId'], $job['writerId'], $project[0], empty($params['dev']));
+			$firstLine = false;
+		}
+		$firstLine = true;
+		foreach ($configuration->usersCsv as $user) {
+			if (!$firstLine)
+				$this->_enqueueUserToDelete($job['projectId'], $job['writerId'], $user[1], $user[0], empty($params['dev']));
+			$firstLine = false;
+		}
+
+		$this->_enqueueProjectToDelete($job['projectId'], $job['writerId'], $configuration->bucketInfo['gd']['pid'], empty($params['dev']));
+		$this->_enqueueUserToDelete($job['projectId'], $job['writerId'], $configuration->bucketInfo['gd']['userUri'], $configuration->bucketInfo['gd']['username'], empty($params['dev']));
+
+		foreach ($this->_sapiClient->listTables($configuration->bucketId) as $table) {
+			$this->_sapiClient->dropTable($table['id']);
+		}
+		$this->_sapiClient->dropBucket($configuration->bucketId);
 	}
 
 
@@ -398,6 +436,7 @@ class JobExecutor
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
 		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
 		$mainConfig = $this->_container->getParameter('gd_writer');
+		$mainConfig = empty($params['dev']) ? $mainConfig['gd']['prod'] : $mainConfig['gd']['dev'];
 
 
 		$gdWriteStartTime = date('c');
@@ -411,10 +450,10 @@ class JobExecutor
 			$restApi->login($configuration->bucketInfo['gd']['username'], $configuration->bucketInfo['gd']['password']);
 			$restApi->getProject($configuration->bucketInfo['gd']['pid']);
 
-			$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
+			$restApi->login($mainConfig['username'], $mainConfig['password']);
 			// Get user uri if not set
 			if (empty($configuration->bucketInfo['gd']['userUri'])) {
-				$userUri = $restApi->userUri($configuration->bucketInfo['gd']['username'], $mainConfig['gd']['domain']);
+				$userUri = $restApi->userUri($configuration->bucketInfo['gd']['username'], $mainConfig['domain']);
 				$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.userUri', $userUri);
 				$configuration->bucketInfo['gd']['userUri'] = $userUri;
 			}
@@ -452,7 +491,7 @@ class JobExecutor
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
 		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
 		$mainConfig = $this->_container->getParameter('gd_writer');
-
+		$mainConfig = empty($params['dev']) ? $mainConfig['gd']['prod'] : $mainConfig['gd']['dev'];
 
 		$gdWriteStartTime = date('c');
 		$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
@@ -461,8 +500,8 @@ class JobExecutor
 			$restApi = new RestApi($backendUrl, $this->_log);
 
 			// Get user uri
-			$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
-			$userUri = $restApi->userUri($params['email'], $mainConfig['gd']['domain']);
+			$restApi->login($mainConfig['username'], $mainConfig['password']);
+			$userUri = $restApi->userUri($params['email'], $mainConfig['domain']);
 			if (!$userUri) {
 				throw new JobExecutorException(sprintf("User '%s' does not exist in domain", $params['email']));
 			}
@@ -541,6 +580,7 @@ class JobExecutor
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
 		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
 		$mainConfig = $this->_container->getParameter('gd_writer');
+		$mainConfig = empty($params['dev']) ? $mainConfig['gd']['prod'] : $mainConfig['gd']['dev'];
 
 
 		$gdWriteStartTime = date('c');
@@ -549,8 +589,8 @@ class JobExecutor
 		try {
 			$restApi = new RestApi($backendUrl, $this->_log);
 
-			$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
-			$userUri = $restApi->createUserInDomain($mainConfig['gd']['domain'], $params['email'], $params['password'], $params['firstName'], $params['lastName']);
+			$restApi->login($mainConfig['username'], $mainConfig['password']);
+			$userUri = $restApi->createUserInDomain($mainConfig['domain'], $params['email'], $params['password'], $params['firstName'], $params['lastName'], $mainConfig['ssoProvider']);
 
 			$configuration->addUserToConfiguration($params['email'], $userUri);
 			$this->addUserToConfiguration($userUri, $params['email'], $job);
@@ -563,5 +603,54 @@ class JobExecutor
 		} catch (RestApiException $e) {
 			return $this->_prepareResult($job['id'], array('status' => 'error', 'error' => $e->getMessage(), 'gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
 		}
+	}
+
+
+	/**
+	 * @param $projectId
+	 * @param $writerId
+	 * @param $pid
+	 * @param int $dev
+	 */
+	private function _enqueueProjectToDelete($projectId, $writerId, $pid, $dev = 0)
+	{
+		$data = array(
+			'pid' => $pid,
+			'projectId' => $projectId,
+			'writerId' => $writerId,
+			'deleteDate' => date('c', strtotime('+30 days')),
+			'dev' => $dev
+		);
+		$table = new StorageApiTable($this->_sapiSharedConfig, self::PROJECTS_TO_DELETE_TABLE_ID);
+		$table->setHeader(array_keys($data));
+		$table->setFromArray(array($data));
+		$table->setPartial(true);
+		$table->setIncremental(true);
+		$table->save();
+	}
+
+	/**
+	 * @param $projectId
+	 * @param $writerId
+	 * @param $uri
+	 * @param $email
+	 * @param int $dev
+	 */
+	private function _enqueueUserToDelete($projectId, $writerId, $uri, $email, $dev = 0)
+	{
+		$data = array(
+			'uri' => $uri,
+			'projectId' => $projectId,
+			'writerId' => $writerId,
+			'email' => $email,
+			'deleteDate' => date('c', strtotime('+30 days')),
+			'dev' => $dev
+		);
+		$table = new StorageApiTable($this->_sapiSharedConfig, self::USERS_TO_DELETE_TABLE_ID);
+		$table->setHeader(array_keys($data));
+		$table->setFromArray(array($data));
+		$table->setPartial(true);
+		$table->setIncremental(true);
+		$table->save();
 	}
 }

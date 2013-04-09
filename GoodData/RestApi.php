@@ -231,11 +231,12 @@ class RestApi
 	 * @param $password
 	 * @param $firstName
 	 * @param $lastName
-	 * @throws \Exception|RestApiException
-	 * @param $lastName
+	 * @param $ssoProvider
+	 * @throws \Exception|\Keboola\GoodDataWriterBundle\Exception\RestApiException
+	 * @throws \Keboola\GoodDataWriterBundle\Exception\RestApiException
 	 * @return null
 	 */
-	public function createUserInDomain($domain, $login, $password, $firstName, $lastName)
+	public function createUserInDomain($domain, $login, $password, $firstName, $lastName, $ssoProvider)
 	{
 		$this->_clearFromLog[] = $password;
 
@@ -246,7 +247,8 @@ class RestApi
 				'password' => $password,
 				'verifyPassword' => $password,
 				'firstName' => $firstName,
-				'lastName' => $lastName
+				'lastName' => $lastName,
+				'ssoProvider' => $ssoProvider
 			),
 		);
 
