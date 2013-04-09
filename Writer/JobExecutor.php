@@ -369,7 +369,7 @@ class JobExecutor
 		$restApi = new RestApi($backendUrl, $this->_log);
 		$restApi->login($mainConfig['username'], $mainConfig['password']);
 		$projectPid = $restApi->createProject($params['projectName'], $params['accessToken']);
-		$userUri = $restApi->createUserInDomain($mainConfig['domain'], $username, $password, 'KBC', 'Writer', $mainConfig['ssoProvider']);
+		$userUri = $restApi->createUserInDomain($mainConfig['domain'], $username, $password, 'KBC', 'Writer', $mainConfig['sso_provider']);
 		$restApi->addUserToProject($userUri, $projectPid);
 
 		// Save data to configuration bucket
