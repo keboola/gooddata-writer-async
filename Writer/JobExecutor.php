@@ -621,7 +621,7 @@ class JobExecutor
 			'deleteDate' => date('c', strtotime('+30 days')),
 			'dev' => $dev
 		);
-		$table = new StorageApiTable($this->_sapiSharedConfig, self::PROJECTS_TO_DELETE_TABLE_ID);
+		$table = new StorageApiTable($this->_sapiSharedConfig, self::PROJECTS_TO_DELETE_TABLE_ID, null, 'pid');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setPartial(true);
@@ -646,7 +646,7 @@ class JobExecutor
 			'deleteDate' => date('c', strtotime('+30 days')),
 			'dev' => $dev
 		);
-		$table = new StorageApiTable($this->_sapiSharedConfig, self::USERS_TO_DELETE_TABLE_ID);
+		$table = new StorageApiTable($this->_sapiSharedConfig, self::USERS_TO_DELETE_TABLE_ID, null, 'uri');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setPartial(true);
