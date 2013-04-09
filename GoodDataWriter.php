@@ -173,7 +173,7 @@ class GoodDataWriter extends Component
 			'parameters' => array(
 				'accessToken' => $accessToken,
 				'projectName' => $projectName,
-				'dev' => $params['dev']
+				'dev' => empty($params['dev']) ? 0 : 1
 			)
 		));
 		$this->_queue->enqueueJob($jobInfo);
@@ -202,7 +202,7 @@ class GoodDataWriter extends Component
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
-				'dev' => $params['dev']
+				'dev' => empty($params['dev']) ? 0 : 1
 			)
 		));
 		$this->_queue->enqueueJob($jobInfo);
@@ -277,7 +277,7 @@ class GoodDataWriter extends Component
 				'accessToken' => $accessToken,
 				'projectName' => $projectName,
 				'pidSource' => $this->configuration->bucketInfo['gd']['pid'],
-				'dev' => $params['dev']
+				'dev' => empty($params['dev']) ? 0 : 1
 			)
 		));
 		$this->_queue->enqueueJob($jobInfo);
