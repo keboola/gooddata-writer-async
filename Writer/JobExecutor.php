@@ -590,7 +590,7 @@ class JobExecutor
 			$restApi = new RestApi($backendUrl, $this->_log);
 
 			$restApi->login($mainConfig['username'], $mainConfig['password']);
-			$userUri = $restApi->createUserInDomain($mainConfig['domain'], $params['email'], $params['password'], $params['firstName'], $params['lastName'], $mainConfig['ssoProvider']);
+			$userUri = $restApi->createUserInDomain($mainConfig['domain'], $params['email'], $params['password'], $params['firstName'], $params['lastName'], $mainConfig['sso_provider']);
 
 			$configuration->addUserToConfiguration($params['email'], $userUri);
 			$this->addUserToConfiguration($userUri, $params['email'], $job);
