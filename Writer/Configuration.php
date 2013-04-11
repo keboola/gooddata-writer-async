@@ -248,7 +248,7 @@ class Configuration
 	/**
 	 * @param $pid
 	 */
-	public function addProjectToConfiguration($pid)
+	public function saveProjectToConfiguration($pid)
 	{
 		$data = array(
 			'pid' => $pid,
@@ -268,7 +268,7 @@ class Configuration
 	 * @param $email
 	 * @param $uri
 	 */
-	public function addUserToConfiguration($email, $uri)
+	public function saveUserToConfiguration($email, $uri)
 	{
 		$data = array(
 			'email' => $email,
@@ -290,7 +290,7 @@ class Configuration
 	 * @param $email
 	 * @param $role
 	 */
-	public function addProjectUserToConfiguration($pid, $email, $role)
+	public function saveProjectUserToConfiguration($pid, $email, $role)
 	{
 		$action = 'add';
 		$data = array(
@@ -331,12 +331,12 @@ class Configuration
 	 * @param $email
 	 * @return bool
 	 */
-	public function checkUser($email)
+	public function user($email)
 	{
 		$this->prepareUsers();
 		$firstLine = true;
 		foreach ($this->usersCsv as $user) {
-			if (!$firstLine && $user[0] == $email) return true;
+			if (!$firstLine && $user[0] == $email) return array_combine($this->usersCsv->getHeader(), $user);
 			$firstLine = false;
 		}
 		return false;

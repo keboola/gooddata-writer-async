@@ -40,7 +40,7 @@ class WorkerCommand extends ContainerAwareCommand
 	protected function configure()
 	{
 		$this
-			->setName('wr-gooddata:worker')
+			->setName('gooddata-writer:worker')
 			->setDescription('Queue worker')
 		;
 	}

@@ -16,7 +16,7 @@ class WorkerDebugCommand extends ContainerAwareCommand
 	protected function configure()
 	{
 		$this
-			->setName('wr-gooddata:worker-debug')
+			->setName('gooddata-writer:worker-debug')
 			->setDescription('Queue worker Debug')
 			->setDefinition(array(
 				new InputArgument('job', InputArgument::REQUIRED, 'Job id')

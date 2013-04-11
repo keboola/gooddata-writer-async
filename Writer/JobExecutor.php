@@ -472,7 +472,7 @@ class JobExecutor
 			$restApi->cloneProject($configuration->bucketInfo['gd']['pid'], $projectPid);
 			$restApi->addUserToProject($configuration->bucketInfo['gd']['userUri'], $projectPid);
 
-			$configuration->addProjectToConfiguration($projectPid);
+			$configuration->saveProjectToConfiguration($projectPid);
 			$this->addProjectToConfiguration($projectPid, $params['accessToken'], $backendUrl, $job);
 
 
@@ -511,14 +511,25 @@ class JobExecutor
 		try {
 			// Get user uri
 			$restApi->login($mainConfig['username'], $mainConfig['password']);
-			$userUri = $restApi->userUri($params['email'], $mainConfig['domain']);
-			if (!$userUri) {
-				throw new JobExecutorException(sprintf("User '%s' does not exist in domain", $params['email']));
+
+			$user = $configuration->user($params['email']);
+			if (!$user) {
+				throw new JobExecutorException("User is missing from configuration");
+			}
+
+			if ($user['uri']) {
+				$userUri = $user['uri'];
+			} else {
+				$userUri = $restApi->userUri($params['email'], $mainConfig['domain']);
+				$configuration->saveUserToConfiguration($params['email'], $userUri);
+				if (!$userUri) {
+					throw new JobExecutorException(sprintf("User '%s' does not exist in domain", $params['email']));
+				}
 			}
 
 			$restApi->addUserToProject($userUri, $params['pid'], $this->_roles[$params['role']]);
 
-			$configuration->addProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
+			$configuration->saveProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
 
 
 			return $this->_prepareResult($job['id'], array('gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
@@ -564,7 +575,7 @@ class JobExecutor
 			$restApi->login($configuration->bucketInfo['gd']['username'], $configuration->bucketInfo['gd']['password']);
 			$restApi->inviteUserToProject($params['email'], $params['pid'], $this->_roles[$params['role']]);
 
-			$configuration->addProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
+			$configuration->saveProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
 
 			return $this->_prepareResult($job['id'], array('gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
 
@@ -605,7 +616,7 @@ class JobExecutor
 			$restApi->login($mainConfig['username'], $mainConfig['password']);
 			$userUri = $restApi->createUserInDomain($mainConfig['domain'], $params['email'], $params['password'], $params['firstName'], $params['lastName'], $mainConfig['sso_provider']);
 
-			$configuration->addUserToConfiguration($params['email'], $userUri);
+			$configuration->saveUserToConfiguration($params['email'], $userUri);
 			$this->addUserToConfiguration($userUri, $params['email'], $job);
 
 
