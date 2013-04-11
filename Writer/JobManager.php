@@ -6,7 +6,7 @@
  * @created 2013-04-02
  */
 
-namespace Keboola\GoodDataWriterBundle\Writer;
+namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,

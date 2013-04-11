@@ -1,8 +1,8 @@
 <?php
-namespace Keboola\GoodDataWriterBundle\Command;
+namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\StorageApi\Client as StorageApiClient;
-use Keboola\GoodDataWriterBundle\Writer\JobExecutor;
+use Keboola\GoodDataWriter\Writer\JobExecutor;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;

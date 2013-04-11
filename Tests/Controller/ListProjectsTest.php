@@ -15,7 +15,7 @@ class ListProjectsTest extends WebTestCase
 	 */
 	private $_storageApi;
 	/**
-	 * @var \Keboola\GoodDataWriterBundle\GoodData\RestApi
+	 * @var \Keboola\GoodDataWriter\GoodData\RestApi
 	 */
 	private $_restApi;
 
@@ -34,7 +34,7 @@ class ListProjectsTest extends WebTestCase
 		}
 		$this->_storageApi->createBucket(self::BUCKET_NAME, 'sys', 'GoodData Writer Test');
 
-		$this->_restApi = new \Keboola\GoodDataWriterBundle\GoodData\RestApi(null, $client->getContainer()->get('log'));
+		$this->_restApi = new \Keboola\GoodDataWriter\GoodData\RestApi(null, $client->getContainer()->get('log'));
 		$pid = $this->_restApi->createProject('Project for testing', $client->getContainer()->getParameter('gd.access_token'));
 
 		$table = new \Keboola\StorageApi\Table($this->_storageApi, self::BUCKET_ID . '.projects');

@@ -6,14 +6,14 @@
  *
  */
 
-namespace Keboola\GoodDataWriterBundle\GoodData;
+namespace Keboola\GoodDataWriter\GoodData;
 
 use Guzzle\Http\Client,
 	Guzzle\Http\Exception\ClientErrorResponseException,
 	Guzzle\Common\Exception\RuntimeException,
 	Guzzle\Http\Message\Header;
-use Keboola\GoodDataWriterBundle\Exception\RestApiException,
-	Keboola\GoodDataWriterBundle\Exception\UnauthorizedException;
+use Keboola\GoodDataWriter\Exception\RestApiException,
+	Keboola\GoodDataWriter\Exception\UnauthorizedException;
 
 class RestApi
 {
@@ -232,8 +232,8 @@ class RestApi
 	 * @param $firstName
 	 * @param $lastName
 	 * @param $ssoProvider
-	 * @throws \Exception|\Keboola\GoodDataWriterBundle\Exception\RestApiException
-	 * @throws \Keboola\GoodDataWriterBundle\Exception\RestApiException
+	 * @throws \Exception|\Keboola\GoodDataWriter\Exception\RestApiException
+	 * @throws \Keboola\GoodDataWriter\Exception\RestApiException
 	 * @return null
 	 */
 	public function createUserInDomain($domain, $login, $password, $firstName, $lastName, $ssoProvider)

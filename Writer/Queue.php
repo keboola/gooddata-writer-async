@@ -1,6 +1,6 @@
 <?php
 
-namespace Keboola\GoodDataWriterBundle\Writer;
+namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Table as StorageApiTable;

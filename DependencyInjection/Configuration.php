@@ -1,6 +1,6 @@
 <?php
 
-namespace Keboola\GoodDataWriterBundle\DependencyInjection;
+namespace Keboola\GoodDataWriter\DependencyInjection;
 
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;

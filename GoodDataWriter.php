@@ -6,18 +6,18 @@
  * @created 2013-03-14
  */
 
-namespace Keboola\GoodDataWriterBundle;
+namespace Keboola\GoodDataWriter;
 
 use Syrup\ComponentBundle\Component\Component;
 use Symfony\Component\HttpFoundation\Request;
-use Keboola\GoodDataWriterBundle\Writer\Configuration,
-	Keboola\GoodDataWriterBundle\Writer\JobManager,
+use Keboola\GoodDataWriter\Writer\Configuration,
+	Keboola\GoodDataWriter\Writer\JobManager,
 	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Config\Reader,
 	Keboola\Csv\CsvFile;
-use Keboola\GoodDataWriterBundle\Exception\WrongParametersException,
-	Keboola\GoodDataWriterBundle\Exception\WrongConfigurationException;
+use Keboola\GoodDataWriter\Exception\WrongParametersException,
+	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 
 class GoodDataWriter extends Component
 {

@@ -6,7 +6,7 @@
  * @created 2013-04-02
  */
 
-namespace Keboola\GoodDataWriterBundle\Writer;
+namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Client as StorageApiClient,
@@ -14,7 +14,7 @@ use Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Config\Reader,
 	Keboola\Csv\CsvFile,
 	Keboola\Csv\Exception as CsvFileException,
-	Keboola\GoodDataWriterBundle\Exception\WrongConfigurationException;
+	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 
 class Configuration
 {

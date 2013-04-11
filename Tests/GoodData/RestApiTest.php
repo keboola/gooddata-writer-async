@@ -7,7 +7,7 @@
 class RestApiTest extends \PHPUnit_Framework_TestCase
 {
 	/**
-	 * @var \Keboola\GoodDataWriterBundle\GoodData\RestApi
+	 * @var \Keboola\GoodDataWriter\GoodData\RestApi
 	 */
 	private $_restApi;
 	private $_params;
@@ -26,7 +26,7 @@ class RestApiTest extends \PHPUnit_Framework_TestCase
 		$paramsYaml = $yaml->parse(file_get_contents($_SERVER['KERNEL_DIR'] . 'config/parameters.yml'));
 		$this->_params = $paramsYaml['parameters'];
 
-		$this->_restApi = new \Keboola\GoodDataWriterBundle\GoodData\RestApi(null, $this->_log);
+		$this->_restApi = new \Keboola\GoodDataWriter\GoodData\RestApi(null, $this->_log);
 		$this->_restApi->login($this->_params['gd.username'], $this->_params['gd.password']);
 	}
 

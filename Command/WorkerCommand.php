@@ -1,10 +1,10 @@
 <?php
-namespace Keboola\GoodDataWriterBundle\Command;
+namespace Keboola\GoodDataWriter\Command;
 
-use Keboola\GoodDataWriterBundle\Service\Lock,
+use Keboola\GoodDataWriter\Service\Lock,
 	Keboola\StorageApi\Client as StorageApiClient;
-use Keboola\GoodDataWriterBundle\Writer\JobExecutor,
-	Keboola\GoodDataWriterBundle\Writer\Queue;
+use Keboola\GoodDataWriter\Writer\JobExecutor,
+	Keboola\GoodDataWriter\Writer\Queue;
 use Monolog\Logger;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;

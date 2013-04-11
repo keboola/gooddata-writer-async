@@ -1,9 +1,9 @@
 <?php
 
-namespace Keboola\GoodDataWriterBundle;
+namespace Keboola\GoodDataWriter;
 
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 
-class KeboolaGoodDataWriterBundle extends Bundle
+class KeboolaGoodDataWriter extends Bundle
 {
 }

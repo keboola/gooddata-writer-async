@@ -1,5 +1,5 @@
 {
-	"name": "keboola/wr-gooddata-4",
+	"name": "keboola/gooddata-writer",
 	"type": "symfony-bundle",
 	"description": "Keboola GoodData Writer",
 	"keywords": [],
@@ -13,11 +13,23 @@
 		{
 			"type": "vcs",
 			"url": "git@bitbucket.org:keboola/syrup-development-bundle.git"
+		},
+		{
+			"type": "package",
+			"package": {
+				"name": "gooddata/GoodData-CL",
+				"version": "1.2.67",
+				"dist": {
+					"url": "http://developer.gooddata.com/downloads/cl-tool/gooddata-cli.zip",
+					"type": "zip"
+				}
+			}
 		}
 	],
 	"require": {
 		"php": ">=5.3.5",
-		"emagister/zendframework1": "1.*"
+		"emagister/zendframework1": "1.*",
+		"gooddata/GoodData-CL": "1.2.*"
 	},
 	"require-dev": {
 		"syrup/component-bundle": "1.0.*",
@@ -36,9 +48,9 @@
 	},
 	"minimum-stability": "alpha",
 	"autoload": {
-		"psr-0": { "Keboola\\GoodDataWriterBundle": "" }
+		"psr-0": { "Keboola\\GoodDataWriter": "" }
 	},
-	"target-dir": "Keboola/GoodDataWriterBundle",
+	"target-dir": "Keboola/GoodDataWriter",
 	"extra": {
 		"symfony-app-dir": "vendor/syrup/development-bundle/app",
 		"symfony-web-dir": "vendor/syrup/development-bundle/web"

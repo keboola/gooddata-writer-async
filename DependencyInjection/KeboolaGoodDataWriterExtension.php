@@ -1,6 +1,6 @@
 <?php
 
-namespace Keboola\GoodDataWriterBundle\DependencyInjection;
+namespace Keboola\GoodDataWriter\DependencyInjection;
 
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\Config\FileLocator;

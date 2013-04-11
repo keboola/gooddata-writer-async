@@ -4,15 +4,17 @@
  * @date 2013-04-02
  */
 
-namespace Keboola\GoodDataWriterBundle\Writer;
+namespace Keboola\GoodDataWriter\Writer;
 
-use Keboola\GoodDataWriterBundle\Exception\JobExecutorException,
+use Keboola\GoodDataWriter\Exception\JobExecutorException,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	\Keboola\StorageApi\Table as StorageApiTable;
-use Keboola\GoodDataWriterBundle\Exception\RestApiException;
-use Keboola\GoodDataWriterBundle\Exception\UnauthorizedException;
-use Keboola\GoodDataWriterBundle\GoodData\RestApi;
+use Keboola\GoodDataWriter\Exception\RestApiException;
+use Keboola\GoodDataWriter\Exception\UnauthorizedException;
+use Keboola\GoodDataWriter\GoodData\CLToolApi;
+use Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 use Monolog\Logger;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -342,7 +344,7 @@ class JobExecutor
 	/**
 	 * @param $job
 	 * @param $params
-	 * @throws \Keboola\GoodDataWriterBundle\Exception\JobExecutorException
+	 * @throws \Keboola\GoodDataWriter\Exception\JobExecutorException
 	 * @return array
 	 */
 	public function createWriter($job, $params)
@@ -411,8 +413,13 @@ class JobExecutor
 			$firstLine = false;
 		}
 
-		$this->_enqueueProjectToDelete($job['projectId'], $job['writerId'], $configuration->bucketInfo['gd']['pid'], empty($params['dev']));
-		$this->_enqueueUserToDelete($job['projectId'], $job['writerId'], $configuration->bucketInfo['gd']['userUri'], $configuration->bucketInfo['gd']['username'], empty($params['dev']));
+		if (isset($configuration->bucketInfo['gd']['pid'])) {
+			$this->_enqueueProjectToDelete($job['projectId'], $job['writerId'], $configuration->bucketInfo['gd']['pid'], empty($params['dev']));
+		}
+		if (isset($configuration->bucketInfo['gd']['userUri']) && isset($configuration->bucketInfo['gd']['username'])) {
+			$this->_enqueueUserToDelete($job['projectId'], $job['writerId'], $configuration->bucketInfo['gd']['userUri'],
+				$configuration->bucketInfo['gd']['username'], empty($params['dev']));
+		}
 
 		foreach ($this->_sapiClient->listTables($configuration->bucketId) as $table) {
 			$this->_sapiClient->dropTable($table['id']);
@@ -438,14 +445,18 @@ class JobExecutor
 		$mainConfig = $this->_container->getParameter('gd_writer');
 		$mainConfig = empty($params['dev']) ? $mainConfig['gd']['prod'] : $mainConfig['gd']['dev'];
 
+		if (empty($configuration->bucketInfo['gd']['userUri']) || empty($configuration->bucketInfo['gd']['pid'])
+			|| empty($configuration->bucketInfo['gd']['username']) || empty($configuration->bucketInfo['gd']['password'])) {
+			throw new JobExecutorException("Bucket config is not complete");
+		}
+
 
 		$gdWriteStartTime = date('c');
 		$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
 
 
+		$restApi = new RestApi($backendUrl, $this->_log);
 		try {
-			$restApi = new RestApi($backendUrl, $this->_log);
-
 			// Check access to source project
 			$restApi->login($configuration->bucketInfo['gd']['username'], $configuration->bucketInfo['gd']['password']);
 			$restApi->getProject($configuration->bucketInfo['gd']['pid']);
@@ -496,9 +507,8 @@ class JobExecutor
 		$gdWriteStartTime = date('c');
 		$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
 
+		$restApi = new RestApi($backendUrl, $this->_log);
 		try {
-			$restApi = new RestApi($backendUrl, $this->_log);
-
 			// Get user uri
 			$restApi->login($mainConfig['username'], $mainConfig['password']);
 			$userUri = $restApi->userUri($params['email'], $mainConfig['domain']);
@@ -533,6 +543,11 @@ class JobExecutor
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
 		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
 
+		if (empty($configuration->bucketInfo['gd']['userUri']) || empty($configuration->bucketInfo['gd']['pid'])
+			|| empty($configuration->bucketInfo['gd']['username']) || empty($configuration->bucketInfo['gd']['password'])) {
+			throw new JobExecutorException("Bucket configuration is not complete");
+		}
+
 		if (empty($params['pid'])) {
 			if (empty($configuration->bucketInfo['gd']['pid'])) {
 				throw new JobExecutorException("Parameter 'pid' is missing and writer does not have primary project");
@@ -544,9 +559,8 @@ class JobExecutor
 		$gdWriteStartTime = date('c');
 		$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
 
+		$restApi = new RestApi($backendUrl, $this->_log);
 		try {
-			$restApi = new RestApi($backendUrl, $this->_log);
-
 			$restApi->login($configuration->bucketInfo['gd']['username'], $configuration->bucketInfo['gd']['password']);
 			$restApi->inviteUserToProject($params['email'], $params['pid'], $this->_roles[$params['role']]);
 
@@ -586,9 +600,8 @@ class JobExecutor
 		$gdWriteStartTime = date('c');
 		$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
 
+		$restApi = new RestApi($backendUrl, $this->_log);
 		try {
-			$restApi = new RestApi($backendUrl, $this->_log);
-
 			$restApi->login($mainConfig['username'], $mainConfig['password']);
 			$userUri = $restApi->createUserInDomain($mainConfig['domain'], $params['email'], $params['password'], $params['firstName'], $params['lastName'], $mainConfig['sso_provider']);
 
@@ -603,6 +616,71 @@ class JobExecutor
 		} catch (RestApiException $e) {
 			return $this->_prepareResult($job['id'], array('status' => 'error', 'error' => $e->getMessage(), 'gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
 		}
+	}
+
+	public function createDate($job, $params)
+	{
+		if (empty($job['dataset'])) {
+			throw new JobExecutorException("Parameter 'dataset' is missing");
+		}
+		if (empty($params['includeTime'])) {
+			throw new JobExecutorException("Parameter 'includeTime' is missing");
+		}
+		if (empty($job['pid'])) {
+			throw new JobExecutorException("Parameter 'pid' is missing");
+		}
+
+		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
+		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
+
+		if (empty($configuration->bucketInfo['gd']['userUri']) || empty($configuration->bucketInfo['gd']['pid'])
+			|| empty($configuration->bucketInfo['gd']['username']) || empty($configuration->bucketInfo['gd']['password'])) {
+			throw new JobExecutorException("Bucket configuration is not complete");
+		}
+
+
+		$gdWriteStartTime = date('c');
+
+		$clToolApi = new CLToolApi($this->_log);
+		if (isset($configuration->bucketInfo['gd']['backendUrl'])) {
+			$clToolApi->setBackendUrl($configuration->bucketInfo['gd']['backendUrl']);
+		}
+		$clToolApi->setCredentials($configuration->bucketInfo['gd']['username'], $configuration->bucketInfo['gd']['password']);
+		$clToolApi->tmpDir = $tmpDir;
+		$clToolApi->clToolPath = $this->_container->get('kernel')->getRootDir . '/vendor/keboola/gooddata-writer/GoodData/gdi.sh';
+		$clToolApi->jobId = $job['id'];
+		$clToolApi->s3uploader = $this->_container->get('syrup.monolog.s3_uploader');
+
+		try {
+
+			$clToolApi->createDate($job['pid'], $job['dataset'], $params['includeTime']);
+
+			return $this->_prepareResult($job['id'], array('debug' => $clToolApi->debugLogUrl, 'gdWriteStartTime' => $gdWriteStartTime), $clToolApi->output);
+
+		} catch (CLToolApiErrorException $e) {
+			return $this->_prepareResult($job['id'], array('status' => 'error', 'error' => $e->getMessage(),
+				'debug' => $clToolApi->debugLogUrl, 'gdWriteStartTime' => $gdWriteStartTime), $clToolApi->output);
+		}
+	}
+
+	public function createDataset($job, $params)
+	{
+
+	}
+
+	public function updateDataset($job, $params)
+	{
+
+	}
+
+	public function loadData($job, $params)
+	{
+
+	}
+
+	public function executeReports($job, $params)
+	{
+
 	}
 
 

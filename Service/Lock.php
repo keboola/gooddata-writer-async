@@ -10,7 +10,7 @@
  * Time: 9:45
  */
 
-namespace Keboola\GoodDataWriterBundle\Service;
+namespace Keboola\GoodDataWriter\Service;
 
 class Lock
 {
