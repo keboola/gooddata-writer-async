@@ -341,4 +341,27 @@ class Configuration
 		}
 		return false;
 	}
+
+
+	/**
+	 * @param string $key
+	 * @param string $value
+	 * @param null $protected
+	 */
+	public function setBucketAttribute($key, $value, $protected = null)
+	{
+		$this->_storageApi->setBucketAttribute($this->bucketId, $key, $value, $protected);
+	}
+
+
+	/**
+	 * Drop writer configuration from SAPI
+	 */
+	public function dropBucket()
+	{
+		foreach ($this->_storageApi->listTables($this->bucketId) as $table) {
+			$this->_storageApi->dropTable($table['id']);
+		}
+		$this->_storageApi->dropBucket($this->bucketId);
+	}
 }

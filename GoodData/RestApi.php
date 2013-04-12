@@ -28,6 +28,8 @@ class RestApi
 	const BACKOFF_INTERVAL = 60;
 
 
+	public $apiUrl;
+
 	/**
 	 * @var Client
 	 */
@@ -53,6 +55,7 @@ class RestApi
 				$apiUrl = 'https://' . $apiUrl;
 			}
 		}
+		$this->apiUrl = $apiUrl;
 
 		$this->_client = new Client($apiUrl, array(
 			'curl.options' => array(

@@ -3,6 +3,7 @@ namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\GoodDataWriter\Writer\JobExecutor;
+use Keboola\GoodDataWriter\Writer\SharedConfig;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -28,9 +29,11 @@ class WorkerDebugCommand extends ContainerAwareCommand
 	{
 		$log = $this->getContainer()->get('logger');
 		$mainConfig = $this->getContainer()->getParameter('gd_writer');
-		$sapiSharedConfig = new StorageApiClient($mainConfig['shared_sapi']['token'], $mainConfig['shared_sapi']['url']);
+		$sharedConfig = new SharedConfig(
+			new StorageApiClient($mainConfig['shared_sapi']['token'], $mainConfig['shared_sapi']['url'])
+		);
 
-		$executor = new JobExecutor($sapiSharedConfig, $log, $this->getContainer());
+		$executor = new JobExecutor($sharedConfig, $log, $this->getContainer());
 		$executor->runJob($input->getArgument('job'));
 
 	}

@@ -5,6 +5,7 @@ use Keboola\GoodDataWriter\Service\Lock,
 	Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\GoodDataWriter\Writer\JobExecutor,
 	Keboola\GoodDataWriter\Writer\Queue;
+use Keboola\GoodDataWriter\Writer\SharedConfig;
 use Monolog\Logger;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
@@ -23,9 +24,9 @@ class WorkerCommand extends ContainerAwareCommand
 	 */
 	protected $_queue;
 	/**
-	 * @var StorageApiClient
+	 * @var SharedConfig
 	 */
-	protected $_sapiSharedConfig;
+	protected $_sharedConfig;
 	/**
 	 * @var Logger
 	 */
@@ -56,7 +57,10 @@ class WorkerCommand extends ContainerAwareCommand
 			'dbname' => $mainConfig['db']['name']
 		));
 		$this->_queue = new Queue($this->_db);
-		$this->_sapiSharedConfig = new StorageApiClient($mainConfig['shared_sapi']['token'], $mainConfig['shared_sapi']['url']);
+
+		$this->_sharedConfig = new SharedConfig(
+			new StorageApiClient($mainConfig['shared_sapi']['token'], $mainConfig['shared_sapi']['url'])
+		);
 
 		$this->_output = $output;
 
@@ -105,7 +109,7 @@ class WorkerCommand extends ContainerAwareCommand
 	{
 		$this->_output->writeln('Executing job: ' . $jobId);
 
-		$executor = new JobExecutor($this->_sapiSharedConfig, $this->_log, $this->getContainer());
+		$executor = new JobExecutor($this->_sharedConfig, $this->_log, $this->getContainer());
 		$executor->runJob($jobId);
 	}
 

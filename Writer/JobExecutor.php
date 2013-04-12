@@ -6,15 +6,16 @@
 
 namespace Keboola\GoodDataWriter\Writer;
 
-use Keboola\GoodDataWriter\Exception\JobExecutorException,
-	Keboola\StorageApi\Client as StorageApiClient,
+use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
-	\Keboola\StorageApi\Table as StorageApiTable;
-use Keboola\GoodDataWriter\Exception\RestApiException;
-use Keboola\GoodDataWriter\Exception\UnauthorizedException;
-use Keboola\GoodDataWriter\GoodData\CLToolApi;
-use Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
-use Keboola\GoodDataWriter\GoodData\RestApi;
+	Keboola\StorageApi\Table as StorageApiTable,
+	Keboola\StorageApi\Exception as StorageApiException;
+use Keboola\GoodDataWriter\Exception\JobExecutorException,
+	Keboola\GoodDataWriter\Exception\RestApiException,
+	Keboola\GoodDataWriter\Exception\UnauthorizedException,
+	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
+use Keboola\GoodDataWriter\GoodData\RestApi,
+	Keboola\GoodDataWriter\GoodData\CLToolApi;
 use Monolog\Logger;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -22,11 +23,7 @@ class JobExecutor
 {
 	const APP_NAME = 'wr-gooddata';
 
-	const JOBS_TABLE_ID = 'in.c-wr-gooddata.jobs';
-	const PROJECTS_TABLE_ID = 'in.c-wr-gooddata.projects';
-	const USERS_TABLE_ID = 'in.c-wr-gooddata.users';
-	const PROJECTS_TO_DELETE_TABLE_ID = 'in.c-wr-gooddata.projects_to_delete';
-	const USERS_TO_DELETE_TABLE_ID = 'in.c-wr-gooddata.users_to_delete';
+
 
 	protected $_roles = array(
 		'admin' => 'adminRole',
@@ -36,9 +33,9 @@ class JobExecutor
 	);
 
 	/**
-	 * @var StorageApiClient
+	 * @var SharedConfig
 	 */
-	protected $_sapiSharedConfig;
+	protected $_sharedConfig;
 	/**
 	 * @var Logger
 	 */
@@ -51,7 +48,7 @@ class JobExecutor
 	/**
 	 * @var StorageApiClient
 	 */
-	protected $_sapiClient = null;
+	protected $_storageApiClient = null;
 	/**
 	 * @var ContainerInterface
 	 */
@@ -59,13 +56,13 @@ class JobExecutor
 
 
 	/**
-	 * @param StorageApiClient $sharedConfig
+	 * @param SharedConfig $sharedConfig
 	 * @param Logger $log
 	 * @param ContainerInterface $container
 	 */
-	public function __construct(StorageApiClient $sharedConfig, Logger $log, ContainerInterface $container)
+	public function __construct(SharedConfig $sharedConfig, Logger $log, ContainerInterface $container)
 	{
-		$this->_sapiSharedConfig = $sharedConfig;
+		$this->_sharedConfig = $sharedConfig;
 		$this->_log = $log;
 		$this->_container = $container;
 	}
@@ -78,26 +75,26 @@ class JobExecutor
 	 */
 	public function runJob($jobId)
 	{
-		$job = $this->_job = $this->_fetchJob($jobId);
+		$job = $this->_job = $this->_sharedConfig->fetchJob($jobId);
 
 		if (!$job) {
 			throw new JobExecutorException("Job $jobId not found");
 		}
 
 		try {
-			$this->_sapiClient = new StorageApiClient(
+			$this->_storageApiClient = new StorageApiClient(
 				$job['token'],
 				$job['sapiUrl'],
 				self::APP_NAME
 			);
-		} catch(\Keboola\StorageApi\Exception $e) {
+		} catch(StorageApiException $e) {
 			throw new JobExecutorException("Invalid token for job $jobId", 0, $e);
 		}
-		$this->_sapiClient->setRunId($jobId);
+		$this->_storageApiClient->setRunId($jobId);
 
 		$time = time();
 		// start work on job
-		$this->_updateJob($jobId, array(
+		$this->_sharedConfig->saveJob($jobId, array(
 			'status' => 'processing',
 			'startTime' => date('c', $time),
 		));
@@ -119,43 +116,10 @@ class JobExecutor
 			unset($result['response']['log']);
 		}
 		$jobInfo['result'] = json_encode($result);
-		$this->_updateJob($jobId, $jobInfo);
+		$this->_sharedConfig->saveJob($jobId, $jobInfo);
 	}
 
-	/**
-	 * @TODO duplicate in JobManager
-	 * @param $jobId
-	 * @return mixed
-	 */
-	protected function _fetchJob($jobId)
-	{
-		$csv = $this->_sapiSharedConfig->exportTable(
-			self::JOBS_TABLE_ID,
-			null,
-			array(
-				'whereColumn' => 'id',
-				'whereValues' => array($jobId),
-			)
-		);
 
-		$jobs = StorageApiClient::parseCsv($csv, true);
-		return reset($jobs);
-	}
-
-	/**
-	 * @TODO duplicate in JobManager
-	 * @param $jobId
-	 * @param $fields
-	 */
-	protected function _updateJob($jobId, $fields)
-	{
-		$jobsTable = new StorageApiTable($this->_sapiSharedConfig, self::JOBS_TABLE_ID);
-		$jobsTable->setHeader(array_merge(array('id'), array_keys($fields)));
-		$jobsTable->setFromArray(array(array_merge(array($jobId), $fields)));
-		$jobsTable->setPartial(true);
-		$jobsTable->setIncremental(true);
-		$jobsTable->save();
-	}
 
 	protected function _prepareSapiEventForJob($job)
 	{
@@ -178,7 +142,7 @@ class JobExecutor
 			'jobId' => $this->_job['id'],
 			'writerId' => $this->_job['writerId']
 		)));
-		$this->_sapiClient->createEvent($event);
+		$this->_storageApiClient->createEvent($event);
 
 		// convert priority
 		switch ($event->getType()) {
@@ -205,8 +169,8 @@ class JobExecutor
 	protected function _log($message, $priority, array $data)
 	{
 		$this->_log->log($priority, $message, array_merge($data, array(
-			'runId' => $this->_sapiClient->getRunId(),
-			'token' => $this->_sapiClient->getLogData(),
+			'runId' => $this->_storageApiClient->getRunId(),
+			'token' => $this->_storageApiClient->getLogData(),
 			'jobId' => $this->_job['id'],
 		)));
 	}
@@ -233,11 +197,26 @@ class JobExecutor
 		try {
 			$parameters = $this->_decodeParameters($job['parameters']);
 
-			$commandName = $job['command'];
-			if (!method_exists($this, $commandName)) {
+			$commandName = ucfirst($job['command']);
+			$commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
+			if (!class_exists($commandClass)) {
 				throw new JobExecutorException(sprintf('Command %s does not exist', $commandName));
 			}
-			$response = $this->$commandName($job, $parameters);
+
+			$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
+			$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
+			$mainConfig = $this->_container->getParameter('gd_writer');
+			$logUploader = $this->_container->get('syrup.monolog.s3_uploader');
+
+			$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
+
+			$restApi = new RestApi($backendUrl, $this->_log);
+
+			/**
+			 * @var \Keboola\GoodDataWriter\Job\GenericJob $command
+			 */
+			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $logUploader);
+			$response = $command->run($job, $parameters);
 
 			$duration = $time - time();
 			$sapiEvent
@@ -275,38 +254,6 @@ class JobExecutor
 		}
 	}
 
-	public function addProjectToConfiguration($pid, $accessToken, $backendUrl, $job)
-	{
-		$data = array(
-			'pid' => $pid,
-			'projectId' => $job['projectId'],
-			'writerId' => $job['writerId'],
-			'backendUrl' => $backendUrl,
-			'accessToken' => $accessToken,
-			'createdTime' => date('c')
-		);
-		$table = new StorageApiTable($this->_sapiSharedConfig, self::PROJECTS_TABLE_ID);
-		$table->setHeader(array_keys($data));
-		$table->setFromArray(array($data));
-		$table->setIncremental(true);
-		$table->save();
-	}
-
-	public function addUserToConfiguration($uri, $email, $job)
-	{
-		$data = array(
-			'uri' => $uri,
-			'projectId' => $job['projectId'],
-			'writerId' => $job['writerId'],
-			'email' => $email,
-			'createdTime' => date('c')
-		);
-		$table = new StorageApiTable($this->_sapiSharedConfig, self::USERS_TABLE_ID);
-		$table->setHeader(array_keys($data));
-		$table->setFromArray(array($data));
-		$table->setIncremental(true);
-		$table->save();
-	}
 
 
 	/**
@@ -325,107 +272,7 @@ class JobExecutor
 
 
 
-	protected function _prepareResult($jobId, $data = array(), $callsLog = null)
-	{
-		$logUploader = $this->_container->get('syrup.monolog.s3_uploader');
-		$logUrl = null;
-		if ($callsLog) {
-			$logUrl = $logUploader->uploadString('calls-' . $jobId, $callsLog);
-		}
 
-		if ($logUrl) {
-			$data['log'] = $logUrl;
-		}
-
-		return $data;
-	}
-
-
-	/**
-	 * @param $job
-	 * @param $params
-	 * @throws \Keboola\GoodDataWriter\Exception\JobExecutorException
-	 * @return array
-	 */
-	public function createWriter($job, $params)
-	{
-		if (empty($params['accessToken'])) {
-			throw new JobExecutorException("Parameter accessToken is missing");
-		}
-		if (empty($params['projectName'])) {
-			throw new JobExecutorException("Parameter projectName is missing");
-		}
-
-		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
-		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
-		$mainConfig = $this->_container->getParameter('gd_writer');
-		$mainConfig = empty($params['dev']) ? $mainConfig['gd']['prod'] : $mainConfig['gd']['dev'];
-
-
-		$gdWriteStartTime = date('c');
-		$username = sprintf($mainConfig['user_email'], $job['projectId'], $job['writerId']);
-		$password = md5(uniqid());
-		$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
-
-
-		$restApi = new RestApi($backendUrl, $this->_log);
-		$restApi->login($mainConfig['username'], $mainConfig['password']);
-		$projectPid = $restApi->createProject($params['projectName'], $params['accessToken']);
-		$userUri = $restApi->createUserInDomain($mainConfig['domain'], $username, $password, 'KBC', 'Writer', $mainConfig['sso_provider']);
-		$restApi->addUserToProject($userUri, $projectPid);
-
-		// Save data to configuration bucket
-		$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.pid', $projectPid);
-		$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.username', $username);
-		$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.password', $password, true);
-		$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.userUri', $userUri);
-
-		$this->addProjectToConfiguration($projectPid, $params['accessToken'], $backendUrl, $job);
-		$this->addUserToConfiguration($userUri, $username, $job);
-
-
-		return $this->_prepareResult($job['id'], array('pid' => $projectPid, 'gdWriteStartTime' => $gdWriteStartTime), $restApi->callsLog());
-	}
-
-
-	/**
-	 * @param $job
-	 * @param $params
-	 */
-	public function dropWriter($job, $params)
-	{
-		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
-		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
-
-		$configuration->prepareProjects();
-		$configuration->prepareUsers();
-
-		$firstLine = true;
-		foreach ($configuration->projectsCsv as $project) {
-			if (!$firstLine)
-				$this->_enqueueProjectToDelete($job['projectId'], $job['writerId'], $project[0], empty($params['dev']));
-			$firstLine = false;
-		}
-		$firstLine = true;
-		foreach ($configuration->usersCsv as $user) {
-			if (!$firstLine)
-				$this->_enqueueUserToDelete($job['projectId'], $job['writerId'], $user[1], $user[0], empty($params['dev']));
-			$firstLine = false;
-		}
-
-		if (isset($configuration->bucketInfo['gd']['pid'])) {
-			$this->_enqueueProjectToDelete($job['projectId'], $job['writerId'], $configuration->bucketInfo['gd']['pid'], empty($params['dev']));
-		}
-		if (isset($configuration->bucketInfo['gd']['userUri']) && isset($configuration->bucketInfo['gd']['username'])) {
-			$this->_enqueueUserToDelete($job['projectId'], $job['writerId'], $configuration->bucketInfo['gd']['userUri'],
-				$configuration->bucketInfo['gd']['username'], empty($params['dev']));
-		}
-
-		foreach ($this->_sapiClient->listTables($configuration->bucketId) as $table) {
-			$this->_sapiClient->dropTable($table['id']);
-		}
-		$this->_sapiClient->dropBucket($configuration->bucketId);
-	}
 
 
 	public function cloneProject($job, $params)
@@ -441,7 +288,7 @@ class JobExecutor
 		}
 
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
-		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
+		$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
 		$mainConfig = $this->_container->getParameter('gd_writer');
 		$mainConfig = empty($params['dev']) ? $mainConfig['gd']['prod'] : $mainConfig['gd']['dev'];
 
@@ -465,7 +312,7 @@ class JobExecutor
 			// Get user uri if not set
 			if (empty($configuration->bucketInfo['gd']['userUri'])) {
 				$userUri = $restApi->userUri($configuration->bucketInfo['gd']['username'], $mainConfig['domain']);
-				$this->_sapiClient->setBucketAttribute($configuration->bucketId, 'gd.userUri', $userUri);
+				$this->_storageApiClient->setBucketAttribute($configuration->bucketId, 'gd.userUri', $userUri);
 				$configuration->bucketInfo['gd']['userUri'] = $userUri;
 			}
 			$projectPid = $restApi->createProject($params['projectName'], $params['accessToken']);
@@ -500,7 +347,7 @@ class JobExecutor
 		}
 
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
-		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
+		$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
 		$mainConfig = $this->_container->getParameter('gd_writer');
 		$mainConfig = empty($params['dev']) ? $mainConfig['gd']['prod'] : $mainConfig['gd']['dev'];
 
@@ -552,7 +399,7 @@ class JobExecutor
 		}
 
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
-		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
+		$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
 
 		if (empty($configuration->bucketInfo['gd']['userUri']) || empty($configuration->bucketInfo['gd']['pid'])
 			|| empty($configuration->bucketInfo['gd']['username']) || empty($configuration->bucketInfo['gd']['password'])) {
@@ -603,7 +450,7 @@ class JobExecutor
 		}
 
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
-		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
+		$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
 		$mainConfig = $this->_container->getParameter('gd_writer');
 		$mainConfig = empty($params['dev']) ? $mainConfig['gd']['prod'] : $mainConfig['gd']['dev'];
 
@@ -642,7 +489,7 @@ class JobExecutor
 		}
 
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
-		$configuration = new Configuration($job['writerId'], $this->_sapiClient, $tmpDir);
+		$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
 
 		if (empty($configuration->bucketInfo['gd']['userUri']) || empty($configuration->bucketInfo['gd']['pid'])
 			|| empty($configuration->bucketInfo['gd']['username']) || empty($configuration->bucketInfo['gd']['password'])) {
@@ -695,51 +542,4 @@ class JobExecutor
 	}
 
 
-	/**
-	 * @param $projectId
-	 * @param $writerId
-	 * @param $pid
-	 * @param int $dev
-	 */
-	private function _enqueueProjectToDelete($projectId, $writerId, $pid, $dev = 0)
-	{
-		$data = array(
-			'pid' => $pid,
-			'projectId' => $projectId,
-			'writerId' => $writerId,
-			'deleteDate' => date('c', strtotime('+30 days')),
-			'dev' => $dev
-		);
-		$table = new StorageApiTable($this->_sapiSharedConfig, self::PROJECTS_TO_DELETE_TABLE_ID, null, 'pid');
-		$table->setHeader(array_keys($data));
-		$table->setFromArray(array($data));
-		$table->setPartial(true);
-		$table->setIncremental(true);
-		$table->save();
-	}
-
-	/**
-	 * @param $projectId
-	 * @param $writerId
-	 * @param $uri
-	 * @param $email
-	 * @param int $dev
-	 */
-	private function _enqueueUserToDelete($projectId, $writerId, $uri, $email, $dev = 0)
-	{
-		$data = array(
-			'uri' => $uri,
-			'projectId' => $projectId,
-			'writerId' => $writerId,
-			'email' => $email,
-			'deleteDate' => date('c', strtotime('+30 days')),
-			'dev' => $dev
-		);
-		$table = new StorageApiTable($this->_sapiSharedConfig, self::USERS_TO_DELETE_TABLE_ID, null, 'uri');
-		$table->setHeader(array_keys($data));
-		$table->setFromArray(array($data));
-		$table->setPartial(true);
-		$table->setIncremental(true);
-		$table->save();
-	}
 }
