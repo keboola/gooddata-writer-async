@@ -308,13 +308,6 @@ class CLToolApi
 	public function loadData($pid, $xmlFile, $csvFile, $incremental = FALSE)
 	{
 		if (file_exists($xmlFile)) {
-
-			// Download csv first if url is given
-			if (!is_file($csvFile)) {
-				exec('curl -s ' . escapeshellarg($csvFile) . ' > ' . $xmlFile . '.csv');
-				$csvFile = $xmlFile . '.csv';
-			}
-
 			if (file_exists($csvFile)) {
 				libxml_use_internal_errors(TRUE);
 				$sxml = simplexml_load_file($xmlFile);
@@ -327,7 +320,7 @@ class CLToolApi
 
 					$this->call($command);
 
-					return array('csvFile' => $csvFile, 'gdWriteBytes' => filesize($csvFile));
+					return array('gdWriteBytes' => filesize($csvFile));
 
 				} else {
 					$errors = '';

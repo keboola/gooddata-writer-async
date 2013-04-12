@@ -9,7 +9,7 @@ namespace Keboola\GoodDataWriter\Job;
 use Keboola\GoodDataWriter\Exception\JobRunException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
 
-class CreateDate extends GenericJob
+class ExecuteReports extends GenericJob
 {
 	/**
 	 * @param $job
@@ -19,12 +19,6 @@ class CreateDate extends GenericJob
 	 */
 	public function run($job, $params)
 	{
-		if (empty($job['dataset'])) {
-			throw new JobRunException("Parameter 'dataset' is missing");
-		}
-		if (!isset($params['includeTime'])) {
-			throw new JobRunException("Parameter 'includeTime' is missing");
-		}
 		if (empty($job['pid'])) {
 			throw new JobRunException("Parameter 'pid' is missing");
 		}
@@ -34,7 +28,7 @@ class CreateDate extends GenericJob
 		$gdWriteStartTime = date('c');
 		try {
 			$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$this->clToolApi->createDate($job['pid'], $job['dataset'], $params['includeTime']);
+			$this->clToolApi->executeReports($job['pid']);
 
 			return $this->_prepareResult($job['id'], array(
 				'debug' => $this->clToolApi->debugLogUrl,

@@ -9,7 +9,7 @@ namespace Keboola\GoodDataWriter\Job;
 use Keboola\GoodDataWriter\Exception\JobRunException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
 
-class CreateDate extends GenericJob
+class CreateDataset extends GenericJob
 {
 	/**
 	 * @param $job
@@ -19,22 +19,25 @@ class CreateDate extends GenericJob
 	 */
 	public function run($job, $params)
 	{
-		if (empty($job['dataset'])) {
-			throw new JobRunException("Parameter 'dataset' is missing");
-		}
-		if (!isset($params['includeTime'])) {
-			throw new JobRunException("Parameter 'includeTime' is missing");
-		}
 		if (empty($job['pid'])) {
 			throw new JobRunException("Parameter 'pid' is missing");
 		}
+		if (empty($job['xmlFile'])) {
+			throw new JobRunException("Parameter 'xmlFile' is missing");
+		}
 		$this->configuration->checkGoodDataSetup();
 
+		$xmlFile = $job['xmlFile'];
+		if (!is_file($xmlFile)) {
+			$xmlFilePath = tempnam(sys_get_temp_dir(), 'xml');
+			exec('curl -s ' . escapeshellarg($xmlFile) . ' > ' . $xmlFilePath);
+			$xmlFile = $xmlFilePath;
+		}
 
 		$gdWriteStartTime = date('c');
 		try {
 			$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$this->clToolApi->createDate($job['pid'], $job['dataset'], $params['includeTime']);
+			$this->clToolApi->createDataset($job['pid'], $xmlFile);
 
 			return $this->_prepareResult($job['id'], array(
 				'debug' => $this->clToolApi->debugLogUrl,

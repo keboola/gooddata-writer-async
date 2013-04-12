@@ -567,6 +567,73 @@ class GoodDataWriter extends Component
 
 
 	/***********************
+	 * @section Datasets
+	 */
+
+	public function postDateDimensions()
+	{
+		$command = 'createDate';
+		$createdTime = time();
+
+
+		// Init parameters
+		if (empty($params['name'])) {
+			throw new WrongParametersException("Parameter 'name' is missing");
+		}
+		if (empty($params['lastName'])) {
+			throw new WrongParametersException("Parameter 'lastName' is missing");
+		}
+		if (empty($params['email'])) {
+			throw new WrongParametersException("Parameter 'email' is missing");
+		}
+		if (empty($params['password'])) {
+			throw new WrongParametersException("Parameter 'password' is missing");
+		}
+		if (strlen($params['password']) < 7) {
+			throw new WrongParametersException("Parameter 'password' must have at least seven characters");
+		}
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+		$this->configuration->prepareUsers();
+
+
+		$jobInfo = $this->_createJob(array(
+			'command' => $command,
+			'createdTime' => date('c', $createdTime),
+			'parameters' => $params
+		));
+
+		$this->_queue->enqueueJob($jobInfo);
+
+
+		if (empty($params['wait'])) {
+			return array('job' => (int)$jobInfo['id']);
+		} else {
+			$jobId = $jobInfo['id'];
+			$jobFinished = false;
+			do {
+				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
+				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep(30);
+			} while(!$jobFinished);
+
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
+				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			} else {
+				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+			}
+		}
+	}
+
+
+
+
+
+	/***********************
 	 * @section Jobs
 	 */
 
