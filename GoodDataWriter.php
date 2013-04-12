@@ -8,10 +8,11 @@
 
 namespace Keboola\GoodDataWriter;
 
+use Keboola\GoodDataWriter\GoodData\RestApi;
+use Monolog\Logger;
 use Syrup\ComponentBundle\Component\Component;
 use Symfony\Component\HttpFoundation\Request;
 use Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\GoodDataWriter\Writer\JobManager,
 	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Config\Reader,
@@ -24,23 +25,16 @@ class GoodDataWriter extends Component
 	protected $_name = 'gooddata';
 	protected $_prefix = 'wr';
 
-	protected $_roles = array(
-		'admin' => 'adminRole',
-		'editor' => 'editorRole',
-		'readOnly' => 'readOnlyUserRole',
-		'dashboardOnly' => 'dashboardOnlyRole'
-	);
-
 
 	/**
 	 * @var Configuration
 	 */
 	public $configuration;
-
 	/**
-	 * @var JobManager
+	 * @var Writer\SharedConfig
 	 */
-	private $_jobManager;
+	public $sharedConfig;
+
 	/**
 	 * @var array
 	 */
@@ -71,8 +65,6 @@ class GoodDataWriter extends Component
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
 		$this->_mainConfig = $this->_container->getParameter('gd_writer');
 		$this->_logUploader = $this->_container->get('syrup.monolog.s3_uploader');
-		$sharedStorageApi = new StorageApiClient($this->_mainConfig['shared_sapi']['token'], $this->_mainConfig['shared_sapi']['url']);
-
 
 		$this->configuration = new Configuration($params['writerId'], $this->_storageApi, $tmpDir);
 
@@ -83,12 +75,8 @@ class GoodDataWriter extends Component
 			'dbname' => $this->_mainConfig['db']['name']
 		)));
 
-		$this->_jobManager = new JobManager(
-			$this->configuration,
-			$this->_storageApi,
-			$sharedStorageApi,
-			$this->_log
-		);
+		$sharedStorageApi = new StorageApiClient($this->_mainConfig['shared_sapi']['token'], $this->_mainConfig['shared_sapi']['url']);
+		$this->sharedConfig = new Writer\SharedConfig($sharedStorageApi);
 	}
 
 
@@ -167,7 +155,7 @@ class GoodDataWriter extends Component
 		$projectName = sprintf($mainConfig['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 
 
-		$jobInfo = $this->_jobManager->createJob(array(
+		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
@@ -198,7 +186,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		$jobInfo = $this->_jobManager->createJob(array(
+		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
@@ -270,7 +258,7 @@ class GoodDataWriter extends Component
 		$this->configuration->checkGoodDataSetup();
 
 
-		$jobInfo = $this->_jobManager->createJob(array(
+		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
@@ -364,8 +352,9 @@ class GoodDataWriter extends Component
 		if (empty($params['role'])) {
 			throw new WrongParametersException("Parameter 'role' is missing");
 		}
-		if (!in_array($params['role'], array_keys($this->_roles))) {
-			throw new WrongParametersException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', array_keys($this->_roles)));
+		$allowedRoles = array_keys(RestApi::$userRoles);
+		if (!in_array($params['role'], $allowedRoles)) {
+			throw new WrongParametersException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
 		}
 		$this->_init($params);
 		if (!$this->configuration->bucketId) {
@@ -375,12 +364,12 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->checkProject($params['pid'])) {
 			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
 		}
-		if (!$this->configuration->checkUser($params['email'])) {
+		if (!$this->configuration->user($params['email'])) {
 			throw new WrongParametersException(sprintf("User '%s' is not configured for the writer", $params['email']));
 		}
 
 
-		$jobInfo = $this->_jobManager->createJob(array(
+		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params
@@ -430,8 +419,9 @@ class GoodDataWriter extends Component
 		if (empty($params['role'])) {
 			throw new WrongParametersException("Parameter 'role' is missing");
 		}
-		if (!in_array($params['role'], array_keys($this->_roles))) {
-			throw new WrongParametersException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', array_keys($this->_roles)));
+		$allowedRoles = array_keys(RestApi::$userRoles);
+		if (!in_array($params['role'], $allowedRoles)) {
+			throw new WrongParametersException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
 		}
 		$this->_init($params);
 		if (!$this->configuration->bucketId) {
@@ -443,7 +433,7 @@ class GoodDataWriter extends Component
 		$this->configuration->prepareProjectUsers();
 
 
-		$jobInfo = $this->_jobManager->createJob(array(
+		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params
@@ -544,7 +534,7 @@ class GoodDataWriter extends Component
 		$this->configuration->prepareUsers();
 
 
-		$jobInfo = $this->_jobManager->createJob(array(
+		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params
@@ -596,13 +586,64 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'id' is missing");
 		}
 
-		$job = $this->_jobManager->fetchJob($params['id']);
+		$job = $this->sharedConfig->fetchJob($params['id']);
 		if ($job['projectId'] != $this->configuration->projectId || $job['writerId'] != $this->configuration->writerId) {
 			throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['id'], $this->configuration->writerId));
 		}
-		$job = $this->_jobManager->jobToApiResponse($job);
+		$job = $this->sharedConfig->jobToApiResponse($job);
 		return array('job' => $job);
 	}
 
+
+
+
+	private function _createJob($params)
+	{
+		$runId = $this->_storageApi->getRunId();
+		$jobId = $this->_storageApi->generateId();
+		$jobInfo = array(
+			'id' => $jobId,
+			'runId' => $runId,
+			'projectId' => $this->configuration->projectId,
+			'writerId' => $this->configuration->writerId,
+			'sapiUrl' => $this->_storageApi->getApiUrl(),
+			'token' => $this->_storageApi->token,
+			'tokenId' => $this->configuration->tokenInfo['id'],
+			'tokenDesc' => $this->configuration->tokenInfo['description'],
+			'tokenOwnerName' => $this->configuration->tokenInfo['owner']['name'],
+			'initializedBy' => null,
+			'createdTime' => null,
+			'startTime' => null,
+			'endTime' => null,
+			'backendUrl' => $this->configuration->backendUrl,
+			'pid' => null,
+			'command' => null,
+			'dataset' => null,
+			'xmlFile' => null,
+			'csvFile' => null,
+			'parameters' => null,
+			'result' => null,
+			'gdWriteStartTime' => null,
+			'gdWriteBytes' => null,
+			'status' => 'waiting',
+			'log' => null
+		);
+		$jobInfo = array_merge($jobInfo, $params);
+		$this->sharedConfig->saveJob($jobId, $jobInfo);
+
+		$message = "Writer job $jobId created manually";
+		$results = array('jobId' => $jobId);
+		$this->sharedConfig->logEvent($this->configuration->writerId, $runId, $message, $params, $results);
+
+		$this->_log->log(Logger::INFO, $message, array(
+			'token' => $this->_storageApi->getLogData(),
+			'configurationId' => $this->configuration->writerId,
+			'runId' => $runId,
+			'params' => $params,
+			'results' => $results
+		));
+
+		return $jobInfo;
+	}
 
 }

@@ -7,10 +7,12 @@
 namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\StorageApi\Client as StorageApiClient,
-	\Keboola\StorageApi\Table as StorageApiTable;
+	Keboola\StorageApi\Event as StorageApiEvent,
+	Keboola\StorageApi\Table as StorageApiTable;
 
 class SharedConfig
 {
+	const WRITER_NAME = 'gooddata_writer';
 	const JOBS_TABLE_ID = 'in.c-wr-gooddata.jobs';
 	const PROJECTS_TABLE_ID = 'in.c-wr-gooddata.projects';
 	const USERS_TABLE_ID = 'in.c-wr-gooddata.users';
@@ -55,12 +57,60 @@ class SharedConfig
 	 */
 	public function saveJob($jobId, $fields)
 	{
+		if (isset($fields['parameters'])) {
+			$encodedParameters = json_encode($fields['parameters']);
+			if ($encodedParameters) {
+				$fields['parameters'] = $encodedParameters;
+			}
+		}
+		if (isset($fields['result'])) {
+			$encodedResult = json_encode($fields['result']);
+			if ($encodedResult) {
+				$fields['result'] = $encodedResult;
+			}
+		}
+
 		$jobsTable = new StorageApiTable($this->_storageApiClient, self::JOBS_TABLE_ID);
 		$jobsTable->setHeader(array_merge(array('id'), array_keys($fields)));
 		$jobsTable->setFromArray(array(array_merge(array($jobId), $fields)));
 		$jobsTable->setPartial(true);
 		$jobsTable->setIncremental(true);
 		$jobsTable->save();
+	}
+
+	public function jobToApiResponse(array $job)
+	{
+		$result = json_decode($job['result'], true);
+		if (!$result) $result = $job['result'];
+
+		$params = json_decode($job['parameters'], true);
+		if (!$params) $params = $job['parameters'];
+
+		return array(
+			'id' => (int) $job['id'],
+			'runId' => (int) $job['runId'],
+			'projectId' => (int) $job['projectId'],
+			'writerId' => (string) $job['writerId'],
+			'token' => array(
+				'id' => (int) $job['tokenId'],
+				'description' => $job['tokenDesc'],
+			),
+			'initializedBy' => $job['initializedBy'],
+			'createdTime' => $job['createdTime'],
+			'startTime' => !empty($job['startTime']) ? $job['startTime'] : null,
+			'endTime' => !empty($job['endTime']) ? $job['endTime'] : null,
+			'command' => $job['command'],
+			'pid' => $job['pid'],
+			'dataset' => $job['dataset'],
+			'xmlFile' => $job['xmlFile'],
+			'csvFile' => $job['csvFile'],
+			'parameters' => $params,
+			'result' => $result,
+			'gdWriteStartTime' => $job['gdWriteStartTime'],
+			'gdWriteBytes' => $job['gdWriteBytes'],
+			'status' => $job['status'],
+			'log' => $job['log'],
+		);
 	}
 
 
@@ -146,5 +196,19 @@ class SharedConfig
 		$table->setPartial(true);
 		$table->setIncremental(true);
 		$table->save();
+	}
+
+
+	public function logEvent($writerId, $runId, $message, $params = array(), $results = array())
+	{
+		$event = new StorageApiEvent();
+		$event
+			->setComponent(self::WRITER_NAME)
+			->setConfigurationId($writerId)
+			->setRunId($runId)
+			->setParams($params)
+			->setResults($results)
+			->setMessage($message);
+		$this->_storageApiClient->createEvent($event);
 	}
 }

@@ -31,12 +31,16 @@ abstract class GenericJob
 	 */
 	public $restApi;
 	/**
+	 * @var CLToolApi
+	 */
+	public $clToolApi;
+	/**
 	 * @var \Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader
 	 */
 	public $logUploader;
 
 
-	public function __construct($configuration, $mainConfig, $sharedConfig, $restApi, $logUploader)
+	public function __construct($configuration, $mainConfig, $sharedConfig, $restApi, $clToolApi, $logUploader)
 	{
 		$this->configuration = $configuration;
 		$this->mainConfig = $mainConfig;
@@ -44,6 +48,7 @@ abstract class GenericJob
 		$this->logUploader = $logUploader;
 
 		$this->restApi = $restApi;
+		$this->clToolApi = $clToolApi;
 	}
 
 

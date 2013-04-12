@@ -135,6 +135,7 @@ class Configuration
 	{
 		$valid = !empty($this->bucketInfo['gd']['pid'])
 			&& !empty($this->bucketInfo['gd']['username'])
+			&& !empty($this->bucketInfo['gd']['userUri'])
 			&& !empty($this->bucketInfo['gd']['password']);
 		if (!$valid) {
 			throw new WrongConfigurationException('Writer is missing GoodData configuration');

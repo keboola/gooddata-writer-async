@@ -30,6 +30,13 @@ class RestApi
 
 	public $apiUrl;
 
+	public static $userRoles = array(
+		'admin' => 'adminRole',
+		'editor' => 'editorRole',
+		'readOnly' => 'readOnlyUserRole',
+		'dashboardOnly' => 'dashboardOnlyRole'
+	);
+
 	/**
 	 * @var Client
 	 */
