@@ -10,7 +10,7 @@ use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Exception as StorageApiException;
-use Keboola\GoodDataWriter\Exception\JobExecutorException;
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\GoodData\CLToolApi;
 use Monolog\Logger;
@@ -60,14 +60,14 @@ class JobExecutor
 	 * Job execution
 	 * Performs execution of job tasks and logging
 	 * @param $jobId
-	 * @throws JobExecutorException
+	 * @throws WrongConfigurationException
 	 */
 	public function runJob($jobId)
 	{
 		$job = $this->_job = $this->_sharedConfig->fetchJob($jobId);
 
 		if (!$job) {
-			throw new JobExecutorException("Job $jobId not found");
+			throw new WrongConfigurationException("Job $jobId not found");
 		}
 
 		try {
@@ -77,7 +77,7 @@ class JobExecutor
 				self::APP_NAME
 			);
 		} catch(StorageApiException $e) {
-			throw new JobExecutorException("Invalid token for job $jobId", 0, $e);
+			throw new WrongConfigurationException("Invalid token for job $jobId", 0, $e);
 		}
 		$this->_storageApiClient->setRunId($jobId);
 
@@ -167,7 +167,7 @@ class JobExecutor
 	/**
 	 * Excecute task and returns task execution result
 	 * @param $job
-	 * @throws JobExecutorException
+	 * @throws WrongConfigurationException
 	 * @return array
 	 */
 	protected function _executeJob($job)
@@ -189,7 +189,7 @@ class JobExecutor
 			$commandName = ucfirst($job['command']);
 			$commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
 			if (!class_exists($commandClass)) {
-				throw new JobExecutorException(sprintf('Command %s does not exist', $commandName));
+				throw new WrongConfigurationException(sprintf('Command %s does not exist', $commandName));
 			}
 
 			$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
@@ -203,7 +203,7 @@ class JobExecutor
 
 			$clToolApi = new CLToolApi($this->_log);
 			$clToolApi->tmpDir = $tmpDir;
-			$clToolApi->clToolPath = $this->_container->get('kernel')->getRootDir . '/vendor/keboola/gooddata-writer/GoodData/gdi.sh';
+			$clToolApi->clToolPath = $this->_container->get('kernel')->getRootDir() . '/vendor/keboola/gooddata-writer/GoodData/gdi.sh';
 			$clToolApi->jobId = $job['id'];
 			$clToolApi->s3uploader = $this->_container->get('syrup.monolog.s3_uploader');
 			if ($backendUrl) $clToolApi->setBackendUrl($backendUrl);
@@ -233,7 +233,7 @@ class JobExecutor
 			$result['duration'] = $duration;
 			return $result;
 
-		} catch (JobExecutorException $e) {
+		} catch (WrongConfigurationException $e) {
 			$duration = $time - time();
 
 			$sapiEvent
@@ -254,7 +254,7 @@ class JobExecutor
 
 	/**
 	 * @param $paramsString
-	 * @throws JobExecutorException
+	 * @throws WrongConfigurationException
 	 * @return mixed
 	 */
 	private function _decodeParameters($paramsString)
@@ -262,7 +262,7 @@ class JobExecutor
 		try {
 			return \Zend_Json::decode($paramsString);
 		} catch(\Zend_Json_Exception $e) {
-			throw new JobExecutorException("Params decoding failed.", 0, $e);
+			throw new WrongConfigurationException("Params decoding failed.", 0, $e);
 		}
 	}
 

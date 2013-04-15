@@ -6,14 +6,14 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\JobRunException;
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 
 class DropWriter extends GenericJob
 {
 	/**
 	 * @param $job
 	 * @param $params
-	 * @throws JobRunException
+	 * @throws WrongConfigurationException
 	 * @return array
 	 */
 	public function run($job, $params)

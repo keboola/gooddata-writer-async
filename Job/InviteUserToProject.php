@@ -6,9 +6,9 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\JobRunException,
-	Keboola\GoodDataWriter\Exception\RestApiException,
-	Keboola\GoodDataWriter\Exception\UnauthorizedException;
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
+	Keboola\GoodDataWriter\GoodData\RestApiException,
+	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class InviteUserToProject extends GenericJob
@@ -16,22 +16,22 @@ class InviteUserToProject extends GenericJob
 	/**
 	 * @param $job
 	 * @param $params
-	 * @throws JobRunException
+	 * @throws WrongConfigurationException
 	 * @return array
 	 */
 	public function run($job, $params)
 	{
 		if (empty($params['email'])) {
-			throw new JobRunException("Parameter 'email' is missing");
+			throw new WrongConfigurationException("Parameter 'email' is missing");
 		}
 		if (empty($params['role'])) {
-			throw new JobRunException("Parameter 'role' is missing");
+			throw new WrongConfigurationException("Parameter 'role' is missing");
 		}
 		$this->configuration->checkGoodDataSetup();
 
 		if (empty($params['pid'])) {
 			if (empty($this->configuration->bucketInfo['gd']['pid'])) {
-				throw new JobRunException("Parameter 'pid' is missing and writer does not have primary project");
+				throw new WrongConfigurationException("Parameter 'pid' is missing and writer does not have primary project");
 			}
 			$params['pid'] = $this->configuration->bucketInfo['gd']['pid'];
 		}
@@ -49,7 +49,7 @@ class InviteUserToProject extends GenericJob
 			), $this->restApi->callsLog());
 
 		} catch (UnauthorizedException $e) {
-			throw new JobRunException('Login failed');
+			throw new WrongConfigurationException('Login failed');
 		} catch (RestApiException $e) {
 			return $this->_prepareResult($job['id'], array(
 				'status' => 'error',

@@ -29,7 +29,7 @@
 	"require": {
 		"php": ">=5.3.5",
 		"emagister/zendframework1": "1.*",
-		"gooddata/gooddata-cl": "1.2.67"
+		"gooddata/gooddata-cl": "1.2.*"
 	},
 	"require-dev": {
 		"syrup/component-bundle": "1.0.*",

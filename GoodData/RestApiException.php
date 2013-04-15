@@ -1,6 +1,6 @@
 <?php
 
-namespace Keboola\GoodDataWriter\Exception;
+namespace Keboola\GoodDataWriter\GoodData;
 
 class RestApiException extends \Exception
 {

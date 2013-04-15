@@ -334,7 +334,7 @@ class GoodDataWriter extends Component
 	 * @return array
 	 * @throws Exception\WrongConfigurationException
 	 * @throws Exception\WrongParametersException
-	 * @throws \Exception|Exception\RestApiException
+	 * @throws \Exception|GoodData\RestApiException
 	 */
 	public function postProjectUsers($params)
 	{
@@ -404,7 +404,7 @@ class GoodDataWriter extends Component
 	 * @return array
 	 * @throws Exception\WrongConfigurationException
 	 * @throws Exception\WrongParametersException
-	 * @throws \Exception|Exception\RestApiException
+	 * @throws \Exception|GoodData\RestApiException
 	 */
 	public function postProjectInvitations($params)
 	{
@@ -502,7 +502,7 @@ class GoodDataWriter extends Component
 	 * @param $params
 	 * @throws Exception\WrongConfigurationException
 	 * @throws Exception\WrongParametersException
-	 * @throws \Exception|Exception\RestApiException
+	 * @throws \Exception|GoodData\RestApiException
 	 * @return array
 	 */
 	public function postUsers($params)

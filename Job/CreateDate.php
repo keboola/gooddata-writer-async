@@ -6,7 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\JobRunException,
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
 
 class CreateDate extends GenericJob
@@ -14,19 +14,19 @@ class CreateDate extends GenericJob
 	/**
 	 * @param $job
 	 * @param $params
-	 * @throws JobRunException
+	 * @throws WrongConfigurationException
 	 * @return array
 	 */
 	public function run($job, $params)
 	{
 		if (empty($job['dataset'])) {
-			throw new JobRunException("Parameter 'dataset' is missing");
+			throw new WrongConfigurationException("Parameter 'dataset' is missing");
 		}
 		if (!isset($params['includeTime'])) {
-			throw new JobRunException("Parameter 'includeTime' is missing");
+			throw new WrongConfigurationException("Parameter 'includeTime' is missing");
 		}
 		if (empty($job['pid'])) {
-			throw new JobRunException("Parameter 'pid' is missing");
+			throw new WrongConfigurationException("Parameter 'pid' is missing");
 		}
 		$this->configuration->checkGoodDataSetup();
 

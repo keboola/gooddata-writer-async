@@ -6,23 +6,23 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\JobRunException;
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 
 class CreateWriter extends GenericJob
 {
 	/**
 	 * @param $job
 	 * @param $params
-	 * @throws JobRunException
+	 * @throws WrongConfigurationException
 	 * @return array
 	 */
 	public function run($job, $params)
 	{
 		if (empty($params['accessToken'])) {
-			throw new JobRunException("Parameter accessToken is missing");
+			throw new WrongConfigurationException("Parameter accessToken is missing");
 		}
 		if (empty($params['projectName'])) {
-			throw new JobRunException("Parameter projectName is missing");
+			throw new WrongConfigurationException("Parameter projectName is missing");
 		}
 
 		$env = empty($params['dev']) ? 'prod' :'dev';

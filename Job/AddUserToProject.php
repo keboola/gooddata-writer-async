@@ -6,9 +6,9 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\JobRunException,
-	Keboola\GoodDataWriter\Exception\RestApiException,
-	Keboola\GoodDataWriter\Exception\UnauthorizedException;
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
+	Keboola\GoodDataWriter\GoodData\RestApiException,
+	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class AddUserToProject extends GenericJob
@@ -16,19 +16,19 @@ class AddUserToProject extends GenericJob
 	/**
 	 * @param $job
 	 * @param $params
-	 * @throws JobRunException
+	 * @throws WrongConfigurationException
 	 * @return array
 	 */
 	public function run($job, $params)
 	{
 		if (empty($params['pid'])) {
-			throw new JobRunException("Parameter 'pid' is missing");
+			throw new WrongConfigurationException("Parameter 'pid' is missing");
 		}
 		if (empty($params['email'])) {
-			throw new JobRunException("Parameter 'email' is missing");
+			throw new WrongConfigurationException("Parameter 'email' is missing");
 		}
 		if (empty($params['role'])) {
-			throw new JobRunException("Parameter 'role' is missing");
+			throw new WrongConfigurationException("Parameter 'role' is missing");
 		}
 
 		$env = empty($params['dev']) ? 'prod' :'dev';
@@ -42,7 +42,7 @@ class AddUserToProject extends GenericJob
 
 			$user = $this->configuration->user($params['email']);
 			if (!$user) {
-				throw new JobRunException("User is missing from configuration");
+				throw new WrongConfigurationException("User is missing from configuration");
 			}
 
 			if ($user['uri']) {
@@ -51,7 +51,7 @@ class AddUserToProject extends GenericJob
 				$userUri = $this->restApi->userUri($params['email'], $mainConfig['domain']);
 				$this->configuration->saveUserToConfiguration($params['email'], $userUri);
 				if (!$userUri) {
-					throw new JobRunException(sprintf("User '%s' does not exist in domain", $params['email']));
+					throw new WrongConfigurationException(sprintf("User '%s' does not exist in domain", $params['email']));
 				}
 			}
 
@@ -65,7 +65,7 @@ class AddUserToProject extends GenericJob
 			), $this->restApi->callsLog());
 
 		} catch (UnauthorizedException $e) {
-			throw new JobRunException('Login failed');
+			throw new WrongConfigurationException('Login failed');
 		} catch (RestApiException $e) {
 			return $this->_prepareResult($job['id'], array(
 				'status' => 'error',

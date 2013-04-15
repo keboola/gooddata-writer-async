@@ -6,7 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\JobRunException,
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
 
 class UpdateDataset extends GenericJob
@@ -14,19 +14,19 @@ class UpdateDataset extends GenericJob
 	/**
 	 * @param $job
 	 * @param $params
-	 * @throws JobRunException
+	 * @throws WrongConfigurationException
 	 * @return array
 	 */
 	public function run($job, $params)
 	{
 		if (empty($job['pid'])) {
-			throw new JobRunException("Parameter 'pid' is missing");
+			throw new WrongConfigurationException("Parameter 'pid' is missing");
 		}
 		if (empty($job['xmlFile'])) {
-			throw new JobRunException("Parameter 'xmlFile' is missing");
+			throw new WrongConfigurationException("Parameter 'xmlFile' is missing");
 		}
 		if (!isset($params['updateAll'])) {
-			throw new JobRunException("Parameter 'updateAll' is missing");
+			throw new WrongConfigurationException("Parameter 'updateAll' is missing");
 		}
 		$this->configuration->checkGoodDataSetup();
 

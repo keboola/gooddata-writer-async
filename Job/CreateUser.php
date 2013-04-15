@@ -6,31 +6,31 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\JobRunException,
-	Keboola\GoodDataWriter\Exception\RestApiException,
-	Keboola\GoodDataWriter\Exception\UnauthorizedException;
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
+	Keboola\GoodDataWriter\GoodData\RestApiException,
+	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
 class CreateUser extends GenericJob
 {
 	/**
 	 * @param $job
 	 * @param $params
-	 * @throws JobRunException
+	 * @throws WrongConfigurationException
 	 * @return array
 	 */
 	public function run($job, $params)
 	{
 		if (empty($params['email'])) {
-			throw new JobRunException("Parameter 'email' is missing");
+			throw new WrongConfigurationException("Parameter 'email' is missing");
 		}
 		if (empty($params['password'])) {
-			throw new JobRunException("Parameter 'password' is missing");
+			throw new WrongConfigurationException("Parameter 'password' is missing");
 		}
 		if (empty($params['firstName'])) {
-			throw new JobRunException("Parameter 'firstName' is missing");
+			throw new WrongConfigurationException("Parameter 'firstName' is missing");
 		}
 		if (empty($params['lastName'])) {
-			throw new JobRunException("Parameter 'lastName' is missing");
+			throw new WrongConfigurationException("Parameter 'lastName' is missing");
 		}
 
 		$env = empty($params['dev']) ? 'prod' :'dev';
@@ -53,7 +53,7 @@ class CreateUser extends GenericJob
 			), $this->restApi->callsLog());
 
 		} catch (UnauthorizedException $e) {
-			throw new JobRunException('Login failed');
+			throw new WrongConfigurationException('Login failed');
 		} catch (RestApiException $e) {
 			return $this->_prepareResult($job['id'], array(
 				'status' => 'error',

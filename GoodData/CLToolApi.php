@@ -9,11 +9,7 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Monolog\Logger;
-
-class CLToolApiErrorException extends \Exception
-{
-
-}
+use Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
 
 class CLToolApi
 {
@@ -72,13 +68,10 @@ class CLToolApi
 
 	/**
 	 * @param Logger $log
-	 * @param $username
-	 * @param $password
 	 */
-	public function __construct(Logger $log, $username = NULL, $password = NULL)
+	public function __construct(Logger $log)
 	{
 		$this->_log = $log;
-		$this->setCredentials($username, $password);
 	}
 
 	public function setCredentials($username, $password)

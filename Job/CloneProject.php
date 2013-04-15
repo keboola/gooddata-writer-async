@@ -6,28 +6,28 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\JobRunException,
-	Keboola\GoodDataWriter\Exception\RestApiException,
-	Keboola\GoodDataWriter\Exception\UnauthorizedException;
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
+	Keboola\GoodDataWriter\GoodData\RestApiException,
+	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
 class CloneProject extends GenericJob
 {
 	/**
 	 * @param $job
 	 * @param $params
-	 * @throws JobRunException
+	 * @throws WrongConfigurationException
 	 * @return array
 	 */
 	public function run($job, $params)
 	{
 		if (empty($params['accessToken'])) {
-			throw new JobRunException("Parameter accessToken is missing");
+			throw new WrongConfigurationException("Parameter accessToken is missing");
 		}
 		if (empty($params['projectName'])) {
-			throw new JobRunException("Parameter projectName is missing");
+			throw new WrongConfigurationException("Parameter projectName is missing");
 		}
 		if (empty($params['pidSource'])) {
-			throw new JobRunException("Parameter pidSource is missing");
+			throw new WrongConfigurationException("Parameter pidSource is missing");
 		}
 		$this->configuration->checkGoodDataSetup();
 
@@ -62,7 +62,7 @@ class CloneProject extends GenericJob
 
 
 		} catch (UnauthorizedException $e) {
-			throw new JobRunException('Login failed');
+			throw new WrongConfigurationException('Login failed');
 		} catch (RestApiException $e) {
 			return $this->_prepareResult($job['id'], array(
 				'status' => 'error',

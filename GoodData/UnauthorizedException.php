@@ -1,6 +1,6 @@
 <?php
 
-namespace Keboola\GoodDataWriter\Exception;
+namespace Keboola\GoodDataWriter\GoodData;
 
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
