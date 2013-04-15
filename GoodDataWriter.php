@@ -661,6 +661,57 @@ class GoodDataWriter extends Component
 		return array('job' => $job);
 	}
 
+	/**
+	 * Get Batch
+	 * @param $params
+	 * @throws Exception\WrongParametersException
+	 * @return array
+	 */
+	public function getBatch($params)
+	{
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+		if (empty($params['id'])) {
+			throw new WrongParametersException("Parameter 'id' is missing");
+		}
+
+		$data = array(
+			'runId' => (int)$params['id'],
+			'createdTime' => date('c'),
+			'startTime' => date('c'),
+			'endTime' => null,
+			'status' => null,
+			'jobs' => array()
+		);
+		$waitingJobs = 0;
+		$processingJobs = 0;
+		$errorJobs = 0;
+		$successJobs = 0;
+		foreach ($this->sharedConfig->fetchBatch($params['id']) as $job) {
+			if ($job['projectId'] != $this->configuration->projectId || $job['writerId'] != $this->configuration->writerId) {
+				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['id'], $this->configuration->writerId));
+			}
+
+			if ($job['createdTime'] < $data['createdTime']) $data['createdTime'] = $job['createdTime'];
+			if ($job['startTime'] < $data['startTime']) $data['startTime'] = $job['startTime'];
+			if ($job['endTime'] > $data['endTime']) $data['endTime'] = $job['endTime'];
+			$data['jobs'][] = (int)$job['id'];
+			if ($job['status'] == 'waiting') $waitingJobs++;
+				elseif ($job['status'] == 'processing') $processingJobs++;
+				elseif ($job['status'] == 'error') $errorJobs++;
+				else $successJobs++;
+		}
+
+		if ($processingJobs > 0) $data['status'] = 'processing';
+			elseif ($waitingJobs > 0) $data['status'] = 'waiting';
+			elseif ($errorJobs > 0) $data['status'] = 'error';
+			else $data['status'] = 'success';
+
+		return array('batch' => $data);
+	}
+
 
 
 

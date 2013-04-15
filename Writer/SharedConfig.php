@@ -52,6 +52,25 @@ class SharedConfig
 	}
 
 	/**
+	 * @param $runId
+	 * @return mixed
+	 */
+	public function fetchBatch($runId)
+	{
+		$csv = $this->_storageApiClient->exportTable(
+			self::JOBS_TABLE_ID,
+			null,
+			array(
+				'whereColumn' => 'runId',
+				'whereValues' => array($runId),
+			)
+		);
+
+		$jobs = StorageApiClient::parseCsv($csv, true);
+		return $jobs;
+	}
+
+	/**
 	 * @param $jobId
 	 * @param $fields
 	 */
