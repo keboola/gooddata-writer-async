@@ -42,7 +42,7 @@ class GoodDataWriter extends Component
 	/**
 	 * @var \Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader
 	 */
-	private $_logUploader;
+	private $_s3Uploader;
 	/**
 	 * @var Writer\Queue
 	 */
@@ -64,7 +64,7 @@ class GoodDataWriter extends Component
 		// Init main temp directory
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
 		$this->_mainConfig = $this->_container->getParameter('gd_writer');
-		$this->_logUploader = $this->_container->get('syrup.monolog.s3_uploader');
+		$this->_s3Uploader = $this->_container->get('syrup.monolog.s3_uploader');
 
 		$this->configuration = new Configuration($params['writerId'], $this->_storageApi, $tmpDir);
 
@@ -264,6 +264,8 @@ class GoodDataWriter extends Component
 			'parameters' => array(
 				'accessToken' => $accessToken,
 				'projectName' => $projectName,
+				'cloneData' => empty($params['cloneData']) ? 0 : 1,
+				'cloneUsers' => empty($params['cloneUsers']) ? 0 : 1,
 				'pidSource' => $this->configuration->bucketInfo['gd']['pid'],
 				'dev' => empty($params['dev']) ? 0 : 1
 			)
@@ -580,114 +582,13 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'tableId' is missing");
 		}
 
-		$dataTableConfig = $this->configuration->getTable($params['tableId']);
-		$gdDefinition = $this->configuration->getTableDefinition($params['tableId']);
-		$this->configuration->checkMissingColumns($params['tableId'], $gdDefinition, $dataTableConfig['columns']);
-		$dateDimensions = null; // fetch only when needed
-
-
-		$xml = new \DOMDocument();
-		$schema = $xml->createElement('schema');
-
-		$datasetName = !empty($gdDefinition['gdName']) ? $gdDefinition['gdName'] : $gdDefinition['tableId'];
-		$name = $xml->createElement('name', $datasetName);
-		$schema->appendChild($name);
-
-		$columns = $xml->createElement('columns');
-		foreach ($dataTableConfig['columns'] as $columnName) if (isset($gdDefinition['columns'][$columnName])) {
-			$columnDefinition = $gdDefinition['columns'][$columnName];
-
-			$column = $xml->createElement('column');
-			$column->appendChild($xml->createElement('name', $columnDefinition['name']));
-			$column->appendChild($xml->createElement('title', (!empty($columnDefinition['gdName']) ? $columnDefinition['gdName']
-				: $columnDefinition['name']) . ' (' . $datasetName . ')'));
-			$column->appendChild($xml->createElement('ldmType', !empty($columnDefinition['type']) ? $columnDefinition['type'] : 'IGNORE'));
-			if ($columnDefinition['type'] != 'FACT') {
-				$column->appendChild($xml->createElement('folder', $datasetName));
-			}
-
-			if ($columnDefinition['dataType']) {
-				$dataType = $columnDefinition['dataType'];
-				if ($columnDefinition['dataTypeSize']) {
-					$dataType .= '(' . $columnDefinition['dataTypeSize'] . ')';
-				}
-				$column->appendChild($xml->createElement('dataType', $dataType));
-			}
-
-			if (!empty($columnDefinition['type'])) switch($columnDefinition['type']) {
-				case 'ATTRIBUTE':
-					if (!empty($columnDefinition['sortLabel'])) {
-						$column->appendChild($xml->createElement('sortLabel', $columnDefinition['sortLabel']));
-						$column->appendChild($xml->createElement('sortOrder', !empty($columnDefinition['sortOrder'])
-							? $columnDefinition['sortOrder'] : 'ASC'));
-					}
-					break;
-				case 'LABEL':
-				case 'HYPERLINK':
-					$column->appendChild($xml->createElement('reference', $columnDefinition['reference']));
-					break;
-				case 'DATE':
-					if (!$dateDimensions) {
-						$dateDimensions = $this->configuration->getDateDimensions();
-					}
-					if (!empty($columnDefinition['dateDimension']) && in_array($columnDefinition['dateDimension'], $dateDimensions)) {
-						$column->appendChild($xml->createElement('format', $columnDefinition['format']));
-						$column->appendChild($xml->createElement('datetime',
-							$dateDimensions[$columnDefinition['dateDimension']]['includeTime'] ? 'true' : 'false'));
-						$column->appendChild($xml->createElement('schemaReference', $columnDefinition['dateDimension']));
-					} else {
-						throw new WrongConfigurationException("Date column '{$columnDefinition['name']}' does not have valid date dimension assigned");
-					}
-					break;
-				case 'REFERENCE':
-					if ($columnDefinition['schemaReference']) {
-						try {
-							$refTableDefinition = $this->configuration->getTableDefinition($columnDefinition['schemaReference']);
-						} catch (WrongConfigurationException $e) {
-							throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}'"
-								. " of column '{$columnDefinition['name']}' does not exist");
-						}
-						if ($refTableDefinition) {
-							$column->appendChild($xml->createElement('schemaReference', $refTableDefinition['gdName']));
-							$reference = NULL;
-							foreach ($refTableDefinition['columns'] as $c) {
-								if ($c['type'] == 'CONNECTION_POINT') {
-									$reference = $c['name'];
-									break;
-								}
-							}
-							if ($reference) {
-								$column->appendChild($xml->createElement('reference', $reference));
-							} else {
-								throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}' "
-									. "of column '{$columnDefinition['name']}' does not have connection point");
-							}
-						} else {
-							throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}' "
-								. " of column '{$columnDefinition['name']}' does not exist");
-						}
-					} else {
-						throw new WrongConfigurationException("Schema reference of column '{$columnDefinition['name']}' is empty");
-					}
-
-					break;
-			}
-
-			$columns->appendChild($column);
-		}
-
-		$schema->appendChild($columns);
-		$xml->appendChild($schema);
-
-		echo $xml->saveXML();
-		die(); //@TODO
+		echo $this->configuration->getXml($params['tableId']);
+		exit(); //@TODO
 	}
 
-	public function postUploadTable()
-	{
-		$command = 'uploadTable';
+	public function postUploadTable($params)
+	{die('Not yet implemented');
 		$createdTime = time();
-
 
 		// Init parameters
 		if (empty($params['tableId'])) {
@@ -700,8 +601,47 @@ class GoodDataWriter extends Component
 
 		$this->configuration->checkGoodDataSetup();
 
+		$xml = $this->configuration->getXml($params['tableId']);
+		$xmlUrl = $this->_s3Uploader->uploadString($params['tableId'] . '.xml', $xml, 'text/xml');
+
+		$runId = $this->_storageApi->getRunId();
+
+		$pid = null; //@TODO PID
+
+		// Create used date dimensions
+		$dateDimensions = null;
+		$xmlObject = simplexml_load_string($xml);
+		foreach ($xmlObject->columns->column as $column) if ((string)$column->ldmType == 'DATE') {
+			if (!$dateDimensions) {
+				$dateDimensions = $this->configuration->getDateDimensions();
+			}
+
+			$dimension = (string)$column->schemaReference;
+			if (!isset($dateDimensions[$dimension])) {
+				throw new WrongConfigurationException("Date dimension '$dimension' does not exist");
+			}
+
+			if (empty($dateDimensions[$dimension]['lastExportDate'])) {
+				$jobInfo = $this->_createJob(array(
+					'runId' => $runId,
+					'command' => 'createDate',
+					'dataset' => $dimension,
+					'pid' => $pid,
+					'createdTime' => date('c', $createdTime),
+					'parameters' => array('includeTime' => !empty($dateDimensions[$dimension]['includeTime']))
+				));
+
+				$this->configuration->setDateDimensionAttribute($dimension, 'lastExportDate', date('c'));
+				$this->_queue->enqueueJob($jobInfo);
+			}
+		}
+
+		$this->configuration->getTableDefinition($params['tableId']);
+
 		$jobInfo = $this->_createJob(array(
-			'command' => $command,
+			'runId' => $runId,
+			'command' => '',
+			'xmlFile' => $xmlUrl,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params
 		));
@@ -819,11 +759,12 @@ class GoodDataWriter extends Component
 
 	private function _createJob($params)
 	{
-		$runId = $this->_storageApi->getRunId();
+		if (!isset($params['runId'])) {
+			$params['runId'] = $this->_storageApi->getRunId();
+		}
 		$jobId = $this->_storageApi->generateId();
 		$jobInfo = array(
 			'id' => $jobId,
-			'runId' => $runId,
 			'projectId' => $this->configuration->projectId,
 			'writerId' => $this->configuration->writerId,
 			'sapiUrl' => $this->_storageApi->getApiUrl(),
@@ -853,12 +794,12 @@ class GoodDataWriter extends Component
 
 		$message = "Writer job $jobId created manually";
 		$results = array('jobId' => $jobId);
-		$this->sharedConfig->logEvent($this->configuration->writerId, $runId, $message, $params, $results);
+		$this->sharedConfig->logEvent($this->configuration->writerId, $params['runId'], $message, $params, $results);
 
 		$this->_log->log(Logger::INFO, $message, array(
 			'token' => $this->_storageApi->getLogData(),
 			'configurationId' => $this->configuration->writerId,
-			'runId' => $runId,
+			'runId' => $params['runId'],
 			'params' => $params,
 			'results' => $results
 		));

@@ -77,6 +77,11 @@ class Configuration
 	public $projectUsersCsv;
 
 
+	private $_dateDimensionsCache;
+	private $_tablesCache;
+	private $_tableDefinitionsCache;
+
+
 	public function __construct($writerId, StorageApiClient $storageApi, $tmpDir)
 	{
 		$this->writerId = $writerId;
@@ -105,6 +110,8 @@ class Configuration
 			}
 		}
 
+		$this->_tablesCache = array();
+		$this->_tableDefinitionsCache = array();
 	}
 
 	public function __destruct()
@@ -156,42 +163,68 @@ class Configuration
 
 	public function getTable($tableId)
 	{
-		if (!$this->_storageApi->tableExists($tableId)) {
-			throw new WrongConfigurationException("Table '$tableId' does not exist");
+		if (!isset($this->_tablesCache[$tableId])) {
+			if (!$this->_storageApi->tableExists($tableId)) {
+				throw new WrongConfigurationException("Table '$tableId' does not exist");
+			}
+
+			$this->_tablesCache[$tableId] = $this->_storageApi->getTable($tableId);
 		}
 
-		return  $this->_storageApi->getTable($tableId);
+		return  $this->_tablesCache[$tableId];
 	}
 
 	public function getTableDefinition($tableId)
 	{
-		if (!isset($this->definedTables[$tableId])) {
-			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
+		if (!isset($this->_tableDefinitionsCache[$tableId])) {
+			if (!isset($this->definedTables[$tableId])) {
+				throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
+			}
+
+			$data = array('columns' => array());
+
+			$tableInfo = $this->getTable($this->definedTables[$tableId]['definitionId']);
+			if (isset($tableInfo['attributes'])) foreach ($tableInfo['attributes'] as $attr) {
+				$data[$attr['name']] = $attr['value'];
+			}
+
+			$csv = $this->_storageApi->exportTable($this->definedTables[$tableId]['definitionId']);
+			foreach (StorageApiClient::parseCsv($csv) as $row) {
+				$data['columns'][$row['name']] = $row;
+			}
+			$this->_tableDefinitionsCache[$tableId] = $data;
 		}
 
-		$data = array('columns' => array());
-
-		$tableInfo = $this->getTable($this->definedTables[$tableId]['definitionId']);
-		if (isset($tableInfo['attributes'])) foreach ($tableInfo['attributes'] as $attr) {
-			$data[$attr['name']] = $attr['value'];
-		}
-
-		$csv = $this->_storageApi->exportTable($this->definedTables[$tableId]['definitionId']);
-		foreach (StorageApiClient::parseCsv($csv) as $row) {
-			$data['columns'][$row['name']] = $row;
-		}
-		return $data;
+		return $this->_tableDefinitionsCache[$tableId];
 	}
 
 	public function getDateDimensions()
 	{
-		$data = array();
-		$csv = $this->_storageApi->exportTable($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME);
-		foreach (StorageApiClient::parseCsv($csv) as $row) {
-			$data[] = $row['name'];
+		if (!$this->_dateDimensionsCache) {
+			$data = array();
+			$csv = $this->_storageApi->exportTable($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME);
+			foreach (StorageApiClient::parseCsv($csv) as $row) {
+				$data[$row['name']] = $row;
+			}
+			$this->_dateDimensions = $data;
 		}
-		return $data;
+		return $this->_dateDimensionsCache;
 	}
+
+	public function setDateDimensionAttribute($dimension, $name, $value)
+	{
+		$data = array(
+			'name' => $dimension,
+			$name => $value
+		);
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME);
+		$table->setHeader(array_keys($data));
+		$table->setFromArray(array($data));
+		$table->setPartial(true);
+		$table->setIncremental(true);
+		$table->save();
+	}
+
 
 	/**
 	 * Delete definition for columns removed from data table
@@ -229,6 +262,112 @@ class Configuration
 	}
 
 
+	public function getXml($tableId)
+	{
+		$dataTableConfig = $this->getTable($tableId);
+		$gdDefinition = $this->getTableDefinition($tableId);
+		$this->checkMissingColumns($tableId, $gdDefinition, $dataTableConfig['columns']);
+		$dateDimensions = null; // fetch only when needed
+
+		$xml = new \DOMDocument();
+		$schema = $xml->createElement('schema');
+
+		$datasetName = !empty($gdDefinition['gdName']) ? $gdDefinition['gdName'] : $gdDefinition['tableId'];
+		$name = $xml->createElement('name', $datasetName);
+		$schema->appendChild($name);
+
+		if (!isset($dataTableConfig['columns']) || !count($dataTableConfig['columns'])) {
+			throw new WrongConfigurationException("Table '$tableId' does not have valid GoodData definition");
+		}
+
+		$columns = $xml->createElement('columns');
+		foreach ($dataTableConfig['columns'] as $columnName) if (isset($gdDefinition['columns'][$columnName])) {
+			$columnDefinition = $gdDefinition['columns'][$columnName];
+
+			$column = $xml->createElement('column');
+			$column->appendChild($xml->createElement('name', $columnDefinition['name']));
+			$column->appendChild($xml->createElement('title', (!empty($columnDefinition['gdName']) ? $columnDefinition['gdName']
+				: $columnDefinition['name']) . ' (' . $datasetName . ')'));
+			$column->appendChild($xml->createElement('ldmType', !empty($columnDefinition['type']) ? $columnDefinition['type'] : 'IGNORE'));
+			if ($columnDefinition['type'] != 'FACT') {
+				$column->appendChild($xml->createElement('folder', $datasetName));
+			}
+
+			if ($columnDefinition['dataType']) {
+				$dataType = $columnDefinition['dataType'];
+				if ($columnDefinition['dataTypeSize']) {
+					$dataType .= '(' . $columnDefinition['dataTypeSize'] . ')';
+				}
+				$column->appendChild($xml->createElement('dataType', $dataType));
+			}
+
+			if (!empty($columnDefinition['type'])) switch($columnDefinition['type']) {
+				case 'ATTRIBUTE':
+					if (!empty($columnDefinition['sortLabel'])) {
+						$column->appendChild($xml->createElement('sortLabel', $columnDefinition['sortLabel']));
+						$column->appendChild($xml->createElement('sortOrder', !empty($columnDefinition['sortOrder'])
+							? $columnDefinition['sortOrder'] : 'ASC'));
+					}
+					break;
+				case 'LABEL':
+				case 'HYPERLINK':
+					$column->appendChild($xml->createElement('reference', $columnDefinition['reference']));
+					break;
+				case 'DATE':
+					if (!$dateDimensions) {
+						$dateDimensions = array_keys($this->getDateDimensions());
+					}
+					if (!empty($columnDefinition['dateDimension']) && in_array($columnDefinition['dateDimension'], $dateDimensions)) {
+						$column->appendChild($xml->createElement('format', $columnDefinition['format']));
+						$column->appendChild($xml->createElement('datetime',
+							$dateDimensions[$columnDefinition['dateDimension']]['includeTime'] ? 'true' : 'false'));
+						$column->appendChild($xml->createElement('schemaReference', $columnDefinition['dateDimension']));
+					} else {
+						throw new WrongConfigurationException("Date column '{$columnDefinition['name']}' does not have valid date dimension assigned");
+					}
+					break;
+				case 'REFERENCE':
+					if ($columnDefinition['schemaReference']) {
+						try {
+							$refTableDefinition = $this->getTableDefinition($columnDefinition['schemaReference']);
+						} catch (WrongConfigurationException $e) {
+							throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}'"
+								. " of column '{$columnDefinition['name']}' does not exist");
+						}
+						if ($refTableDefinition) {
+							$column->appendChild($xml->createElement('schemaReference', $refTableDefinition['gdName']));
+							$reference = NULL;
+							foreach ($refTableDefinition['columns'] as $c) {
+								if ($c['type'] == 'CONNECTION_POINT') {
+									$reference = $c['name'];
+									break;
+								}
+							}
+							if ($reference) {
+								$column->appendChild($xml->createElement('reference', $reference));
+							} else {
+								throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}' "
+									. "of column '{$columnDefinition['name']}' does not have connection point");
+							}
+						} else {
+							throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}' "
+								. " of column '{$columnDefinition['name']}' does not exist");
+						}
+					} else {
+						throw new WrongConfigurationException("Schema reference of column '{$columnDefinition['name']}' is empty");
+					}
+
+					break;
+			}
+
+			$columns->appendChild($column);
+		}
+
+		$schema->appendChild($columns);
+		$xml->appendChild($schema);
+
+		return $xml->saveXML();
+	}
 
 	/**
 	 * Check configuration table of projects
