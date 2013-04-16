@@ -50,7 +50,7 @@ class CloneProject extends GenericJob
 			}
 			$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
 			$this->restApi->cloneProject($this->configuration->bucketInfo['gd']['pid'], $projectPid,
-				empty($params['cloneData']) ? 0 : 1, empty($params['cloneUsers']) ? 0 : 1);
+				empty($params['includeData']) ? 0 : 1, empty($params['includeUsers']) ? 0 : 1);
 			$this->restApi->addUserToProject($this->configuration->bucketInfo['gd']['userUri'], $projectPid);
 
 			$this->configuration->saveProjectToConfiguration($projectPid);

@@ -196,13 +196,13 @@ class RestApi
 	 * @throws RestApiException
 	 * @return bool
 	 */
-	public function cloneProject($pidSource, $pidTarget, $cloneData, $cloneUsers)
+	public function cloneProject($pidSource, $pidTarget, $includeData, $includeUsers)
 	{
 		$uri = sprintf('/gdc/md/%s/maintenance/export', $pidSource);
 		$params = array(
 			'exportProject' => array(
-				'exportUsers' => $cloneUsers,
-				'exportData' => $cloneData
+				'exportUsers' => $includeUsers,
+				'exportData' => $includeData
 			)
 		);
 		$result = $this->_jsonRequest($uri, 'POST', $params);

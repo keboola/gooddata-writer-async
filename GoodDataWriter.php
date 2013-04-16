@@ -264,8 +264,8 @@ class GoodDataWriter extends Component
 			'parameters' => array(
 				'accessToken' => $accessToken,
 				'projectName' => $projectName,
-				'cloneData' => empty($params['cloneData']) ? 0 : 1,
-				'cloneUsers' => empty($params['cloneUsers']) ? 0 : 1,
+				'includeData' => empty($params['includeData']) ? 0 : 1,
+				'includeUsers' => empty($params['includeUsers']) ? 0 : 1,
 				'pidSource' => $this->configuration->bucketInfo['gd']['pid'],
 				'dev' => empty($params['dev']) ? 0 : 1
 			)
