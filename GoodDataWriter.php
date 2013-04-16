@@ -567,37 +567,138 @@ class GoodDataWriter extends Component
 
 
 	/***********************
-	 * @section Datasets
+	 * @section Data and project structure
 	 */
 
-	public function postDateDimensions()
+	public function getXml($params)
 	{
-		$command = 'createDate';
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+		if (empty($params['tableId'])) {
+			throw new WrongParametersException("Parameter 'tableId' is missing");
+		}
+
+		$dataTableConfig = $this->configuration->getTable($params['tableId']);
+		$gdDefinition = $this->configuration->getTableDefinition($params['tableId']);
+		$this->configuration->checkMissingColumns($params['tableId'], $gdDefinition, $dataTableConfig['columns']);
+		$dateDimensions = null; // fetch only when needed
+
+
+		$xml = new \DOMDocument();
+		$schema = $xml->createElement('schema');
+
+		$datasetName = !empty($gdDefinition['gdName']) ? $gdDefinition['gdName'] : $gdDefinition['tableId'];
+		$name = $xml->createElement('name', $datasetName);
+		$schema->appendChild($name);
+
+		$columns = $xml->createElement('columns');
+		foreach ($dataTableConfig['columns'] as $columnName) if (isset($gdDefinition['columns'][$columnName])) {
+			$columnDefinition = $gdDefinition['columns'][$columnName];
+
+			$column = $xml->createElement('column');
+			$column->appendChild($xml->createElement('name', $columnDefinition['name']));
+			$column->appendChild($xml->createElement('title', (!empty($columnDefinition['gdName']) ? $columnDefinition['gdName']
+				: $columnDefinition['name']) . ' (' . $datasetName . ')'));
+			$column->appendChild($xml->createElement('ldmType', !empty($columnDefinition['type']) ? $columnDefinition['type'] : 'IGNORE'));
+			if ($columnDefinition['type'] != 'FACT') {
+				$column->appendChild($xml->createElement('folder', $datasetName));
+			}
+
+			if ($columnDefinition['dataType']) {
+				$dataType = $columnDefinition['dataType'];
+				if ($columnDefinition['dataTypeSize']) {
+					$dataType .= '(' . $columnDefinition['dataTypeSize'] . ')';
+				}
+				$column->appendChild($xml->createElement('dataType', $dataType));
+			}
+
+			if (!empty($columnDefinition['type'])) switch($columnDefinition['type']) {
+				case 'ATTRIBUTE':
+					if (!empty($columnDefinition['sortLabel'])) {
+						$column->appendChild($xml->createElement('sortLabel', $columnDefinition['sortLabel']));
+						$column->appendChild($xml->createElement('sortOrder', !empty($columnDefinition['sortOrder'])
+							? $columnDefinition['sortOrder'] : 'ASC'));
+					}
+					break;
+				case 'LABEL':
+				case 'HYPERLINK':
+					$column->appendChild($xml->createElement('reference', $columnDefinition['reference']));
+					break;
+				case 'DATE':
+					if (!$dateDimensions) {
+						$dateDimensions = $this->configuration->getDateDimensions();
+					}
+					if (!empty($columnDefinition['dateDimension']) && in_array($columnDefinition['dateDimension'], $dateDimensions)) {
+						$column->appendChild($xml->createElement('format', $columnDefinition['format']));
+						$column->appendChild($xml->createElement('datetime',
+							$dateDimensions[$columnDefinition['dateDimension']]['includeTime'] ? 'true' : 'false'));
+						$column->appendChild($xml->createElement('schemaReference', $columnDefinition['dateDimension']));
+					} else {
+						throw new WrongConfigurationException("Date column '{$columnDefinition['name']}' does not have valid date dimension assigned");
+					}
+					break;
+				case 'REFERENCE':
+					if ($columnDefinition['schemaReference']) {
+						try {
+							$refTableDefinition = $this->configuration->getTableDefinition($columnDefinition['schemaReference']);
+						} catch (WrongConfigurationException $e) {
+							throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}'"
+								. " of column '{$columnDefinition['name']}' does not exist");
+						}
+						if ($refTableDefinition) {
+							$column->appendChild($xml->createElement('schemaReference', $refTableDefinition['gdName']));
+							$reference = NULL;
+							foreach ($refTableDefinition['columns'] as $c) {
+								if ($c['type'] == 'CONNECTION_POINT') {
+									$reference = $c['name'];
+									break;
+								}
+							}
+							if ($reference) {
+								$column->appendChild($xml->createElement('reference', $reference));
+							} else {
+								throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}' "
+									. "of column '{$columnDefinition['name']}' does not have connection point");
+							}
+						} else {
+							throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}' "
+								. " of column '{$columnDefinition['name']}' does not exist");
+						}
+					} else {
+						throw new WrongConfigurationException("Schema reference of column '{$columnDefinition['name']}' is empty");
+					}
+
+					break;
+			}
+
+			$columns->appendChild($column);
+		}
+
+		$schema->appendChild($columns);
+		$xml->appendChild($schema);
+
+		echo $xml->saveXML();
+		die(); //@TODO
+	}
+
+	public function postUploadTable()
+	{
+		$command = 'uploadTable';
 		$createdTime = time();
 
 
 		// Init parameters
-		if (empty($params['name'])) {
-			throw new WrongParametersException("Parameter 'name' is missing");
-		}
-		if (empty($params['lastName'])) {
-			throw new WrongParametersException("Parameter 'lastName' is missing");
-		}
-		if (empty($params['email'])) {
-			throw new WrongParametersException("Parameter 'email' is missing");
-		}
-		if (empty($params['password'])) {
-			throw new WrongParametersException("Parameter 'password' is missing");
-		}
-		if (strlen($params['password']) < 7) {
-			throw new WrongParametersException("Parameter 'password' must have at least seven characters");
+		if (empty($params['tableId'])) {
+			throw new WrongParametersException("Parameter 'tableId' is missing");
 		}
 		$this->_init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		$this->configuration->prepareUsers();
 
+		$this->configuration->checkGoodDataSetup();
 
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
@@ -611,6 +712,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
+			//@TODO wait for whole batch
 			$jobId = $jobInfo['id'];
 			$jobFinished = false;
 			do {

@@ -22,8 +22,7 @@ class Configuration
 	const PROJECTS_TABLE_NAME = 'projects';
 	const USERS_TABLE_NAME = 'users';
 	const PROJECT_USERS_TABLE_NAME = 'project_users';
-	const PROJECTS_TO_DELETE_TABLE_NAME = 'projects_to_delete';
-	const USERS_TO_DELETE_TABLE_NAME = 'users_to_delete';
+	const DATE_DIMENSIONS_TABLE_NAME = 'dateDimensions';
 
 
 	/**
@@ -38,6 +37,10 @@ class Configuration
 	 * @var array|string
 	 */
 	public $bucketInfo;
+	/**
+	 * @var array
+	 */
+	public $definedTables;
 	/**
 	 * @var array
 	 */
@@ -86,6 +89,13 @@ class Configuration
 		if ($this->bucketId && $this->_storageApi->bucketExists($this->bucketId)) {
 			Reader::$client = $this->_storageApi;
 			$this->bucketInfo = Reader::read($this->bucketId, null, false);
+
+			if (isset($this->bucketInfo['items'])) {
+				foreach ($this->bucketInfo['items'] as $tableName => $table) {
+					$this->definedTables[$table['tableId']] = array_merge($table, array('definitionId' => $this->bucketId . '.' . $tableName));
+				}
+				unset($this->bucketInfo['items']);
+			}
 
 			$this->backendUrl = !empty($this->bucketInfo['gd']['backendUrl']) ? $this->bucketInfo['gd']['backendUrl'] : null;
 
@@ -141,6 +151,84 @@ class Configuration
 			throw new WrongConfigurationException('Writer is missing GoodData configuration');
 		}
 	}
+
+
+
+	public function getTable($tableId)
+	{
+		if (!$this->_storageApi->tableExists($tableId)) {
+			throw new WrongConfigurationException("Table '$tableId' does not exist");
+		}
+
+		return  $this->_storageApi->getTable($tableId);
+	}
+
+	public function getTableDefinition($tableId)
+	{
+		if (!isset($this->definedTables[$tableId])) {
+			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
+		}
+
+		$data = array('columns' => array());
+
+		$tableInfo = $this->getTable($this->definedTables[$tableId]['definitionId']);
+		if (isset($tableInfo['attributes'])) foreach ($tableInfo['attributes'] as $attr) {
+			$data[$attr['name']] = $attr['value'];
+		}
+
+		$csv = $this->_storageApi->exportTable($this->definedTables[$tableId]['definitionId']);
+		foreach (StorageApiClient::parseCsv($csv) as $row) {
+			$data['columns'][$row['name']] = $row;
+		}
+		return $data;
+	}
+
+	public function getDateDimensions()
+	{
+		$data = array();
+		$csv = $this->_storageApi->exportTable($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME);
+		foreach (StorageApiClient::parseCsv($csv) as $row) {
+			$data[] = $row['name'];
+		}
+		return $data;
+	}
+
+	/**
+	 * Delete definition for columns removed from data table
+	 * @param $tableId
+	 * @param $definition
+	 * @param $columns
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 */
+	public function checkMissingColumns($tableId, $definition, $columns)
+	{
+		if (!isset($this->definedTables[$tableId])) {
+			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
+		}
+
+		$data = array();
+		$headers = null;
+		$saveChanges = false;
+		foreach ($definition['columns'] as $columnName => $column) {
+			if (in_array($columnName, $columns)) {
+				$data[] = $column;
+			} else {
+				$saveChanges = true;
+			}
+			if (!$headers) {
+				$headers = array_keys($column);
+			}
+		}
+
+		if ($saveChanges) {
+			$table = new StorageApiTable($this->_storageApi, $this->definedTables[$tableId]['definitionId']);
+			$table->setHeader($headers);
+			$table->setFromArray($data);
+			$table->save();
+		}
+	}
+
+
 
 	/**
 	 * Check configuration table of projects
