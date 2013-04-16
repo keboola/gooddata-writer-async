@@ -206,7 +206,7 @@ class Configuration
 			foreach (StorageApiClient::parseCsv($csv) as $row) {
 				$data[$row['name']] = $row;
 			}
-			$this->_dateDimensions = $data;
+			$this->_dateDimensionsCache = $data;
 		}
 		return $this->_dateDimensionsCache;
 	}

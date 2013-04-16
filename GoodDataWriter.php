@@ -636,32 +636,27 @@ class GoodDataWriter extends Component
 			}
 		}
 
-		$this->configuration->getTableDefinition($params['tableId']);
+		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
+		if (empty($tableDefinition['lastExportDate'])) {
+			//@TODO Create dataset
+		} else if (empty($tableDefinition['lastChangeDate']) || strtotime($tableDefinition['lastChangeDate']) > strtotime($tableDefinition['lastExportDate'])) {
+			//@TODO Update dataset
+		}
 
-		$jobInfo = $this->_createJob(array(
-			'runId' => $runId,
-			'command' => '',
-			'xmlFile' => $xmlUrl,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => $params
-		));
-
-		$this->_queue->enqueueJob($jobInfo);
+		//@TODO Load data
 
 
 		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
+			return array('batch' => (int)$runId);
 		} else {
-			//@TODO wait for whole batch
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
+			$batchFinished = false;
 			do {
-				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
+				$jobInfo = $this->getBatch(array('id' => $runId, 'writerId' => $params['writerId']));
 				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
 					$jobFinished = true;
 				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
+				if (!$batchFinished) sleep(30);
+			} while(!$batchFinished);
 
 			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
 				return array('uri' => $jobInfo['job']['result']['response']['uri']);

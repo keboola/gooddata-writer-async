@@ -104,7 +104,7 @@ class JobExecutor
 			$jobInfo['log'] = $result['response']['log'];
 			unset($result['response']['log']);
 		}
-		$jobInfo['result'] = json_encode($result);
+		$jobInfo['result'] = $result;
 		$this->_sharedConfig->saveJob($jobId, $jobInfo);
 	}
 
@@ -184,7 +184,10 @@ class JobExecutor
 
 
 		try {
-			$parameters = $this->_decodeParameters($job['parameters']);
+			$parameters = json_decode($job['parameters'], true);
+			if (!$parameters) {
+				throw new WrongConfigurationException("Parameters decoding failed");
+			}
 
 			$commandName = ucfirst($job['command']);
 			$commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
@@ -214,7 +217,7 @@ class JobExecutor
 			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $clToolApi, $logUploader);
 			$response = $command->run($job, $parameters);
 
-			$duration = $time - time();
+			$duration = time() - $time;
 			$sapiEvent
 				->setMessage("Job $job[id] end")
 				->setDuration($duration);
@@ -249,22 +252,5 @@ class JobExecutor
 			return $result;
 		}
 	}
-
-
-
-	/**
-	 * @param $paramsString
-	 * @throws WrongConfigurationException
-	 * @return mixed
-	 */
-	private function _decodeParameters($paramsString)
-	{
-		try {
-			return \Zend_Json::decode($paramsString);
-		} catch(\Zend_Json_Exception $e) {
-			throw new WrongConfigurationException("Params decoding failed.", 0, $e);
-		}
-	}
-
 
 }

@@ -191,8 +191,8 @@ class RestApi
 	 * Clone project from other project
 	 * @param $pidSource
 	 * @param $pidTarget
-	 * @param $cloneData
-	 * @param $cloneUsers
+	 * @param $includeData
+	 * @param $includeUsers
 	 * @throws RestApiException
 	 * @return bool
 	 */
