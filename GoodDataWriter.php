@@ -609,6 +609,91 @@ class GoodDataWriter extends Component
 	}
 
 
+	public function postUploadProject($params)
+	{die('Not yet implemented');
+		$createdTime = time();
+
+		// Init parameters
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$this->configuration->checkGoodDataSetup();
+		$runId = $this->_storageApi->getRunId();
+
+
+		// Get tables XML and check them for errors
+		$tables = array();
+		foreach ($this->configuration->definedTables as $tableInfo) if (!empty($tableInfo['export'])) {
+
+			$filePath = TMP_PATH . '/' . $this->_bucketConfig['gd']['pid'] . '-' . $tableInfo['tableId'] . '-' . date('Ymd-His') . '-' . uniqid();
+			try {
+				$xml = $this->xml($tableInfo['tableId']);
+			} catch (\Exception $e) {
+				if ($e->getCode() == Zend_Log::NOTICE) {
+					// Table does not exist.
+					continue;
+				}
+				throw new \Exception('Error in XML configuration for table ' . $tableInfo['tableId'] . ': ' . $e->getMessage(), Zend_Log::WARN);
+			}
+			file_put_contents($filePath . '.xml', $xml);
+
+			$tables[$tableInfo['tableId']] = array(
+				'name'				=> $tableInfo['gdName'],
+				'tableId'			=> $tableInfo['tableId'],
+				'config'			=> $this->_storageApiConfig->tableColumns($tableInfo['tableId']),
+				'createTable'		=> empty($tableInfo['lastExportDate']),
+				'updateTable'		=> empty($tableInfo['lastChangeDate']) || empty($tableInfo['lastExportDate'])
+					|| strtotime($tableInfo['lastChangeDate']) > strtotime($tableInfo['lastExportDate']),
+				'incrementalLoad'	=> isset($tableInfo['incrementalLoad']) ? $tableInfo['incrementalLoad'] : NULL,
+				'sanitize'			=> isset($tableInfo['sanitize']) ? $tableInfo['sanitize'] : NULL,
+				'xmlFile'			=> $filePath . '.xml'
+			);
+		}
+
+
+		$xml = $this->configuration->getXml($params['tableId']);
+		$xmlUrl = $this->_s3Uploader->uploadString($params['tableId'] . '.xml', $xml, 'text/xml', false);
+
+		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
+		$jobData = array(
+			'runId' => $runId,
+			'command' => 'uploadTable',
+			'dataset' => !empty($tableDefinition['gdName']) ? $tableDefinition['gdName'] : $tableDefinition['tableId'],
+			'createdTime' => date('c', $createdTime),
+			'xmlFile' => $xmlUrl,
+			'parameters' => array(
+				'tableId' => $params['tableId'],
+				'incremental' => !empty($params['incremental']) ? $params['incremental'] : 0
+			)
+		);
+		$jobInfo = $this->_createJob($jobData);
+		$this->_queue->enqueueJob($jobInfo);
+
+
+		if (empty($params['wait'])) {
+			return array('job' => (int)$jobInfo['id']);
+		} else {
+			$jobId = $jobInfo['id'];
+			$jobFinished = false;
+			do {
+				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
+				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep(30);
+			} while(!$jobFinished);
+
+			if ($jobInfo['job']['status'] == 'success') {
+				return array();
+			} else {
+				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+			}
+		}
+	}
+
+
 
 
 
