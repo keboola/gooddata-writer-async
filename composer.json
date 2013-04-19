@@ -32,7 +32,7 @@
 		"gooddata/gooddata-cl": "1.2.*"
 	},
 	"require-dev": {
-		"syrup/component-bundle": "1.0.*",
+		"syrup/component-bundle": "1.1.*",
 		"syrup/development-bundle": ">=1.0.8",
 		"phpunit/phpunit": "3.7.*"
 	},

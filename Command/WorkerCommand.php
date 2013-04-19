@@ -49,7 +49,7 @@ class WorkerCommand extends ContainerAwareCommand
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
 		$this->_log = $this->getContainer()->get('logger');
-		$mainConfig = $this->getContainer()->getParameter('gd_writer');
+		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
 		$this->_db = new \Zend_Db_Adapter_Pdo_Mysql(array(
 			'host' => $mainConfig['db']['host'],
 			'username' => $mainConfig['db']['user'],

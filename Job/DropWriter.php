@@ -21,32 +21,14 @@ class DropWriter extends GenericJob
 		$env = empty($params['dev']) ? 'prod' :'dev';
 		$mainConfig = $this->mainConfig['gd'][$env];
 
-		$this->configuration->prepareProjects();
-		$this->configuration->prepareUsers();
-
-		$firstLine = true;
-		foreach ($this->configuration->projectsCsv as $project) {
-			if (!$firstLine)
-				$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project[0], empty($params['dev']));
-			$firstLine = false;
+		foreach ($this->configuration->getProjects() as $project) {
+			$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid'], empty($params['dev']));
 		}
-		$firstLine = true;
-		foreach ($this->configuration->usersCsv as $user) {
-			if (!$firstLine)
-				$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user[1], $user[0], empty($params['dev']));
-			$firstLine = false;
-		}
-
-		if (isset($this->configuration->bucketInfo['gd']['pid'])) {
-			$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $this->configuration->bucketInfo['gd']['pid'], empty($params['dev']));
-		}
-
-		if (isset($this->configuration->bucketInfo['gd']['username']) && !isset($this->configuration->bucketInfo['gd']['userUri'])) {
-			$this->configuration->bucketInfo['gd']['userUri'] = $this->restApi->userUri($this->configuration->bucketInfo['gd']['username'], $mainConfig['domain']);
-		}
-		if (isset($this->configuration->bucketInfo['gd']['userUri'])) {
-			$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $this->configuration->bucketInfo['gd']['userUri'],
-				$this->configuration->bucketInfo['gd']['username'], empty($params['dev']));
+		foreach ($this->configuration->getUsers() as $user) {
+			if (!$user['uri']) {
+				$user['uri'] = $this->restApi->userUri($user['email'], $mainConfig['domain']);
+			}
+			$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uri'], $user['email'], empty($params['dev']));
 		}
 
 		$this->configuration->dropBucket();

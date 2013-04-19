@@ -73,7 +73,7 @@ class JobExecutor
 		try {
 			$this->_storageApiClient = new StorageApiClient(
 				$job['token'],
-				$job['sapiUrl'],
+				$this->_container->getParameter('storageApi.url'),
 				self::APP_NAME
 			);
 		} catch(StorageApiException $e) {
@@ -197,7 +197,8 @@ class JobExecutor
 
 			$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
 			$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
-			$mainConfig = $this->_container->getParameter('gd_writer');
+			$mainConfig = $this->_container->getParameter('gooddata_writer');
+			$mainConfig['storageApi.url'] = $this->_container->getParameter('storageApi.url');
 			$logUploader = $this->_container->get('syrup.monolog.s3_uploader');
 
 			$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
@@ -206,7 +207,7 @@ class JobExecutor
 
 			$clToolApi = new CLToolApi($this->_log);
 			$clToolApi->tmpDir = $tmpDir;
-			$clToolApi->clToolPath = $this->_container->get('kernel')->getRootDir() . '/vendor/keboola/gooddata-writer/GoodData/gdi.sh';
+			$clToolApi->clToolPath = $mainConfig['cli_path'];
 			$clToolApi->jobId = $job['id'];
 			$clToolApi->s3uploader = $this->_container->get('syrup.monolog.s3_uploader');
 			if ($backendUrl) $clToolApi->setBackendUrl($backendUrl);
@@ -215,6 +216,7 @@ class JobExecutor
 			 * @var \Keboola\GoodDataWriter\Job\GenericJob $command
 			 */
 			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $clToolApi, $logUploader);
+			$command->tmpDir = $tmpDir;
 			$response = $command->run($job, $parameters);
 
 			$duration = time() - $time;

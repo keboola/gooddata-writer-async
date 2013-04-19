@@ -38,6 +38,7 @@ abstract class GenericJob
 	 * @var \Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader
 	 */
 	public $logUploader;
+	public $tmpDir;
 
 
 	public function __construct($configuration, $mainConfig, $sharedConfig, $restApi, $clToolApi, $logUploader)

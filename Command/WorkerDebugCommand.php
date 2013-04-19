@@ -28,7 +28,7 @@ class WorkerDebugCommand extends ContainerAwareCommand
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
 		$log = $this->getContainer()->get('logger');
-		$mainConfig = $this->getContainer()->getParameter('gd_writer');
+		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
 		$sharedConfig = new SharedConfig(
 			new StorageApiClient($mainConfig['shared_sapi']['token'], $mainConfig['shared_sapi']['url'])
 		);

@@ -5,9 +5,8 @@
 A=`readlink "$0"` # resolve symlinks
 A="${A:-$0}"      # if original wasn't a symlink, BSD returns empty string
 SCRIPT_REAL_PATH=$(cd "${A%/*}" && echo "$PWD/${A##*/}") # path to original shell script, resolved from relative paths
-#PROJECT_DIR=`dirname "$SCRIPT_REAL_PATH"`
-#PROJECT_DIR=`dirname "$PROJECT_DIR"` # base directory
-PROJECT_DIR=/www/syrup
+PROJECT_DIR=`dirname "$SCRIPT_REAL_PATH"`
+PROJECT_DIR=`dirname "$PROJECT_DIR"` # base directory
 
 # OS specific support.  $var _must_ be set to either true or false.
 cygwin=false;

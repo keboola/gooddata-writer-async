@@ -19,7 +19,7 @@ class CreateDate extends GenericJob
 	 */
 	public function run($job, $params)
 	{
-		if (empty($job['dataset'])) {
+		if (empty($params['name'])) {
 			throw new WrongConfigurationException("Parameter 'dataset' is missing");
 		}
 		if (!isset($params['includeTime'])) {
@@ -34,7 +34,7 @@ class CreateDate extends GenericJob
 		$gdWriteStartTime = date('c');
 		try {
 			$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$this->clToolApi->createDate($job['pid'], $job['dataset'], $params['includeTime']);
+			$this->clToolApi->createDate($job['pid'], $params['name'], $params['includeTime']);
 
 			return $this->_prepareResult($job['id'], array(
 				'debug' => $this->clToolApi->debugLogUrl,

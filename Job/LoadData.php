@@ -25,9 +25,6 @@ class LoadData extends GenericJob
 		if (empty($job['xmlFile'])) {
 			throw new WrongConfigurationException("Parameter 'xmlFile' is missing");
 		}
-		if (empty($job['csvFile'])) {
-			throw new WrongConfigurationException("Parameter 'csvFile' is missing");
-		}
 		if (!isset($params['incremental'])) {
 			throw new WrongConfigurationException("Parameter 'incremental' is missing");
 		}
@@ -35,17 +32,18 @@ class LoadData extends GenericJob
 
 		$xmlFile = $job['xmlFile'];
 		if (!is_file($xmlFile)) {
-			$xmlFilePath = tempnam(sys_get_temp_dir(), 'xml');
+			$xmlFilePath = tempnam($this->tmpDir, 'xml');
 			exec('curl -s ' . escapeshellarg($xmlFile) . ' > ' . $xmlFilePath);
 			$xmlFile = $xmlFilePath;
 		}
 
-		$csvFile = $job['csvFile'];
-		if (!is_file($csvFile)) {
-			$csvFilePath = tempnam(sys_get_temp_dir(), 'csv');
-			exec('curl -s ' . escapeshellarg($csvFile) . ' > ' . $csvFilePath);
-			$csvFile = $csvFilePath;
-		}
+		$incrementalLoad = !empty($params['incremental']) ? $params['incremental'] : null;
+
+		$csvUrl = $job['sapiUrl'] . '/storage/tables/' . $params['tableId'] . '/export?escape=1'
+			. ($incrementalLoad ? '&changedSince=-' . $incrementalLoad . '+days' : null);
+		$csvFilePath = tempnam($this->tmpDir, 'csv');
+		exec('curl --header "X-StorageApi-Token: ' . $job['token'] . '" -s ' . escapeshellarg($csvUrl) . ' > ' . $csvFilePath);
+		$csvFile = $csvFilePath;
 
 
 		$gdWriteStartTime = date('c');
@@ -55,7 +53,8 @@ class LoadData extends GenericJob
 
 			return $this->_prepareResult($job['id'], array(
 				'debug' => $this->clToolApi->debugLogUrl,
-				'gdWriteStartTime' => $gdWriteStartTime
+				'gdWriteStartTime' => $gdWriteStartTime,
+				'csvFile' => $csvFilePath
 			), $this->clToolApi->output);
 
 		} catch (CLToolApiErrorException $e) {
@@ -63,7 +62,8 @@ class LoadData extends GenericJob
 				'status' => 'error',
 				'error' => $e->getMessage(),
 				'debug' => $this->clToolApi->debugLogUrl,
-				'gdWriteStartTime' => $gdWriteStartTime
+				'gdWriteStartTime' => $gdWriteStartTime,
+				'csvFile' => $csvFilePath
 			), $this->clToolApi->output);
 		}
 

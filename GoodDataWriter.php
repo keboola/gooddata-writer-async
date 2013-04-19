@@ -63,7 +63,7 @@ class GoodDataWriter extends Component
 
 		// Init main temp directory
 		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
-		$this->_mainConfig = $this->_container->getParameter('gd_writer');
+		$this->_mainConfig = $this->_container->getParameter('gooddata_writer');
 		$this->_s3Uploader = $this->_container->get('syrup.monolog.s3_uploader');
 
 		$this->configuration = new Configuration($params['writerId'], $this->_storageApi, $tmpDir);
@@ -144,11 +144,6 @@ class GoodDataWriter extends Component
 			$this->_storageApi->setBucketAttribute('sys.c-wr-gooddata-' . $params['writerId'], 'gd.backendUrl', $params['backendUrl']);
 		}
 		$this->configuration->bucketId = 'sys.c-wr-gooddata-' . $params['writerId'];
-		try {
-			$this->configuration->prepareProjects();
-		} catch (WrongConfigurationException $e) {
-			// Ignore that table is empty
-		}
 
 		$mainConfig = empty($params['dev']) ? $this->_mainConfig['gd']['prod'] : $this->_mainConfig['gd']['dev'];
 		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $mainConfig['access_token'];
@@ -216,21 +211,8 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		$this->configuration->prepareProjects();
 
-		$projects = array();
-		$header = true;
-		foreach ($this->configuration->projectsCsv as $p) {
-			if (!$header) {
-				$projects[] = array(
-					'pid' => $p[0],
-					'active' => (int)$p[1]
-				);
-			} else {
-				$header = false;
-			}
-		}
-		return array('projects' => $projects);
+		return array('projects' => $this->configuration->getProjects());
 	}
 
 
@@ -254,8 +236,8 @@ class GoodDataWriter extends Component
 		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $mainConfig['access_token'];
 		$projectName = !empty($params['name']) ? $params['name']
 			: sprintf($mainConfig['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
-		$this->configuration->prepareProjects();
 		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkProjectsTable();
 
 
 		$jobInfo = $this->_createJob(array(
@@ -312,18 +294,14 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		$this->configuration->prepareProjectUsers();
 
 		$users = array();
-		$header = true;
-		foreach ($this->configuration->projectUsersCsv as $u) {
-			if (!$header && $u[1] == $params['pid']) {
+		foreach ($this->configuration->getProjectUsers() as $u) {
+			if ($u['pid'] == $params['pid']) {
 				$users[] = array(
-					'email' => $u[2],
-					'role' => $u[3]
+					'email' => $u['email'],
+					'role' => $u['role']
 				);
-			} else {
-				$header = false;
 			}
 		}
 		return array('users' => $users);
@@ -362,13 +340,13 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		$this->configuration->prepareProjectUsers();
-		if (!$this->configuration->checkProject($params['pid'])) {
+		if (!$this->configuration->getProject($params['pid'])) {
 			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
 		}
-		if (!$this->configuration->user($params['email'])) {
+		if (!$this->configuration->getUser($params['email'])) {
 			throw new WrongParametersException(sprintf("User '%s' is not configured for the writer", $params['email']));
 		}
+		$this->configuration->checkProjectUsersTable();
 
 
 		$jobInfo = $this->_createJob(array(
@@ -429,10 +407,10 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		if (!empty($params['pid']) && !$this->configuration->checkProject($params['pid'])) {
+		if (!empty($params['pid']) && !$this->configuration->getProject($params['pid'])) {
 			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
 		}
-		$this->configuration->prepareProjectUsers();
+		$this->configuration->checkProjectUsersTable();
 
 
 		$jobInfo = $this->_createJob(array(
@@ -482,21 +460,8 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		$this->configuration->prepareUsers();
 
-		$users = array();
-		$header = true;
-		foreach ($this->configuration->usersCsv as $u) {
-			if (!$header) {
-				$users[] = array(
-					'email' => $u[0],
-					'uri' => $u[1]
-				);
-			} else {
-				$header = false;
-			}
-		}
-		return array('users' => $users);
+		return array('users' => $this->configuration->getUsers());
 	}
 
 	/**
@@ -533,7 +498,7 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		$this->configuration->prepareUsers();
+		$this->configuration->checkUsersTable();
 
 
 		$jobInfo = $this->_createJob(array(
@@ -587,7 +552,7 @@ class GoodDataWriter extends Component
 	}
 
 	public function postUploadTable($params)
-	{die('Not yet implemented');
+	{
 		$createdTime = time();
 
 		// Init parameters
@@ -602,64 +567,41 @@ class GoodDataWriter extends Component
 		$this->configuration->checkGoodDataSetup();
 
 		$xml = $this->configuration->getXml($params['tableId']);
-		$xmlUrl = $this->_s3Uploader->uploadString($params['tableId'] . '.xml', $xml, 'text/xml');
+		$xmlUrl = $this->_s3Uploader->uploadString($params['tableId'] . '.xml', $xml, 'text/xml', false);
 
 		$runId = $this->_storageApi->getRunId();
 
-		$pid = null; //@TODO PID
-
-		// Create used date dimensions
-		$dateDimensions = null;
-		$xmlObject = simplexml_load_string($xml);
-		foreach ($xmlObject->columns->column as $column) if ((string)$column->ldmType == 'DATE') {
-			if (!$dateDimensions) {
-				$dateDimensions = $this->configuration->getDateDimensions();
-			}
-
-			$dimension = (string)$column->schemaReference;
-			if (!isset($dateDimensions[$dimension])) {
-				throw new WrongConfigurationException("Date dimension '$dimension' does not exist");
-			}
-
-			if (empty($dateDimensions[$dimension]['lastExportDate'])) {
-				$jobInfo = $this->_createJob(array(
-					'runId' => $runId,
-					'command' => 'createDate',
-					'dataset' => $dimension,
-					'pid' => $pid,
-					'createdTime' => date('c', $createdTime),
-					'parameters' => array('includeTime' => !empty($dateDimensions[$dimension]['includeTime']))
-				));
-
-				$this->configuration->setDateDimensionAttribute($dimension, 'lastExportDate', date('c'));
-				$this->_queue->enqueueJob($jobInfo);
-			}
-		}
-
 		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
-		if (empty($tableDefinition['lastExportDate'])) {
-			//@TODO Create dataset
-		} else if (empty($tableDefinition['lastChangeDate']) || strtotime($tableDefinition['lastChangeDate']) > strtotime($tableDefinition['lastExportDate'])) {
-			//@TODO Update dataset
-		}
-
-		//@TODO Load data
+		$jobData = array(
+			'runId' => $runId,
+			'command' => 'uploadTable',
+			'dataset' => !empty($tableDefinition['gdName']) ? $tableDefinition['gdName'] : $tableDefinition['tableId'],
+			'createdTime' => date('c', $createdTime),
+			'xmlFile' => $xmlUrl,
+			'parameters' => array(
+				'tableId' => $params['tableId'],
+				'incremental' => !empty($params['incremental']) ? $params['incremental'] : 0
+			)
+		);
+		$jobInfo = $this->_createJob($jobData);
+		$this->_queue->enqueueJob($jobInfo);
 
 
 		if (empty($params['wait'])) {
-			return array('batch' => (int)$runId);
+			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$batchFinished = false;
+			$jobId = $jobInfo['id'];
+			$jobFinished = false;
 			do {
-				$jobInfo = $this->getBatch(array('id' => $runId, 'writerId' => $params['writerId']));
+				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
 				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
 					$jobFinished = true;
 				}
-				if (!$batchFinished) sleep(30);
-			} while(!$batchFinished);
+				if (!$jobFinished) sleep(30);
+			} while(!$jobFinished);
 
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
-				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			if ($jobInfo['job']['status'] == 'success') {
+				return array();
 			} else {
 				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
 			}
@@ -737,7 +679,10 @@ class GoodDataWriter extends Component
 			$data['jobs'][] = (int)$job['id'];
 			if ($job['status'] == 'waiting') $waitingJobs++;
 				elseif ($job['status'] == 'processing') $processingJobs++;
-				elseif ($job['status'] == 'error') $errorJobs++;
+				elseif ($job['status'] == 'error') {
+					$errorJobs++;
+					$data['result'] = $job['result'];
+				}
 				else $successJobs++;
 		}
 
@@ -762,7 +707,6 @@ class GoodDataWriter extends Component
 			'id' => $jobId,
 			'projectId' => $this->configuration->projectId,
 			'writerId' => $this->configuration->writerId,
-			'sapiUrl' => $this->_storageApi->getApiUrl(),
 			'token' => $this->_storageApi->token,
 			'tokenId' => $this->configuration->tokenInfo['id'],
 			'tokenDesc' => $this->configuration->tokenInfo['description'],

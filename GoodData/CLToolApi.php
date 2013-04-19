@@ -128,22 +128,20 @@ class CLToolApi
 		file_put_contents($outputFile . '.1', $args . "\n\n");
 
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
-
 			exec($command . ' 2>&1 > ' . $outputFile . '.2');
 			exec('cat ' . $outputFile . '.1 ' . $outputFile . '.2 > ' . $outputFile);
 			exec('rm ' . $outputFile . '.1');
 			exec('rm ' . $outputFile . '.2');
 
-			$this->output .= '*** CL Tool Log ***' . file_get_contents($outputFile, null, null, null, 2000);
-
 			// Test output for server error
 			$apiErrorTest = "egrep '503 Service Unavailable' " . $outputFile;
 			if (!shell_exec($apiErrorTest)) {
 
-				$debugFile = $this->tmpDir . '/debug-' . date('Ymd-His') . '.log';
-				system('mv debug.log ' . $debugFile);
+				if (file_exists('/tmp/debug.log')) {
+					exec('cat ' . $outputFile . ' /tmp/debug.log > ' . $outputFile);
+				}
 
-				$this->debugLogUrl = $this->s3uploader->uploadFile($debugFile);
+				$this->debugLogUrl = $this->s3uploader->uploadFile($outputFile);
 
 				// Test output for runtime error
 				if (shell_exec("egrep 'ERROR|Exception' " . $outputFile)) {
@@ -181,9 +179,10 @@ class CLToolApi
 		$command .= 'TransferData();';
 
 		$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
-		$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
 
 		$this->call($command);
+
+		$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
 		unlink($maqlFile);
 	}
 
@@ -214,10 +213,10 @@ class CLToolApi
 				$command .= 'ExecuteMaql(maqlFile="' . $maqlFile . '");';
 
 				$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
-				$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
 
 				$this->call($command);
 
+				$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
 				unlink($maqlFile);
 			} else {
 				$errors = '';
@@ -262,9 +261,10 @@ class CLToolApi
 
 
 				$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
-				$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
 
 				$this->call($command);
+
+				$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
 
 				if (file_exists($maqlFile)) {
 					$command = 'OpenProject(id="' . $pid . '"); ExecuteMaql(maqlFile="' . $maqlFile . '");';
@@ -302,27 +302,15 @@ class CLToolApi
 	{
 		if (file_exists($xmlFile)) {
 			if (file_exists($csvFile)) {
-				libxml_use_internal_errors(TRUE);
-				$sxml = simplexml_load_file($xmlFile);
-				if ($sxml) {
-					$command  = 'OpenProject(id="' . $pid . '");';
-					$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '");';
-					$command .= 'TransferData(incremental="' . ($incremental ? 'true' : 'false') . '", waitForFinish="true");';
+				$command  = 'OpenProject(id="' . $pid . '");';
+				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '");';
+				$command .= 'TransferData(incremental="' . ($incremental ? 'true' : 'false') . '", waitForFinish="true");';
 
-					$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
+				$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
 
-					$this->call($command);
+				$this->call($command);
 
-					return array('gdWriteBytes' => filesize($csvFile));
-
-				} else {
-					$errors = '';
-					foreach (libxml_get_errors() as $error) {
-						$errors .= $error->message;
-					}
-					$this->output = '*** Error in XML ***' . PHP_EOL . $errors;
-					throw new CLToolApiErrorException();
-				}
+				return array('gdWriteBytes' => filesize($csvFile));
 			} else {
 				throw new \Exception('CSV file does not exist: ' . $csvFile);
 			}

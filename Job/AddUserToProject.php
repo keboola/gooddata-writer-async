@@ -40,7 +40,7 @@ class AddUserToProject extends GenericJob
 			// Get user uri
 			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
 
-			$user = $this->configuration->user($params['email']);
+			$user = $this->configuration->getUser($params['email']);
 			if (!$user) {
 				throw new WrongConfigurationException("User is missing from configuration");
 			}
