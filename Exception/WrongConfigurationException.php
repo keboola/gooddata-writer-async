@@ -2,9 +2,9 @@
 
 namespace Keboola\GoodDataWriter\Exception;
 
-use Symfony\Component\HttpKernel\Exception\HttpException;
+use Syrup\ComponentBundle\Exception\SyrupComponentException;
 
-class WrongConfigurationException extends HttpException
+class WrongConfigurationException extends SyrupComponentException
 {
 	public function __construct($message)
 	{

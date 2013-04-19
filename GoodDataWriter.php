@@ -17,7 +17,8 @@ use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Config\Reader,
 	Keboola\Csv\CsvFile;
-use Keboola\GoodDataWriter\Exception\WrongParametersException,
+use Keboola\GoodDataWriter\Exception\JobProcessException,
+	Keboola\GoodDataWriter\Exception\WrongParametersException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 
 class GoodDataWriter extends Component
@@ -116,8 +117,9 @@ class GoodDataWriter extends Component
 	/**
 	 * Create new writer with main GoodData project and user
 	 * @param $params
-	 * @return array
+	 * @throws Exception\JobProcessException
 	 * @throws Exception\WrongParametersException
+	 * @return array
 	 */
 	public function postWriters($params)
 	{
@@ -161,15 +163,37 @@ class GoodDataWriter extends Component
 		));
 		$this->_queue->enqueueJob($jobInfo);
 
-		return array('job' => $jobInfo['id']);
+
+		if (empty($params['wait'])) {
+			return array('job' => (int)$jobInfo['id']);
+		} else {
+			$jobId = $jobInfo['id'];
+			$jobFinished = false;
+			do {
+				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
+				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep(30);
+			} while(!$jobFinished);
+
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['pid'])) {
+				return array('pid' => $jobInfo['job']['result']['response']['pid']);
+			} else {
+				$e = new JobProcessException('Create Writer job failed');
+				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+				throw $e;
+			}
+		}
 	}
 
 
 	/**
 	 * Delete writer with projects and users
 	 * @param $params
-	 * @return array
+	 * @throws Exception\JobProcessException
 	 * @throws Exception\WrongParametersException
+	 * @return array
 	 */
 	public function postDeleteWriters($params)
 	{
@@ -190,7 +214,28 @@ class GoodDataWriter extends Component
 		));
 		$this->_queue->enqueueJob($jobInfo);
 
-		return array('job' => $jobInfo['id']);
+
+		if (empty($params['wait'])) {
+			return array('job' => (int)$jobInfo['id']);
+		} else {
+			$jobId = $jobInfo['id'];
+			$jobFinished = false;
+			do {
+				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
+				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep(30);
+			} while(!$jobFinished);
+
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['pid'])) {
+				return array('pid' => $jobInfo['job']['result']['response']['pid']);
+			} else {
+				$e = new JobProcessException('Delete Writer job failed');
+				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+				throw $e;
+			}
+		}
 	}
 
 
@@ -219,6 +264,7 @@ class GoodDataWriter extends Component
 	/**
 	 * Clone project
 	 * @param $params
+	 * @throws Exception\JobProcessException
 	 * @throws Exception\WrongParametersException
 	 * @return array
 	 */
@@ -271,7 +317,9 @@ class GoodDataWriter extends Component
 			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['pid'])) {
 				return array('pid' => $jobInfo['job']['result']['response']['pid']);
 			} else {
-				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+				$e = new JobProcessException('Create Project job failed');
+				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+				throw $e;
 			}
 		}
 	}
@@ -311,10 +359,9 @@ class GoodDataWriter extends Component
 	/**
 	 * Add User to Project
 	 * @param $params
-	 * @return array
-	 * @throws Exception\WrongConfigurationException
+	 * @throws Exception\JobProcessException
 	 * @throws Exception\WrongParametersException
-	 * @throws \Exception|GoodData\RestApiException
+	 * @return array
 	 */
 	public function postProjectUsers($params)
 	{
@@ -373,7 +420,9 @@ class GoodDataWriter extends Component
 			if ($jobInfo['job']['status'] == 'success') {
 				return array();
 			} else {
-				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+				$e = new JobProcessException('Create Project User job failed');
+				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+				throw $e;
 			}
 		}
 	}
@@ -381,10 +430,9 @@ class GoodDataWriter extends Component
 	/**
 	 * Invite User to Project
 	 * @param $params
-	 * @return array
-	 * @throws Exception\WrongConfigurationException
+	 * @throws Exception\JobProcessException
 	 * @throws Exception\WrongParametersException
-	 * @throws \Exception|GoodData\RestApiException
+	 * @return array
 	 */
 	public function postProjectInvitations($params)
 	{
@@ -437,7 +485,9 @@ class GoodDataWriter extends Component
 			if ($jobInfo['job']['status'] == 'success') {
 				return array();
 			} else {
-				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+				$e = new JobProcessException('Invite User job failed');
+				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+				throw $e;
 			}
 		}
 	}
@@ -467,9 +517,8 @@ class GoodDataWriter extends Component
 	/**
 	 * Create user
 	 * @param $params
-	 * @throws Exception\WrongConfigurationException
+	 * @throws Exception\JobProcessException
 	 * @throws Exception\WrongParametersException
-	 * @throws \Exception|GoodData\RestApiException
 	 * @return array
 	 */
 	public function postUsers($params)
@@ -526,7 +575,9 @@ class GoodDataWriter extends Component
 			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
 				return array('uri' => $jobInfo['job']['result']['response']['uri']);
 			} else {
-				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+				$e = new JobProcessException('Create User job failed');
+				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+				throw $e;
 			}
 		}
 	}
@@ -537,6 +588,10 @@ class GoodDataWriter extends Component
 	 * @section Data and project structure
 	 */
 
+	/**
+	 * @param $params
+	 * @throws Exception\WrongParametersException
+	 */
 	public function getXml($params)
 	{
 		$this->_init($params);
@@ -548,9 +603,15 @@ class GoodDataWriter extends Component
 		}
 
 		echo $this->configuration->getXml($params['tableId']);
-		exit(); //@TODO
+		exit();
 	}
 
+	/**
+	 * @param $params
+	 * @return array
+	 * @throws Exception\JobProcessException
+	 * @throws Exception\WrongParametersException
+	 */
 	public function postUploadTable($params)
 	{
 		$createdTime = time();
@@ -569,18 +630,15 @@ class GoodDataWriter extends Component
 		$xml = $this->configuration->getXml($params['tableId']);
 		$xmlUrl = $this->_s3Uploader->uploadString($params['tableId'] . '.xml', $xml, 'text/xml', false);
 
-		$runId = $this->_storageApi->getRunId();
-
 		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
 		$jobData = array(
-			'runId' => $runId,
 			'command' => 'uploadTable',
 			'dataset' => !empty($tableDefinition['gdName']) ? $tableDefinition['gdName'] : $tableDefinition['tableId'],
 			'createdTime' => date('c', $createdTime),
 			'xmlFile' => $xmlUrl,
 			'parameters' => array(
 				'tableId' => $params['tableId'],
-				'incremental' => !empty($params['incremental']) ? $params['incremental'] : 0
+				'incremental' => isset($params['incremental']) ? $params['incremental'] : null
 			)
 		);
 		$jobInfo = $this->_createJob($jobData);
@@ -603,14 +661,22 @@ class GoodDataWriter extends Component
 			if ($jobInfo['job']['status'] == 'success') {
 				return array();
 			} else {
-				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+				$e = new JobProcessException('Upload Table job failed');
+				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+				throw $e;
 			}
 		}
 	}
 
-
+	/**
+	 * @param $params
+	 * @return array
+	 * @throws Exception\JobProcessException
+	 * @throws Exception\WrongParametersException
+	 * @throws Exception\WrongConfigurationException
+	 */
 	public function postUploadProject($params)
-	{die('Not yet implemented');
+	{
 		$createdTime = time();
 
 		// Init parameters
@@ -627,68 +693,101 @@ class GoodDataWriter extends Component
 		$tables = array();
 		foreach ($this->configuration->definedTables as $tableInfo) if (!empty($tableInfo['export'])) {
 
-			$filePath = TMP_PATH . '/' . $this->_bucketConfig['gd']['pid'] . '-' . $tableInfo['tableId'] . '-' . date('Ymd-His') . '-' . uniqid();
-			try {
-				$xml = $this->xml($tableInfo['tableId']);
-			} catch (\Exception $e) {
-				if ($e->getCode() == Zend_Log::NOTICE) {
-					// Table does not exist.
-					continue;
-				}
-				throw new \Exception('Error in XML configuration for table ' . $tableInfo['tableId'] . ': ' . $e->getMessage(), Zend_Log::WARN);
-			}
-			file_put_contents($filePath . '.xml', $xml);
+			$xml = $this->configuration->getXml($tableInfo['tableId']);
+			$xmlUrl = $this->_s3Uploader->uploadString($tableInfo['tableId'] . '.xml', $xml, 'text/xml', false);
+			$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
 
 			$tables[$tableInfo['tableId']] = array(
-				'name'				=> $tableInfo['gdName'],
-				'tableId'			=> $tableInfo['tableId'],
-				'config'			=> $this->_storageApiConfig->tableColumns($tableInfo['tableId']),
-				'createTable'		=> empty($tableInfo['lastExportDate']),
-				'updateTable'		=> empty($tableInfo['lastChangeDate']) || empty($tableInfo['lastExportDate'])
-					|| strtotime($tableInfo['lastChangeDate']) > strtotime($tableInfo['lastExportDate']),
-				'incrementalLoad'	=> isset($tableInfo['incrementalLoad']) ? $tableInfo['incrementalLoad'] : NULL,
-				'sanitize'			=> isset($tableInfo['sanitize']) ? $tableInfo['sanitize'] : NULL,
-				'xmlFile'			=> $filePath . '.xml'
+				'dataset'		=> !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'],
+				'tableId'		=> $tableInfo['tableId'],
+				'xml'			=> $xmlUrl,
+				'definition'	=> $definition['columns']
 			);
 		}
 
 
-		$xml = $this->configuration->getXml($params['tableId']);
-		$xmlUrl = $this->_s3Uploader->uploadString($params['tableId'] . '.xml', $xml, 'text/xml', false);
+		// Sort tables for GD export according to their references
+		$unsortedTables = array();
+		$sortedTables = array();
+		$references = array();
+		$allTableIds = array_keys($tables);
+		foreach ($tables as $tableId => $tableConfig) {
+			$unsortedTables[$tableId] = $tableConfig;
+			foreach ($tableConfig['definition'] as $c) if (!empty($c['schemaReference'])) {
+				if (in_array($c['schemaReference'], $allTableIds)) {
+					$references[$tableId][] = $c['schemaReference'];
+				} else {
+					throw new WrongConfigurationException("Schema reference '{$c['schemaReference']}' for table '{$tableId}'does not exist");
+				}
+			}
+		}
 
-		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
+		$ttl = 20;
+		while (count($unsortedTables)) {
+			foreach ($unsortedTables as $tableId => $tableConfig) {
+				$areSortedReferences = TRUE;
+				if (isset($references[$tableId])) foreach($references[$tableId] as $r) {
+					if (!array_key_exists($r, $sortedTables)) {
+						$areSortedReferences = FALSE;
+					}
+				}
+				if ($areSortedReferences) {
+					$sortedTables[$tableId] = $tableConfig;
+					unset($unsortedTables[$tableId]);
+				}
+			}
+			$ttl--;
+
+			if ($ttl <= 0) {
+				throw new WrongConfigurationException('Check of references failed with timeout. You probably have a recursion in tables references');
+			}
+		}
+
+		foreach ($sortedTables as $table) {
+			$jobData = array(
+				'runId' => $runId,
+				'command' => 'uploadTable',
+				'dataset' => $table['dataset'],
+				'createdTime' => date('c', $createdTime),
+				'xmlFile' => $table['xml'],
+				'parameters' => array(
+					'tableId' => $table['tableId'],
+					'incremental' => isset($params['incremental']) ? $params['incremental'] : null
+				)
+			);
+			$jobInfo = $this->_createJob($jobData);
+			$this->_queue->enqueueJob($jobInfo);
+		}
+
+		// Execute reports
 		$jobData = array(
 			'runId' => $runId,
-			'command' => 'uploadTable',
-			'dataset' => !empty($tableDefinition['gdName']) ? $tableDefinition['gdName'] : $tableDefinition['tableId'],
-			'createdTime' => date('c', $createdTime),
-			'xmlFile' => $xmlUrl,
-			'parameters' => array(
-				'tableId' => $params['tableId'],
-				'incremental' => !empty($params['incremental']) ? $params['incremental'] : 0
-			)
+			'command' => 'executeReports',
+			'createdTime' => date('c', $createdTime)
 		);
 		$jobInfo = $this->_createJob($jobData);
 		$this->_queue->enqueueJob($jobInfo);
 
 
-		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
-		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
 
-			if ($jobInfo['job']['status'] == 'success') {
+		if (empty($params['wait'])) {
+			return array('batch' => (int)$runId);
+		} else {
+			$jobsFinished = false;
+			do {
+				$jobsInfo = $this->getBatch(array('id' => $runId, 'writerId' => $params['writerId']));
+				if (isset($jobsInfo['batch']['status']) && ($jobsInfo['batch']['status'] == 'success' || $jobsInfo['batch']['status'] == 'error')) {
+					$jobsFinished = true;
+				}
+				if (!$jobsFinished) sleep(30);
+			} while(!$jobsFinished);
+
+			if ($jobsInfo['batch']['status'] == 'success') {
 				return array();
 			} else {
-				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+				$e = new JobProcessException('Upload Project job failed');
+				$e->setData(array('result' => $jobsInfo['batch']['result'], 'log' => $jobsInfo['batch']['log']));
+				throw $e;
 			}
 		}
 	}
@@ -784,10 +883,10 @@ class GoodDataWriter extends Component
 
 	private function _createJob($params)
 	{
-		if (!isset($params['runId'])) {
-			$params['runId'] = $this->_storageApi->getRunId();
-		}
 		$jobId = $this->_storageApi->generateId();
+		if (!isset($params['runId'])) {
+			$params['runId'] = $jobId;
+		}
 		$jobInfo = array(
 			'id' => $jobId,
 			'projectId' => $this->configuration->projectId,

@@ -96,13 +96,17 @@ class JobExecutor
 			'status' => $jobStatus,
 			'endTime' => date('c'),
 		);
-		if (isset($result['response']['gdWriteStartTime'])) {
-			$jobInfo['gdWriteStartTime'] = $result['response']['gdWriteStartTime'];
-			unset($result['response']['gdWriteStartTime']);
+		if (isset($result['gdWriteStartTime'])) {
+			$jobInfo['gdWriteStartTime'] = $result['gdWriteStartTime'];
+			unset($result['gdWriteStartTime']);
 		}
-		if (isset($result['response']['log'])) {
-			$jobInfo['log'] = $result['response']['log'];
-			unset($result['response']['log']);
+		if (isset($result['gdWriteBytes'])) {
+			$jobInfo['gdWriteBytes'] = $result['gdWriteBytes'];
+			unset($result['gdWriteBytes']);
+		}
+		if (isset($result['log'])) {
+			$jobInfo['log'] = $result['log'];
+			unset($result['log']);
 		}
 		$jobInfo['result'] = $result;
 		$this->_sharedConfig->saveJob($jobId, $jobInfo);
@@ -177,12 +181,6 @@ class JobExecutor
 		$sapiEvent->setMessage("Job $job[id] start");
 		$this->_logEvent($sapiEvent);
 
-		$result = array(
-			'id' => $job['id'],
-			'status' => 'ok',
-		);
-
-
 		try {
 			$parameters = json_decode($job['parameters'], true);
 			if (!$parameters) {
@@ -217,7 +215,7 @@ class JobExecutor
 			 */
 			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $clToolApi, $logUploader);
 			$command->tmpDir = $tmpDir;
-			$response = $command->run($job, $parameters);
+			$result = $command->run($job, $parameters);
 
 			$duration = time() - $time;
 			$sapiEvent
@@ -225,17 +223,7 @@ class JobExecutor
 				->setDuration($duration);
 			$this->_logEvent($sapiEvent);
 
-			if (isset($response['status'])) {
-				$result['status'] = $response['status'];
-				unset($response['status']);
-			}
-			if (isset($response['error'])) {
-				$result['error'] = $response['error'];
-				unset($response['error']);
-			}
-
-			$result['response'] = $response;
-			$result['duration'] = $duration;
+			$result['status'] = 'ok';
 			return $result;
 
 		} catch (WrongConfigurationException $e) {
@@ -248,10 +236,7 @@ class JobExecutor
 				->setDuration($duration);
 			$this->_logEvent($sapiEvent);
 
-			$result['status'] = 'error';
-			$result['error'] = $e->getMessage();
-			$result['duration'] = $duration;
-			return $result;
+			return array('status' => 'error', 'error' => $e->getMessage());
 		}
 	}
 

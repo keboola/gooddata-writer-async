@@ -73,7 +73,8 @@ class UploadTable extends GenericJob
 			$gdJobs[] = array(
 				'command' => 'loadData',
 				'pid' => $project['pid'],
-				'incremental' => !empty($params['incremental']) ? $params['incremental'] : 0
+				'incremental' => isset($params['incremental']) ? $params['incremental'] :
+					(!empty($tableDefinition['incremental']) ? $tableDefinition['incremental'] : 0)
 			);
 		}
 

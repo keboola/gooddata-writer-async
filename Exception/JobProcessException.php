@@ -1,10 +1,14 @@
 <?php
+/**
+ * @author Jakub Matejka <jakub@keboola.com>
+ * @date 2013-04-19
+ */
 
 namespace Keboola\GoodDataWriter\Exception;
 
 use Syrup\ComponentBundle\Exception\SyrupComponentException;
 
-class WrongParametersException extends SyrupComponentException
+class JobProcessException extends SyrupComponentException
 {
 	public function __construct($message)
 	{
