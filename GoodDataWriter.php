@@ -595,6 +595,7 @@ class GoodDataWriter extends Component
 	public function getXml($params)
 	{
 		$this->_init($params);
+
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -626,6 +627,7 @@ class GoodDataWriter extends Component
 		}
 
 		$this->configuration->checkGoodDataSetup();
+		$this->configuration->getDateDimensions();
 
 		$xml = $this->configuration->getXml($params['tableId']);
 		$xmlUrl = $this->_s3Uploader->uploadString($params['tableId'] . '.xml', $xml, 'text/xml', false);
@@ -686,6 +688,7 @@ class GoodDataWriter extends Component
 		}
 
 		$this->configuration->checkGoodDataSetup();
+		$this->configuration->getDateDimensions();
 		$runId = $this->_storageApi->getRunId();
 
 

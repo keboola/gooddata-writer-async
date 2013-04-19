@@ -32,16 +32,19 @@ class RestApiTest extends \PHPUnit_Framework_TestCase
 
 	public function testConfig()
 	{
-		$this->assertNotEmpty($this->_params['gd.username']);
-		$this->assertNotEmpty($this->_params['gd.password']);
-		$this->assertNotEmpty($this->_params['gd.domain']);
-		$this->assertNotEmpty($this->_params['gd.access_token']);
+		$this->assertNotEmpty($this->_params['gd.username'], 'GoodData configuration in parameters.yml is incomplete');
+		$this->assertNotEmpty($this->_params['gd.password'], 'GoodData configuration in parameters.yml is incomplete');
+		$this->assertNotEmpty($this->_params['gd.domain'], 'GoodData configuration in parameters.yml is incomplete');
+		$this->assertNotEmpty($this->_params['gd.access_token'], 'GoodData configuration in parameters.yml is incomplete');
 	}
 
 	public function testCreateAndDropProject()
 	{
 		$pid = $this->_restApi->createProject('Project for testing', $this->_params['gd.access_token']);
 		$this->assertNotEmpty($pid);
+
+		$projectInfo = $this->_restApi->getProject($pid);
+		$this->assertNotEmpty($projectInfo);
 
 		$result = $this->_restApi->dropProject($pid);
 		$this->assertEquals(0, count($result));

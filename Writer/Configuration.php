@@ -76,7 +76,7 @@ class Configuration
 	/**
 	 * @var array
 	 */
-	private $_dateDimensionsCache;
+	private $_dateDimensions;
 	/**
 	 * @var array
 	 */
@@ -214,15 +214,33 @@ class Configuration
 
 	public function getDateDimensions()
 	{
-		if (!$this->_dateDimensionsCache) {
-			$data = array();
-			$csv = $this->_storageApi->exportTable($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME);
-			foreach (StorageApiClient::parseCsv($csv) as $row) {
-				$data[$row['name']] = $row;
+		if (!$this->_dateDimensions) {
+			$tableId = $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME;
+			if ($this->_storageApi->tableExists($tableId)) {
+				$data = array();
+				$csv = $this->_storageApi->exportTable($tableId);
+				foreach (StorageApiClient::parseCsv($csv) as $row) {
+					$data[$row['name']] = $row;
+				}
+				$this->_dateDimensions = $data;
+
+				if (isset($this->_dateDimensions[0])) {
+					if (count($this->_dateDimensions[0]) != 3) {
+						throw new WrongConfigurationException('Date Dimensions table in configuration contains invalid number of columns');
+					}
+					if (!isset($this->_dateDimensions[0]['name']) || !isset($this->_dateDimensions[0]['includeTime'])
+						|| !isset($this->_dateDimensions[0]['lastExportDate'])) {
+						throw new WrongConfigurationException('Date Dimensions table in configuration appears to be wrongly configured');
+					}
+				}
+			} else {
+				$table = new StorageApiTable($this->_storageApi, $tableId, null, 'name');
+				$table->setHeader(array('name', 'includeTime', 'lastExportDate'));
+				$table->save();
+				$this->_dateDimensions = array();
 			}
-			$this->_dateDimensionsCache = $data;
 		}
-		return $this->_dateDimensionsCache;
+		return $this->_dateDimensions;
 	}
 
 	public function setDateDimensionAttribute($dimension, $name, $value)
@@ -278,6 +296,8 @@ class Configuration
 
 	public function getXml($tableId)
 	{
+		$this->getDateDimensions();
+
 		$dataTableConfig = $this->getTable($tableId);
 		$gdDefinition = $this->getTableDefinition($tableId);
 		$this->checkMissingColumns($tableId, $gdDefinition, $dataTableConfig['columns']);
