@@ -10,15 +10,15 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class WorkerDebugCommand extends ContainerAwareCommand
+class RunJobCommand extends ContainerAwareCommand
 {
 
 
 	protected function configure()
 	{
 		$this
-			->setName('gooddata-writer:worker-debug')
-			->setDescription('Queue worker Debug')
+			->setName('gooddata-writer:run-job')
+			->setDescription('Run selected job from queue')
 			->setDefinition(array(
 				new InputArgument('job', InputArgument::REQUIRED, 'Job id')
 			))
@@ -32,6 +32,14 @@ class WorkerDebugCommand extends ContainerAwareCommand
 		$sharedConfig = new SharedConfig(
 			new StorageApiClient($mainConfig['shared_sapi']['token'], $mainConfig['shared_sapi']['url'])
 		);
+
+		$db = new \Zend_Db_Adapter_Pdo_Mysql(array(
+			'host' => $mainConfig['db']['host'],
+			'username' => $mainConfig['db']['user'],
+			'password' => $mainConfig['db']['password'],
+			'dbname' => $mainConfig['db']['name']
+		));
+		$db->delete('message', array('body=?' => $input->getArgument('job')));
 
 		$executor = new JobExecutor($sharedConfig, $log, $this->getContainer());
 		$executor->runJob($input->getArgument('job'));

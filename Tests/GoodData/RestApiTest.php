@@ -27,27 +27,34 @@ class RestApiTest extends \PHPUnit_Framework_TestCase
 		$this->_params = $paramsYaml['parameters'];
 
 		$this->_restApi = new \Keboola\GoodDataWriter\GoodData\RestApi(null, $this->_log);
-		$this->_restApi->login($this->_params['gd.username'], $this->_params['gd.password']);
 	}
 
 	public function testConfig()
 	{
-		$this->assertNotEmpty($this->_params['gd.username'], 'GoodData configuration in parameters.yml is incomplete');
-		$this->assertNotEmpty($this->_params['gd.password'], 'GoodData configuration in parameters.yml is incomplete');
-		$this->assertNotEmpty($this->_params['gd.domain'], 'GoodData configuration in parameters.yml is incomplete');
-		$this->assertNotEmpty($this->_params['gd.access_token'], 'GoodData configuration in parameters.yml is incomplete');
+		$this->assertArrayHasKey('gooddata_writer', $this->_params, 'GoodData configuration in parameters.yml is incomplete');
+		$this->assertArrayHasKey('gd', $this->_params['gooddata_writer'], 'GoodData configuration in parameters.yml is incomplete');
+		$this->assertArrayHasKey('dev', $this->_params['gooddata_writer']['gd'], 'GoodData configuration in parameters.yml is incomplete');
+		$this->assertArrayHasKey('username', $this->_params['gooddata_writer']['gd']['dev'], 'GoodData configuration in parameters.yml is incomplete');
+		$this->assertArrayHasKey('password', $this->_params['gooddata_writer']['gd']['dev'], 'GoodData configuration in parameters.yml is incomplete');
+		$this->assertArrayHasKey('domain', $this->_params['gooddata_writer']['gd']['dev'], 'GoodData configuration in parameters.yml is incomplete');
+		$this->assertArrayHasKey('access_token', $this->_params['gooddata_writer']['gd']['dev'], 'GoodData configuration in parameters.yml is incomplete');
+
+		$this->_restApi->login($this->_params['gooddata_writer']['gd']['dev']['username'], $this->_params['gooddata_writer']['gd']['dev']['password']);
+	}
+
+	/*public function testCreateProject()
+	{
+		$this->_pid = $this->_restApi->createProject('Project for testing', $this->_params['gd.access_token']);
+		$this->assertNotEmpty($this->_pid);
+
+		$projectInfo = $this->_restApi->getProject($this->_pid);print_r($projectInfo);
+		$this->assertNotEmpty($projectInfo);
 	}
 
 	public function testCreateAndDropProject()
 	{
-		$pid = $this->_restApi->createProject('Project for testing', $this->_params['gd.access_token']);
-		$this->assertNotEmpty($pid);
-
-		$projectInfo = $this->_restApi->getProject($pid);
-		$this->assertNotEmpty($projectInfo);
-
-		$result = $this->_restApi->dropProject($pid);
+		$result = $this->_restApi->dropProject($this->_pid);
 		$this->assertEquals(0, count($result));
-	}
+	}*/
 
 }

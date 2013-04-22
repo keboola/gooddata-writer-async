@@ -16,6 +16,7 @@
     <testsuites>
         <testsuite name="Keboola GoodData Writer">
             <directory>Tests/GoodData</directory>
+			<directory>Tests/Controller</directory>
         </testsuite>
     </testsuites>
 </phpunit>
