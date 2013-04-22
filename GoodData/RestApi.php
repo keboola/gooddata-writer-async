@@ -9,6 +9,7 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Guzzle\Http\Client,
+	Guzzle\Http\Exception\ServerErrorResponseException,
 	Guzzle\Http\Exception\ClientErrorResponseException,
 	Guzzle\Common\Exception\RuntimeException,
 	Guzzle\Http\Message\Header;
@@ -26,6 +27,7 @@ class RestApi
 	 * Back off time before retrying API call
 	 */
 	const BACKOFF_INTERVAL = 60;
+	const WAIT_INTERVAL = 10;
 
 
 	public $apiUrl;
@@ -154,7 +156,7 @@ class RestApi
 		$repeat = true;
 		$i = 1;
 		do {
-			sleep(self::BACKOFF_INTERVAL * ($i + 1));
+			sleep(self::WAIT_INTERVAL * ($i + 1));
 
 			$result = $this->_jsonRequest($projectUri);
 			if (isset($result['project']['content']['state'])) {
@@ -480,7 +482,7 @@ class RestApi
 		$repeat = true;
 		$i = 0;
 		do {
-			sleep(self::BACKOFF_INTERVAL * ($i + 1));
+			sleep(self::WAIT_INTERVAL * ($i + 1));
 
 			$result = $this->_jsonRequest($uri);
 			if (isset($result['taskState']['status'])) {
@@ -528,7 +530,7 @@ class RestApi
 				'method' => $method,
 				'params' => $params,
 				'headers' => $headers,
-				'exception' => $e
+				'exception' => array($e->getMessage())
 			));
 			throw new RestApiException('Rest API: ' . $e->getMessage());
 		}
@@ -584,6 +586,11 @@ class RestApi
 					'headers' => $headers,
 					'response' => $response->getBody(true)
 				));
+
+				if ($response->isSuccessful()) {
+					return $response;
+				}
+
 			} catch (ClientErrorResponseException $e) {
 				$response = $request->getResponse()->getBody(true);
 				if ($logCall) $this->_logCall($uri, $method, $params, $response);
@@ -591,22 +598,8 @@ class RestApi
 					throw new UnauthorizedException($response);
 				}
 				throw new RestApiException($response);
-			}
-
-			if ($response->isSuccessful()) {
-				return $response;
-			}
-
-			if ($response->getStatusCode() != 503) {
-				$this->_log->alert('API error', array(
-					'uri' => $uri,
-					'method' => $method,
-					'params' => $jsonParams,
-					'headers' => $headers,
-					'response' => $response->getBody(true),
-					'status' => $response->getStatusCode()
-				));
-				throw new RestApiException($response->getBody(true));
+			} catch (ServerErrorResponseException $e) {
+				// Backoff
 			}
 
 			sleep(self::BACKOFF_INTERVAL * ($i + 1));

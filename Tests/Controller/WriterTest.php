@@ -4,7 +4,7 @@
  * @date 2013-03-26
  */
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Symfony\Component\Console\Application;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
 use Keboola\GoodDataWriter\Command\RunJobCommand;
 
@@ -65,13 +65,13 @@ class WriterTest extends WebTestCase
 
 
 		// Process job
-		$application = new Application();
+		$application = new Application($client->getKernel());
 		$application->add(new RunJobCommand());
 
 		$command = $application->find('gooddata-writer:run-job');
 		$commandTester = new CommandTester($command);
 		$commandTester->execute(array('command' => $command->getName(), 'job' => $responseJson['job']));
-print_r($commandTester);die();
+
 
 		// Check result
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
