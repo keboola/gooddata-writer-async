@@ -177,8 +177,8 @@ class GoodDataWriter extends Component
 				if (!$jobFinished) sleep(30);
 			} while(!$jobFinished);
 
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['pid'])) {
-				return array('pid' => $jobInfo['job']['result']['response']['pid']);
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['pid'])) {
+				return array('pid' => $jobInfo['job']['result']['pid']);
 			} else {
 				$e = new JobProcessException('Create Writer job failed');
 				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
@@ -228,8 +228,8 @@ class GoodDataWriter extends Component
 				if (!$jobFinished) sleep(30);
 			} while(!$jobFinished);
 
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['pid'])) {
-				return array('pid' => $jobInfo['job']['result']['response']['pid']);
+			if ($jobInfo['job']['status'] == 'success') {
+				return array();
 			} else {
 				$e = new JobProcessException('Delete Writer job failed');
 				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
@@ -314,8 +314,8 @@ class GoodDataWriter extends Component
 				if (!$jobFinished) sleep(30);
 			} while(!$jobFinished);
 
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['pid'])) {
-				return array('pid' => $jobInfo['job']['result']['response']['pid']);
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['pid'])) {
+				return array('pid' => $jobInfo['job']['result']['pid']);
 			} else {
 				$e = new JobProcessException('Create Project job failed');
 				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
@@ -572,8 +572,8 @@ class GoodDataWriter extends Component
 				if (!$jobFinished) sleep(30);
 			} while(!$jobFinished);
 
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
-				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['uri'])) {
+				return array('uri' => $jobInfo['job']['result']['uri']);
 			} else {
 				$e = new JobProcessException('Create User job failed');
 				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
