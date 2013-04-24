@@ -492,8 +492,8 @@ class GoodDataWriter extends Component
 		}
 	}
 
-	
-	
+
+
 	/***********************
 	 * @section Users
 	 */
@@ -640,7 +640,8 @@ class GoodDataWriter extends Component
 			'xmlFile' => $xmlUrl,
 			'parameters' => array(
 				'tableId' => $params['tableId'],
-				'incremental' => isset($params['incremental']) ? $params['incremental'] : null
+				'incremental' => isset($params['incremental']) ? $params['incremental'] : null,
+				'sanitize' => isset($params['sanitize']) ? $params['sanitize'] : null
 			)
 		);
 		$jobInfo = $this->_createJob($jobData);
@@ -755,7 +756,8 @@ class GoodDataWriter extends Component
 				'xmlFile' => $table['xml'],
 				'parameters' => array(
 					'tableId' => $table['tableId'],
-					'incremental' => isset($params['incremental']) ? $params['incremental'] : null
+					'incremental' => isset($params['incremental']) ? $params['incremental'] : null,
+					'sanitize' => isset($params['sanitize']) ? $params['sanitize'] : null
 				)
 			);
 			$jobInfo = $this->_createJob($jobData);
@@ -865,18 +867,18 @@ class GoodDataWriter extends Component
 			if ($job['endTime'] > $data['endTime']) $data['endTime'] = $job['endTime'];
 			$data['jobs'][] = (int)$job['id'];
 			if ($job['status'] == 'waiting') $waitingJobs++;
-				elseif ($job['status'] == 'processing') $processingJobs++;
-				elseif ($job['status'] == 'error') {
-					$errorJobs++;
-					$data['result'] = $job['result'];
-				}
-				else $successJobs++;
+			elseif ($job['status'] == 'processing') $processingJobs++;
+			elseif ($job['status'] == 'error') {
+				$errorJobs++;
+				$data['result'] = $job['result'];
+			}
+			else $successJobs++;
 		}
 
 		if ($processingJobs > 0) $data['status'] = 'processing';
-			elseif ($waitingJobs > 0) $data['status'] = 'waiting';
-			elseif ($errorJobs > 0) $data['status'] = 'error';
-			else $data['status'] = 'success';
+		elseif ($waitingJobs > 0) $data['status'] = 'waiting';
+		elseif ($errorJobs > 0) $data['status'] = 'error';
+		else $data['status'] = 'success';
 
 		return array('batch' => $data);
 	}

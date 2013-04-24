@@ -19,9 +19,6 @@ class CreateDataset extends GenericJob
 	 */
 	public function run($job, $params)
 	{
-		if (empty($job['pid'])) {
-			throw new WrongConfigurationException("Parameter 'pid' is missing");
-		}
 		if (empty($job['xmlFile'])) {
 			throw new WrongConfigurationException("Parameter 'xmlFile' is missing");
 		}

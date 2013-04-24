@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class CreateWriter extends GenericJob
 {
@@ -30,13 +31,13 @@ class CreateWriter extends GenericJob
 
 
 		$gdWriteStartTime = date('c');
-		$username = sprintf($mainConfig['user_email'], $job['projectId'], $job['writerId']);
+		$username = sprintf($mainConfig['user_email'], $job['projectId'], $job['writerId'] . '-' . uniqid());
 		$password = md5(uniqid());
 
 		$this->restApi->login($mainConfig['username'], $mainConfig['password']);
 		$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
 		$userUri = $this->restApi->createUserInDomain($mainConfig['domain'], $username, $password, 'KBC', 'Writer', $mainConfig['sso_provider']);
-		$this->restApi->addUserToProject($userUri, $projectPid);
+		$this->restApi->addUserToProject($userUri, $projectPid, RestApi::$userRoles['admin']);
 
 		// Save data to configuration bucket
 		$this->configuration->setBucketAttribute('gd.pid', $projectPid);

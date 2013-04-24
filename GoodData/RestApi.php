@@ -103,7 +103,38 @@ class RestApi
 							throw new RestApiException(sprintf('Access to project %s denied', $pid));
 							break;
 						case 'GDC::Exception::NotFound':
-							throw new RestApiException(sprintf('Project %s not exists', $pid));
+							throw new RestApiException(sprintf('Project %s does not exist', $pid));
+							break;
+					}
+				}
+			}
+			throw $e;
+		}
+
+	}
+
+	/**
+	 * Get object info
+	 *
+	 * @param $uri
+	 * @throws RestApiException|\Exception
+	 * @return array
+	 */
+	public function get($uri)
+	{
+		try {
+			$result = $this->_jsonRequest($uri, 'GET', array(), array(), false);
+			return $result;
+		} catch (RestApiException $e) {
+			$errorJson = json_decode($e->getMessage(), true);
+			if ($errorJson) {
+				if (isset($errorJson['error']['errorClass'])) {
+					switch ($errorJson['error']['errorClass']) {
+						case 'GDC::Exception::Forbidden':
+							throw new RestApiException(sprintf('Access to uri %s denied', $uri));
+							break;
+						case 'GDC::Exception::NotFound':
+							throw new RestApiException(sprintf('Uri %s does not exist', $uri));
 							break;
 					}
 				}

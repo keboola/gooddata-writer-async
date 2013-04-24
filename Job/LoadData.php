@@ -29,6 +29,7 @@ class LoadData extends GenericJob
 			throw new WrongConfigurationException("Parameter 'incremental' is missing");
 		}
 		$this->configuration->checkGoodDataSetup();
+		$tableInfo = $this->configuration->getTable($params['tableId']);
 
 		$xmlFile = $job['xmlFile'];
 		if (!is_file($xmlFile)) {
@@ -37,13 +38,78 @@ class LoadData extends GenericJob
 			$xmlFile = $xmlFilePath;
 		}
 
-		$incrementalLoad = !empty($params['incremental']) ? $params['incremental'] : null;
+		$incrementalLoad = !empty($params['incremental']) ? $params['incremental']
+			: (isset($tableInfo['sanitize']) ? $tableInfo['sanitize'] : null);
 
 		$csvUrl = $job['sapiUrl'] . '/storage/tables/' . $params['tableId'] . '/export?escape=1'
 			. ($incrementalLoad ? '&changedSince=-' . $incrementalLoad . '+days' : null);
 		$csvFilePath = tempnam($this->tmpDir, 'csv');
 		exec('curl --header "X-StorageApi-Token: ' . $job['token'] . '" -s ' . escapeshellarg($csvUrl) . ' > ' . $csvFilePath);
 		$csvFile = $csvFilePath;
+
+
+		$sanitize = !empty($params['sanitize']) ? $params['sanitize']
+			: (isset($tableInfo['sanitize']) ? $tableInfo['sanitize'] : null);
+		libxml_use_internal_errors(TRUE);
+		$sxml = simplexml_load_file($xmlFile);
+		if ($sxml) {
+
+			if ($sanitize) {
+				$nullReplace = 'cat ' . $csvFile . ' | sed \'s/\"NULL\"/\"\"/g\' | awk -v OFS="\",\"" -F"\",\"" \'{';
+
+				$i = 1;
+				$columnsCount = $sxml->columns->column->count();
+				foreach ($sxml->columns->column as $column) {
+					$type = (string)$column->ldmType;
+					$value = NULL;
+					switch ($type) {
+						case 'ATTRIBUTE':
+							$value = '-- empty --';
+							break;
+						case 'LABEL':
+						case 'FACT':
+							$value = '0';
+							break;
+						case 'DATE':
+							$format = (string)$column->format;
+							$value = str_replace(
+								array('yyyy', 'MM', 'dd', 'hh', 'HH', 'mm', 'ss', 'kk'),
+								array('1900', '01', '01', '00', '00', '00', '00', '00'),
+								$format);
+							break;
+					}
+					if (!is_null($value)) {
+						$testValue = '""';
+						if ($i == 1) {
+							$testValue = '"\""';
+							$value = '\"' . $value;
+						}
+						if ($i == $columnsCount) {
+							$testValue = '"\""';
+							$value .= '\"';
+						}
+						$nullReplace .= 'if ($' . $i . ' == ' . $testValue . ') {$' . $i . ' = "' . $value . '"} ';
+					}
+					$i++;
+				}
+				$nullReplace .= '; print }\' > ' . $csvFile . '.out';
+				shell_exec($nullReplace);
+
+				$csvFile .= '.out';
+			}
+
+		} else {
+			$errors = '';
+			foreach (libxml_get_errors() as $error) {
+				$errors .= $error->message;
+			}
+			return $this->_prepareResult($job['id'], array(
+				'status' => 'error',
+				'error' => $errors,
+				'debug' => $this->clToolApi->debugLogUrl,
+				'csvFile' => $csvFilePath
+			), $this->clToolApi->output);
+		}
 
 
 		$gdWriteStartTime = date('c');

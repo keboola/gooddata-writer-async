@@ -20,15 +20,24 @@ class DropWriter extends GenericJob
 	{
 		$env = empty($params['dev']) ? 'prod' :'dev';
 		$mainConfig = $this->mainConfig['gd'][$env];
+		$dropImmediately = !empty($params['immediately']);
 
 		foreach ($this->configuration->getProjects() as $project) {
-			$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid'], empty($params['dev']));
+			if ($dropImmediately) {
+
+			} else {
+				$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid'], empty($params['dev']));
+			}
 		}
 		foreach ($this->configuration->getUsers() as $user) {
 			if (!$user['uri']) {
 				$user['uri'] = $this->restApi->userUri($user['email'], $mainConfig['domain']);
 			}
-			$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uri'], $user['email'], empty($params['dev']));
+			if ($dropImmediately) {
+
+			} else {
+				$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uri'], $user['email'], empty($params['dev']));
+			}
 		}
 
 		$this->configuration->dropBucket();
