@@ -249,7 +249,7 @@ class WriterTest extends WebTestCase
 		// Check result
 		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/invitations');
 		$this->assertArrayHasKey('invitations', $userProjectsInfo);
-		$this->assertCount(3, $userProjectsInfo['invitations']);
+		$this->assertCount(1, $userProjectsInfo['invitations']);
 		$userInProject = false;
 		foreach ($userProjectsInfo['invitations'] as $p) {
 			if (isset($p['invitation']['content']['email']) && $p['invitation']['content']['email'] == $user['email']) {
