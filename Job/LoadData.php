@@ -19,7 +19,7 @@ class LoadData extends GenericJob
 	 */
 	public function run($job, $params)
 	{
-		if (empty($job['pid'])) {
+		if (empty($params['pid'])) {
 			throw new WrongConfigurationException("Parameter 'pid' is missing");
 		}
 		if (empty($job['xmlFile'])) {
@@ -115,7 +115,7 @@ class LoadData extends GenericJob
 		$gdWriteStartTime = date('c');
 		try {
 			$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$this->clToolApi->loadData($job['pid'], $xmlFile, $csvFile, $params['incremental']);
+			$this->clToolApi->loadData($params['pid'], $xmlFile, $csvFile, $params['incremental']);
 
 			return $this->_prepareResult($job['id'], array(
 				'debug' => $this->clToolApi->debugLogUrl,

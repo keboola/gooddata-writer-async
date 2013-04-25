@@ -639,11 +639,15 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'xmlFile' => $xmlUrl,
 			'parameters' => array(
-				'tableId' => $params['tableId'],
-				'incremental' => isset($params['incremental']) ? $params['incremental'] : null,
-				'sanitize' => isset($params['sanitize']) ? $params['sanitize'] : null
+				'tableId' => $params['tableId']
 			)
 		);
+		if (isset($params['incremental'])) {
+			$jobData['parameters']['incremental'] = $params['incremental'];
+		}
+		if (isset($params['sanitize'])) {
+			$jobData['parameters']['sanitize'] = $params['sanitize'];
+		}
 		$jobInfo = $this->_createJob($jobData);
 		$this->_queue->enqueueJob($jobInfo);
 
@@ -755,11 +759,15 @@ class GoodDataWriter extends Component
 				'createdTime' => date('c', $createdTime),
 				'xmlFile' => $table['xml'],
 				'parameters' => array(
-					'tableId' => $table['tableId'],
-					'incremental' => isset($params['incremental']) ? $params['incremental'] : null,
-					'sanitize' => isset($params['sanitize']) ? $params['sanitize'] : null
+					'tableId' => $table['tableId']
 				)
 			);
+			if (isset($params['incremental'])) {
+				$jobData['parameters']['incremental'] = $params['incremental'];
+			}
+			if (isset($params['sanitize'])) {
+				$jobData['parameters']['sanitize'] = $params['sanitize'];
+			}
 			$jobInfo = $this->_createJob($jobData);
 			$this->_queue->enqueueJob($jobInfo);
 		}

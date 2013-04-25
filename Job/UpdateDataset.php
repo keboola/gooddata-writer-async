@@ -19,7 +19,7 @@ class UpdateDataset extends GenericJob
 	 */
 	public function run($job, $params)
 	{
-		if (empty($job['pid'])) {
+		if (empty($params['pid'])) {
 			throw new WrongConfigurationException("Parameter 'pid' is missing");
 		}
 		if (empty($job['xmlFile'])) {
@@ -40,7 +40,7 @@ class UpdateDataset extends GenericJob
 		$gdWriteStartTime = date('c');
 		try {
 			$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$this->clToolApi->updateDataset($job['pid'], $xmlFile, $params['updateAll']);
+			$this->clToolApi->updateDataset($params['pid'], $xmlFile, $params['updateAll']);
 
 			return $this->_prepareResult($job['id'], array(
 				'debug' => $this->clToolApi->debugLogUrl,
