@@ -43,15 +43,15 @@ class CloneProject extends GenericJob
 
 			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
 			// Get user uri if not set
-			if (empty($this->configuration->bucketInfo['gd']['userUri'])) {
-				$userUri = $this->restApi->userUri($this->configuration->bucketInfo['gd']['username'], $mainConfig['domain']);
-				$this->configuration->setBucketAttribute('gd.userUri', $userUri);
-				$this->configuration->bucketInfo['gd']['userUri'] = $userUri;
+			if (empty($this->configuration->bucketInfo['gd']['uid'])) {
+				$userId = $this->restApi->userId($this->configuration->bucketInfo['gd']['username'], $mainConfig['domain']);
+				$this->configuration->setBucketAttribute('gd.uid', $userId);
+				$this->configuration->bucketInfo['gd']['uid'] = $userId;
 			}
 			$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
 			$this->restApi->cloneProject($this->configuration->bucketInfo['gd']['pid'], $projectPid,
 				empty($params['includeData']) ? 0 : 1, empty($params['includeUsers']) ? 0 : 1);
-			$this->restApi->addUserToProject($this->configuration->bucketInfo['gd']['userUri'], $projectPid);
+			$this->restApi->addUserToProject($this->configuration->bucketInfo['gd']['uid'], $projectPid);
 
 			$this->configuration->saveProjectToConfiguration($projectPid);
 			$this->sharedConfig->saveProject($projectPid, $params['accessToken'], $this->restApi->apiUrl, $job);

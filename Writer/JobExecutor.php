@@ -182,9 +182,13 @@ class JobExecutor
 		$this->_logEvent($sapiEvent);
 
 		try {
-			$parameters = json_decode($job['parameters'], true);
-			if (!$parameters) {
-				throw new WrongConfigurationException("Parameters decoding failed");
+			if ($job['parameters']) {
+				$parameters = json_decode($job['parameters'], true);
+				if (!$parameters) {
+					throw new WrongConfigurationException("Parameters decoding failed");
+				}
+			} else {
+				$parameters = array();
 			}
 
 			$commandName = ucfirst($job['command']);

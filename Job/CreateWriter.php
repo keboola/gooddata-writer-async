@@ -36,21 +36,22 @@ class CreateWriter extends GenericJob
 
 		$this->restApi->login($mainConfig['username'], $mainConfig['password']);
 		$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
-		$userUri = $this->restApi->createUserInDomain($mainConfig['domain'], $username, $password, 'KBC', 'Writer', $mainConfig['sso_provider']);
-		$this->restApi->addUserToProject($userUri, $projectPid, RestApi::$userRoles['admin']);
+		$userId = $this->restApi->createUser($mainConfig['domain'], $username, $password, 'KBC', 'Writer', $mainConfig['sso_provider']);
+		$this->restApi->addUserToProject($userId, $projectPid, RestApi::$userRoles['admin']);
 
 		// Save data to configuration bucket
 		$this->configuration->setBucketAttribute('gd.pid', $projectPid);
 		$this->configuration->setBucketAttribute('gd.username', $username);
 		$this->configuration->setBucketAttribute('gd.password', $password, true);
-		$this->configuration->setBucketAttribute('gd.userUri', $userUri);
+		$this->configuration->setBucketAttribute('gd.uid', $userId);
 
 
 		$this->sharedConfig->saveProject($projectPid, $params['accessToken'], $this->restApi->apiUrl, $job);
-		$this->sharedConfig->saveUser($userUri, $username, $job);
+		$this->sharedConfig->saveUser($userId, $username, $job);
 
 
 		return $this->_prepareResult($job['id'], array(
+			'uid' => $userId,
 			'pid' => $projectPid,
 			'gdWriteStartTime' => $gdWriteStartTime
 		), $this->restApi->callsLog());

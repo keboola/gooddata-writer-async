@@ -91,26 +91,19 @@ class RestApi
 	 */
 	public function getProject($pid)
 	{
-		try {
-			$result = $this->_jsonRequest(sprintf('/gdc/projects/%s', $pid), 'GET', array(), array(), false);
-			return $result;
-		} catch (RestApiException $e) {
-			$errorJson = json_decode($e->getMessage(), true);
-			if ($errorJson) {
-				if (isset($errorJson['error']['errorClass'])) {
-					switch ($errorJson['error']['errorClass']) {
-						case 'GDC::Exception::Forbidden':
-							throw new RestApiException(sprintf('Access to project %s denied', $pid));
-							break;
-						case 'GDC::Exception::NotFound':
-							throw new RestApiException(sprintf('Project %s does not exist', $pid));
-							break;
-					}
-				}
-			}
-			throw $e;
-		}
+		return $this->get(sprintf('/gdc/projects/%s', $pid));
+	}
 
+	/**
+	 * Get user info
+	 *
+	 * @param $uid
+	 * @throws RestApiException|\Exception
+	 * @return array
+	 */
+	public function getUser($uid)
+	{
+		return $this->get(sprintf('/gdc/account/profile/%s', $uid));
 	}
 
 	/**
@@ -281,7 +274,7 @@ class RestApi
 	 * @throws \Keboola\GoodDataWriter\GoodData\RestApiException
 	 * @return null
 	 */
-	public function createUserInDomain($domain, $login, $password, $firstName, $lastName, $ssoProvider)
+	public function createUser($domain, $login, $password, $firstName, $lastName, $ssoProvider)
 	{
 		$this->_clearFromLog[] = $password;
 
@@ -301,11 +294,11 @@ class RestApi
 			$result = $this->_jsonRequest($uri, 'POST', $params);
 		} catch (RestApiException $e) {
 			// User exists?
-			$userUri = $this->userUri($login, $domain);
-			if ($userUri) {
-				return $userUri;
+			$userId = $this->userId($login, $domain);
+			if ($userId) {
+				return $userId;
 			} else {
-				$this->_log->alert('createUserInDomain() failed', array(
+				$this->_log->alert('createUser() failed', array(
 					'uri' => $uri,
 					'params' => $params,
 					'exception' => $e
@@ -315,9 +308,17 @@ class RestApi
 		}
 
 		if (isset($result['uri'])) {
-			return $result['uri'];
+			if (substr($result['uri'], 0, 21) == '/gdc/account/profile/') {
+				return substr($result['uri'], 21);
+			} else {
+				$this->_log->alert('createUser() has wrong result', array(
+					'uri' => $uri,
+					'params' => $params,
+					'result' => $result
+				));
+			}
 		} else {
-			$this->_log->alert('createUserInDomain() failed', array(
+			$this->_log->alert('createUser() failed', array(
 				'uri' => $uri,
 				'params' => $params,
 				'result' => $result
@@ -327,17 +328,36 @@ class RestApi
 	}
 
 	/**
+	 * Drop user
+	 * @param $uid
+	 * @return string
+	 */
+	public function dropUser($uid)
+	{
+		return $this->_jsonRequest('/gdc/account/profile/' . $uid, 'DELETE');
+	}
+
+	/**
 	 * Retrieves user's uri
 	 *
 	 * @param $email
 	 * @param $domain
 	 * @return array
 	 */
-	public function userUri($email, $domain)
+	public function userId($email, $domain)
 	{
 		foreach($this->usersInDomain($domain) as $user) {
 			if (!empty($user['accountSetting']['login']) && $user['accountSetting']['login'] == $email) {
-				return !empty($user['accountSetting']['links']['self']) ? $user['accountSetting']['links']['self'] : false;
+				if (!empty($user['accountSetting']['links']['self'])) {
+					if (substr($user['accountSetting']['links']['self'], 0, 21) == '/gdc/account/profile/') {
+						return substr($user['accountSetting']['links']['self'], 21);
+					} else {
+						$this->_log->alert('userId() has wrong result', array(
+							'result' => $user
+						));
+					}
+				}
+				return false;
 			}
 		}
 		return false;
@@ -371,13 +391,13 @@ class RestApi
 	/**
 	 * Adds user to the project
 	 *
-	 * @param $userUri
+	 * @param $userId
 	 * @param $pid
 	 * @param string $role
 	 * @throws \Exception|\Guzzle\Http\Exception\ClientErrorResponseException
 	 * @throws RestApiException
 	 */
-	public function addUserToProject($userUri, $pid, $role = 'adminRole')
+	public function addUserToProject($userId, $pid, $role = 'adminRole')
 	{
 		$rolesUri = sprintf('/gdc/projects/%s/roles', $pid);
 		$rolesResult = $this->_jsonRequest($rolesUri);
@@ -401,7 +421,7 @@ class RestApi
 							'userRoles' => array($projectRoleUri)
 						),
 						'links' => array(
-							'self' => $userUri
+							'self' => '/gdc/account/profile/' . $userId
 						)
 					)
 				);

@@ -40,15 +40,15 @@ class CreateUser extends GenericJob
 		$gdWriteStartTime = date('c');
 		try {
 			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
-			$userUri = $this->restApi->createUserInDomain($mainConfig['domain'], $params['email'], $params['password'],
+			$userId = $this->restApi->createUser($mainConfig['domain'], $params['email'], $params['password'],
 				$params['firstName'], $params['lastName'], $mainConfig['sso_provider']);
 
-			$this->configuration->saveUserToConfiguration($params['email'], $userUri);
-			$this->sharedConfig->saveUser($userUri, $params['email'], $job);
+			$this->configuration->saveUserToConfiguration($params['email'], $userId);
+			$this->sharedConfig->saveUser($userId, $params['email'], $job);
 
 
 			return $this->_prepareResult($job['id'], array(
-				'uri' => $userUri,
+				'uid' => $userId,
 				'gdWriteStartTime' => $gdWriteStartTime
 			), $this->restApi->callsLog());
 

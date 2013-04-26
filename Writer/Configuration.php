@@ -157,8 +157,19 @@ class Configuration
 	{
 		$valid = !empty($this->bucketInfo['gd']['pid'])
 			&& !empty($this->bucketInfo['gd']['username'])
-			&& !empty($this->bucketInfo['gd']['userUri'])
+			&& (!empty($this->bucketInfo['gd']['userUri']) || !empty($this->bucketInfo['gd']['uid']))
 			&& !empty($this->bucketInfo['gd']['password']);
+
+		if (empty($this->bucketInfo['gd']['uid']) && !empty($this->bucketInfo['gd']['userUri'])) {
+			if (substr($this->bucketInfo['gd']['userUri'], 0, 21) == '/gdc/account/profile/') {
+				$this->bucketInfo['gd']['uid'] = substr($this->bucketInfo['gd']['userUri'], 21);
+				$this->_storageApi->deleteBucketAttribute($this->bucketId, 'gd.userUri');
+				unset($this->bucketInfo['gd']['userUri']);
+			} else {
+				$valid = false;
+			}
+		}
+
 		if (!$valid) {
 			throw new WrongConfigurationException('Writer is missing GoodData configuration');
 		}
@@ -241,6 +252,20 @@ class Configuration
 			}
 		}
 		return $this->_dateDimensions;
+	}
+
+	public function addDateDimension($name, $includeTime)
+	{
+		$data = array(
+			'name' => $name,
+			'includeTime' => $includeTime,
+			'lastExportDate' => ''
+		);
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME);
+		$table->setHeader(array_keys($data));
+		$table->setFromArray(array($data));
+		$table->setIncremental(true);
+		$table->save();
 	}
 
 	public function setDateDimensionAttribute($dimension, $name, $value)
@@ -349,9 +374,9 @@ class Configuration
 					break;
 				case 'DATE':
 					if (!$dateDimensions) {
-						$dateDimensions = array_keys($this->getDateDimensions());
+						$dateDimensions = $this->getDateDimensions();
 					}
-					if (!empty($columnDefinition['dateDimension']) && in_array($columnDefinition['dateDimension'], $dateDimensions)) {
+					if (!empty($columnDefinition['dateDimension']) && isset($dateDimensions[$columnDefinition['dateDimension']])) {
 						$column->appendChild($xml->createElement('format', $columnDefinition['format']));
 						$column->appendChild($xml->createElement('datetime',
 							$dateDimensions[$columnDefinition['dateDimension']]['includeTime'] ? 'true' : 'false'));
@@ -472,20 +497,20 @@ class Configuration
 					if (count($this->_users[0]) != 2) {
 						throw new WrongConfigurationException('Users table in configuration contains invalid number of columns');
 					}
-					if (!isset($this->_users[0]['email']) || !isset($this->_users[0]['uri'])) {
+					if (!isset($this->_users[0]['email']) || !isset($this->_users[0]['uid'])) {
 						throw new WrongConfigurationException('Users table in configuration appears to be wrongly configured');
 					}
 				}
 			} else {
 				$table = new StorageApiTable($this->_storageApi, $tableId, null, 'email');
-				$table->setHeader(array('email', 'uri'));
+				$table->setHeader(array('email', 'uid'));
 				$table->save();
 				$this->_users = array();
 			}
 
 			array_unshift($this->_users, array(
 				'email' => $this->bucketInfo['gd']['username'],
-				'uri' => $this->bucketInfo['gd']['userUri'],
+				'uid' => $this->bucketInfo['gd']['uid'],
 				'main' => true
 			));
 		}
@@ -504,7 +529,7 @@ class Configuration
 			if (count($table['columns']) != 2) {
 				throw new WrongConfigurationException('Users table in configuration contains invalid number of columns');
 			}
-			if (!in_array('email', $table['columns']) || !in_array('uri', $table['columns'])) {
+			if (!in_array('email', $table['columns']) || !in_array('uid', $table['columns'])) {
 				throw new WrongConfigurationException('Users table in configuration appears to be wrongly configured');
 			}
 		}
@@ -592,13 +617,13 @@ class Configuration
 
 	/**
 	 * @param $email
-	 * @param $uri
+	 * @param $uid
 	 */
-	public function saveUserToConfiguration($email, $uri)
+	public function saveUserToConfiguration($email, $uid)
 	{
 		$data = array(
 			'email' => $email,
-			'uri' => $uri
+			'uid' => $uid
 		);
 		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::USERS_TABLE_NAME);
 		$table->setHeader(array_keys($data));

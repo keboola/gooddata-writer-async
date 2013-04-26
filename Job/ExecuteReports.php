@@ -19,16 +19,25 @@ class ExecuteReports extends GenericJob
 	 */
 	public function run($job, $params)
 	{
-		if (empty($job['pid'])) {
-			throw new WrongConfigurationException("Parameter 'pid' is missing");
-		}
 		$this->configuration->checkGoodDataSetup();
+
+		$pids = array();
+		if (empty($job['pid'])) {
+			$projects = $this->configuration->getProjects();
+			foreach ($projects as $project) if ($project['active']) {
+				$pids[] = $project['pid'];
+			}
+		} else {
+			$pids[] = $job['pid'];
+		}
 
 
 		$gdWriteStartTime = date('c');
 		try {
 			$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$this->clToolApi->executeReports($job['pid']);
+			foreach ($pids as $pid) {
+				$this->clToolApi->executeReports($pid);
+			}
 
 			return $this->_prepareResult($job['id'], array(
 				'debug' => $this->clToolApi->debugLogUrl,

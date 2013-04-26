@@ -30,13 +30,13 @@ class DropWriter extends GenericJob
 			}
 		}
 		foreach ($this->configuration->getUsers() as $user) {
-			if (!$user['uri']) {
-				$user['uri'] = $this->restApi->userUri($user['email'], $mainConfig['domain']);
+			if (!$user['uid']) {
+				$user['uid'] = $this->restApi->userId($user['email'], $mainConfig['domain']);
 			}
 			if ($dropImmediately) {
 
 			} else {
-				$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uri'], $user['email'], empty($params['dev']));
+				$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid'], $user['email'], empty($params['dev']));
 			}
 		}
 
