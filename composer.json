@@ -38,8 +38,7 @@
 	},
 	"scripts": {
 		"post-install-cmd": [
-			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap",
-			"cp /www/syrup-development-bundle/app/config/parameters.yml  vendor/syrup/development-bundle/app/config/"
+			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap"
 		],
 		"post-update-cmd": [
 			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap",

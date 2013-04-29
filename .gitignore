@@ -4,6 +4,7 @@ scripts/debug.php
 application/configs/config.ini
 cache.properties
 composer.lock
+composer.phar
 tmp
 
 # osx noise
