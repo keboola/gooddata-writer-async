@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="GoodDataWriter" default="build">
+
+	<target name="build"
+			depends="prepare,update,phpunit-ci"/>
+
+	<target name="update"
+			depends="prepare,composerInstall,composerUpdate,composerDumpAutoload"
+			description="update application"/>
+
+	<target name="clean" description="Cleanup build artifacts">
+		<delete file="${basedir}/composer.phar"/>
+	</target>
+
+	<target name="prepare" depends="clean"
+			description="Prepare for build">
+		<exec executable="bash">
+			<arg value="-c"/>
+			<arg value="curl -s http://getcomposer.org/installer | php"/>
+		</exec>
+	</target>
+
+	<target name="composerInstall" depends="prepare">
+		<exec executable="php" failonerror="true">
+			<arg value="composer.phar"/>
+			<arg value="install"/>
+		</exec>
+	</target>
+
+
+	<target name="composerUpdate" depends="prepare">
+		<exec executable="php" failonerror="true">
+			<arg value="composer.phar"/>
+			<arg value="update"/>
+		</exec>
+	</target>
+
+	<target name="composerDumpAutoload">
+		<exec executable="php" failonerror="true">
+			<arg value="composer.phar"/>
+			<arg value="dump-autoload"/>
+			<arg value="--optimize"/>
+		</exec>
+	</target>
+
+
+
+	<target name="phpunit" description="Run unit tests with PHPUnit">
+		<exec executable="phpunit" failonerror="true">
+			<arg value="--configuration"/>
+			<arg path="${basedir}/phpunit.xml.dist"/>
+		</exec>
+	</target>
+
+	<target name="phpunit-ci" description="Run unit tests with PHPUnit with coverage for CI">
+		<exec executable="phpunit" failonerror="true">
+			<arg value="--configuration"/>
+			<arg path="${basedir}/phpunit-ci.xml.dist"/>
+		</exec>
+	</target>
+</project>

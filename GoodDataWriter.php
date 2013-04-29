@@ -572,8 +572,8 @@ class GoodDataWriter extends Component
 				if (!$jobFinished) sleep(30);
 			} while(!$jobFinished);
 
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['uri'])) {
-				return array('uri' => $jobInfo['job']['result']['uri']);
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['uid'])) {
+				return array('uid' => $jobInfo['job']['result']['uid']);
 			} else {
 				$e = new JobProcessException('Create User job failed');
 				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
