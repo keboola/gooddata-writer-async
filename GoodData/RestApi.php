@@ -471,6 +471,166 @@ class RestApi
 	}
 
 	/**
+	 * Creates new Mandatory User Filter
+	 *
+	 * @param array $params - fields: name, attribute, element, operator, pid
+	 * @return mixed
+	 * @throws RestApiException
+	 */
+	public function createFilter(array $params)
+	{
+		$attribute = $this->getAttributeByTitle($params['pid'], $params['attribute']);
+
+		$elementUri = $this->getElementUriByTitle(
+			$attribute['content']['displayForms'][0]['links']['elements'],
+			$params['element']
+		);
+
+		$expression = "[" . $attribute['meta']['uri'] . "]" . $params['operator'] . "[" . $elementUri . "]";
+
+		$filterUri = sprintf('/gdc/md/%s/obj', $params['pid']);
+		$result = $this->_jsonRequest($filterUri, 'POST', array(
+			'userFilter' => array(
+				'content' => array(
+					'expression' => $expression
+				),
+				'meta' => array(
+					'category'  => 'userFilter',
+					'title'     => $params['name']
+				)
+			)
+		), array(
+			'Content-Type' => 'application/json'
+		));
+
+		if (isset($result['uri'])) {
+			return $result['uri'];
+		} else {
+			$this->_log->alert('createFilters() has bad response', array(
+				'uri' => $filterUri,
+				'result' => $result
+			));
+			throw new RestApiException('Error in attempt to create filter');
+		}
+	}
+
+	public function assignFiltersToUser(array $filters, $userUri, $pid)
+	{
+		$uri = sprintf('/gdc/md/%s/userfilters', $pid);
+
+		$result = $this->_jsonRequest($uri, 'POST', array(
+			'userFilters' => array(
+				'items' => array(
+					array(
+						"user" => $userUri,
+						"userFilters" => $filters
+					)
+				)
+			)
+		), array(
+			'Content-Type' => 'application/json'
+		));
+
+		if (isset($result['userFiltersUpdateResult']['successful']) && count($result['userFiltersUpdateResult']['successful'])) {
+			// SUCCESS
+		} else {
+			$this->_log->alert('assignFiltersToUser() has bad response', array(
+				'uri' => $uri,
+				'result' => $result
+			));
+			throw new RestApiException('Error in attempt to assign filters to user');
+		}
+	}
+
+	public function deleteFilter($filterUri)
+	{
+		$this->_jsonRequest($filterUri, 'DELETE');
+	}
+
+	public function getAttributes($pid)
+	{
+		$uri = sprintf('/gdc/md/%s/query/attributes', $pid);
+		$result = $this->_jsonRequest($uri);
+
+		if (isset($result['query']['entries'])) {
+			return $result['query']['entries'];
+		} else {
+			$this->_log->alert('getAttributes() has bad response', array(
+				'uri' => $uri,
+				'result' => $result
+			));
+			throw new RestApiException('Attributes in project could not be fetched');
+		}
+	}
+
+	public function getAttributeByTitle($pid, $title)
+	{
+		$attributes = $this->getAttributes($pid);
+		$attrUri = null;
+
+		foreach ($attributes as $attr) {
+			if ($attr['title'] == $title) {
+				$attrUri = $attr['link'];
+				break;
+			}
+		}
+
+		if (null == $attrUri) {
+			$this->_log->alert('getAttributeByTitle() attribute not found', array(
+				'pid' => $pid,
+				'attribute' => $title
+			));
+			throw new RestApiException('Attribute ' . $title . ' not found in project');
+		} else {
+			$result = $this->_jsonRequest($attrUri);
+			if (isset($result['attribute'])) {
+				return $result['attribute'];
+			} else {
+				$this->_log->alert('getAttributeByTitle() bad response', array(
+					'uri' => $attrUri,
+					'result' => $result
+				));
+				throw new RestApiException('Attribute ' . $attrUri . ' could not be fetched');
+			}
+		}
+	}
+
+	public function getElements($uri)
+	{
+		$result = $this->_jsonRequest($uri);
+		if (isset($result['attributeElements']['elements'])) {
+			return $result['attributeElements']['elements'];
+		} else {
+			$this->_log->alert('getElements() has bad response', array(
+				'uri' => $uri,
+				'result' => $result
+			));
+			throw new RestApiException('Elements could not be fetched');
+		}
+	}
+
+	public function getElementUriByTitle($uri, $title)
+	{
+		$elementUri = null;
+		foreach ($this->getElements($uri) as $e) {
+			if ($e['title'] == $title) {
+				$elementUri = $e['uri'];
+				break;
+			}
+		}
+
+		if (null == $elementUri) {
+			$this->_log->alert('getElementsByTitle() element not found', array(
+				'uri' => $uri,
+				'element' => $title
+			));
+			throw new RestApiException('Element ' . $title . ' not found');
+		} else {
+			return $elementUri;
+		}
+	}
+
+	/**
 	 * Poll task uri and wait for its finish
 	 * @param $uri
 	 * @throws RestApiException

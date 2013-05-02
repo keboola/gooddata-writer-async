@@ -167,6 +167,12 @@ class SharedConfig
 		$table->save();
 	}
 
+	public function saveFilter()
+	{
+		//@TODO
+	}
+
+
 
 
 	/**
