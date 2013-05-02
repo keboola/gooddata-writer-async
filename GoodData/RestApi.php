@@ -9,6 +9,7 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Guzzle\Http\Client,
+	Guzzle\Http\Exception\ServerErrorResponseException,
 	Guzzle\Http\Exception\ClientErrorResponseException,
 	Guzzle\Common\Exception\RuntimeException,
 	Guzzle\Http\Message\Header;
@@ -26,6 +27,7 @@ class RestApi
 	 * Back off time before retrying API call
 	 */
 	const BACKOFF_INTERVAL = 60;
+	const WAIT_INTERVAL = 10;
 
 
 	public $apiUrl;
@@ -89,8 +91,32 @@ class RestApi
 	 */
 	public function getProject($pid)
 	{
+		return $this->get(sprintf('/gdc/projects/%s', $pid));
+	}
+
+	/**
+	 * Get user info
+	 *
+	 * @param $uid
+	 * @throws RestApiException|\Exception
+	 * @return array
+	 */
+	public function getUser($uid)
+	{
+		return $this->get(sprintf('/gdc/account/profile/%s', $uid));
+	}
+
+	/**
+	 * Get object info
+	 *
+	 * @param $uri
+	 * @throws RestApiException|\Exception
+	 * @return array
+	 */
+	public function get($uri)
+	{
 		try {
-			$result = $this->_jsonRequest(sprintf('/gdc/projects/%s', $pid), 'GET', array(), array(), false);
+			$result = $this->_jsonRequest($uri, 'GET', array(), array(), false);
 			return $result;
 		} catch (RestApiException $e) {
 			$errorJson = json_decode($e->getMessage(), true);
@@ -98,10 +124,10 @@ class RestApi
 				if (isset($errorJson['error']['errorClass'])) {
 					switch ($errorJson['error']['errorClass']) {
 						case 'GDC::Exception::Forbidden':
-							throw new RestApiException(sprintf('Access to project %s denied', $pid));
+							throw new RestApiException(sprintf('Access to uri %s denied', $uri));
 							break;
 						case 'GDC::Exception::NotFound':
-							throw new RestApiException(sprintf('Project %s not exists', $pid));
+							throw new RestApiException(sprintf('Uri %s does not exist', $uri));
 							break;
 					}
 				}
@@ -154,7 +180,7 @@ class RestApi
 		$repeat = true;
 		$i = 1;
 		do {
-			sleep(self::BACKOFF_INTERVAL * ($i + 1));
+			sleep(self::WAIT_INTERVAL * ($i + 1));
 
 			$result = $this->_jsonRequest($projectUri);
 			if (isset($result['project']['content']['state'])) {
@@ -248,7 +274,7 @@ class RestApi
 	 * @throws \Keboola\GoodDataWriter\GoodData\RestApiException
 	 * @return null
 	 */
-	public function createUserInDomain($domain, $login, $password, $firstName, $lastName, $ssoProvider)
+	public function createUser($domain, $login, $password, $firstName, $lastName, $ssoProvider)
 	{
 		$this->_clearFromLog[] = $password;
 
@@ -268,11 +294,11 @@ class RestApi
 			$result = $this->_jsonRequest($uri, 'POST', $params);
 		} catch (RestApiException $e) {
 			// User exists?
-			$userUri = $this->userUri($login, $domain);
-			if ($userUri) {
-				return $userUri;
+			$userId = $this->userId($login, $domain);
+			if ($userId) {
+				return $userId;
 			} else {
-				$this->_log->alert('createUserInDomain() failed', array(
+				$this->_log->alert('createUser() failed', array(
 					'uri' => $uri,
 					'params' => $params,
 					'exception' => $e
@@ -282,9 +308,17 @@ class RestApi
 		}
 
 		if (isset($result['uri'])) {
-			return $result['uri'];
+			if (substr($result['uri'], 0, 21) == '/gdc/account/profile/') {
+				return substr($result['uri'], 21);
+			} else {
+				$this->_log->alert('createUser() has wrong result', array(
+					'uri' => $uri,
+					'params' => $params,
+					'result' => $result
+				));
+			}
 		} else {
-			$this->_log->alert('createUserInDomain() failed', array(
+			$this->_log->alert('createUser() failed', array(
 				'uri' => $uri,
 				'params' => $params,
 				'result' => $result
@@ -294,17 +328,36 @@ class RestApi
 	}
 
 	/**
+	 * Drop user
+	 * @param $uid
+	 * @return string
+	 */
+	public function dropUser($uid)
+	{
+		return $this->_jsonRequest('/gdc/account/profile/' . $uid, 'DELETE');
+	}
+
+	/**
 	 * Retrieves user's uri
 	 *
 	 * @param $email
 	 * @param $domain
 	 * @return array
 	 */
-	public function userUri($email, $domain)
+	public function userId($email, $domain)
 	{
 		foreach($this->usersInDomain($domain) as $user) {
 			if (!empty($user['accountSetting']['login']) && $user['accountSetting']['login'] == $email) {
-				return !empty($user['accountSetting']['links']['self']) ? $user['accountSetting']['links']['self'] : false;
+				if (!empty($user['accountSetting']['links']['self'])) {
+					if (substr($user['accountSetting']['links']['self'], 0, 21) == '/gdc/account/profile/') {
+						return substr($user['accountSetting']['links']['self'], 21);
+					} else {
+						$this->_log->alert('userId() has wrong result', array(
+							'result' => $user
+						));
+					}
+				}
+				return false;
 			}
 		}
 		return false;
@@ -338,13 +391,13 @@ class RestApi
 	/**
 	 * Adds user to the project
 	 *
-	 * @param $userUri
+	 * @param $userId
 	 * @param $pid
 	 * @param string $role
 	 * @throws \Exception|\Guzzle\Http\Exception\ClientErrorResponseException
 	 * @throws RestApiException
 	 */
-	public function addUserToProject($userUri, $pid, $role = 'adminRole')
+	public function addUserToProject($userId, $pid, $role = 'adminRole')
 	{
 		$rolesUri = sprintf('/gdc/projects/%s/roles', $pid);
 		$rolesResult = $this->_jsonRequest($rolesUri);
@@ -368,7 +421,7 @@ class RestApi
 							'userRoles' => array($projectRoleUri)
 						),
 						'links' => array(
-							'self' => $userUri
+							'self' => '/gdc/account/profile/' . $userId
 						)
 					)
 				);
@@ -640,7 +693,7 @@ class RestApi
 		$repeat = true;
 		$i = 0;
 		do {
-			sleep(self::BACKOFF_INTERVAL * ($i + 1));
+			sleep(self::WAIT_INTERVAL * ($i + 1));
 
 			$result = $this->_jsonRequest($uri);
 			if (isset($result['taskState']['status'])) {
@@ -688,7 +741,7 @@ class RestApi
 				'method' => $method,
 				'params' => $params,
 				'headers' => $headers,
-				'exception' => $e
+				'exception' => array($e->getMessage())
 			));
 			throw new RestApiException('Rest API: ' . $e->getMessage());
 		}
@@ -744,6 +797,11 @@ class RestApi
 					'headers' => $headers,
 					'response' => $response->getBody(true)
 				));
+
+				if ($response->isSuccessful()) {
+					return $response;
+				}
+
 			} catch (ClientErrorResponseException $e) {
 				$response = $request->getResponse()->getBody(true);
 				if ($logCall) $this->_logCall($uri, $method, $params, $response);
@@ -751,22 +809,8 @@ class RestApi
 					throw new UnauthorizedException($response);
 				}
 				throw new RestApiException($response);
-			}
-
-			if ($response->isSuccessful()) {
-				return $response;
-			}
-
-			if ($response->getStatusCode() != 503) {
-				$this->_log->alert('API error', array(
-					'uri' => $uri,
-					'method' => $method,
-					'params' => $jsonParams,
-					'headers' => $headers,
-					'response' => $response->getBody(true),
-					'status' => $response->getStatusCode()
-				));
-				throw new RestApiException($response->getBody(true));
+			} catch (ServerErrorResponseException $e) {
+				// Backoff
 			}
 
 			sleep(self::BACKOFF_INTERVAL * ($i + 1));

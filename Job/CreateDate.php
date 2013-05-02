@@ -25,7 +25,7 @@ class CreateDate extends GenericJob
 		if (!isset($params['includeTime'])) {
 			throw new WrongConfigurationException("Parameter 'includeTime' is missing");
 		}
-		if (empty($job['pid'])) {
+		if (empty($params['pid'])) {
 			throw new WrongConfigurationException("Parameter 'pid' is missing");
 		}
 		$this->configuration->checkGoodDataSetup();
@@ -34,7 +34,7 @@ class CreateDate extends GenericJob
 		$gdWriteStartTime = date('c');
 		try {
 			$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$this->clToolApi->createDate($job['pid'], $params['name'], $params['includeTime']);
+			$this->clToolApi->createDate($params['pid'], $params['name'], $params['includeTime']);
 
 			return $this->_prepareResult($job['id'], array(
 				'debug' => $this->clToolApi->debugLogUrl,

@@ -19,11 +19,11 @@ class CreateDataset extends GenericJob
 	 */
 	public function run($job, $params)
 	{
-		if (empty($job['pid'])) {
-			throw new WrongConfigurationException("Parameter 'pid' is missing");
-		}
 		if (empty($job['xmlFile'])) {
 			throw new WrongConfigurationException("Parameter 'xmlFile' is missing");
+		}
+		if (empty($params['pid'])) {
+			throw new WrongConfigurationException("Parameter 'pid' is missing");
 		}
 		$this->configuration->checkGoodDataSetup();
 
@@ -37,7 +37,7 @@ class CreateDataset extends GenericJob
 		$gdWriteStartTime = date('c');
 		try {
 			$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$this->clToolApi->createDataset($job['pid'], $xmlFile);
+			$this->clToolApi->createDataset($params['pid'], $xmlFile);
 
 			return $this->_prepareResult($job['id'], array(
 				'debug' => $this->clToolApi->debugLogUrl,

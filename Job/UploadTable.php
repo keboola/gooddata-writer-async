@@ -57,6 +57,11 @@ class UploadTable extends GenericJob
 		}
 
 		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
+		$incremental = (isset($params['incremental'])) ? $params['incremental']
+			: (!empty($tableDefinition['incremental']) ? $tableDefinition['incremental'] : 0);
+		$sanitize = (isset($params['sanitize'])) ? $params['sanitize']
+			: empty($tableDefinition['sanitize']);
+
 		foreach ($projects as $project) if ($project['active']) {
 			if (empty($tableDefinition['lastExportDate'])) {
 				$gdJobs[] = array(
@@ -73,25 +78,86 @@ class UploadTable extends GenericJob
 			$gdJobs[] = array(
 				'command' => 'loadData',
 				'pid' => $project['pid'],
-				'incremental' => isset($params['incremental']) ? $params['incremental'] :
-					(!empty($tableDefinition['incremental']) ? $tableDefinition['incremental'] : 0)
+				'incremental' => $incremental
 			);
 		}
 
-		$incrementalLoad = !empty($params['incremental']) ? $params['incremental'] : null;
+
 		$csvUrl = $this->mainConfig['storageApi.url'] . '/storage/tables/' . $params['tableId'] . '/export?escape=1'
-			. ($incrementalLoad ? '&changedSince=-' . $incrementalLoad . '+days' : null);
+			. ($incremental ? '&changedSince=-' . $incremental . '+days' : null);
 		$csvFilePath = tempnam($this->tmpDir, 'csv');
 		exec('curl --header "X-StorageApi-Token: ' . $job['token'] . '" -s ' . escapeshellarg($csvUrl) . ' > ' . $csvFilePath);
 		$csvFile = $csvFilePath;
 
+		if ($sanitize) {
+			libxml_use_internal_errors(TRUE);
+			$sxml = simplexml_load_file($xmlFile);
+			if ($sxml) {
+				$nullReplace = 'cat ' . $csvFile . ' | sed \'s/\"NULL\"/\"\"/g\' | awk -v OFS="\",\"" -F"\",\"" \'{';
+
+				$i = 1;
+				$columnsCount = $sxml->columns->column->count();
+				foreach ($sxml->columns->column as $column) {
+					$type = (string)$column->ldmType;
+					$value = NULL;
+					switch ($type) {
+						case 'ATTRIBUTE':
+							$value = '-- empty --';
+							break;
+						case 'LABEL':
+						case 'FACT':
+							$value = '0';
+							break;
+						case 'DATE':
+							$format = (string)$column->format;
+							$value = str_replace(
+								array('yyyy', 'MM', 'dd', 'hh', 'HH', 'mm', 'ss', 'kk'),
+								array('1900', '01', '01', '00', '00', '00', '00', '00'),
+								$format);
+							break;
+					}
+					if (!is_null($value)) {
+						$testValue = '""';
+						if ($i == 1) {
+							$testValue = '"\""';
+							$value = '\"' . $value;
+						}
+						if ($i == $columnsCount) {
+							$testValue = '"\""';
+							$value .= '\"';
+						}
+						$nullReplace .= 'if ($' . $i . ' == ' . $testValue . ') {$' . $i . ' = "' . $value . '"} ';
+					}
+					$i++;
+				}
+				$nullReplace .= '; print }\' > ' . $csvFile . '.out';
+				shell_exec($nullReplace);
+
+				$csvFile .= '.out';
+			} else {
+				$errors = '';
+				foreach (libxml_get_errors() as $error) {
+					$errors .= $error->message;
+				}
+				return $this->_prepareResult($job['id'], array(
+					'status' => 'error',
+					'error' => $errors,
+					'debug' => $this->clToolApi->debugLogUrl,
+					'csvFile' => $csvFilePath
+				), $this->clToolApi->output);
+			}
+		}
+
+
 		$gdWriteStartTime = date('c');
 		$debug = array();
 		$output = null;
-		try {
-			$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			foreach ($gdJobs as $gdJob) {
-				$this->clToolApi->debugLogUrl = null;
+
+		$error = false;
+		$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+		foreach ($gdJobs as $gdJob) {
+			$this->clToolApi->debugLogUrl = null;
+			try {
 				switch ($gdJob['command']) {
 					case 'createDate':
 						$this->clToolApi->createDate($gdJob['pid'], $gdJob['name'], $gdJob['includeTime']);
@@ -103,36 +169,26 @@ class UploadTable extends GenericJob
 						$this->clToolApi->updateDataset($gdJob['pid'], $xmlFile, 1);
 						break;
 					case 'loadData':
-						$this->clToolApi->loadData($gdJob['pid'], $xmlFile, $csvFile, $params['incremental']);
+						$this->clToolApi->loadData($gdJob['pid'], $xmlFile, $csvFile, $incremental);
 						break;
 				}
-				if ($this->clToolApi->debugLogUrl) {
-					$debug[] = $this->clToolApi->debugLogUrl;
-				}
-				$output .= $this->clToolApi->output;
+			} catch (CLToolApiErrorException $e) {
+				$this->clToolApi->output .= '!!!!! ERROR !!!!!' . PHP_EOL . $e->getMessage() . PHP_EOL;
 			}
 
-			$this->configuration->setTableAttribute($params['tableId'], 'lastExportDate', date('c', $startTime));
-			return $this->_prepareResult($job['id'], array(
-				'debug' => json_encode($debug),
-				'gdWriteStartTime' => $gdWriteStartTime,
-				'gdWriteBytes' => filesize($csvFilePath),
-				'csvFile' => $csvFilePath
-			), $output);
-
-		} catch (CLToolApiErrorException $e) {
 			if ($this->clToolApi->debugLogUrl) {
 				$debug[] = $this->clToolApi->debugLogUrl;
 			}
 			$output .= $this->clToolApi->output;
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => $e->getMessage(),
-				'debug' => json_encode($debug),
-				'gdWriteStartTime' => $gdWriteStartTime,
-				'gdWriteBytes' => filesize($csvFilePath),
-				'csvFile' => $csvFilePath
-			), $output);
 		}
+
+		$this->configuration->setTableAttribute($params['tableId'], 'lastExportDate', date('c', $startTime));
+		return $this->_prepareResult($job['id'], array(
+			'status' => $error ? 'error' : 'success',
+			'debug' => json_encode($debug),
+			'gdWriteStartTime' => $gdWriteStartTime,
+			'gdWriteBytes' => filesize($csvFilePath),
+			'csvFile' => $csvFilePath
+		), $output);
 	}
 }

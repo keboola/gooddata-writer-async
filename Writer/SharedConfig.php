@@ -151,10 +151,10 @@ class SharedConfig
 		$table->save();
 	}
 
-	public function saveUser($uri, $email, $job)
+	public function saveUser($uid, $email, $job)
 	{
 		$data = array(
-			'uri' => $uri,
+			'uid' => $uid,
 			'projectId' => $job['projectId'],
 			'writerId' => $job['writerId'],
 			'email' => $email,
@@ -201,21 +201,21 @@ class SharedConfig
 	/**
 	 * @param $projectId
 	 * @param $writerId
-	 * @param $uri
+	 * @param $uid
 	 * @param $email
 	 * @param int $dev
 	 */
-	public function enqueueUserToDelete($projectId, $writerId, $uri, $email, $dev = 0)
+	public function enqueueUserToDelete($projectId, $writerId, $uid, $email, $dev = 0)
 	{
 		$data = array(
-			'uri' => $uri,
+			'uid' => $uid,
 			'projectId' => $projectId,
 			'writerId' => $writerId,
 			'email' => $email,
 			'deleteDate' => date('c', strtotime('+30 days')),
 			'dev' => $dev
 		);
-		$table = new StorageApiTable($this->_storageApiClient, self::USERS_TO_DELETE_TABLE_ID, null, 'uri');
+		$table = new StorageApiTable($this->_storageApiClient, self::USERS_TO_DELETE_TABLE_ID, null, 'uid');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setPartial(true);

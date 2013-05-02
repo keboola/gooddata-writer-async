@@ -66,25 +66,25 @@ class Configuration
 
 
 	/**
-	 * @var CsvFile
+	 * @var Array
 	 */
-	public $projectsCsv;
+	private $_projects;
 	/**
-	 * @var CsvFile
+	 * @var Array
 	 */
-	public $usersCsv;
+	private $_users;
 	/**
-	 * @var CsvFile
+	 * @var Array
 	 */
-	public $filtersCsv;
+	private $_filters;
 	/**
-	 * @var CsvFile
+	 * @var Array
 	 */
-	public $projectUsersCsv;
+	private $_projectUsers;
 	/**
-	 * @var CsvFile
+	 * @var Array
 	 */
-	public $filtersUsersCsv;
+	private $_filtersUsers;
 
 
 	private $_dateDimensionsCache;
@@ -162,8 +162,19 @@ class Configuration
 	{
 		$valid = !empty($this->bucketInfo['gd']['pid'])
 			&& !empty($this->bucketInfo['gd']['username'])
-			&& !empty($this->bucketInfo['gd']['userUri'])
+			&& (!empty($this->bucketInfo['gd']['userUri']) || !empty($this->bucketInfo['gd']['uid']))
 			&& !empty($this->bucketInfo['gd']['password']);
+
+		if (empty($this->bucketInfo['gd']['uid']) && !empty($this->bucketInfo['gd']['userUri'])) {
+			if (substr($this->bucketInfo['gd']['userUri'], 0, 21) == '/gdc/account/profile/') {
+				$this->bucketInfo['gd']['uid'] = substr($this->bucketInfo['gd']['userUri'], 21);
+				$this->_storageApi->deleteBucketAttribute($this->bucketId, 'gd.userUri');
+				unset($this->bucketInfo['gd']['userUri']);
+			} else {
+				$valid = false;
+			}
+		}
+
 		if (!$valid) {
 			throw new WrongConfigurationException('Writer is missing GoodData configuration');
 		}
@@ -208,17 +219,58 @@ class Configuration
 		return $this->_tableDefinitionsCache[$tableId];
 	}
 
+	public function setTableAttribute($tableId, $name, $value)
+	{
+		if (!isset($this->definedTables[$tableId])) {
+			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
+		}
+
+		$this->_storageApi->setTableAttribute($this->definedTables[$tableId]['definitionId'], $name, $value);
+	}
+
 	public function getDateDimensions()
 	{
-		if (!$this->_dateDimensionsCache) {
-			$data = array();
-			$csv = $this->_storageApi->exportTable($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME);
-			foreach (StorageApiClient::parseCsv($csv) as $row) {
-				$data[$row['name']] = $row;
+		if (!$this->_dateDimensions) {
+			$tableId = $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME;
+			if ($this->_storageApi->tableExists($tableId)) {
+				$data = array();
+				$csv = $this->_storageApi->exportTable($tableId);
+				foreach (StorageApiClient::parseCsv($csv) as $row) {
+					$data[$row['name']] = $row;
+				}
+				$this->_dateDimensions = $data;
+
+				if (isset($this->_dateDimensions[0])) {
+					if (count($this->_dateDimensions[0]) != 3) {
+						throw new WrongConfigurationException('Date Dimensions table in configuration contains invalid number of columns');
+					}
+					if (!isset($this->_dateDimensions[0]['name']) || !isset($this->_dateDimensions[0]['includeTime'])
+						|| !isset($this->_dateDimensions[0]['lastExportDate'])) {
+						throw new WrongConfigurationException('Date Dimensions table in configuration appears to be wrongly configured');
+					}
+				}
+			} else {
+				$table = new StorageApiTable($this->_storageApi, $tableId, null, 'name');
+				$table->setHeader(array('name', 'includeTime', 'lastExportDate'));
+				$table->save();
+				$this->_dateDimensions = array();
 			}
-			$this->_dateDimensionsCache = $data;
 		}
-		return $this->_dateDimensionsCache;
+		return $this->_dateDimensions;
+	}
+
+	public function addDateDimension($name, $includeTime)
+	{
+		$data = array(
+			'name' => $name,
+			'includeTime' => $includeTime,
+			'lastExportDate' => ''
+		);
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME);
+		$table->setHeader(array_keys($data));
+		$table->setFromArray(array($data));
+		$table->setIncremental(true);
+		$table->save();
 	}
 
 	public function setDateDimensionAttribute($dimension, $name, $value)
@@ -274,6 +326,8 @@ class Configuration
 
 	public function getXml($tableId)
 	{
+		$this->getDateDimensions();
+
 		$dataTableConfig = $this->getTable($tableId);
 		$gdDefinition = $this->getTableDefinition($tableId);
 		$this->checkMissingColumns($tableId, $gdDefinition, $dataTableConfig['columns']);
@@ -325,9 +379,9 @@ class Configuration
 					break;
 				case 'DATE':
 					if (!$dateDimensions) {
-						$dateDimensions = array_keys($this->getDateDimensions());
+						$dateDimensions = $this->getDateDimensions();
 					}
-					if (!empty($columnDefinition['dateDimension']) && in_array($columnDefinition['dateDimension'], $dateDimensions)) {
+					if (!empty($columnDefinition['dateDimension']) && isset($dateDimensions[$columnDefinition['dateDimension']])) {
 						$column->appendChild($xml->createElement('format', $columnDefinition['format']));
 						$column->appendChild($xml->createElement('datetime',
 							$dateDimensions[$columnDefinition['dateDimension']]['includeTime'] ? 'true' : 'false'));
@@ -379,175 +433,169 @@ class Configuration
 		return $xml->saveXML();
 	}
 
+
+	/**
+	 * @return array
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 */
+	public function getProjects()
+	{
+		if (!$this->_projects) {
+			$tableId = $this->bucketId . '.' . self::PROJECTS_TABLE_NAME;
+			if ($this->_storageApi->tableExists($tableId)) {
+				$csv = $this->_storageApi->exportTable($tableId);
+				$this->_projects = StorageApiClient::parseCsv($csv);
+
+				if (isset($this->_projects[0])) {
+					if (count($this->_projects[0]) != 2) {
+						throw new WrongConfigurationException('Projects table in configuration contains invalid number of columns');
+					}
+					if (!isset($this->_projects[0]['pid']) || !isset($this->_projects[0]['active'])) {
+						throw new WrongConfigurationException('Projects table in configuration appears to be wrongly configured');
+					}
+				}
+			} else {
+				$table = new StorageApiTable($this->_storageApi, $tableId, null, 'pid');
+				$table->setHeader(array('pid', 'active'));
+				$table->save();
+				$this->_projects = array();
+			}
+
+			array_unshift($this->_projects, array('pid' => $this->bucketInfo['gd']['pid'], 'active' => true, 'main' => true));
+		}
+		return $this->_projects;
+	}
+
 	/**
 	 * Check configuration table of projects
 	 * @throws WrongConfigurationException
 	 */
-	public function prepareProjects()
+	public function checkProjectsTable()
 	{
-		if (!$this->projectsCsv) {
-			$csvFile = $this->tmpDir . 'projects.csv';
-			try {
-				$this->_storageApi->exportTable($this->bucketId . '.' . self::PROJECTS_TABLE_NAME, $csvFile);
-			} catch (StorageApiException $e) {
-				$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECTS_TABLE_NAME, null, 'pid');
-				$table->setHeader(array('pid', 'active'));
-				$table->save();
-
-				$this->_storageApi->exportTable($this->bucketId . '.' . self::PROJECTS_TABLE_NAME, $csvFile);
+		$tableId = $this->bucketId . '.' . self::PROJECTS_TABLE_NAME;
+		if ($this->_storageApi->tableExists($tableId)) {
+			$table = $this->_storageApi->getTable($tableId);
+			if (count($table['columns']) != 2) {
+				throw new WrongConfigurationException('Projects table in configuration contains invalid number of columns');
 			}
-
-			try {
-				$this->projectsCsv = new CsvFile($csvFile);
-				if ($this->projectsCsv->getColumnsCount() != 2) {
-					throw new WrongConfigurationException('Projects table in configuration contains invalid number of columns');
-				}
-				$headers = $this->projectsCsv->getHeader();
-				if ($headers[0] != 'pid' && $headers[1] != 'active') {
-					throw new WrongConfigurationException('Projects table in configuration appears to be wrongly configured');
-				}
-
-				$this->projectsCsv->next();
-
-			} catch (CsvFileException $e) {
-				throw new WrongConfigurationException($e->getMessage());
+			if (!in_array('pid', $table['columns']) || !in_array('active', $table['columns'])) {
+				throw new WrongConfigurationException('Projects table in configuration appears to be wrongly configured');
 			}
 		}
+	}
+
+
+
+	/**
+	 * @return array
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 */
+	public function getUsers()
+	{
+		if (!$this->_users) {
+			$tableId = $this->bucketId . '.' . self::USERS_TABLE_NAME;
+			if ($this->_storageApi->tableExists($tableId)) {
+				$csv = $this->_storageApi->exportTable($tableId);
+				$this->_users = StorageApiClient::parseCsv($csv);
+
+				if (isset($this->_users[0])) {
+					if (count($this->_users[0]) != 2) {
+						throw new WrongConfigurationException('Users table in configuration contains invalid number of columns');
+					}
+					if (!isset($this->_users[0]['email']) || !isset($this->_users[0]['uid'])) {
+						throw new WrongConfigurationException('Users table in configuration appears to be wrongly configured');
+					}
+				}
+			} else {
+				$table = new StorageApiTable($this->_storageApi, $tableId, null, 'email');
+				$table->setHeader(array('email', 'uid'));
+				$table->save();
+				$this->_users = array();
+			}
+
+			array_unshift($this->_users, array(
+				'email' => $this->bucketInfo['gd']['username'],
+				'uid' => $this->bucketInfo['gd']['uid'],
+				'main' => true
+			));
+		}
+		return $this->_users;
 	}
 
 	/**
 	 * Check configuration table of users
 	 * @throws WrongConfigurationException
 	 */
-	public function prepareUsers()
+	public function checkUsersTable()
 	{
-		if (!$this->usersCsv) {
-			$csvFile = $this->tmpDir . 'users.csv';
-			try {
-				$this->_storageApi->exportTable($this->bucketId . '.' . self::USERS_TABLE_NAME, $csvFile);
-			} catch (StorageApiException $e) {
-				$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::USERS_TABLE_NAME, null, 'email');
-				$table->setHeader(array('email', 'uri'));
-				$table->save();
-
-				$this->_storageApi->exportTable($this->bucketId . '.' . self::USERS_TABLE_NAME, $csvFile);
+		$tableId = $this->bucketId . '.' . self::USERS_TABLE_NAME;
+		if ($this->_storageApi->tableExists($tableId)) {
+			$table = $this->_storageApi->getTable($tableId);
+			if (count($table['columns']) != 2) {
+				throw new WrongConfigurationException('Users table in configuration contains invalid number of columns');
 			}
-
-			try {
-				$this->usersCsv = new CsvFile($csvFile);
-				if ($this->usersCsv->getColumnsCount() != 2) {
-					throw new WrongConfigurationException('Users table in configuration contains invalid number of columns');
-				}
-				$headers = $this->usersCsv->getHeader();
-				if ($headers[0] != 'email' && $headers[1] != 'uri') {
-					throw new WrongConfigurationException('Users table in configuration appears to be wrongly configured');
-				}
-				$this->usersCsv->next();
-
-			} catch (CsvFileException $e) {
-				throw new WrongConfigurationException($e->getMessage());
+			if (!in_array('email', $table['columns']) || !in_array('uid', $table['columns'])) {
+				throw new WrongConfigurationException('Users table in configuration appears to be wrongly configured');
 			}
 		}
 	}
 
 	/**
-	 * Check configuration table of filters
-	 * @throws WrongConfigurationException
+	 * @return array
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
 	 */
-	public function prepareFilters()
+	public function getProjectUsers()
 	{
-		if (!$this->filtersCsv) {
-			$csvFile = $this->tmpDir . self::FILTERS_TABLE_NAME . '.csv';
-			$header = array('id', 'name', 'attribute', 'element', 'operator', 'uri');
+		if (!$this->_projectUsers) {
+			$tableId = $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME;
+			if ($this->_storageApi->tableExists($tableId)) {
+				$csv = $this->_storageApi->exportTable($tableId);
+				$this->_projectUsers = StorageApiClient::parseCsv($csv);
 
-			if (!$this->_storageApi->tableExists($this->bucketId . '.' . self::FILTERS_TABLE_NAME)) {
-				$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_TABLE_NAME, null, 'id');
-				$table->setHeader($header);
-				$table->save();
-			}
-			$this->_storageApi->exportTable($this->bucketId . '.' . self::FILTERS_TABLE_NAME, $csvFile);
-
-			try {
-				$this->filtersCsv = new CsvFile($csvFile);
-				if ($this->filtersCsv->getColumnsCount() != 6) {
-					throw new WrongConfigurationException('Filters table in configuration contains invalid number of columns');
+				if (isset($this->_projectUsers[0])) {
+					if (count($this->_projectUsers[0]) != 5) {
+						throw new WrongConfigurationException('Project Users table in configuration contains invalid number of columns');
+					}
+					if (!isset($this->_projectUsers[0]['id']) || !isset($this->_projectUsers[0]['pid']) || !isset($this->_projectUsers[0]['email'])
+						|| !isset($this->_projectUsers[0]['role']) || !isset($this->_projectUsers[0]['action'])) {
+						throw new WrongConfigurationException('Project Users table in configuration appears to be wrongly configured');
+					}
 				}
-				if ($header != $this->filtersCsv->getHeader()) {
-					throw new WrongConfigurationException('Filters table in configuration appears to be wrongly configured');
-				}
-				$this->filtersCsv->next();
-
-			} catch (CsvFileException $e) {
-				throw new WrongConfigurationException($e->getMessage());
-			}
-		}
-	}
-
-	/**
-	 * Check configuration table user_filters
-	 * @throws WrongConfigurationException
-	 */
-	public function prepareFiltersUsers()
-	{
-		if (!$this->filtersUsersCsv) {
-			$csvFile = $this->tmpDir . self::FILTERS_USERS_TABLE_NAME . '.csv';
-			$header = array('id', 'filterId', 'userEmail');
-
-			if (!$this->_storageApi->tableExists($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, $csvFile)) {
-				$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, null, 'id');
-				$table->setHeader($header);
-				$table->save();
-			}
-			$this->_storageApi->exportTable($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, $csvFile);
-
-			try {
-				$this->filtersUsersCsv = new CsvFile($csvFile);
-				if ($this->filtersUsersCsv->getColumnsCount() != 3) {
-					throw new WrongConfigurationException('FiltersUsers table in configuration contains invalid number of columns');
-				}
-				if ($header != $this->filtersUsersCsv->getHeader()) {
-					throw new WrongConfigurationException('FiltersUsers table in configuration appears to be wrongly configured');
-				}
-				$this->filtersUsersCsv->next();
-
-			} catch (CsvFileException $e) {
-				throw new WrongConfigurationException($e->getMessage());
-			}
-		}
-	}
-
-	/**
-	 * Check configuration table of users
-	 * @throws WrongConfigurationException
-	 */
-	public function prepareProjectUsers()
-	{
-		if (!$this->projectUsersCsv) {
-			$csvFile = $this->tmpDir . 'project_users.csv';
-			try {
-				$this->_storageApi->exportTable($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, $csvFile);
-			} catch (StorageApiException $e) {
-				$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
+			} else {
+				$table = new StorageApiTable($this->_storageApi, $tableId, null, 'id');
 				$table->setHeader(array('id', 'pid', 'email', 'role', 'action'));
 				$table->addIndex('pid');
 				$table->save();
-
-				$this->_storageApi->exportTable($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, $csvFile);
+				$this->_projectUsers = array();
 			}
 
-			try {
-				$this->projectUsersCsv = new CsvFile($csvFile);
-				if ($this->projectUsersCsv->getColumnsCount() != 5) {
-					throw new WrongConfigurationException('Project users table in configuration contains invalid number of columns');
-				}
-				$headers = $this->projectUsersCsv->getHeader();
-				if ($headers[0] != 'id' && $headers[1] != 'pid' && $headers[2] != 'email' && $headers[3] != 'role' && $headers[4] != 'action') {
-					throw new WrongConfigurationException('Project users table in configuration appears to be wrongly configured');
-				}
-				$this->projectUsersCsv->next();
+			array_unshift($this->_projectUsers, array(
+				'id' => 0,
+				'pid' => $this->bucketInfo['gd']['pid'],
+				'email' => $this->bucketInfo['gd']['username'],
+				'role' => 'admin',
+				'action' => 'add',
+				'main' => true
+			));
+		}
+		return $this->_projectUsers;
+	}
 
-			} catch (CsvFileException $e) {
-				throw new WrongConfigurationException($e->getMessage());
+	/**
+	 * Check configuration table of users
+	 * @throws WrongConfigurationException
+	 */
+	public function checkProjectUsersTable()
+	{
+		$tableId = $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME;
+		if ($this->_storageApi->tableExists($tableId)) {
+			$table = $this->_storageApi->getTable($tableId);
+			if (count($table['columns']) != 5) {
+				throw new WrongConfigurationException('Project Users table in configuration contains invalid number of columns');
+			}
+			if (!in_array('id', $table['columns']) || !in_array('pid', $table['columns']) || !in_array('email', $table['columns'])
+				|| !in_array('role', $table['columns']) || !in_array('action', $table['columns'])) {
+				throw new WrongConfigurationException('Project Users table in configuration appears to be wrongly configured');
 			}
 		}
 	}
@@ -569,18 +617,18 @@ class Configuration
 		$table->setIncremental(true);
 		$table->save();
 
-		//@TODO $this->projectsCsv->writeRow(array_values($data));
+		$this->_projects[] = $data;
 	}
 
 	/**
 	 * @param $email
-	 * @param $uri
+	 * @param $uid
 	 */
-	public function saveUserToConfiguration($email, $uri)
+	public function saveUserToConfiguration($email, $uid)
 	{
 		$data = array(
 			'email' => $email,
-			'uri' => $uri
+			'uid' => $uid
 		);
 		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::USERS_TABLE_NAME);
 		$table->setHeader(array_keys($data));
@@ -589,7 +637,7 @@ class Configuration
 		$table->setIncremental(true);
 		$table->save();
 
-		//@TODO $this->usersCsv->writeRow(array_values($data));
+		$this->_users[] = $data;
 	}
 
 
@@ -615,106 +663,18 @@ class Configuration
 		$table->setIncremental(true);
 		$table->save();
 
-		//@TODO $this->projectUsersCsv->writeRow(array_values($data));
-	}
-
-	/**
-	 * @param array $data - fields: [id], name, attribute, element, operator, uri
-	 */
-	public function saveFilterToConfiguration(array $data)
-	{
-		if (!isset($data['id'])) {
-			$data['id'] = $this->_storageApi->generateId();
-		}
-
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_TABLE_NAME);
-		$table->setHeader(array_keys($data));
-		$table->setFromArray(array($data));
-		$table->setPartial(true);
-		$table->setIncremental(true);
-		$table->save();
-	}
-
-	public function saveFilterUserToConfiguration(array $data)
-	{
-		$this->prepareFilters();
-		$this->prepareUsers();
-
-		$filterIds = array();
-		foreach ($data['filters'] as $filterUri) {
-			foreach ($this->filtersCsv as $filter) {
-				if ($filter[5] == $filterUri) {
-					$filterIds[] = $filter[0];
-				}
-			}
-		}
-
-		$userId = null;
-		foreach ($this->usersCsv as $user) {
-			if ($user[1] == $data['userUri']) {
-				$userId = $user[0];
-			}
-		}
-
-		$data = array();
-		foreach ($filterIds as $fid) {
-			$data[] = array($this->_storageApi->generateId(), $fid, $userId);
-		}
-
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME);
-		$table->setHeader(array('id', 'filterId', 'userEmail'));
-		$table->setFromArray($data);
-		$table->setPartial(true);
-		$table->setIncremental(true);
-		$table->save();
-
-	}
-
-	public function deleteFilterFromConfiguration($filterUri)
-	{
-		$this->prepareFilters();
-		$this->prepareFiltersUsers();
-
-		$filters = array();
-
-		$filterId = null;
-		foreach ($this->filtersCsv as $filter) {
-			if ($filter[5] != $filterUri) {
-				$filters[] = $filter;
-			} else {
-				$filterId = $filter[0];
-			}
-		}
-
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_TABLE_NAME);
-		$table->setFromArray($filters, true);
-		$table->save();
-
-		// Update filtersUsers table
-		$filtersUsers = array();
-		foreach ($this->filtersUsersCsv as $row) {
-			if ($row[1] != $filterId) {
-				$filtersUsers[] = $row;
-			}
-		}
-
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME);
-		$table->setFromArray($filtersUsers, true);
-		$table->save();
+		$this->_projectUsers[] = $data;
 	}
 
 	/**
 	 * Check if pid exists in configuration table of projects
 	 * @param $pid
-	 * @return bool
+	 * @return bool|array
 	 */
-	public function checkProject($pid)
+	public function getProject($pid)
 	{
-		$this->prepareProjects();
-		$firstLine = true;
-		foreach ($this->projectsCsv as $project) {
-			if (!$firstLine && $project[0] == $pid) return true;
-			$firstLine = false;
+		foreach ($this->getProjects() as $project) {
+			if ($project['pid'] == $pid) return $project;
 		}
 		return false;
 	}
@@ -722,15 +682,12 @@ class Configuration
 	/**
 	 * Check if email exists in configuration table of users
 	 * @param $email
-	 * @return bool
+	 * @return bool|array
 	 */
-	public function user($email)
+	public function getUser($email)
 	{
-		$this->prepareUsers();
-		$firstLine = true;
-		foreach ($this->usersCsv as $user) {
-			if (!$firstLine && $user[0] == $email) return array_combine($this->usersCsv->getHeader(), $user);
-			$firstLine = false;
+		foreach ($this->getUsers() as $user) {
+			if ($user['email'] == $email) return $user;
 		}
 		return false;
 	}
@@ -756,5 +713,149 @@ class Configuration
 			$this->_storageApi->dropTable($table['id']);
 		}
 		$this->_storageApi->dropBucket($this->bucketId);
+	}
+
+
+	/**
+	 * @return array
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 */
+	public function getFilters()
+	{
+		if (!$this->_filters) {
+			$tableId = $this->bucketId . '.' . self::FILTERS_TABLE_NAME;
+			$header = array('id', 'name', 'attribute', 'element', 'operator', 'uri');
+			if ($this->_storageApi->tableExists($tableId)) {
+				$csv = $this->_storageApi->exportTable($tableId);
+				$this->_filters = StorageApiClient::parseCsv($csv);
+
+				if (isset($this->_filters[0])) {
+					if (count($this->_filters[0]) != count($header)) {
+						throw new WrongConfigurationException('Filters table in configuration contains invalid number of columns');
+					}
+					if ($this->_filters[0] != $header) {
+						throw new WrongConfigurationException('Filters table in configuration appears to be wrongly configured');
+					}
+				}
+			} else {
+				$table = new StorageApiTable($this->_storageApi, $tableId, null, $header[0]);
+				$table->setFromArray(array($header), true);
+				$table->save();
+				$this->_filters = array();
+			}
+		}
+		return $this->_filters;
+	}
+
+
+	/**
+	 * @return array
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 */
+	public function getFiltersUsers()
+	{
+		if (!$this->_filtersUsers) {
+			$tableId = $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME;
+			$header = array('id', 'filterId', 'userEmail');
+			if ($this->_storageApi->tableExists($tableId)) {
+				$csv = $this->_storageApi->exportTable($tableId);
+				$this->_filtersUsers = StorageApiClient::parseCsv($csv);
+
+				if (isset($this->_filtersUsers[0])) {
+					if (count($this->_filtersUsers[0]) != count($header)) {
+						throw new WrongConfigurationException('FiltersUsers table in configuration contains invalid number of columns');
+					}
+					if ($this->_filtersUsers[0] != $header) {
+						throw new WrongConfigurationException('FiltersUsers table in configuration appears to be wrongly configured');
+					}
+				}
+			} else {
+				$table = new StorageApiTable($this->_storageApi, $tableId, null, $header[0]);
+				$table->setFromArray(array($header), true);
+				$table->save();
+				$this->_filtersUsers = array();
+			}
+		}
+		return $this->_filtersUsers;
+	}
+
+
+	/**
+	 * @param array $data - fields: [id], name, attribute, element, operator, uri
+	 */
+	public function saveFilterToConfiguration(array $data)
+	{
+		if (!isset($data['id'])) {
+			$data['id'] = $this->_storageApi->generateId();
+		}
+
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_TABLE_NAME);
+		$table->setHeader(array_keys($data));
+		$table->setFromArray(array($data));
+		$table->setPartial(true);
+		$table->setIncremental(true);
+		$table->save();
+	}
+
+	public function saveFilterUserToConfiguration(array $data)
+	{
+		$filterIds = array();
+		foreach ($data['filters'] as $filterUri) {
+			foreach ($this->getFilters() as $filter) {
+				if ($filter['uri'] == $filterUri) {
+					$filterIds[] = $filter['id'];
+				}
+			}
+		}
+
+		$userId = null;
+		foreach ($this->getUsers() as $user) {
+			if ($user['uid'] == $data['userUri']) {
+				$userId = $user['email'];
+			}
+		}
+
+		$data = array();
+		foreach ($filterIds as $fid) {
+			$data[] = array($this->_storageApi->generateId(), $fid, $userId);
+		}
+
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME);
+		$table->setHeader(array('id', 'filterId', 'userEmail'));
+		$table->setFromArray($data);
+		$table->setPartial(true);
+		$table->setIncremental(true);
+		$table->save();
+
+	}
+
+	public function deleteFilterFromConfiguration($filterUri)
+	{
+		$filters = array();
+
+		$filterId = null;
+		foreach ($this->getFilters() as $filter) {
+			if ($filter['uri'] != $filterUri) {
+				$filters[] = $filter;
+			} else {
+				$filterId = $filter['id'];
+			}
+		}
+
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_TABLE_NAME);
+		$table->setFromArray($filters, true);
+		$table->save();
+
+		// Update filtersUsers table
+		$filtersUsers = array();
+		foreach ($this->getFiltersUsers() as $row) {
+			if ($row['filterId'] != $filterId) {
+				$filtersUsers[] = $row;
+			}
+		}
+
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME);
+		$table->setFromArray($filtersUsers, true);
+		$table->save();
 	}
 }

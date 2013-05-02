@@ -11,10 +11,6 @@
 	],
 	"repositories": [
 		{
-			"type": "vcs",
-			"url": "git@bitbucket.org:keboola/syrup-development-bundle.git"
-		},
-		{
 			"type": "package",
 			"package": {
 				"name": "gooddata/gooddata-cl",
@@ -38,8 +34,7 @@
 	},
 	"scripts": {
 		"post-install-cmd": [
-			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap",
-			"cp /www/syrup-development-bundle/app/config/parameters.yml  vendor/syrup/development-bundle/app/config/"
+			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap"
 		],
 		"post-update-cmd": [
 			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap",
