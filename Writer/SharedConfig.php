@@ -31,6 +31,29 @@ class SharedConfig
 	}
 
 
+	/**
+	 * @param $projectId
+	 * @param $writerId
+	 * @return mixed
+	 */
+	public function fetchJobs($projectId, $writerId)
+	{
+		$csv = $this->_storageApiClient->exportTable(
+			self::JOBS_TABLE_ID,
+			null,
+			array(
+				'whereColumn' => 'projectIdWriterId',
+				'whereValues' => array($projectId . '.' . $writerId),
+				//@TODO 'changedSince' => '-1 day'
+			)
+		);
+
+		$jobs = array();
+		foreach (StorageApiClient::parseCsv($csv, true) as $j) {
+			$jobs[] = $this->jobToApiResponse($j);
+		}
+		return $jobs;
+	}
 
 	/**
 	 * @param $jobId
@@ -100,6 +123,7 @@ class SharedConfig
 	public function jobToApiResponse(array $job)
 	{
 		$result = json_decode($job['result'], true);
+		if (isset($result['csvFile'])) unset($result['csvFile']);
 		if (!$result) $result = $job['result'];
 
 		$params = json_decode($job['parameters'], true);
@@ -119,10 +143,8 @@ class SharedConfig
 			'startTime' => !empty($job['startTime']) ? $job['startTime'] : null,
 			'endTime' => !empty($job['endTime']) ? $job['endTime'] : null,
 			'command' => $job['command'],
-			'pid' => $job['pid'],
 			'dataset' => $job['dataset'],
 			'xmlFile' => $job['xmlFile'],
-			'csvFile' => $job['csvFile'],
 			'parameters' => $params,
 			'result' => $result,
 			'gdWriteStartTime' => $job['gdWriteStartTime'],

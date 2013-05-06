@@ -87,6 +87,7 @@ class UploadTable extends GenericJob
 			. ($incremental ? '&changedSince=-' . $incremental . '+days' : null);
 		$csvFilePath = tempnam($this->tmpDir, 'csv');
 		exec('curl --header "X-StorageApi-Token: ' . $job['token'] . '" -s ' . escapeshellarg($csvUrl) . ' > ' . $csvFilePath);
+		chmod($csvFilePath, 0644);
 		$csvFile = $csvFilePath;
 
 		if ($sanitize) {

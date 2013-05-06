@@ -1017,6 +1017,24 @@ class GoodDataWriter extends Component
 	 */
 
 	/**
+	 * Get Jobs
+	 * @param $params
+	 * @throws Exception\WrongParametersException
+	 * @return array
+	 */
+	public function getJobs($params)
+	{
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$jobs = $this->sharedConfig->fetchJobs($this->configuration->projectId, $params['writerId']);
+
+		return array('jobs' => $jobs);
+	}
+
+	/**
 	 * Get Job
 	 * @param $params
 	 * @throws Exception\WrongParametersException
@@ -1032,12 +1050,36 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'id' is missing");
 		}
 
-		$job = $this->sharedConfig->fetchJob($params['id']);
-		if ($job['projectId'] != $this->configuration->projectId || $job['writerId'] != $this->configuration->writerId) {
+		$job = $this->sharedConfig->fetchJob($params['id'], $this->configuration->writerId, $this->configuration->projectId);
+		if (!$job) {
 			throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['id'], $this->configuration->writerId));
 		}
-		$job = $this->sharedConfig->jobToApiResponse($job);
-		return array('job' => $job);
+
+		if (isset($params['detail']) && $params['detail'] == 'csv') {
+			$result = json_decode($job['result'], true);
+			if (isset($result['csvFile']) && file_exists($result['csvFile'])) {
+
+				header('Content-Disposition: attachment; filename="' . $params['id'] . '.csv"');
+				header('Content-length: ' . filesize($result['csvFile']));
+				$linesCount = !empty($params['limit']) ? $params['limit'] : -1;
+				$handle = fopen($result['csvFile'], 'r');
+				if ($handle === false) {
+					return false;
+				}
+				while (($buffer = fgets($handle)) !== false && $linesCount != 0) {
+					print $buffer;
+					$linesCount--;
+				}
+				fclose($handle);
+				exit();
+
+			} else {
+				throw new WrongParametersException("There is no csvFile for this job");
+			}
+		} else {
+			$job = $this->sharedConfig->jobToApiResponse($job);
+			return array('job' => $job);
+		}
 	}
 
 	/**
@@ -1126,7 +1168,8 @@ class GoodDataWriter extends Component
 			'gdWriteStartTime' => null,
 			'gdWriteBytes' => null,
 			'status' => 'waiting',
-			'log' => null
+			'log' => null,
+			'projectIdWriterId' => $this->configuration->projectId . '.' . $this->configuration->writerId
 		);
 		$jobInfo = array_merge($jobInfo, $params);
 		$this->sharedConfig->saveJob($jobId, $jobInfo);
