@@ -567,7 +567,7 @@ class RestApi
 		}
 	}
 
-	public function assignFiltersToUser(array $filters, $userUri, $pid)
+	public function assignFiltersToUser(array $filters, $userId, $pid)
 	{
 		$uri = sprintf('/gdc/md/%s/userfilters', $pid);
 
@@ -575,7 +575,7 @@ class RestApi
 			'userFilters' => array(
 				'items' => array(
 					array(
-						"user" => $userUri,
+						"user" => "/gdc/account/profile/" . $userId,
 						"userFilters" => $filters
 					)
 				)
@@ -598,6 +598,22 @@ class RestApi
 	public function deleteFilter($filterUri)
 	{
 		$this->_jsonRequest($filterUri, 'DELETE');
+	}
+
+	public function getFilters($pid)
+	{
+		$uri = sprintf('/gdc/md/%s/query/userfilters', $pid);
+		$result = $this->_jsonRequest($uri);
+
+		if (isset($result['query']['entries'])) {
+			return $result['query']['entries'];
+		} else {
+			$this->_log->alert('getFilters() has bad response', array(
+				'uri' => $uri,
+				'result' => $result
+			));
+			throw new RestApiException('Filters in project could not be fetched');
+		}
 	}
 
 	public function getAttributes($pid)

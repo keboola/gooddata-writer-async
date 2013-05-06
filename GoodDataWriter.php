@@ -708,7 +708,7 @@ class GoodDataWriter extends Component
 		if (empty($params['filters'])) {
 			throw new WrongParametersException("Parameter 'filters' is missing");
 		}
-		if (empty($params['userUri'])) {
+		if (empty($params['userId'])) {
 			throw new WrongParametersException("Parameter 'attribute' is missing");
 		}
 
@@ -748,7 +748,7 @@ class GoodDataWriter extends Component
 
 	public function postSyncFilters($params)
 	{
-		$command = 'syncFilter';
+		$command = 'syncFilters';
 		$createdTime = time();
 
 		$this->_init($params);
