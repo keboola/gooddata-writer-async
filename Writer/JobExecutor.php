@@ -227,7 +227,8 @@ class JobExecutor
 				->setDuration($duration);
 			$this->_logEvent($sapiEvent);
 
-			$result['status'] = 'ok';
+			if (empty($result['status'])) $result['status'] = 'success';
+
 			return $result;
 
 		} catch (WrongConfigurationException $e) {
