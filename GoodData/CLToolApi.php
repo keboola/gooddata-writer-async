@@ -145,7 +145,7 @@ class CLToolApi
 
 				// Test output for runtime error
 				if (shell_exec("egrep 'ERROR|Exception' " . $outputFile)) {
-					throw new CLToolApiErrorException();
+					throw new CLToolApiErrorException('CL Tool Error, see debug log for details: ' . $this->debugLogUrl);
 				}
 
 				$cleanUp();

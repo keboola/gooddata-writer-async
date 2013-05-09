@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
+	Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
 
 class UploadTable extends GenericJob
@@ -174,11 +175,12 @@ class UploadTable extends GenericJob
 						break;
 				}
 			} catch (CLToolApiErrorException $e) {
-				$this->clToolApi->output .= '!!!!! ERROR !!!!!' . PHP_EOL . $e->getMessage() . PHP_EOL;
+				$this->clToolApi->output .= '!!! ERROR !!' . PHP_EOL . $e->getMessage() . PHP_EOL;
+				$error = true;
 			}
 
 			if ($this->clToolApi->debugLogUrl) {
-				$debug[] = $this->clToolApi->debugLogUrl;
+				$debug[$gdJob['command']] = $this->clToolApi->debugLogUrl;
 			}
 			$output .= $this->clToolApi->output;
 		}
