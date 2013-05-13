@@ -44,7 +44,7 @@ class LoadData extends GenericJob
 		$csvUrl = $job['sapiUrl'] . '/storage/tables/' . $params['tableId'] . '/export?escape=1'
 			. ($incrementalLoad ? '&changedSince=-' . $incrementalLoad . '+days' : null);
 		$csvFilePath = tempnam($this->tmpDir, 'csv');
-		exec('curl --header "X-StorageApi-Token: ' . $job['token'] . '" -s ' . escapeshellarg($csvUrl) . ' > ' . $csvFilePath);
+		exec('curl --header "X-StorageApi-Token: ' . $job['token'] . '" -s ' . escapeshellarg($csvUrl) . ' > ' . escapeshellarg($csvFilePath));
 		$csvFile = $csvFilePath;
 
 
