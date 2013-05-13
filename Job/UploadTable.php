@@ -87,7 +87,7 @@ class UploadTable extends GenericJob
 		$csvUrl = $this->mainConfig['storageApi.url'] . '/storage/tables/' . $params['tableId'] . '/export?escape=1'
 			. ($incremental ? '&changedSince=-' . $incremental . '+days' : null);
 		$csvFilePath = tempnam($this->tmpDir, 'csv');
-		exec('curl --header "X-StorageApi-Token: ' . $job['token'] . '" -s ' . escapeshellarg($csvUrl) . ' > ' . $csvFilePath);
+		exec('curl --header "X-StorageApi-Token: ' . $job['token'] . '" -s ' . escapeshellarg($csvUrl) . ' > ' . escapeshellarg($csvFilePath));
 		chmod($csvFilePath, 0644);
 		$csvFile = $csvFilePath;
 
