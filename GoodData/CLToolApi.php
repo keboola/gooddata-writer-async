@@ -174,8 +174,8 @@ class CLToolApi
 
 		$command  = 'OpenProject(id="' . $pid . '");';
 		$command .= 'UseDateDimension(name="' . $name . '", includeTime="' . ($includeTime ? 'true' : 'false') . '");';
-		$command .= 'GenerateMaql(maqlFile="' . $maqlFile . '");';
-		$command .= 'ExecuteMaql(maqlFile="' . $maqlFile . '");';
+		$command .= 'GenerateMaql(maqlFile="' . escapeshellarg($maqlFile) . '");';
+		$command .= 'ExecuteMaql(maqlFile="' . escapeshellarg($maqlFile) . '");';
 		$command .= 'TransferData();';
 
 		$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
@@ -208,9 +208,9 @@ class CLToolApi
 				if (!file_exists($csvFile)) touch($csvFile);
 
 				$command  = 'OpenProject(id="' . $pid . '");';
-				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '");';
-				$command .= 'GenerateMaql(maqlFile="' . $maqlFile . '");';
-				$command .= 'ExecuteMaql(maqlFile="' . $maqlFile . '");';
+				$command .= 'UseCsv(csvDataFile="' . escapeshellarg($csvFile) . '", hasHeader="true", configFile="' . escapeshellarg($xmlFile) . '");';
+				$command .= 'GenerateMaql(maqlFile="' . escapeshellarg($maqlFile) . '");';
+				$command .= 'ExecuteMaql(maqlFile="' . escapeshellarg($maqlFile) . '");';
 
 				$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
 
@@ -252,8 +252,8 @@ class CLToolApi
 				if (!file_exists($csvFile)) touch($csvFile);
 
 				$command  = 'OpenProject(id="' . $pid . '");';
-				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '");';
-				$command .= 'GenerateUpdateMaql(maqlFile="' . $maqlFile . '"';
+				$command .= 'UseCsv(csvDataFile="' . escapeshellarg($csvFile) . '", hasHeader="true", configFile="' . escapeshellarg($xmlFile) . '");';
+				$command .= 'GenerateUpdateMaql(maqlFile="' . escapeshellarg($maqlFile) . '"';
 				if ($updateAll) {
 					$command .= ' updateAll="true"';
 				}
@@ -267,7 +267,7 @@ class CLToolApi
 				$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
 
 				if (file_exists($maqlFile)) {
-					$command = 'OpenProject(id="' . $pid . '"); ExecuteMaql(maqlFile="' . $maqlFile . '");';
+					$command = 'OpenProject(id="' . $pid . '"); ExecuteMaql(maqlFile="' . escapeshellarg($maqlFile) . '");';
 
 					$this->output .= '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
 
@@ -303,7 +303,7 @@ class CLToolApi
 		if (file_exists($xmlFile)) {
 			if (file_exists($csvFile)) {
 				$command  = 'OpenProject(id="' . $pid . '");';
-				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '");';
+				$command .= 'UseCsv(csvDataFile="' . escapeshellarg($csvFile) . '", hasHeader="true", configFile="' . escapeshellarg($xmlFile) . '");';
 				$command .= 'TransferData(incremental="' . ($incremental ? 'true' : 'false') . '", waitForFinish="true");';
 
 				$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
@@ -328,13 +328,13 @@ class CLToolApi
 		$maqlFile = $this->tmpDir . '/temp-' . date('Ymd-His') . '-' . uniqid() . '.maql';
 
 		$command  = 'OpenProject(id="' . $pid . '");';
-		$command .= 'GetReports(fileName="' . $maqlFile . '");';
+		$command .= 'GetReports(fileName="' . escapeshellarg($maqlFile) . '");';
 
 		$this->call($command);
 
 		if (filesize($maqlFile)) {
 			$command  = 'OpenProject(id="' . $pid . '");';
-			$command .= 'ExecuteReports(fileName="' . $maqlFile . '");';
+			$command .= 'ExecuteReports(fileName="' . escapeshellarg($maqlFile) . '");';
 			$this->call($command);
 
 			unlink($maqlFile);
