@@ -128,17 +128,17 @@ class CLToolApi
 		file_put_contents($outputFile . '.1', $args . "\n\n");
 
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
-			exec($command . ' 2>&1 > ' . $outputFile . '.2');
-			exec('cat ' . $outputFile . '.1 ' . $outputFile . '.2 > ' . $outputFile);
-			exec('rm ' . $outputFile . '.1');
-			exec('rm ' . $outputFile . '.2');
+			exec($command . ' 2>&1 > ' . escapeshellarg($outputFile) . '.2');
+			exec('cat ' . escapeshellarg($outputFile) . '.1 ' . escapeshellarg($outputFile) . '.2 > ' . escapeshellarg($outputFile));
+			exec('rm ' . escapeshellarg($outputFile) . '.1');
+			exec('rm ' . escapeshellarg($outputFile) . '.2');
 
 			// Test output for server error
 			$apiErrorTest = "egrep '503 Service Unavailable' " . $outputFile;
 			if (!shell_exec($apiErrorTest)) {
 
 				if (file_exists('/tmp/debug.log')) {
-					exec('cat ' . $outputFile . ' /tmp/debug.log > ' . $outputFile);
+					exec('cat ' . escapeshellarg($outputFile) . ' /tmp/debug.log > ' . escapeshellarg($outputFile));
 				}
 
 				$this->debugLogUrl = $this->s3uploader->uploadFile($outputFile);
