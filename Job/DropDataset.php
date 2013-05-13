@@ -1,7 +1,7 @@
 <?php
 /**
  * @author Jakub Matejka <jakub@keboola.com>
- * @date 2013-04-12
+ * @date 2013-05-07
  */
 
 namespace Keboola\GoodDataWriter\Job;
@@ -9,9 +9,8 @@ namespace Keboola\GoodDataWriter\Job;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
-use Keboola\GoodDataWriter\GoodData\RestApi;
 
-class InviteUserToProject extends GenericJob
+class DropDataset extends GenericJob
 {
 	/**
 	 * @param $job
@@ -21,33 +20,29 @@ class InviteUserToProject extends GenericJob
 	 */
 	public function run($job, $params)
 	{
-		if (empty($params['email'])) {
-			throw new WrongConfigurationException("Parameter 'email' is missing");
+		if (empty($job['dataset'])) {
+			throw new WrongConfigurationException("Parameter 'dataset' is missing");
 		}
-		if (empty($params['role'])) {
-			throw new WrongConfigurationException("Parameter 'role' is missing");
+		if (empty($params['tableId'])) {
+			throw new WrongConfigurationException("Parameter 'tableId' is missing");
 		}
 		$this->configuration->checkGoodDataSetup();
 
-		if (empty($params['pid'])) {
-			if (empty($this->configuration->bucketInfo['gd']['pid'])) {
-				throw new WrongConfigurationException("Parameter 'pid' is missing and writer does not have primary project");
-			}
-			$params['pid'] = $this->configuration->bucketInfo['gd']['pid'];
-		}
-
-
+		$projects = $this->configuration->getProjects();
 		$gdWriteStartTime = date('c');
+
 		try {
 			$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$this->restApi->inviteUserToProject($params['email'], $params['pid'], RestApi::$userRoles[$params['role']]);
+			$this->restApi->getProject($this->configuration->bucketInfo['gd']['pid']);
 
-			$this->configuration->saveProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
+			foreach ($projects as $project) if ($project['active']) {
+				$this->restApi->dropDataset($project['pid'], $job['dataset']);
+			}
 
+			$this->configuration->setTableAttribute($params['tableId'], 'lastExportDate', '');
 			return $this->_prepareResult($job['id'], array(
 				'gdWriteStartTime' => $gdWriteStartTime
 			), $this->restApi->callsLog());
-
 		} catch (UnauthorizedException $e) {
 			throw new WrongConfigurationException('Rest API Login failed');
 		} catch (RestApiException $e) {

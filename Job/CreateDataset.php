@@ -30,7 +30,7 @@ class CreateDataset extends GenericJob
 		$xmlFile = $job['xmlFile'];
 		if (!is_file($xmlFile)) {
 			$xmlFilePath = tempnam($this->tmpDir, 'xml');
-			exec('curl -s ' . escapeshellarg($xmlFile) . ' > ' . $xmlFilePath);
+			exec('curl -s ' . escapeshellarg($xmlFile) . ' > ' . escapeshellarg($xmlFilePath));
 			$xmlFile = $xmlFilePath;
 		}
 
