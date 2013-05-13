@@ -675,66 +675,6 @@ class GoodDataWriter extends Component
 		}
 	}
 
-
-	/**
-	 * @param $params
-	 * @return array
-	 * @throws Exception\JobProcessException
-	 * @throws Exception\WrongParametersException
-	 */
-	public function postDeleteDataset($params)
-	{
-		$createdTime = time();
-
-		// Init parameters
-		if (empty($params['tableId'])) {
-			throw new WrongParametersException("Parameter 'tableId' is missing");
-		}
-		$this->_init($params);
-		if (!$this->configuration->bucketId) {
-			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
-		}
-
-		$this->configuration->checkGoodDataSetup();
-
-		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
-		$jobData = array(
-			'command' => 'dropDataset',
-			'dataset' => !empty($tableDefinition['gdName']) ? $tableDefinition['gdName'] : $tableDefinition['tableId'],
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'tableId' => $params['tableId']
-			)
-		);
-
-		$jobInfo = $this->_createJob($jobData);
-		$this->_queue->enqueueJob($jobInfo);
-
-
-		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
-		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success') {
-				return array();
-			} else {
-				$e = new JobProcessException('Delete Dataset job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
-				throw $e;
-			}
-		}
-	}
-
-
 	/**
 	 * @param $params
 	 * @return array

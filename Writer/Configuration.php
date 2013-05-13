@@ -109,9 +109,9 @@ class Configuration
 
 			$this->backendUrl = !empty($this->bucketInfo['gd']['backendUrl']) ? $this->bucketInfo['gd']['backendUrl'] : null;
 
-			$this->tmpDir = sprintf('%s/%s-%s-%s/', $tmpDir, $this->_storageApi->token, $this->bucketId, uniqid());
+			$this->tmpDir = $tmpDir . '/' . $this->_storageApi->token . '-' . $this->bucketId . '-' . uniqid();
 			if (!file_exists($this->tmpDir)) {
-				mkdir($this->tmpDir);
+				system('mkdir ' . escapeshellarg($this->tmpDir));
 			}
 		}
 
@@ -121,7 +121,7 @@ class Configuration
 
 	public function __destruct()
 	{
-		system('rm -rf ' . $this->tmpDir);
+		system('rm -rf ' . escapeshellarg($this->tmpDir));
 	}
 
 
