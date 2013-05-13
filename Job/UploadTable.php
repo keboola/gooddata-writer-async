@@ -24,7 +24,7 @@ class UploadTable extends GenericJob
 		$xmlFile = $job['xmlFile'];
 		if (!is_file($xmlFile)) {
 			$xmlFilePath = tempnam($this->tmpDir, 'xml');
-			exec('curl -s -L ' . escapeshellarg($xmlFile) . ' > ' . $xmlFilePath);
+			exec('curl -s -L ' . escapeshellarg($xmlFile) . ' > ' . escapeshellarg($xmlFilePath));
 			$xmlFile = $xmlFilePath;
 		}
 

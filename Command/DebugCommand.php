@@ -41,12 +41,19 @@ class DebugCommand extends ContainerAwareCommand
 				$projectInfo = '"' . $project['title'] . '","' . $project['identifier'] . '","';
 				$usersInfo = array();
 				$users = $restApi->get('/gdc/projects/' . $project['identifier'] . '/users');
-				foreach ($users['users'] as $user) if ($user['user']['content']['email'] != 'gooddata@keboola.com' && strstr($user['user']['content']['email'], '@keboola.com')) {
+				if (count($users['users']) == 1) {
+					echo $projectInfo.PHP_EOL;
+					
+				}
+
+
+
+				/*foreach ($users['users'] as $user) if ($user['user']['content']['email'] != 'gooddata@keboola.com' && strstr($user['user']['content']['email'], '@keboola.com')) {
 					$usersInfo[] = substr($user['user']['content']['email'], 0, strpos($user['user']['content']['email'], '@'));
 				}
 				$projectInfo .= implode(',', $usersInfo) . '"';
 				echo $projectInfo.PHP_EOL;
-				//if (count($users['users']) == 2) *//*if (strstr($project['title'], 'Syrup'))*/ {
+				//if (count($users['users']) == 2) *//*if (strstr($project['title'], 'Syrup'))*/
 
 					//$restApi->dropProject($project['identifier']);
 					//echo $users['users'][0]['user']['content']['email'].PHP_EOL.PHP_EOL;
