@@ -132,7 +132,7 @@ class UploadTable extends GenericJob
 					}
 					$i++;
 				}
-				$nullReplace .= '; print }\' > ' . escapeshellarg($csvFile) . '.out';
+				$nullReplace .= '; print }\' > ' . escapeshellarg($csvFile . '.out');
 				shell_exec($nullReplace);
 
 				$csvFile .= '.out';

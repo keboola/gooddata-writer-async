@@ -113,7 +113,7 @@ class CLToolApi
 		}
 
 		$cleanUp = function() use($workingDirectory, $prevCwd) {
-			system('rm -rf ' . $workingDirectory);
+			system('rm -rf ' . escapeshellarg($workingDirectory));
 			chdir($prevCwd);
 		};
 
@@ -124,17 +124,18 @@ class CLToolApi
 			. ' -h ' . escapeshellarg($this->_backendUrl)
 			. ' --timezone=GMT'
 			. ' -e ' . escapeshellarg($args);
-		$outputFile = $this->tmpDir . '/output-' . date('Ymd-His') . '-' . uniqid() . '.txt';
+		$outputFile = $workingDirectory . '/output-' . date('Ymd-His') . '-' . uniqid() . '.txt';
 		file_put_contents($outputFile . '.1', $args . "\n\n");
 
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
-			exec($command . ' 2>&1 > ' . escapeshellarg($outputFile) . '.2');
-			exec('cat ' . escapeshellarg($outputFile) . '.1 ' . escapeshellarg($outputFile) . '.2 > ' . escapeshellarg($outputFile));
-			exec('rm ' . escapeshellarg($outputFile) . '.1');
-			exec('rm ' . escapeshellarg($outputFile) . '.2');
+			exec($command . ' 2>&1 > ' . escapeshellarg($outputFile . '.2'));
+			exec('cat ' . escapeshellarg($outputFile . '.1') . ' ' . escapeshellarg($outputFile . '.2') .' > ' . escapeshellarg($outputFile));
+			exec('rm ' . escapeshellarg($outputFile . '.1'));
+			exec('rm ' . escapeshellarg($outputFile . '.2'));
 
 			// Test output for server error
-			$apiErrorTest = "egrep '503 Service Unavailable' " . $outputFile;
+			$apiErrorTest = "egrep '503 Service Unavailable' " . escapeshellarg($outputFile);
+
 			if (!shell_exec($apiErrorTest)) {
 
 				if (file_exists('/tmp/debug.log')) {
@@ -144,7 +145,7 @@ class CLToolApi
 				$this->debugLogUrl = $this->s3uploader->uploadFile($outputFile);
 
 				// Test output for runtime error
-				if (shell_exec("egrep 'ERROR|Exception' " . $outputFile)) {
+				if (shell_exec("egrep 'ERROR|Exception' " . escapeshellarg($outputFile))) {
 					throw new CLToolApiErrorException('CL Tool Error, see debug log for details: ' . $this->debugLogUrl);
 				}
 
@@ -174,8 +175,8 @@ class CLToolApi
 
 		$command  = 'OpenProject(id="' . $pid . '");';
 		$command .= 'UseDateDimension(name="' . $name . '", includeTime="' . ($includeTime ? 'true' : 'false') . '");';
-		$command .= 'GenerateMaql(maqlFile="' . escapeshellarg($maqlFile) . '");';
-		$command .= 'ExecuteMaql(maqlFile="' . escapeshellarg($maqlFile) . '");';
+		$command .= 'GenerateMaql(maqlFile="' . $maqlFile . '");';
+		$command .= 'ExecuteMaql(maqlFile="' . $maqlFile . '");';
 		$command .= 'TransferData();';
 
 		$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
@@ -208,9 +209,9 @@ class CLToolApi
 				if (!file_exists($csvFile)) touch($csvFile);
 
 				$command  = 'OpenProject(id="' . $pid . '");';
-				$command .= 'UseCsv(csvDataFile="' . escapeshellarg($csvFile) . '", hasHeader="true", configFile="' . escapeshellarg($xmlFile) . '");';
-				$command .= 'GenerateMaql(maqlFile="' . escapeshellarg($maqlFile) . '");';
-				$command .= 'ExecuteMaql(maqlFile="' . escapeshellarg($maqlFile) . '");';
+				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '");';
+				$command .= 'GenerateMaql(maqlFile="' . $maqlFile . '");';
+				$command .= 'ExecuteMaql(maqlFile="' . $maqlFile . '");';
 
 				$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
 
@@ -252,8 +253,8 @@ class CLToolApi
 				if (!file_exists($csvFile)) touch($csvFile);
 
 				$command  = 'OpenProject(id="' . $pid . '");';
-				$command .= 'UseCsv(csvDataFile="' . escapeshellarg($csvFile) . '", hasHeader="true", configFile="' . escapeshellarg($xmlFile) . '");';
-				$command .= 'GenerateUpdateMaql(maqlFile="' . escapeshellarg($maqlFile) . '"';
+				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '");';
+				$command .= 'GenerateUpdateMaql(maqlFile="' . $maqlFile . '"';
 				if ($updateAll) {
 					$command .= ' updateAll="true"';
 				}
@@ -267,7 +268,7 @@ class CLToolApi
 				$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
 
 				if (file_exists($maqlFile)) {
-					$command = 'OpenProject(id="' . $pid . '"); ExecuteMaql(maqlFile="' . escapeshellarg($maqlFile) . '");';
+					$command = 'OpenProject(id="' . $pid . '"); ExecuteMaql(maqlFile="' . $maqlFile . '");';
 
 					$this->output .= '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
 
@@ -303,7 +304,7 @@ class CLToolApi
 		if (file_exists($xmlFile)) {
 			if (file_exists($csvFile)) {
 				$command  = 'OpenProject(id="' . $pid . '");';
-				$command .= 'UseCsv(csvDataFile="' . escapeshellarg($csvFile) . '", hasHeader="true", configFile="' . escapeshellarg($xmlFile) . '");';
+				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '");';
 				$command .= 'TransferData(incremental="' . ($incremental ? 'true' : 'false') . '", waitForFinish="true");';
 
 				$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
@@ -328,13 +329,13 @@ class CLToolApi
 		$maqlFile = $this->tmpDir . '/temp-' . date('Ymd-His') . '-' . uniqid() . '.maql';
 
 		$command  = 'OpenProject(id="' . $pid . '");';
-		$command .= 'GetReports(fileName="' . escapeshellarg($maqlFile) . '");';
+		$command .= 'GetReports(fileName="' . $maqlFile . '");';
 
 		$this->call($command);
 
 		if (filesize($maqlFile)) {
 			$command  = 'OpenProject(id="' . $pid . '");';
-			$command .= 'ExecuteReports(fileName="' . escapeshellarg($maqlFile) . '");';
+			$command .= 'ExecuteReports(fileName="' . $maqlFile . '");';
 			$this->call($command);
 
 			unlink($maqlFile);
