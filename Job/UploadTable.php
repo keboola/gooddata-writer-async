@@ -95,7 +95,7 @@ class UploadTable extends GenericJob
 			libxml_use_internal_errors(TRUE);
 			$sxml = simplexml_load_file($xmlFile);
 			if ($sxml) {
-				$nullReplace = 'cat ' . $csvFile . ' | sed \'s/\"NULL\"/\"\"/g\' | awk -v OFS="\",\"" -F"\",\"" \'{';
+				$nullReplace = 'cat ' . escapeshellarg($csvFile) . ' | sed \'s/\"NULL\"/\"\"/g\' | awk -v OFS="\",\"" -F"\",\"" \'{';
 
 				$i = 1;
 				$columnsCount = $sxml->columns->column->count();
@@ -132,7 +132,7 @@ class UploadTable extends GenericJob
 					}
 					$i++;
 				}
-				$nullReplace .= '; print }\' > ' . $csvFile . '.out';
+				$nullReplace .= '; print }\' > ' . escapeshellarg($csvFile) . '.out';
 				shell_exec($nullReplace);
 
 				$csvFile .= '.out';
