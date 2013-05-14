@@ -523,6 +523,44 @@ class RestApi
 		}
 	}
 
+
+
+	/**
+	 * Drop dataset
+	 * @param $pid
+	 * @param $dataset
+	 * @return string
+	 */
+	public function dropDataset($pid, $dataset)
+	{
+		$maql  = sprintf('DROP IF EXISTS {dim.%s};', $dataset);
+		$maql .= sprintf('DROP IF EXISTS {ffld.%s};', $dataset);
+		$maql .= sprintf('DROP ALL IN IF EXISTS {dataset.%s};', $dataset);
+
+		return $this->executeMaql($pid, $maql);
+	}
+
+
+
+
+	/**
+	 * Execute MAQL
+	 * @param $pid
+	 * @param $maql
+	 * @return string
+	 */
+	public function executeMaql($pid, $maql)
+	{
+		$uri = sprintf('/gdc/md/%s/ldm/manage', $pid);
+		$params = array(
+			'manage' => array(
+				'maql' => $maql
+			)
+		);
+		return $this->_jsonRequest($uri, 'POST', $params);
+	}
+
+
 	/**
 	 * Creates new Mandatory User Filter
 	 *
@@ -860,7 +898,7 @@ class RestApi
 				)
 			), array(), false);
 		} catch (RestApiException $e) {
-			throw new RestApiException('Login failed');
+			throw new RestApiException('Rest API Login failed');
 		}
 
 		$this->_authSst = $this->_findCookie($response, 'GDCAuthSST');
@@ -869,13 +907,13 @@ class RestApi
 				'response' => $response->getBody(true),
 				'status' => $response->getStatusCode()
 			));
-			throw new RestApiException('Login failed');
+			throw new RestApiException('Rest API Login failed');
 		}
 
 		try {
 			$response = $this->_request('/gdc/account/token', 'GET', array(), array(), false);
 		} catch (RestApiException $e) {
-			throw new RestApiException('Login failed');
+			throw new RestApiException('Rest API Login failed');
 		}
 
 		$this->_authTt = $this->_findCookie($response, 'GDCAuthTT');
@@ -884,7 +922,7 @@ class RestApi
 				'response' => $response->getBody(true),
 				'status' => $response->getStatusCode()
 			));
-			throw new RestApiException('Login failed');
+			throw new RestApiException('Rest API Login failed');
 		}
 	}
 

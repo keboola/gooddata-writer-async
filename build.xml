@@ -3,7 +3,7 @@
 <project name="GoodDataWriter" default="build">
 
 	<target name="build"
-			depends="prepare,update,phpunit-ci"/>
+			depends="prepare,update,phpunit"/>
 
 	<target name="update"
 			depends="prepare,composerInstall,composerUpdate,composerDumpAutoload"
@@ -25,6 +25,7 @@
 		<exec executable="php" failonerror="true">
 			<arg value="composer.phar"/>
 			<arg value="install"/>
+			<arg value="--dev"/>
 		</exec>
 	</target>
 
@@ -33,6 +34,7 @@
 		<exec executable="php" failonerror="true">
 			<arg value="composer.phar"/>
 			<arg value="update"/>
+			<arg value="--dev"/>
 		</exec>
 	</target>
 
@@ -50,13 +52,6 @@
 		<exec executable="phpunit" failonerror="true">
 			<arg value="--configuration"/>
 			<arg path="${basedir}/phpunit.xml.dist"/>
-		</exec>
-	</target>
-
-	<target name="phpunit-ci" description="Run unit tests with PHPUnit with coverage for CI">
-		<exec executable="phpunit" failonerror="true">
-			<arg value="--configuration"/>
-			<arg path="${basedir}/phpunit-ci.xml.dist"/>
 		</exec>
 	</target>
 </project>

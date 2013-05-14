@@ -24,7 +24,7 @@ class UploadTable extends GenericJob
 		$xmlFile = $job['xmlFile'];
 		if (!is_file($xmlFile)) {
 			$xmlFilePath = tempnam($this->tmpDir, 'xml');
-			exec('curl -s -L ' . escapeshellarg($xmlFile) . ' > ' . $xmlFilePath);
+			exec('curl -s -L ' . escapeshellarg($xmlFile) . ' > ' . escapeshellarg($xmlFilePath));
 			$xmlFile = $xmlFilePath;
 		}
 
@@ -87,7 +87,7 @@ class UploadTable extends GenericJob
 		$csvUrl = $this->mainConfig['storageApi.url'] . '/storage/tables/' . $params['tableId'] . '/export?escape=1'
 			. ($incremental ? '&changedSince=-' . $incremental . '+days' : null);
 		$csvFilePath = tempnam($this->tmpDir, 'csv');
-		exec('curl --header "X-StorageApi-Token: ' . $job['token'] . '" -s ' . escapeshellarg($csvUrl) . ' > ' . $csvFilePath);
+		exec('curl --header "X-StorageApi-Token: ' . $job['token'] . '" -s ' . escapeshellarg($csvUrl) . ' > ' . escapeshellarg($csvFilePath));
 		chmod($csvFilePath, 0644);
 		$csvFile = $csvFilePath;
 
@@ -95,7 +95,7 @@ class UploadTable extends GenericJob
 			libxml_use_internal_errors(TRUE);
 			$sxml = simplexml_load_file($xmlFile);
 			if ($sxml) {
-				$nullReplace = 'cat ' . $csvFile . ' | sed \'s/\"NULL\"/\"\"/g\' | awk -v OFS="\",\"" -F"\",\"" \'{';
+				$nullReplace = 'cat ' . escapeshellarg($csvFile) . ' | sed \'s/\"NULL\"/\"\"/g\' | awk -v OFS="\",\"" -F"\",\"" \'{';
 
 				$i = 1;
 				$columnsCount = $sxml->columns->column->count();
@@ -132,7 +132,7 @@ class UploadTable extends GenericJob
 					}
 					$i++;
 				}
-				$nullReplace .= '; print }\' > ' . $csvFile . '.out';
+				$nullReplace .= '; print }\' > ' . escapeshellarg($csvFile . '.out');
 				shell_exec($nullReplace);
 
 				$csvFile .= '.out';
