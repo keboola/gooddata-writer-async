@@ -364,6 +364,49 @@ class WriterTest extends WebTestCase
 		$this->assertEquals($user['email'], $responseJson['users'][0]['email']);
 	}
 
+	public function testCreateFilter()
+	{
+		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
+			$_SERVER['KERNEL_DIR'] . '/tmp');
+
+		// Create and process job
+		$this->_processJob('/gooddata-writer/filters', array(
+			"name"      => "filter",
+			"attribute" => "name (Users)",
+			"element"   => "miro"
+		));
+
+		// Check result
+		$filterList = $configuration->getFilters();
+		$this->assertCount(2, count($filterList));
+	}
+
+	public function testAssignFilterToUser()
+	{
+		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
+			$_SERVER['KERNEL_DIR'] . '/tmp');
+
+		$usersList = $configuration->getUsers();
+		$user = $usersList[1];
+
+		// Create and process job
+		$this->_processJob('/gooddata-writer/filters-user', array(
+			"name"      => "filter",
+			"attribute" => "name (Users)",
+			"element"   => "miro"
+		));
+	}
+
+	public function testDeleteFilter()
+	{
+
+	}
+
+	public function testSyncFilter()
+	{
+
+	}
+
 	public function testDeleteWriter()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
