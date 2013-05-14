@@ -113,7 +113,7 @@ class CLToolApi
 		}
 
 		$cleanUp = function() use($workingDirectory, $prevCwd) {
-			system('rm -rf ' . $workingDirectory);
+			system('rm -rf ' . escapeshellarg($workingDirectory));
 			chdir($prevCwd);
 		};
 
@@ -124,27 +124,28 @@ class CLToolApi
 			. ' -h ' . escapeshellarg($this->_backendUrl)
 			. ' --timezone=GMT'
 			. ' -e ' . escapeshellarg($args);
-		$outputFile = $this->tmpDir . '/output-' . date('Ymd-His') . '-' . uniqid() . '.txt';
+		$outputFile = $workingDirectory . '/output-' . date('Ymd-His') . '-' . uniqid() . '.txt';
 		file_put_contents($outputFile . '.1', $args . "\n\n");
 
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
-			exec($command . ' 2>&1 > ' . $outputFile . '.2');
-			exec('cat ' . $outputFile . '.1 ' . $outputFile . '.2 > ' . $outputFile);
-			exec('rm ' . $outputFile . '.1');
-			exec('rm ' . $outputFile . '.2');
+			exec($command . ' 2>&1 > ' . escapeshellarg($outputFile . '.2'));
+			exec('cat ' . escapeshellarg($outputFile . '.1') . ' ' . escapeshellarg($outputFile . '.2') .' > ' . escapeshellarg($outputFile));
+			exec('rm ' . escapeshellarg($outputFile . '.1'));
+			exec('rm ' . escapeshellarg($outputFile . '.2'));
 
 			// Test output for server error
-			$apiErrorTest = "egrep '503 Service Unavailable' " . $outputFile;
+			$apiErrorTest = "egrep '503 Service Unavailable' " . escapeshellarg($outputFile);
+
 			if (!shell_exec($apiErrorTest)) {
 
 				if (file_exists('/tmp/debug.log')) {
-					exec('cat ' . $outputFile . ' /tmp/debug.log > ' . $outputFile);
+					exec('cat ' . escapeshellarg($outputFile) . ' /tmp/debug.log > ' . escapeshellarg($outputFile));
 				}
 
 				$this->debugLogUrl = $this->s3uploader->uploadFile($outputFile);
 
 				// Test output for runtime error
-				if (shell_exec("egrep 'ERROR|Exception' " . $outputFile)) {
+				if (shell_exec("egrep 'ERROR|Exception' " . escapeshellarg($outputFile))) {
 					throw new CLToolApiErrorException('CL Tool Error, see debug log for details: ' . $this->debugLogUrl);
 				}
 

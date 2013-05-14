@@ -65,7 +65,7 @@ class AddUserToProject extends GenericJob
 			), $this->restApi->callsLog());
 
 		} catch (UnauthorizedException $e) {
-			throw new WrongConfigurationException('Login failed');
+			throw new WrongConfigurationException('Rest API Login failed');
 		} catch (RestApiException $e) {
 			return $this->_prepareResult($job['id'], array(
 				'status' => 'error',
