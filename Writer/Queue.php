@@ -43,6 +43,19 @@ class Queue
 		return $queue;
 	}
 
+	public function clearQueue($name)
+	{
+		$q = $this->getQueue($name);
+		$queueId = (int)$this->_db->fetchOne('SELECT queue_id FROM queue WHERE queue_name = ?', $name);
+		if ($queueId) {
+			$this->_db->beginTransaction();
+			$jobs = $this->_db->fetchCol("SELECT body FROM message WHERE queue_id = ?", $queueId);
+			$this->_db->delete('message', array('queue_id=?' => $queueId));
+			$this->_db->commit();
+			return $jobs;
+		}
+	}
+
 	public function fetchAllQueuesNamesOrderedByMessageAge()
 	{
 		return $this->_db->fetchCol("

@@ -533,6 +533,7 @@ class RestApi
 	 */
 	public function dropDataset($pid, $dataset)
 	{
+		//@TODO Find dataset identificator
 		$maql  = sprintf('DROP IF EXISTS {dim.%s};', $dataset);
 		$maql .= sprintf('DROP IF EXISTS {ffld.%s};', $dataset);
 		$maql .= sprintf('DROP ALL IN IF EXISTS {dataset.%s};', $dataset);
