@@ -44,7 +44,7 @@ class SharedConfig
 			array(
 				'whereColumn' => 'projectIdWriterId',
 				'whereValues' => array($projectId . '.' . $writerId),
-				//@TODO 'changedSince' => '-1 day'
+				//'changedSince' => '-1 day'
 			)
 		);
 
@@ -122,12 +122,20 @@ class SharedConfig
 
 	public function jobToApiResponse(array $job)
 	{
-		$result = json_decode($job['result'], true);
-		if (isset($result['csvFile'])) unset($result['csvFile']);
-		if (!$result) $result = $job['result'];
+		if (!is_array($job['result'])) {
+			$result = json_decode($job['result'], true);
+			if (isset($result['csvFile'])) unset($result['csvFile']);
+			if (!$result) $result = $job['result'];
+		} else {
+			$result = $job['result'];
+		}
 
-		$params = json_decode($job['parameters'], true);
-		if (!$params) $params = $job['parameters'];
+		if (!is_array($job['parameters'])) {
+			$params = json_decode($job['parameters'], true);
+			if (!$params) $params = $job['parameters'];
+		} else {
+			$params = $job['parameters'];
+		}
 
 		return array(
 			'id' => (int) $job['id'],
@@ -148,7 +156,7 @@ class SharedConfig
 			'parameters' => $params,
 			'result' => $result,
 			'gdWriteStartTime' => $job['gdWriteStartTime'],
-			'gdWriteBytes' => $job['gdWriteBytes'],
+			'gdWriteBytes' => $job['gdWriteBytes'] ? (int) $job['gdWriteBytes'] : null,
 			'status' => $job['status'],
 			'log' => $job['log'],
 		);

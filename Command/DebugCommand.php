@@ -1,6 +1,7 @@
 <?php
 namespace Keboola\GoodDataWriter\Command;
 
+use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\GoodDataWriter\Writer\JobExecutor;
 use Keboola\GoodDataWriter\Writer\SharedConfig;
@@ -30,21 +31,27 @@ class DebugCommand extends ContainerAwareCommand
 		$restApi = new \Keboola\GoodDataWriter\GoodData\RestApi(null, $this->getContainer()->get('logger'));
 		$restApi->login($mainConfig['gd']['prod']['username'], $mainConfig['gd']['prod']['password']);
 
+
 		/*$users = $restApi->get('/gdc/account/domains/keboola-devel/users');
 		foreach ($users['accountSettings']['items'] as $i => $user) {
 			echo ($i+1).' - '.$user['accountSetting']['login'] . ' - '.$user['accountSetting']['links']['self'].PHP_EOL;
 		}die();*/
 
 		$projects = $restApi->get('/gdc/md');
+		$counter = 0;
 		foreach ($projects['about']['links'] as $i => $project) {
 			try {
-				$projectInfo = '"' . $project['title'] . '","' . $project['identifier'] . '","';
-				$usersInfo = array();
-				$users = $restApi->get('/gdc/projects/' . $project['identifier'] . '/users');
-				if (count($users['users']) == 1) {
+				$counter++;
+				$projectInfo = '"' . $counter . '","' . $project['title'] . '","' . $project['identifier'] . '","';
+
+				if ($project['title'] == 'Keboola Academy BU1 (Milan@veverka.ca)') {
 					echo $projectInfo.PHP_EOL;
-					
 				}
+				/*$usersInfo = array();
+				$users = $restApi->get('/gdc/projects/' . $project['identifier'] . '/users');
+				if (count($users['users']) == 2) {
+					echo $projectInfo.PHP_EOL;
+				}*/
 
 
 
@@ -62,7 +69,7 @@ class DebugCommand extends ContainerAwareCommand
 
 			}
 
-		}
+		}echo $counter . PHP_EOL;
 
 	}
 

@@ -364,6 +364,49 @@ class WriterTest extends WebTestCase
 		$this->assertEquals($user['email'], $responseJson['users'][0]['email']);
 	}
 
+	public function testCancelJobs()
+	{
+		self::$client->request('POST', '/gooddata-writer/upload-project', array(), array(), array(),
+			json_encode(array(
+				'writerId' => self::WRITER_ID,
+				'dev' => 1
+			)));
+		$response = self::$client->getResponse();
+
+		$this->assertEquals($response->getStatusCode(), 200);
+		$responseJson = json_decode($response->getContent(), true);
+		$this->assertNotEmpty($responseJson);
+		$this->assertArrayHasKey('batch', $responseJson);
+
+
+		self::$client->request('GET', sprintf('/gooddata-writer/batch?writerId=%s&id=%d', self::WRITER_ID, $responseJson['batch']));
+		$response = self::$client->getResponse();
+		$responseJson = json_decode($response->getContent(), true);
+		$this->assertArrayHasKey('batch', $responseJson);
+		$this->assertArrayHasKey('jobs', $responseJson['batch']);
+		$jobs = $responseJson['batch']['jobs'];
+
+
+		self::$client->request('POST', '/gooddata-writer/cancel-jobs', array(), array(), array(),
+			json_encode(array(
+				'writerId' => self::WRITER_ID,
+				'dev' => 1
+			)));
+		$response = self::$client->getResponse();
+		$this->assertEquals($response->getStatusCode(), 200);
+
+
+		foreach ($jobs as $jobId) {
+			self::$client->request('GET', sprintf('/gooddata-writer/job?writerId=%s&id=%d', self::WRITER_ID, $jobId));
+			$response = self::$client->getResponse();
+			$responseJson = json_decode($response->getContent(), true);
+			$this->assertArrayHasKey('status', $responseJson);
+			$this->assertArrayHasKey('job', $responseJson);
+			$this->assertArrayHasKey('status', $responseJson['job']);
+			$this->assertEquals('cancelled', $responseJson['job']['status']);
+		}
+	}
+
 	public function testDeleteWriter()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,

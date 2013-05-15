@@ -879,6 +879,20 @@ class GoodDataWriter extends Component
 		}
 	}
 
+	public function postCancelJobs($params)
+	{
+		$this->_init($params);
+		if (!isset($params['writerId'])) {
+			throw new WrongParametersException('Missing parameter \'writerId\'');
+		}
+
+		$jobs = $this->_queue->clearQueue($this->configuration->projectId . "-" . $this->configuration->writerId);
+		foreach ($jobs as $jobId) {
+			$this->sharedConfig->saveJob($jobId, array('status' => 'cancelled'));
+		}
+		return array();
+	}
+
 	/**
 	 * Get Batch
 	 * @param $params
