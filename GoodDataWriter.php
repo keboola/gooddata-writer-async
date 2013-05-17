@@ -806,6 +806,62 @@ class GoodDataWriter extends Component
 	}
 
 
+	public function getModel($params)
+	{
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$nodes = array();
+		$dateDimensions = array();
+		$references = array();
+		$datasets = array();
+		foreach ($this->configuration->definedTables as $tableInfo) if (!empty($tableInfo['export'])) {
+			$datasets[$tableInfo['tableId']] = !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'];
+			$nodes[] = $tableInfo['tableId'];
+			$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
+			foreach ($definition['columns'] as $c) {
+				if ($c['type'] == 'DATE' && $c['dateDimension']) {
+					$dateDimensions[$tableInfo['tableId']] = $c['dateDimension'];
+					if (!in_array($c['dateDimension'], $nodes)) $nodes[] = $c['dateDimension'];
+				}
+				if ($c['type'] == 'REFERENCE' && $c['schemaReference']) {
+					$references[$tableInfo['tableId']] = $c['schemaReference'];
+				}
+			}
+		}
+
+		$datasetIds = array_keys($datasets);
+		$result = array('nodes' => array(), 'links' => array());
+
+		foreach ($nodes as $name) {
+			$result['nodes'][] = array(
+				'name' => isset($datasets[$name]) ? $datasets[$name] : $name,
+				'group' => in_array($name, $datasetIds) ? 'dataset' : 'dimension'
+			);
+		}
+		foreach ($dateDimensions as $dataset => $date) {
+			$result['links'][] = array(
+				'source' => array_search($dataset, $nodes),
+				'target' => array_search($date, $nodes),
+				'value' => 'dimension'
+			);
+		}
+		foreach ($references as $source => $target) {
+			$result['links'][] = array(
+				'source' => array_search($source, $nodes),
+				'target' => array_search($target, $nodes),
+				'value' => 'dataset'
+			);
+		}
+
+		header('Content-Type: application/json');
+		echo json_encode($result);
+		exit();
+	}
+
+
 
 
 

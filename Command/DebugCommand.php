@@ -39,14 +39,25 @@ class DebugCommand extends ContainerAwareCommand
 
 		$projects = $restApi->get('/gdc/md');
 		$counter = 0;
-		foreach ($projects['about']['links'] as $i => $project) {
+		$counterAll = 0;
+		foreach ($projects['about']['links'] as $project) {
 			try {
-				$counter++;
+				$counterAll++;
 				$projectInfo = '"' . $counter . '","' . $project['title'] . '","' . $project['identifier'] . '","';
-
-				if ($project['title'] == 'Keboola Academy BU1 (Milan@veverka.ca)') {
-					echo $projectInfo.PHP_EOL;
+				if ($project['title'] == 'Keboola Academy BU1 (Milan@veverka.ca)')
+				{
+					if ($project['identifier']!='zpjkjhlp3by1ac8iepzbpgxe6q81d2ew') {
+						//$restApi->dropProject($project['identifier']);
+					}
+					echo $project['identifier'].',';//echo $projectInfo.PHP_EOL;
+					$counter++;
+					//
 				}
+				/*if (strstr($project['title'], 'Keboola Academy RM1 -')) {
+					$counter++;
+					echo $projectInfo.PHP_EOL;
+					//$restApi->dropProject($project['identifier']);
+				}*/
 				/*$usersInfo = array();
 				$users = $restApi->get('/gdc/projects/' . $project['identifier'] . '/users');
 				if (count($users['users']) == 2) {
@@ -69,7 +80,7 @@ class DebugCommand extends ContainerAwareCommand
 
 			}
 
-		}echo $counter . PHP_EOL;
+		}echo $counter . ' of ' . $counterAll . PHP_EOL;
 
 	}
 
