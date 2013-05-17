@@ -442,7 +442,7 @@ class Configuration
 				$this->_projects = StorageApiClient::parseCsv($csv);
 
 				if (isset($this->_projects[0])) {
-					if (count($this->_projects[0]) != 2) {
+					if (count($this->_projects[0]) < 2) {
 						throw new WrongConfigurationException('Projects table in configuration contains invalid number of columns');
 					}
 					if (!isset($this->_projects[0]['pid']) || !isset($this->_projects[0]['active'])) {
@@ -470,7 +470,7 @@ class Configuration
 		$tableId = $this->bucketId . '.' . self::PROJECTS_TABLE_NAME;
 		if ($this->_storageApi->tableExists($tableId)) {
 			$table = $this->_storageApi->getTable($tableId);
-			if (count($table['columns']) != 2) {
+			if (count($table['columns']) < 2) {
 				throw new WrongConfigurationException('Projects table in configuration contains invalid number of columns');
 			}
 			if (!in_array('pid', $table['columns']) || !in_array('active', $table['columns'])) {
@@ -494,7 +494,7 @@ class Configuration
 				$this->_users = StorageApiClient::parseCsv($csv);
 
 				if (isset($this->_users[0])) {
-					if (count($this->_users[0]) != 2) {
+					if (count($this->_users[0]) < 2) {
 						throw new WrongConfigurationException('Users table in configuration contains invalid number of columns');
 					}
 					if (!isset($this->_users[0]['email']) || !isset($this->_users[0]['uid'])) {
@@ -526,7 +526,7 @@ class Configuration
 		$tableId = $this->bucketId . '.' . self::USERS_TABLE_NAME;
 		if ($this->_storageApi->tableExists($tableId)) {
 			$table = $this->_storageApi->getTable($tableId);
-			if (count($table['columns']) != 2) {
+			if (count($table['columns']) < 2) {
 				throw new WrongConfigurationException('Users table in configuration contains invalid number of columns');
 			}
 			if (!in_array('email', $table['columns']) || !in_array('uid', $table['columns'])) {
@@ -548,7 +548,7 @@ class Configuration
 				$this->_projectUsers = StorageApiClient::parseCsv($csv);
 
 				if (isset($this->_projectUsers[0])) {
-					if (count($this->_projectUsers[0]) != 5) {
+					if (count($this->_projectUsers[0]) < 5) {
 						throw new WrongConfigurationException('Project Users table in configuration contains invalid number of columns');
 					}
 					if (!isset($this->_projectUsers[0]['id']) || !isset($this->_projectUsers[0]['pid']) || !isset($this->_projectUsers[0]['email'])
@@ -585,7 +585,7 @@ class Configuration
 		$tableId = $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME;
 		if ($this->_storageApi->tableExists($tableId)) {
 			$table = $this->_storageApi->getTable($tableId);
-			if (count($table['columns']) != 5) {
+			if (count($table['columns']) < 5) {
 				throw new WrongConfigurationException('Project Users table in configuration contains invalid number of columns');
 			}
 			if (!in_array('id', $table['columns']) || !in_array('pid', $table['columns']) || !in_array('email', $table['columns'])
