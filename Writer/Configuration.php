@@ -214,6 +214,37 @@ class Configuration
 		return $this->_tableDefinitionsCache[$tableId];
 	}
 
+	public function createTableDefinition($tableId)
+	{
+		if (!isset($this->_tableDefinitionsCache[$tableId])) {
+			if (!isset($this->definedTables[$tableId])) {
+
+				$tId = mb_substr($tableId, mb_strlen(StorageApiClient::STAGE_OUT) + 1);
+				$bucket = mb_substr($tId, 0, mb_strpos($tId, '.'));
+				$tableName = mb_substr($tId, mb_strpos($tId, '.')+1);
+
+				$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . $bucket . '_' . $tableName);
+				$table->setHeader(array('name', 'gdName', 'type', 'dataType', 'dataTypeSize', 'schemaReference', 'reference',
+					'format', 'dateDimension', 'sortLabel', 'sortOrder'));
+				$table->setAttribute('tableId', $tableId);
+				$table->setAttribute('lastChangeDate', null);
+				$table->setAttribute('lastExportDate', null);
+				$table->save();
+
+				$this->definedTables[$tableId] = array(
+					'tableId' => $tableId,
+					'gdName' => null,
+					'lastChangeDate' => null,
+					'lastExportDate' => null,
+					'definitionId' => $this->bucketId . '.' . $bucket . '_' . $tableName
+				);
+
+			}
+		}
+
+		return $this->_tableDefinitionsCache[$tableId];
+	}
+
 	public function setTableAttribute($tableId, $name, $value)
 	{
 		if (!isset($this->definedTables[$tableId])) {

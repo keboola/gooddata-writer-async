@@ -900,7 +900,7 @@ class GoodDataWriter extends Component
 				if (isset($this->configuration->definedTables[$table['id']])) {
 					$tableDef = $this->configuration->definedTables[$table['id']];
 					$t['gdName'] = isset($tableDef['gdName']) ? $tableDef['gdName'] : null;
-					$t['export'] = isset($tableDef['export']) ? $tableDef['export'] : 0;
+					$t['export'] = isset($tableDef['export']) ? (Boolean)$tableDef['export'] : false;
 					$t['lastChangeDate'] = isset($tableDef['lastChangeDate']) ? $tableDef['lastChangeDate'] : null;
 					$t['lastExportDate'] = isset($tableDef['lastExportDate']) ? $tableDef['lastExportDate'] : null;
 				}
@@ -909,6 +909,33 @@ class GoodDataWriter extends Component
 		}
 
 		return array('tables' => $tables);
+	}
+
+	/**
+	 *
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
+	public function postTables($params)
+	{
+		if (empty($params['tableId'])) {
+			throw new WrongParametersException("Parameter 'tableId' is missing");
+		}
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		if (!isset($this->configuration->definedTables[$params['tableId']])) {
+			$this->configuration->createTableDefinition($params['tableId']);
+		}
+
+		foreach ($params as $key => $value) if (in_array($key, array('gdName', 'export', 'lastChangeDate', 'lastExportDate'))) {
+			$this->configuration->setTableAttribute($params['tableId'], $key, $value);
+		}
+
+		return array();
 	}
 
 

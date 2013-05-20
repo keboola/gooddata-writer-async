@@ -44,7 +44,7 @@ class SharedConfig
 			array(
 				'whereColumn' => 'projectIdWriterId',
 				'whereValues' => array($projectId . '.' . $writerId),
-				//'changedSince' => '-1 day'
+				'changedSince' => '-4 days'
 			)
 		);
 
