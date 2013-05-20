@@ -10,8 +10,11 @@ namespace Keboola\GoodDataWriter;
 
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Monolog\Logger;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Syrup\ComponentBundle\Component\Component;
-use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Request,
+	Symfony\Component\HttpFoundation\Response;
 use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Client as StorageApiClient,
@@ -806,6 +809,17 @@ class GoodDataWriter extends Component
 	}
 
 
+
+	/***********************
+	 * @section UI support
+	 */
+
+
+	/**
+	 * Get visual model
+	 * @param $params
+	 * @throws Exception\WrongParametersException
+	 */
 	public function getModel($params)
 	{
 		$this->_init($params);
@@ -856,9 +870,45 @@ class GoodDataWriter extends Component
 			);
 		}
 
-		header('Content-Type: application/json');
-		echo json_encode($result);
+		$response = new Response(json_encode($result));
+		$response->headers->set('Content-Type', 'application/json');
+		$response->send();
 		exit();
+	}
+
+
+	/**
+	 *
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
+	public function getTables($params)
+	{
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$tables = array();
+		foreach ($this->_storageApi->listTables() as $table) {
+			if (substr($table['id'], 0, 4) == 'out.') {
+				$t = array(
+					'id' => $table['id'],
+					'bucket' => $table['bucket']['id']
+				);
+				if (isset($this->configuration->definedTables[$table['id']])) {
+					$tableDef = $this->configuration->definedTables[$table['id']];
+					$t['gdName'] = isset($tableDef['gdName']) ? $tableDef['gdName'] : null;
+					$t['export'] = isset($tableDef['export']) ? $tableDef['export'] : 0;
+					$t['lastChangeDate'] = isset($tableDef['lastChangeDate']) ? $tableDef['lastChangeDate'] : null;
+					$t['lastExportDate'] = isset($tableDef['lastExportDate']) ? $tableDef['lastExportDate'] : null;
+				}
+				$tables[] = $t;
+			}
+		}
+
+		return array('tables' => $tables);
 	}
 
 
@@ -912,18 +962,21 @@ class GoodDataWriter extends Component
 			$result = json_decode($job['result'], true);
 			if (isset($result['csvFile']) && file_exists($result['csvFile'])) {
 
-				header('Content-Disposition: attachment; filename="' . $params['id'] . '.csv"');
-				header('Content-length: ' . filesize($result['csvFile']));
-				$linesCount = !empty($params['limit']) ? $params['limit'] : -1;
-				$handle = fopen($result['csvFile'], 'r');
-				if ($handle === false) {
-					return false;
-				}
-				while (($buffer = fgets($handle)) !== false && $linesCount != 0) {
-					print $buffer;
-					$linesCount--;
-				}
-				fclose($handle);
+				$response = new StreamedResponse(function() use($result) {
+					$linesCount = !empty($params['limit']) ? $params['limit'] : -1;
+					$handle = fopen($result['csvFile'], 'r');
+					if ($handle === false) {
+						return false;
+					}
+					while (($buffer = fgets($handle)) !== false && $linesCount != 0) {
+						print $buffer;
+						$linesCount--;
+					}
+					fclose($handle);
+				});
+				$response->headers->set('Content-Disposition', $response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $params['id'] . '.csv'));
+				$response->headers->set('Content-length', filesize($result['csvFile']));
+				$response->send();
 				exit();
 
 			} else {

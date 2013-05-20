@@ -183,9 +183,47 @@ class WriterTest extends WebTestCase
 
 	}
 
+	public function testGetModel()
+	{
+		//@TODO exit() in GoodDataWriter::getModel() stops test execution
+		/*self::$client->request('GET', sprintf('/gooddata-writer/model?writerId=%s', self::WRITER_ID));
+		$response = self::$client->getResponse();
+		$responseJson = json_decode($response->getContent(), true);
+
+		$this->assertArrayHasKey('nodes', $responseJson);
+		$this->assertArrayHasKey('links', $responseJson);
+		$this->assertCount(2, $responseJson['nodes']);
+		$this->assertCount(1, $responseJson['links']);*/
+	}
+
+	public function testGetTables()
+	{
+		self::$client->request('GET', '/gooddata-writer/tables?writerId=' . self::WRITER_ID);
+		$response = self::$client->getResponse();
+		$this->assertEquals($response->getStatusCode(), 200);
+		$responseJson = json_decode($response->getContent(), true);
+		$this->assertArrayHasKey('tables', $responseJson);
+
+		// Filter out tables not belonging to this test
+		$tables = array();
+		foreach ($responseJson['tables'] as $t) {
+			if ($t['bucket'] == self::DATA_BUCKET_ID) {
+				$tables[] = $t;
+			}
+		}
+
+		$this->assertCount(2, $tables);
+		foreach ($tables as $table) {
+			$this->assertArrayHasKey('gdName', $table);
+			$this->assertTrue(in_array($table['gdName'], array('Products', 'Categories')));
+			$this->assertArrayHasKey('lastExportDate', $table);
+		}
+
+	}
+
 	public function testUploadTable()
 	{
-		//@TODO
+		//@TODO need to test that load data finished successfully
 	}
 
 	public function testGetWriters()
