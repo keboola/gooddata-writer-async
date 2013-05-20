@@ -221,6 +221,39 @@ class WriterTest extends WebTestCase
 
 	}
 
+	public function testPostTables()
+	{
+		$tableId = 'out.c-main.products';
+		$testName = uniqid('test-name');
+
+		self::$client->request('POST', '/gooddata-writer/tables', array(), array(), array(),
+			json_encode(array(
+				'writerId' => self::WRITER_ID,
+				'tableId' => $tableId,
+				'gdName' => $testName
+			)));
+		$response = self::$client->getResponse();
+		$this->assertEquals($response->getStatusCode(), 200);
+		$responseJson = json_decode($response->getContent(), true);
+		$this->assertNotEmpty($responseJson);
+
+
+		self::$client->request('GET', '/gooddata-writer/tables?writerId=' . self::WRITER_ID);
+		$response = self::$client->getResponse();
+		$this->assertEquals($response->getStatusCode(), 200);
+		$responseJson = json_decode($response->getContent(), true);
+		$this->assertArrayHasKey('tables', $responseJson);
+
+		$testResult = false;
+		foreach ($responseJson['tables'] as $t) {
+			if ($t['id'] == $tableId) {
+				$this->assertArrayHasKey('gdName', $t);
+				$testResult = $t['gdName'] == $testName;
+			}
+		}
+		$this->assertTrue($testResult);
+	}
+
 	public function testUploadTable()
 	{
 		//@TODO need to test that load data finished successfully
