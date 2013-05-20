@@ -241,8 +241,6 @@ class Configuration
 
 			}
 		}
-
-		return $this->_tableDefinitionsCache[$tableId];
 	}
 
 	public function setTableAttribute($tableId, $name, $value)
