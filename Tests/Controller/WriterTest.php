@@ -248,7 +248,9 @@ class WriterTest extends WebTestCase
 		foreach ($responseJson['tables'] as $t) {
 			if ($t['id'] == $tableId) {
 				$this->assertArrayHasKey('gdName', $t);
-				$testResult = $t['gdName'] == $testName;
+				if ($t['gdName'] == $testName) {
+					$testResult = true;
+				}
 			}
 		}
 		$this->assertTrue($testResult);
