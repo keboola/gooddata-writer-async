@@ -249,6 +249,7 @@ class Configuration
 			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
 		}
 
+		$this->definedTables[$tableId][$name] = $value;
 		$this->_storageApi->setTableAttribute($this->definedTables[$tableId]['definitionId'], $name, $value);
 	}
 

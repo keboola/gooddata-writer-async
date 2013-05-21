@@ -2,11 +2,7 @@
 
 # java run wrapper
 
-A=`readlink "$0"` # resolve symlinks
-A="${A:-$0}"      # if original wasn't a symlink, BSD returns empty string
-SCRIPT_REAL_PATH=$(cd "${A%/*}" && echo "$PWD/${A##*/}") # path to original shell script, resolved from relative paths
-PROJECT_DIR=`dirname "$SCRIPT_REAL_PATH"`
-PROJECT_DIR=`dirname "$PROJECT_DIR"` # base directory
+PROJECT_DIR=$1
 
 # OS specific support.  $var _must_ be set to either true or false.
 cygwin=false;
@@ -100,4 +96,4 @@ if $cygwin; then
     TMPDIR==`cygpath --path --windows "$TMPDIR"`
 fi
 
-"$JAVACMD" -Xmx3000M -XX:+UseConcMarkSweepGC -XX:+CMSIncrementalMode -XX:CMSInitiatingOccupancyFraction=50 -Dlog4j.configuration="log4j.configuration" -Dfile.encoding="utf-8" -Djava.io.tmpdir="$TMPDIR" -cp "${CLSPTH}" com.gooddata.processor.GdcDI "$@"
+"$JAVACMD" -Xmx3000M -XX:+UseConcMarkSweepGC -XX:+CMSIncrementalMode -XX:CMSInitiatingOccupancyFraction=50 -Dlog4j.configuration="log4j.configuration" -Dfile.encoding="utf-8" -Djava.io.tmpdir="$TMPDIR" -cp "${CLSPTH}" com.gooddata.processor.GdcDI "${@:2}"

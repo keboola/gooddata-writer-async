@@ -210,6 +210,7 @@ class JobExecutor
 			$clToolApi = new CLToolApi($this->_log);
 			$clToolApi->tmpDir = $tmpDir;
 			$clToolApi->clToolPath = $mainConfig['cli_path'];
+			$clToolApi->rootPath = $mainConfig['root_path'];
 			$clToolApi->jobId = $job['id'];
 			$clToolApi->s3uploader = $this->_container->get('syrup.monolog.s3_uploader');
 			if ($backendUrl) $clToolApi->setBackendUrl($backendUrl);
