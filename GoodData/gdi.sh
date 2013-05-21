@@ -73,7 +73,7 @@ if [ -z "$JAVA_HOME" ] ; then
 fi
 
 CLSPTH="$PROJECT_DIR"
-for i in "$PROJECT_DIR/vendor/gooddata/GoodData-CL/lib/"*.jar
+for i in "$PROJECT_DIR/vendor/gooddata/gooddata-cl/lib/"*.jar
 do
   CLSPTH="${CLSPTH}:${i}"
 done
