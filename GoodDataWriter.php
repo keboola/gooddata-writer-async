@@ -1019,6 +1019,12 @@ class GoodDataWriter extends Component
 		}
 	}
 
+	/**
+	 * Cancel waiting jobs
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
 	public function postCancelJobs($params)
 	{
 		$this->_init($params);
@@ -1027,8 +1033,12 @@ class GoodDataWriter extends Component
 		}
 
 		$jobs = $this->_queue->clearQueue($this->configuration->projectId . "-" . $this->configuration->writerId);
-		foreach ($jobs as $jobId) {
-			$this->sharedConfig->saveJob($jobId, array('status' => 'cancelled'));
+
+		// Cancel only waiting (to skip processing jobs)
+		foreach ($this->sharedConfig->fetchJobs($this->configuration->projectId, $this->configuration->writerId) as $job) {
+			if (in_array($job['id'], $jobs) && $job['status'] == 'waiting') {
+				$this->sharedConfig->saveJob($job['id'], array('status' => 'cancelled'));
+			}
 		}
 		return array();
 	}
