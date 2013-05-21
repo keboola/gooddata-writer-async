@@ -52,6 +52,7 @@ class CLToolApi
 	 * @var string
 	 */
 	public $clToolPath;
+	public $rootPath;
 	/**
 	 * @var \Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader
 	 */
@@ -119,6 +120,7 @@ class CLToolApi
 
 		// Assemble CL tool command
 		$command = $this->clToolPath
+			. ' ' . $this->rootPath
 			. ' -u ' . escapeshellarg($this->_username)
 			. ' -p ' . escapeshellarg($this->_password)
 			. ' -h ' . escapeshellarg($this->_backendUrl)
