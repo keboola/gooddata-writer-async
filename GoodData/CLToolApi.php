@@ -119,8 +119,7 @@ class CLToolApi
 		};
 
 		// Assemble CL tool command
-		$command = escapeshellarg($this->clToolPath)
-			. ' ' . escapeshellarg($this->rootPath)
+		$command = escapeshellarg('/opt/ebs-disk/GD/cli/bin/gdi.sh')
 			. ' -u ' . escapeshellarg($this->_username)
 			. ' -p ' . escapeshellarg($this->_password)
 			. ' -h ' . escapeshellarg($this->_backendUrl)
