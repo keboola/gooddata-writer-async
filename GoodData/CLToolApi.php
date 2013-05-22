@@ -119,8 +119,8 @@ class CLToolApi
 		};
 
 		// Assemble CL tool command
-		$command = $this->clToolPath
-			. ' ' . $this->rootPath
+		$command = escapeshellarg($this->clToolPath)
+			. ' ' . escapeshellarg($this->rootPath)
 			. ' -u ' . escapeshellarg($this->_username)
 			. ' -p ' . escapeshellarg($this->_password)
 			. ' -h ' . escapeshellarg($this->_backendUrl)
