@@ -219,8 +219,12 @@ class CLToolApi
 
 				$this->call($command);
 
-				$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
-				unlink($maqlFile);
+				if (file_exists($maqlFile)) {
+					$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
+					unlink($maqlFile);
+				} else {
+					throw new CLToolApiErrorException();
+				}
 			} else {
 				$errors = '';
 				foreach (libxml_get_errors() as $error) {
