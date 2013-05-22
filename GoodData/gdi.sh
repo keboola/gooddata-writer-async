@@ -96,4 +96,9 @@ if $cygwin; then
     TMPDIR==`cygpath --path --windows "$TMPDIR"`
 fi
 
-"$JAVACMD" -Xmx3000M -XX:+UseConcMarkSweepGC -XX:+CMSIncrementalMode -XX:CMSInitiatingOccupancyFraction=50 -Dlog4j.configuration="log4j.configuration" -Dfile.encoding="utf-8" -Djava.io.tmpdir="$TMPDIR" -cp "${CLSPTH}" com.gooddata.processor.GdcDI "${@:2}"
+A=`readlink "$0"` # resolve symlinks
+A="${A:-$0}"      # if original wasn't a symlink, BSD returns empty string
+SCRIPT_REAL_PATH=$(cd "${A%/*}" && echo "$PWD/${A##*/}") # path to original shell script, resolved from relative paths
+LOG_CONFIG="$SCRIPT_REAL_PATH/log4j.configuration"
+
+"$JAVACMD" -Xmx3000M -XX:+UseConcMarkSweepGC -XX:+CMSIncrementalMode -XX:CMSInitiatingOccupancyFraction=50 -Dlog4j.configuration="$LOG_CONFIG" -Dfile.encoding="utf-8" -Djava.io.tmpdir="$TMPDIR" -cp "${CLSPTH}" com.gooddata.processor.GdcDI "${@:2}"

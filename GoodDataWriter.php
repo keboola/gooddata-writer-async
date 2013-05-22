@@ -1077,6 +1077,8 @@ class GoodDataWriter extends Component
 		$errorJobs = 0;
 		$successJobs = 0;
 		foreach ($this->sharedConfig->fetchBatch($params['id']) as $job) {
+			$job = $this->sharedConfig->jobToApiResponse($job);
+
 			if ($job['projectId'] != $this->configuration->projectId || $job['writerId'] != $this->configuration->writerId) {
 				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['id'], $this->configuration->writerId));
 			}
