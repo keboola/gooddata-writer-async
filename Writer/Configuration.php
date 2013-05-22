@@ -153,6 +153,9 @@ class Configuration
 	}
 
 
+	/*
+	 * @TODO remove userUri check
+	 */
 	public function checkGoodDataSetup()
 	{
 		$valid = !empty($this->bucketInfo['gd']['pid'])
@@ -163,6 +166,7 @@ class Configuration
 		if (empty($this->bucketInfo['gd']['uid']) && !empty($this->bucketInfo['gd']['userUri'])) {
 			if (substr($this->bucketInfo['gd']['userUri'], 0, 21) == '/gdc/account/profile/') {
 				$this->bucketInfo['gd']['uid'] = substr($this->bucketInfo['gd']['userUri'], 21);
+				$this->_storageApi->setBucketAttribute($this->bucketId, 'gd.uid', $this->bucketInfo['gd']['uid']);
 				$this->_storageApi->deleteBucketAttribute($this->bucketId, 'gd.userUri');
 				unset($this->bucketInfo['gd']['userUri']);
 			} else {
