@@ -639,7 +639,7 @@ class Configuration
 			'pid' => $pid,
 			'active' => 1
 		);
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECTS_TABLE_NAME);
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECTS_TABLE_NAME, null, 'pid');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setPartial(true);
@@ -659,7 +659,7 @@ class Configuration
 			'email' => $email,
 			'uid' => $uid
 		);
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::USERS_TABLE_NAME);
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::USERS_TABLE_NAME, null, 'email');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setPartial(true);
@@ -679,17 +679,21 @@ class Configuration
 	{
 		$action = 'add';
 		$data = array(
-			'id' => $pid . $email . $action . date('c'),
+			'id' => sha1($pid . $email . $action . date('c')),
 			'pid' => $pid,
 			'email' => $email,
 			'role' => $role,
 			'action' => $action
 		);
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME);
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setPartial(true);
 		$table->setIncremental(true);
+		if (!$this->_storageApi->tableExists($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME)) {
+			$table->addIndex('pid');
+			$table->addIndex('email');
+		}
 		$table->save();
 
 		$this->_projectUsers[] = $data;
