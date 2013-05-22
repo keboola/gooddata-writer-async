@@ -227,7 +227,7 @@ class Configuration
 				$bucket = mb_substr($tId, 0, mb_strpos($tId, '.'));
 				$tableName = mb_substr($tId, mb_strpos($tId, '.')+1);
 
-				$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . $bucket . '_' . $tableName);
+				$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . $bucket . '_' . $tableName, null, 'name');
 				$table->setHeader(array('name', 'gdName', 'type', 'dataType', 'dataTypeSize', 'schemaReference', 'reference',
 					'format', 'dateDimension', 'sortLabel', 'sortOrder'));
 				$table->setAttribute('tableId', $tableId);
@@ -295,7 +295,7 @@ class Configuration
 			'includeTime' => $includeTime,
 			'lastExportDate' => ''
 		);
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME);
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME, null, 'name');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setIncremental(true);
@@ -308,7 +308,7 @@ class Configuration
 			'name' => $dimension,
 			$name => $value
 		);
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME);
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME, null, 'name');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setPartial(true);
@@ -345,7 +345,7 @@ class Configuration
 		}
 
 		if ($saveChanges) {
-			$table = new StorageApiTable($this->_storageApi, $this->definedTables[$tableId]['definitionId']);
+			$table = new StorageApiTable($this->_storageApi, $this->definedTables[$tableId]['definitionId'], null, 'name');
 			$table->setHeader($headers);
 			$table->setFromArray($data);
 			$table->save();
