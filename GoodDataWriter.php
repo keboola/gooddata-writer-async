@@ -845,7 +845,10 @@ class GoodDataWriter extends Component
 					if (!in_array($c['dateDimension'], $nodes)) $nodes[] = $c['dateDimension'];
 				}
 				if ($c['type'] == 'REFERENCE' && $c['schemaReference']) {
-					$references[$tableInfo['tableId']] = $c['schemaReference'];
+					if (!isset($references[$tableInfo['tableId']])) {
+						$references[$tableInfo['tableId']] = array();
+					}
+					$references[$tableInfo['tableId']][] = $c['schemaReference'];
 				}
 			}
 		}
@@ -866,12 +869,14 @@ class GoodDataWriter extends Component
 				'value' => 'dimension'
 			);
 		}
-		foreach ($references as $source => $target) {
-			$result['links'][] = array(
-				'source' => array_search($source, $nodes),
-				'target' => array_search($target, $nodes),
-				'value' => 'dataset'
-			);
+		foreach ($references as $source => $targets) {
+			foreach ($targets as $target) {
+				$result['links'][] = array(
+					'source' => array_search($source, $nodes),
+					'target' => array_search($target, $nodes),
+					'value' => 'dataset'
+				);
+			}
 		}
 
 		$response = new Response(json_encode($result));
