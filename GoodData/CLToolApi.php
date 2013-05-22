@@ -343,7 +343,7 @@ class CLToolApi
 
 		$this->call($command);
 
-		if (filesize($maqlFile)) {
+		if (file_exists($maqlFile) && filesize($maqlFile)) {
 			$command  = 'OpenProject(id="' . $pid . '");';
 			$command .= 'ExecuteReports(fileName="' . $maqlFile . '");';
 			$this->call($command);

@@ -195,7 +195,7 @@ class WriterTest extends WebTestCase
 		$this->assertCount(2, $responseJson['nodes']);
 		$this->assertCount(1, $responseJson['links']);*/
 	}
-
+/*
 	public function testGetTables()
 	{
 		self::$client->request('GET', '/gooddata-writer/tables?writerId=' . self::WRITER_ID);
@@ -223,7 +223,7 @@ class WriterTest extends WebTestCase
 
 	public function testPostTables()
 	{
-		$tableId = 'out.c-main.products';
+		$tableId = self::DATA_BUCKET_ID . '.products';
 		$testName = uniqid('test-name');
 
 		self::$client->request('POST', '/gooddata-writer/tables', array(), array(), array(),
@@ -500,7 +500,7 @@ class WriterTest extends WebTestCase
 
 		// Check result
 		$this->assertFalse($configuration->configurationBucket(self::WRITER_ID));
-	}
+	}*/
 
 
 	/**
