@@ -163,12 +163,12 @@ class CLToolApi
 	}
 
 
-
 	/**
 	 * Set of commands which create a date
 	 * @param string $pid
 	 * @param string $name
 	 * @param bool $includeTime
+	 * @throws CLToolApiErrorException
 	 * @return string|bool
 	 */
 	public function createDate($pid, $name, $includeTime = FALSE)
@@ -185,8 +185,12 @@ class CLToolApi
 
 		$this->call($command);
 
-		$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
-		unlink($maqlFile);
+		if (file_exists($maqlFile)) {
+			$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
+			unlink($maqlFile);
+		} else {
+			throw new CLToolApiErrorException();
+		}
 	}
 
 
@@ -271,9 +275,9 @@ class CLToolApi
 
 				$this->call($command);
 
-				$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
-
 				if (file_exists($maqlFile)) {
+					$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
+
 					$command = 'OpenProject(id="' . $pid . '"); ExecuteMaql(maqlFile="' . $maqlFile . '");';
 
 					$this->output .= '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
