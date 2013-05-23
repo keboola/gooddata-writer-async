@@ -272,7 +272,7 @@ class RestApi
 	 * @param $ssoProvider
 	 * @throws \Exception|\Keboola\GoodDataWriter\GoodData\RestApiException
 	 * @throws \Keboola\GoodDataWriter\GoodData\RestApiException
-	 * @return null
+	 * @return string
 	 */
 	public function createUser($domain, $login, $password, $firstName, $lastName, $ssoProvider)
 	{
