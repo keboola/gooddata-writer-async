@@ -31,6 +31,10 @@ class DebugCommand extends ContainerAwareCommand
 		$restApi = new \Keboola\GoodDataWriter\GoodData\RestApi(null, $this->getContainer()->get('logger'));
 		$restApi->login($mainConfig['gd']['prod']['username'], $mainConfig['gd']['prod']['password']);
 
+		$userId = $restApi->createUser('keboola', 'vojta-user@clients.keboola.com', 'Wf4Xe008a2d48562C885C52f2eC6cb2', 'Keboola', 'Bot', 'keboola.com');
+		$restApi->addUserToProject($userId, 'i0p60nwjk8ykio989jn3pjgvcdv90rjq', 'adminRole');
+		echo $userId.PHP_EOL;
+		die();
 
 		/*$users = $restApi->get('/gdc/account/domains/keboola-devel/users');
 		foreach ($users['accountSettings']['items'] as $i => $user) {

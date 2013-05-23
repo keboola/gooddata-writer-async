@@ -66,9 +66,9 @@ class GoodDataWriter extends Component
 		}
 
 		// Init main temp directory
-		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
 		$this->_mainConfig = $this->_container->getParameter('gooddata_writer');
 		$this->_s3Uploader = $this->_container->get('syrup.monolog.s3_uploader');
+		$tmpDir = $this->_mainConfig['tmp_path'];
 
 		$this->configuration = new Configuration($params['writerId'], $this->_storageApi, $tmpDir);
 

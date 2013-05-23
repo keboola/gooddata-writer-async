@@ -83,7 +83,7 @@ class WriterTest extends WebTestCase
 		$this->_processJob('/gooddata-writer/writers', array());
 
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		// Check result
 		$validConfiguration = true;
