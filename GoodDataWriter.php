@@ -838,7 +838,8 @@ class GoodDataWriter extends Component
 		$dateDimensions = array();
 		$references = array();
 		$datasets = array();
-		foreach ($this->configuration->definedTables as $tableInfo) if (!empty($tableInfo['export'])) {
+		if (is_array($this->configuration->definedTables) && count($this->configuration->definedTables))
+			foreach ($this->configuration->definedTables as $tableInfo) if (!empty($tableInfo['export'])) {
 			$datasets[$tableInfo['tableId']] = !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'];
 			$nodes[] = $tableInfo['tableId'];
 			$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
