@@ -75,17 +75,17 @@ class SharedConfig
 	}
 
 	/**
-	 * @param $runId
+	 * @param $batchId
 	 * @return mixed
 	 */
-	public function fetchBatch($runId)
+	public function fetchBatch($batchId)
 	{
 		$csv = $this->_storageApiClient->exportTable(
 			self::JOBS_TABLE_ID,
 			null,
 			array(
-				'whereColumn' => 'runId',
-				'whereValues' => array($runId),
+				'whereColumn' => 'batchId',
+				'whereValues' => array($batchId),
 			)
 		);
 
@@ -124,6 +124,7 @@ class SharedConfig
 	{
 		if (!is_array($job['result'])) {
 			$result = json_decode($job['result'], true);
+			if (isset($result['debug']) && !is_array($result['debug'])) $result['debug'] = json_decode($result['debug']);
 			if (isset($result['csvFile'])) unset($result['csvFile']);
 			if (!$result) $result = $job['result'];
 		} else {
@@ -139,6 +140,7 @@ class SharedConfig
 
 		return array(
 			'id' => (int) $job['id'],
+			'batchId' => (int) $job['batchId'],
 			'runId' => (int) $job['runId'],
 			'projectId' => (int) $job['projectId'],
 			'writerId' => (string) $job['writerId'],
