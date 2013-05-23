@@ -1151,12 +1151,12 @@ class GoodDataWriter extends Component
 
 		$message = "Writer job $jobId created manually";
 		$results = array('jobId' => $jobId);
-		$this->sharedConfig->logEvent($this->configuration->writerId, $params['runId'], $message, $params, $results);
+		$this->sharedConfig->logEvent($this->configuration->writerId, $jobInfo['runId'], $message, $params, $results);
 
 		$this->_log->log(Logger::INFO, $message, array(
 			'token' => $this->_storageApi->getLogData(),
 			'configurationId' => $this->configuration->writerId,
-			'runId' => $params['runId'],
+			'runId' => $jobInfo['runId'],
 			'params' => $params,
 			'results' => $results
 		));

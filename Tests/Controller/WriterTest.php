@@ -120,7 +120,7 @@ class WriterTest extends WebTestCase
 	public function testUploadProject()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		// Prepare data
 		self::$storageApi->createBucket('gdwtest', 'out', 'Writer Test');
@@ -195,7 +195,7 @@ class WriterTest extends WebTestCase
 		$this->assertCount(2, $responseJson['nodes']);
 		$this->assertCount(1, $responseJson['links']);*/
 	}
-/*
+
 	public function testGetTables()
 	{
 		self::$client->request('GET', '/gooddata-writer/tables?writerId=' . self::WRITER_ID);
@@ -276,7 +276,7 @@ class WriterTest extends WebTestCase
 	public function testCreateProject()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		// Create and process job
 		$this->_processJob('/gooddata-writer/projects', array());
@@ -297,7 +297,7 @@ class WriterTest extends WebTestCase
 	public function testGetProjects()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		$projectsList = $configuration->getProjects();
 		$project = $projectsList[1];
@@ -315,7 +315,7 @@ class WriterTest extends WebTestCase
 	public function testCreateUser()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		// Create and process job
 		$this->_processJob('/gooddata-writer/users', array(
@@ -337,7 +337,7 @@ class WriterTest extends WebTestCase
 	public function testGetUsers()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		$usersList = $configuration->getUsers();
 		$user = $usersList[1];
@@ -355,7 +355,7 @@ class WriterTest extends WebTestCase
 	public function testAddUserToProject()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		$usersList = $configuration->getUsers();
 		$user = $usersList[1];
@@ -387,7 +387,7 @@ class WriterTest extends WebTestCase
 	public function testInviteUserToProject()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		$usersList = $configuration->getUsers();
 		$user = $usersList[1];
@@ -419,7 +419,7 @@ class WriterTest extends WebTestCase
 	public function testGetProjectUsers()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		$usersList = $configuration->getUsers();
 		$user = $usersList[1];
@@ -483,7 +483,7 @@ class WriterTest extends WebTestCase
 	public function testDeleteWriter()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		self::$restApi->login(self::$mainConfig['gd']['dev']['username'], self::$mainConfig['gd']['dev']['password']);
 
@@ -500,7 +500,7 @@ class WriterTest extends WebTestCase
 
 		// Check result
 		$this->assertFalse($configuration->configurationBucket(self::WRITER_ID));
-	}*/
+	}
 
 
 	/**
