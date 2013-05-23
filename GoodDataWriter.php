@@ -758,8 +758,10 @@ class GoodDataWriter extends Component
 			}
 		}
 
+		$batchId = $this->_storageApi->generateId();
 		foreach ($sortedTables as $table) {
 			$jobData = array(
+				'batchId' => $batchId,
 				'runId' => $runId,
 				'command' => 'uploadTable',
 				'dataset' => $table['dataset'],
@@ -781,6 +783,7 @@ class GoodDataWriter extends Component
 
 		// Execute reports
 		$jobData = array(
+			'batchId' => $batchId,
 			'runId' => $runId,
 			'command' => 'executeReports',
 			'createdTime' => date('c', $createdTime)
@@ -791,11 +794,11 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('batch' => (int)$runId);
+			return array('batch' => (int)$batchId);
 		} else {
 			$jobsFinished = false;
 			do {
-				$jobsInfo = $this->getBatch(array('id' => $runId, 'writerId' => $params['writerId']));
+				$jobsInfo = $this->getBatch(array('id' => $batchId, 'writerId' => $params['writerId']));
 				if (isset($jobsInfo['batch']['status']) && ($jobsInfo['batch']['status'] == 'success' || $jobsInfo['batch']['status'] == 'error')) {
 					$jobsFinished = true;
 				}
@@ -1065,12 +1068,14 @@ class GoodDataWriter extends Component
 		}
 
 		$data = array(
-			'runId' => (int)$params['id'],
+			'batchId' => (int)$params['id'],
 			'createdTime' => date('c'),
 			'startTime' => date('c'),
 			'endTime' => null,
 			'status' => null,
-			'jobs' => array()
+			'jobs' => array(),
+			'result' => null,
+			'log' => null
 		);
 		$waitingJobs = 0;
 		$processingJobs = 0;
@@ -1110,11 +1115,13 @@ class GoodDataWriter extends Component
 	private function _createJob($params)
 	{
 		$jobId = $this->_storageApi->generateId();
-		if (!isset($params['runId'])) {
-			$params['runId'] = $jobId;
+		if (!isset($params['batchId'])) {
+			$params['batchId'] = $jobId;
 		}
+
 		$jobInfo = array(
 			'id' => $jobId,
+			'runId' => $this->_storageApi->getRunId(),
 			'projectId' => $this->configuration->projectId,
 			'writerId' => $this->configuration->writerId,
 			'token' => $this->_storageApi->token,
