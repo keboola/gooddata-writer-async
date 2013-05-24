@@ -140,7 +140,9 @@ class CLToolApi
 			if (!shell_exec($apiErrorTest)) {
 
 				if (file_exists($workingDirectory . '/debug.log')) {
-					exec('cat ' . escapeshellarg($outputFile) . ' ' . $workingDirectory . '/debug.log > ' . escapeshellarg($outputFile));
+					exec(sprintf('cat %s %s > %s ', escapeshellarg($outputFile), escapeshellarg($workingDirectory . '/debug.log'), escapeshellarg($outputFile . '.D')));
+					exec(sprintf('rm %s', escapeshellarg($outputFile)));
+					exec(sprintf('mv %s %s ', escapeshellarg($outputFile . '.D'), escapeshellarg($outputFile)));
 				}
 
 				$this->debugLogUrl = $this->s3uploader->uploadFile($outputFile);
