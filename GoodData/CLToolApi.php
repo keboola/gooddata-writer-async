@@ -148,7 +148,7 @@ class CLToolApi
 				$this->debugLogUrl = $this->s3uploader->uploadFile($outputFile);
 
 				// Test output for runtime error
-				if (shell_exec("egrep 'ERROR|Exception' " . escapeshellarg($outputFile))) {
+				if (shell_exec(sprintf("cat %s | grep -v 'SocketException' | egrep 'ERROR|Exception'", escapeshellarg($outputFile)))) {
 					throw new CLToolApiErrorException('CL Tool Error, see debug log for details: ' . $this->debugLogUrl);
 				}
 
