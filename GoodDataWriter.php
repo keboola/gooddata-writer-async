@@ -622,7 +622,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'element' is missing");
 		}
 		if (empty($params['pid'])) {
-			throw new WrongParametersException("Parameter 'element' is missing");
+			throw new WrongParametersException("Parameter 'pid' is missing");
 		}
 		if (!isset($params['operator'])) {
 			$params['operator'] = '=';

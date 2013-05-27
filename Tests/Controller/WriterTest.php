@@ -440,14 +440,14 @@ class WriterTest extends WebTestCase
 	public function testCreateFilter()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		// Create and process job
 		$this->_processJob('/gooddata-writer/filters', array(
 			"pid"       => $configuration->bucketInfo['gd']['pid'],
 			"name"      => "filter",
-			"attribute" => "Category (Products)",
-			"element"   => "c1"
+			"attribute" => "Name (Products)",
+			"element"   => "Product 1"
 		));
 
 		// Check result
@@ -458,7 +458,7 @@ class WriterTest extends WebTestCase
 	public function testAssignFilterToUser()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		$usersList = $configuration->getUsers();
 		$user = $usersList[1];
@@ -469,19 +469,57 @@ class WriterTest extends WebTestCase
 		// Create and process job
 		$this->_processJob('/gooddata-writer/filters-user', array(
 			"pid"       => $configuration->bucketInfo['gd']['pid'],
-			"filters"   => array($filter['id']),
+			"filters"   => array($filter['uri']),
 			"userId"    => $user['uid']
 		));
-	}
 
-	public function testDeleteFilter()
-	{
-
+		// Check result
+		$filtersUsers = $configuration->getFiltersUsers();
+		$this->assertCount(1, $filtersUsers);
 	}
 
 	public function testSyncFilter()
 	{
+		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
+			self::$mainConfig['tmp_path']);
 
+		$pid = $configuration->bucketInfo['gd']['pid'];
+
+		// Create and process job
+		$this->_processJob('/gooddata-writer/sync-filters', array(
+			"pid"   => $pid,
+		));
+
+		// Check result
+		$filterList = $configuration->getFilters();
+
+		$gdFilters = self::$restApi->getFilters($pid);
+		$gdFilter = $gdFilters[0];
+
+		$this->assertEquals($gdFilter['link'], $filterList[0]['uri']);
+	}
+
+	public function testDeleteFilter()
+	{
+		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
+			self::$mainConfig['tmp_path']);
+
+		$filters = $configuration->getFilters();
+		$filter = $filters[0];
+
+		// Create and process job
+		$this->_processJob(
+			'/gooddata-writer/filters?writerId=' . self::WRITER_ID . '&uri=' . $filter['uri'],
+			array(),
+			'DELETE'
+		);
+
+		// Check result
+		$filters = $configuration->getFilters();
+		$this->assertCount(0, $filters);
+
+		$filtersUsers = $configuration->getFiltersUsers();
+		$this->assertCount(0, $filtersUsers);
 	}
 
 	public function testCancelJobs()
@@ -541,7 +579,6 @@ class WriterTest extends WebTestCase
 			self::$restApi->dropUser($u['uid']);
 		}
 
-
 		// Create and process job
 		$this->_processJob('/gooddata-writer/delete-writers', array());
 
@@ -554,10 +591,11 @@ class WriterTest extends WebTestCase
 	 * Call API and process the job immediately
 	 * @param $url
 	 * @param $params
+	 * @param string $method
 	 */
-	protected function _processJob($url, $params)
+	protected function _processJob($url, $params, $method = 'POST')
 	{
-		self::$client->request('POST', $url, array(), array(), array(),
+		self::$client->request($method, $url, array(), array(), array(),
 			json_encode(array_merge($params, array(
 				'writerId' => self::WRITER_ID,
 				'dev' => 1
