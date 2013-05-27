@@ -808,6 +808,8 @@ class Configuration
 		$table->setPartial(true);
 		$table->setIncremental(true);
 		$table->save();
+
+		$this->_filters[] = $filter;
 	}
 
 	public function updateFilters($filter)
