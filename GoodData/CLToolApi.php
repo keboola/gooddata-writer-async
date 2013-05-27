@@ -52,6 +52,7 @@ class CLToolApi
 	 * @var string
 	 */
 	public $clToolPath;
+	public $rootPath;
 	/**
 	 * @var \Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader
 	 */
@@ -118,7 +119,7 @@ class CLToolApi
 		};
 
 		// Assemble CL tool command
-		$command = $this->clToolPath
+		$command = escapeshellarg('/opt/ebs-disk/GD/cli/bin/gdi.sh')
 			. ' -u ' . escapeshellarg($this->_username)
 			. ' -p ' . escapeshellarg($this->_password)
 			. ' -h ' . escapeshellarg($this->_backendUrl)
@@ -138,14 +139,16 @@ class CLToolApi
 
 			if (!shell_exec($apiErrorTest)) {
 
-				if (file_exists('/tmp/debug.log')) {
-					exec('cat ' . escapeshellarg($outputFile) . ' /tmp/debug.log > ' . escapeshellarg($outputFile));
+				if (file_exists($workingDirectory . '/debug.log')) {
+					exec(sprintf('cat %s %s > %s ', escapeshellarg($outputFile), escapeshellarg($workingDirectory . '/debug.log'), escapeshellarg($outputFile . '.D')));
+					exec(sprintf('rm %s', escapeshellarg($outputFile)));
+					exec(sprintf('mv %s %s ', escapeshellarg($outputFile . '.D'), escapeshellarg($outputFile)));
 				}
 
 				$this->debugLogUrl = $this->s3uploader->uploadFile($outputFile);
 
 				// Test output for runtime error
-				if (shell_exec("egrep 'ERROR|Exception' " . escapeshellarg($outputFile))) {
+				if (shell_exec(sprintf("cat %s | grep -v 'SocketException' | egrep 'ERROR|Exception'", escapeshellarg($outputFile)))) {
 					throw new CLToolApiErrorException('CL Tool Error, see debug log for details: ' . $this->debugLogUrl);
 				}
 
@@ -161,12 +164,12 @@ class CLToolApi
 	}
 
 
-
 	/**
 	 * Set of commands which create a date
 	 * @param string $pid
 	 * @param string $name
 	 * @param bool $includeTime
+	 * @throws CLToolApiErrorException
 	 * @return string|bool
 	 */
 	public function createDate($pid, $name, $includeTime = FALSE)
@@ -183,8 +186,12 @@ class CLToolApi
 
 		$this->call($command);
 
-		$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
-		unlink($maqlFile);
+		if (file_exists($maqlFile)) {
+			$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
+			unlink($maqlFile);
+		} else {
+			throw new CLToolApiErrorException();
+		}
 	}
 
 
@@ -217,8 +224,12 @@ class CLToolApi
 
 				$this->call($command);
 
-				$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
-				unlink($maqlFile);
+				if (file_exists($maqlFile)) {
+					$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
+					unlink($maqlFile);
+				} else {
+					throw new CLToolApiErrorException();
+				}
 			} else {
 				$errors = '';
 				foreach (libxml_get_errors() as $error) {
@@ -265,9 +276,9 @@ class CLToolApi
 
 				$this->call($command);
 
-				$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
-
 				if (file_exists($maqlFile)) {
+					$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
+
 					$command = 'OpenProject(id="' . $pid . '"); ExecuteMaql(maqlFile="' . $maqlFile . '");';
 
 					$this->output .= '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
@@ -333,7 +344,7 @@ class CLToolApi
 
 		$this->call($command);
 
-		if (filesize($maqlFile)) {
+		if (file_exists($maqlFile) && filesize($maqlFile)) {
 			$command  = 'OpenProject(id="' . $pid . '");';
 			$command .= 'ExecuteReports(fileName="' . $maqlFile . '");';
 			$this->call($command);

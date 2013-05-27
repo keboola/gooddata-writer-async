@@ -197,10 +197,10 @@ class JobExecutor
 				throw new WrongConfigurationException(sprintf('Command %s does not exist', $commandName));
 			}
 
-			$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
-			$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
 			$mainConfig = $this->_container->getParameter('gooddata_writer');
 			$mainConfig['storageApi.url'] = $this->_container->getParameter('storageApi.url');
+			$tmpDir = $mainConfig['tmp_path'];
+			$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
 			$logUploader = $this->_container->get('syrup.monolog.s3_uploader');
 
 			$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
@@ -210,6 +210,7 @@ class JobExecutor
 			$clToolApi = new CLToolApi($this->_log);
 			$clToolApi->tmpDir = $tmpDir;
 			$clToolApi->clToolPath = $mainConfig['cli_path'];
+			$clToolApi->rootPath = $mainConfig['root_path'];
 			$clToolApi->jobId = $job['id'];
 			$clToolApi->s3uploader = $this->_container->get('syrup.monolog.s3_uploader');
 			if ($backendUrl) $clToolApi->setBackendUrl($backendUrl);

@@ -83,7 +83,7 @@ class WriterTest extends WebTestCase
 		$this->_processJob('/gooddata-writer/writers', array());
 
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		// Check result
 		$validConfiguration = true;
@@ -120,7 +120,7 @@ class WriterTest extends WebTestCase
 	public function testUploadProject()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		// Prepare data
 		self::$storageApi->createBucket('gdwtest', 'out', 'Writer Test');
@@ -183,9 +183,82 @@ class WriterTest extends WebTestCase
 
 	}
 
+	public function testGetModel()
+	{
+		//@TODO exit() in GoodDataWriter::getModel() stops test execution
+		/*self::$client->request('GET', sprintf('/gooddata-writer/model?writerId=%s', self::WRITER_ID));
+		$response = self::$client->getResponse();
+		$responseJson = json_decode($response->getContent(), true);
+
+		$this->assertArrayHasKey('nodes', $responseJson);
+		$this->assertArrayHasKey('links', $responseJson);
+		$this->assertCount(2, $responseJson['nodes']);
+		$this->assertCount(1, $responseJson['links']);*/
+	}
+
+	public function testGetTables()
+	{
+		self::$client->request('GET', '/gooddata-writer/tables?writerId=' . self::WRITER_ID);
+		$response = self::$client->getResponse();
+		$this->assertEquals($response->getStatusCode(), 200);
+		$responseJson = json_decode($response->getContent(), true);
+		$this->assertArrayHasKey('tables', $responseJson);
+
+		// Filter out tables not belonging to this test
+		$tables = array();
+		foreach ($responseJson['tables'] as $t) {
+			if ($t['bucket'] == self::DATA_BUCKET_ID) {
+				$tables[] = $t;
+			}
+		}
+
+		$this->assertCount(2, $tables);
+		foreach ($tables as $table) {
+			$this->assertArrayHasKey('gdName', $table);
+			$this->assertTrue(in_array($table['gdName'], array('Products', 'Categories')));
+			$this->assertArrayHasKey('lastExportDate', $table);
+		}
+
+	}
+
+	public function testPostTables()
+	{
+		$tableId = self::DATA_BUCKET_ID . '.products';
+		$testName = uniqid('test-name');
+
+		self::$client->request('POST', '/gooddata-writer/tables', array(), array(), array(),
+			json_encode(array(
+				'writerId' => self::WRITER_ID,
+				'tableId' => $tableId,
+				'gdName' => $testName
+			)));
+		$response = self::$client->getResponse();
+		$this->assertEquals($response->getStatusCode(), 200);
+		$responseJson = json_decode($response->getContent(), true);
+		$this->assertNotEmpty($responseJson);
+
+
+		self::$client->request('GET', '/gooddata-writer/tables?writerId=' . self::WRITER_ID);
+		$response = self::$client->getResponse();
+		$this->assertEquals($response->getStatusCode(), 200);
+		$responseJson = json_decode($response->getContent(), true);
+		$this->assertArrayHasKey('tables', $responseJson);
+
+		$testResult = false;
+		foreach ($responseJson['tables'] as $t) {
+			if ($t['id'] == $tableId) {
+				$this->assertArrayHasKey('gdName', $t);
+				if ($t['gdName'] == $testName) {
+					$testResult = true;
+				}
+			}
+		}
+		$this->assertTrue($testResult);
+	}
+
 	public function testUploadTable()
 	{
-		//@TODO
+		//@TODO need to test that load data finished successfully
 	}
 
 	public function testGetWriters()
@@ -203,7 +276,7 @@ class WriterTest extends WebTestCase
 	public function testCreateProject()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		// Create and process job
 		$this->_processJob('/gooddata-writer/projects', array());
@@ -224,7 +297,7 @@ class WriterTest extends WebTestCase
 	public function testGetProjects()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		$projectsList = $configuration->getProjects();
 		$project = $projectsList[1];
@@ -242,7 +315,7 @@ class WriterTest extends WebTestCase
 	public function testCreateUser()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		// Create and process job
 		$this->_processJob('/gooddata-writer/users', array(
@@ -264,7 +337,7 @@ class WriterTest extends WebTestCase
 	public function testGetUsers()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		$usersList = $configuration->getUsers();
 		$user = $usersList[1];
@@ -282,7 +355,7 @@ class WriterTest extends WebTestCase
 	public function testAddUserToProject()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		$usersList = $configuration->getUsers();
 		$user = $usersList[1];
@@ -314,7 +387,7 @@ class WriterTest extends WebTestCase
 	public function testInviteUserToProject()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		$usersList = $configuration->getUsers();
 		$user = $usersList[1];
@@ -346,7 +419,7 @@ class WriterTest extends WebTestCase
 	public function testGetProjectUsers()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		$usersList = $configuration->getUsers();
 		$user = $usersList[1];
@@ -411,10 +484,53 @@ class WriterTest extends WebTestCase
 
 	}
 
+	public function testCancelJobs()
+	{
+		self::$client->request('POST', '/gooddata-writer/upload-project', array(), array(), array(),
+			json_encode(array(
+				'writerId' => self::WRITER_ID,
+				'dev' => 1
+			)));
+		$response = self::$client->getResponse();
+
+		$this->assertEquals($response->getStatusCode(), 200);
+		$responseJson = json_decode($response->getContent(), true);
+		$this->assertNotEmpty($responseJson);
+		$this->assertArrayHasKey('batch', $responseJson);
+
+
+		self::$client->request('GET', sprintf('/gooddata-writer/batch?writerId=%s&id=%d', self::WRITER_ID, $responseJson['batch']));
+		$response = self::$client->getResponse();
+		$responseJson = json_decode($response->getContent(), true);
+		$this->assertArrayHasKey('batch', $responseJson);
+		$this->assertArrayHasKey('jobs', $responseJson['batch']);
+		$jobs = $responseJson['batch']['jobs'];
+
+
+		self::$client->request('POST', '/gooddata-writer/cancel-jobs', array(), array(), array(),
+			json_encode(array(
+				'writerId' => self::WRITER_ID,
+				'dev' => 1
+			)));
+		$response = self::$client->getResponse();
+		$this->assertEquals($response->getStatusCode(), 200);
+
+
+		foreach ($jobs as $jobId) {
+			self::$client->request('GET', sprintf('/gooddata-writer/job?writerId=%s&id=%d', self::WRITER_ID, $jobId));
+			$response = self::$client->getResponse();
+			$responseJson = json_decode($response->getContent(), true);
+			$this->assertArrayHasKey('status', $responseJson);
+			$this->assertArrayHasKey('job', $responseJson);
+			$this->assertArrayHasKey('status', $responseJson['job']);
+			$this->assertEquals('cancelled', $responseJson['job']['status']);
+		}
+	}
+
 	public function testDeleteWriter()
 	{
 		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
-			$_SERVER['KERNEL_DIR'] . '/tmp');
+			self::$mainConfig['tmp_path']);
 
 		self::$restApi->login(self::$mainConfig['gd']['dev']['username'], self::$mainConfig['gd']['dev']['password']);
 

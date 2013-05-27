@@ -185,6 +185,9 @@ class UploadTable extends GenericJob
 			$output .= $this->clToolApi->output;
 		}
 
+		if (empty($tableDefinition['lastExportDate'])) {
+			$this->configuration->setTableAttribute($params['tableId'], 'export', 1);
+		}
 		$this->configuration->setTableAttribute($params['tableId'], 'lastExportDate', date('c', $startTime));
 		return $this->_prepareResult($job['id'], array(
 			'status' => $error ? 'error' : 'success',
