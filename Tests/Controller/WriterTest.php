@@ -371,14 +371,15 @@ class WriterTest extends WebTestCase
 
 		// Create and process job
 		$this->_processJob('/gooddata-writer/filters', array(
+			"pid"       => $configuration->bucketInfo['gd']['pid'],
 			"name"      => "filter",
-			"attribute" => "name (Users)",
-			"element"   => "miro"
+			"attribute" => "Category (Products)",
+			"element"   => "c1"
 		));
 
 		// Check result
 		$filterList = $configuration->getFilters();
-		$this->assertCount(2, count($filterList));
+		$this->assertCount(1, $filterList);
 	}
 
 	public function testAssignFilterToUser()
@@ -389,11 +390,14 @@ class WriterTest extends WebTestCase
 		$usersList = $configuration->getUsers();
 		$user = $usersList[1];
 
+		$filters = $configuration->getFilters();
+		$filter = $filters[0];
+
 		// Create and process job
 		$this->_processJob('/gooddata-writer/filters-user', array(
-			"name"      => "filter",
-			"attribute" => "name (Users)",
-			"element"   => "miro"
+			"pid"       => $configuration->bucketInfo['gd']['pid'],
+			"filters"   => array($filter['id']),
+			"userId"    => $user['uid']
 		));
 	}
 
