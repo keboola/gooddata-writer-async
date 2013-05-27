@@ -20,12 +20,19 @@ class DeleteFilter extends GenericJob {
 		$mainConfig = $this->mainConfig['gd'][$env];
 
 		$gdWriteStartTime = date('c');
+
 		try {
 			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
-			$this->restApi->deleteFilter($params['uri']);
+			try {
+				$this->restApi->deleteFilter($params['uri']);
+			} catch (RestApiException $e) {
+				$mes = json_decode($e->getMessage(), true);
+				if ($mes['error']['errorClass'] != 'GDC::Exception::NotFound') {
+					throw new RestApiException($e->getMessage(), $e->getCode(), $e);
+				}
+			}
 
 			$this->configuration->deleteFilterFromConfiguration($params['uri']);
-//			$this->sharedConfig->saveFilter();
 
 			return $this->_prepareResult($job['id'], array(
 				'uri' => 'todo',

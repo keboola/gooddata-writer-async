@@ -761,28 +761,27 @@ class Configuration
 	 */
 	public function getFilters()
 	{
-		if (!$this->_filters) {
-			$tableId = $this->bucketId . '.' . self::FILTERS_TABLE_NAME;
-			$header = array('name', 'attribute', 'element', 'operator', 'uri');
-			if ($this->_storageApi->tableExists($tableId)) {
-				$csv = $this->_storageApi->exportTable($tableId);
-				$this->_filters = StorageApiClient::parseCsv($csv);
+		$tableId = $this->bucketId . '.' . self::FILTERS_TABLE_NAME;
+		$header = array('name', 'attribute', 'element', 'operator', 'uri');
+		if ($this->_storageApi->tableExists($tableId)) {
+			$csv = $this->_storageApi->exportTable($tableId);
+			$this->_filters = StorageApiClient::parseCsv($csv);
 
-				if (isset($this->_filters[0])) {
-					if (count($this->_filters[0]) != count($header)) {
-						throw new WrongConfigurationException('Filters table in configuration contains invalid number of columns');
-					}
-					if (array_keys($this->_filters[0]) != $header) {
-						throw new WrongConfigurationException('Filters table in configuration appears to be wrongly configured');
-					}
+			if (isset($this->_filters[0])) {
+				if (count($this->_filters[0]) != count($header)) {
+					throw new WrongConfigurationException('Filters table in configuration contains invalid number of columns');
 				}
-			} else {
-				$table = new StorageApiTable($this->_storageApi, $tableId, null, $header[0]);
-				$table->setFromArray(array($header), true);
-				$table->save();
-				$this->_filters = array();
+				if (array_keys($this->_filters[0]) != $header) {
+					throw new WrongConfigurationException('Filters table in configuration appears to be wrongly configured');
+				}
 			}
+		} else {
+			$table = new StorageApiTable($this->_storageApi, $tableId, null, $header[0]);
+			$table->setFromArray(array($header), true);
+			$table->save();
+			$this->_filters = array();
 		}
+
 		return $this->_filters;
 	}
 
@@ -793,27 +792,25 @@ class Configuration
 	 */
 	public function getFiltersUsers()
 	{
-		if (!$this->_filtersUsers) {
-			$tableId = $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME;
-			$header = array('filterName', 'userEmail');
-			if ($this->_storageApi->tableExists($tableId)) {
-				$csv = $this->_storageApi->exportTable($tableId);
-				$this->_filtersUsers = StorageApiClient::parseCsv($csv);
+		$tableId = $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME;
+		$header = array('filterName', 'userEmail');
+		if ($this->_storageApi->tableExists($tableId)) {
+			$csv = $this->_storageApi->exportTable($tableId);
+			$this->_filtersUsers = StorageApiClient::parseCsv($csv);
 
-				if (isset($this->_filtersUsers[0])) {
-					if (count($this->_filtersUsers[0]) != count($header)) {
-						throw new WrongConfigurationException('FiltersUsers table in configuration contains invalid number of columns');
-					}
-					if (array_keys($this->_filtersUsers[0]) != $header) {
-						throw new WrongConfigurationException('FiltersUsers table in configuration appears to be wrongly configured');
-					}
+			if (isset($this->_filtersUsers[0])) {
+				if (count($this->_filtersUsers[0]) != count($header)) {
+					throw new WrongConfigurationException('FiltersUsers table in configuration contains invalid number of columns');
 				}
-			} else {
-				$table = new StorageApiTable($this->_storageApi, $tableId, null, $header[0]);
-				$table->setFromArray(array($header), true);
-				$table->save();
-				$this->_filtersUsers = array();
+				if (array_keys($this->_filtersUsers[0]) != $header) {
+					throw new WrongConfigurationException('FiltersUsers table in configuration appears to be wrongly configured');
+				}
 			}
+		} else {
+			$table = new StorageApiTable($this->_storageApi, $tableId, null, $header[0]);
+			$table->setFromArray(array($header), true);
+			$table->save();
+			$this->_filtersUsers = array();
 		}
 		return $this->_filtersUsers;
 	}
@@ -906,29 +903,39 @@ class Configuration
 	{
 		$filters = array();
 
-		$filterId = null;
+		$filterName = null;
 		foreach ($this->getFilters() as $filter) {
 			if ($filter['uri'] != $filterUri) {
 				$filters[] = $filter;
 			} else {
-				$filterId = $filter['id'];
+				$filterName = $filter['name'];
 			}
 		}
 
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_TABLE_NAME);
-		$table->setFromArray($filters, true);
-		$table->save();
+		if (empty($filters)) {
+			$this->_storageApi->dropTable($this->bucketId . '.' . self::FILTERS_TABLE_NAME);
+		} else {
+			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_TABLE_NAME);
+			$table->setHeader(array('name','attribute','element','operator','uri'));
+			$table->setFromArray($filters);
+			$table->save();
+		}
 
 		// Update filtersUsers table
 		$filtersUsers = array();
 		foreach ($this->getFiltersUsers() as $row) {
-			if ($row['filterId'] != $filterId) {
+			if ($row['filterName'] != $filterName) {
 				$filtersUsers[] = $row;
 			}
 		}
 
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME);
-		$table->setFromArray($filtersUsers, true);
-		$table->save();
+		if (empty($filtersUsers)) {
+			$this->_storageApi->dropTable($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME);
+		} else {
+			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME);
+			$table->setHeader(array('filterName', 'userEmail'));
+			$table->setFromArray($filtersUsers);
+			$table->save();
+		}
 	}
 }
