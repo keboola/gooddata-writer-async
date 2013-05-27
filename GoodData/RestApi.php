@@ -272,7 +272,7 @@ class RestApi
 	 * @param $ssoProvider
 	 * @throws \Exception|\Keboola\GoodDataWriter\GoodData\RestApiException
 	 * @throws \Keboola\GoodDataWriter\GoodData\RestApiException
-	 * @return null
+	 * @return string
 	 */
 	public function createUser($domain, $login, $password, $firstName, $lastName, $ssoProvider)
 	{
@@ -533,6 +533,7 @@ class RestApi
 	 */
 	public function dropDataset($pid, $dataset)
 	{
+		//@TODO Find dataset identificator
 		$maql  = sprintf('DROP IF EXISTS {dim.%s};', $dataset);
 		$maql .= sprintf('DROP IF EXISTS {ffld.%s};', $dataset);
 		$maql .= sprintf('DROP ALL IN IF EXISTS {dataset.%s};', $dataset);

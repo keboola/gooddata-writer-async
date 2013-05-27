@@ -31,6 +31,29 @@ class SharedConfig
 	}
 
 
+	/**
+	 * @param $projectId
+	 * @param $writerId
+	 * @return mixed
+	 */
+	public function fetchJobs($projectId, $writerId)
+	{
+		$csv = $this->_storageApiClient->exportTable(
+			self::JOBS_TABLE_ID,
+			null,
+			array(
+				'whereColumn' => 'projectIdWriterId',
+				'whereValues' => array($projectId . '.' . $writerId),
+				'changedSince' => '-4 days'
+			)
+		);
+
+		$jobs = array();
+		foreach (StorageApiClient::parseCsv($csv, true) as $j) {
+			$jobs[] = $this->jobToApiResponse($j);
+		}
+		return $jobs;
+	}
 
 	/**
 	 * @param $jobId
@@ -52,17 +75,17 @@ class SharedConfig
 	}
 
 	/**
-	 * @param $runId
+	 * @param $batchId
 	 * @return mixed
 	 */
-	public function fetchBatch($runId)
+	public function fetchBatch($batchId)
 	{
 		$csv = $this->_storageApiClient->exportTable(
 			self::JOBS_TABLE_ID,
 			null,
 			array(
-				'whereColumn' => 'runId',
-				'whereValues' => array($runId),
+				'whereColumn' => 'batchId',
+				'whereValues' => array($batchId),
 			)
 		);
 
@@ -99,14 +122,25 @@ class SharedConfig
 
 	public function jobToApiResponse(array $job)
 	{
-		$result = json_decode($job['result'], true);
-		if (!$result) $result = $job['result'];
+		if (!is_array($job['result'])) {
+			$result = json_decode($job['result'], true);
+			if (isset($result['debug']) && !is_array($result['debug'])) $result['debug'] = json_decode($result['debug']);
+			if (isset($result['csvFile'])) unset($result['csvFile']);
+			if (!$result) $result = $job['result'];
+		} else {
+			$result = $job['result'];
+		}
 
-		$params = json_decode($job['parameters'], true);
-		if (!$params) $params = $job['parameters'];
+		if (!is_array($job['parameters'])) {
+			$params = json_decode($job['parameters'], true);
+			if (!$params) $params = $job['parameters'];
+		} else {
+			$params = $job['parameters'];
+		}
 
 		return array(
 			'id' => (int) $job['id'],
+			'batchId' => (int) $job['batchId'],
 			'runId' => (int) $job['runId'],
 			'projectId' => (int) $job['projectId'],
 			'writerId' => (string) $job['writerId'],
@@ -126,7 +160,7 @@ class SharedConfig
 			'parameters' => $params,
 			'result' => $result,
 			'gdWriteStartTime' => $job['gdWriteStartTime'],
-			'gdWriteBytes' => $job['gdWriteBytes'],
+			'gdWriteBytes' => $job['gdWriteBytes'] ? (int) $job['gdWriteBytes'] : null,
 			'status' => $job['status'],
 			'log' => $job['log'],
 		);

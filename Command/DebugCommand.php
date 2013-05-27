@@ -1,6 +1,7 @@
 <?php
 namespace Keboola\GoodDataWriter\Command;
 
+use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\GoodDataWriter\Writer\JobExecutor;
 use Keboola\GoodDataWriter\Writer\SharedConfig;
@@ -30,21 +31,42 @@ class DebugCommand extends ContainerAwareCommand
 		$restApi = new \Keboola\GoodDataWriter\GoodData\RestApi(null, $this->getContainer()->get('logger'));
 		$restApi->login($mainConfig['gd']['prod']['username'], $mainConfig['gd']['prod']['password']);
 
+		$userId = $restApi->createUser('keboola', 'vojta-user@clients.keboola.com', 'Wf4Xe008a2d48562C885C52f2eC6cb2', 'Keboola', 'Bot', 'keboola.com');
+		$restApi->addUserToProject($userId, 'i0p60nwjk8ykio989jn3pjgvcdv90rjq', 'adminRole');
+		echo $userId.PHP_EOL;
+		die();
+
 		/*$users = $restApi->get('/gdc/account/domains/keboola-devel/users');
 		foreach ($users['accountSettings']['items'] as $i => $user) {
 			echo ($i+1).' - '.$user['accountSetting']['login'] . ' - '.$user['accountSetting']['links']['self'].PHP_EOL;
 		}die();*/
 
 		$projects = $restApi->get('/gdc/md');
-		foreach ($projects['about']['links'] as $i => $project) {
+		$counter = 0;
+		$counterAll = 0;
+		foreach ($projects['about']['links'] as $project) {
 			try {
-				$projectInfo = '"' . $project['title'] . '","' . $project['identifier'] . '","';
-				$usersInfo = array();
-				$users = $restApi->get('/gdc/projects/' . $project['identifier'] . '/users');
-				if (count($users['users']) == 1) {
-					echo $projectInfo.PHP_EOL;
-					
+				$counterAll++;
+				$projectInfo = '"' . $counter . '","' . $project['title'] . '","' . $project['identifier'] . '","';
+				if ($project['title'] == 'Keboola Academy BU1 (Milan@veverka.ca)')
+				{
+					if ($project['identifier']!='zpjkjhlp3by1ac8iepzbpgxe6q81d2ew') {
+						//$restApi->dropProject($project['identifier']);
+					}
+					echo $project['identifier'].',';//echo $projectInfo.PHP_EOL;
+					$counter++;
+					//
 				}
+				/*if (strstr($project['title'], 'Keboola Academy RM1 -')) {
+					$counter++;
+					echo $projectInfo.PHP_EOL;
+					//$restApi->dropProject($project['identifier']);
+				}*/
+				/*$usersInfo = array();
+				$users = $restApi->get('/gdc/projects/' . $project['identifier'] . '/users');
+				if (count($users['users']) == 2) {
+					echo $projectInfo.PHP_EOL;
+				}*/
 
 
 
@@ -62,7 +84,7 @@ class DebugCommand extends ContainerAwareCommand
 
 			}
 
-		}
+		}echo $counter . ' of ' . $counterAll . PHP_EOL;
 
 	}
 

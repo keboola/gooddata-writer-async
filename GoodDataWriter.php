@@ -10,8 +10,11 @@ namespace Keboola\GoodDataWriter;
 
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Monolog\Logger;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Syrup\ComponentBundle\Component\Component;
-use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Request,
+	Symfony\Component\HttpFoundation\Response;
 use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Client as StorageApiClient,
@@ -63,9 +66,9 @@ class GoodDataWriter extends Component
 		}
 
 		// Init main temp directory
-		$tmpDir = $this->_container->get('kernel')->getRootDir() . '/tmp';
 		$this->_mainConfig = $this->_container->getParameter('gooddata_writer');
 		$this->_s3Uploader = $this->_container->get('syrup.monolog.s3_uploader');
+		$tmpDir = $this->_mainConfig['tmp_path'];
 
 		$this->configuration = new Configuration($params['writerId'], $this->_storageApi, $tmpDir);
 
@@ -393,6 +396,9 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->getUser($params['email'])) {
 			throw new WrongParametersException(sprintf("User '%s' is not configured for the writer", $params['email']));
 		}
+		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkProjectsTable();
+		$this->configuration->checkUsersTable();
 		$this->configuration->checkProjectUsersTable();
 
 
@@ -547,6 +553,7 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
+		$this->configuration->checkGoodDataSetup();
 		$this->configuration->checkUsersTable();
 
 
@@ -954,8 +961,10 @@ class GoodDataWriter extends Component
 			}
 		}
 
+		$batchId = $this->_storageApi->generateId();
 		foreach ($sortedTables as $table) {
 			$jobData = array(
+				'batchId' => $batchId,
 				'runId' => $runId,
 				'command' => 'uploadTable',
 				'dataset' => $table['dataset'],
@@ -977,6 +986,7 @@ class GoodDataWriter extends Component
 
 		// Execute reports
 		$jobData = array(
+			'batchId' => $batchId,
 			'runId' => $runId,
 			'command' => 'executeReports',
 			'createdTime' => date('c', $createdTime)
@@ -987,11 +997,11 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('batch' => (int)$runId);
+			return array('batch' => (int)$batchId);
 		} else {
 			$jobsFinished = false;
 			do {
-				$jobsInfo = $this->getBatch(array('id' => $runId, 'writerId' => $params['writerId']));
+				$jobsInfo = $this->getBatch(array('id' => $batchId, 'writerId' => $params['writerId']));
 				if (isset($jobsInfo['batch']['status']) && ($jobsInfo['batch']['status'] == 'success' || $jobsInfo['batch']['status'] == 'error')) {
 					$jobsFinished = true;
 				}
@@ -1006,6 +1016,142 @@ class GoodDataWriter extends Component
 				throw $e;
 			}
 		}
+	}
+
+
+
+	/***********************
+	 * @section UI support
+	 */
+
+
+	/**
+	 * Get visual model
+	 * @param $params
+	 * @throws Exception\WrongParametersException
+	 */
+	public function getModel($params)
+	{
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$nodes = array();
+		$dateDimensions = array();
+		$references = array();
+		$datasets = array();
+		if (is_array($this->configuration->definedTables) && count($this->configuration->definedTables))
+			foreach ($this->configuration->definedTables as $tableInfo) if (!empty($tableInfo['export'])) {
+			$datasets[$tableInfo['tableId']] = !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'];
+			$nodes[] = $tableInfo['tableId'];
+			$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
+			foreach ($definition['columns'] as $c) {
+				if ($c['type'] == 'DATE' && $c['dateDimension']) {
+					$dateDimensions[$tableInfo['tableId']] = $c['dateDimension'];
+					if (!in_array($c['dateDimension'], $nodes)) $nodes[] = $c['dateDimension'];
+				}
+				if ($c['type'] == 'REFERENCE' && $c['schemaReference']) {
+					if (!isset($references[$tableInfo['tableId']])) {
+						$references[$tableInfo['tableId']] = array();
+					}
+					$references[$tableInfo['tableId']][] = $c['schemaReference'];
+				}
+			}
+		}
+
+		$datasetIds = array_keys($datasets);
+		$result = array('nodes' => array(), 'links' => array());
+
+		foreach ($nodes as $name) {
+			$result['nodes'][] = array(
+				'name' => isset($datasets[$name]) ? $datasets[$name] : $name,
+				'group' => in_array($name, $datasetIds) ? 'dataset' : 'dimension'
+			);
+		}
+		foreach ($dateDimensions as $dataset => $date) {
+			$result['links'][] = array(
+				'source' => array_search($dataset, $nodes),
+				'target' => array_search($date, $nodes),
+				'value' => 'dimension'
+			);
+		}
+		foreach ($references as $source => $targets) {
+			foreach ($targets as $target) {
+				$result['links'][] = array(
+					'source' => array_search($source, $nodes),
+					'target' => array_search($target, $nodes),
+					'value' => 'dataset'
+				);
+			}
+		}
+
+		$response = new Response(json_encode($result));
+		$response->headers->set('Content-Type', 'application/json');
+		$response->send();
+		exit();
+	}
+
+
+	/**
+	 *
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
+	public function getTables($params)
+	{
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$tables = array();
+		foreach ($this->_storageApi->listTables() as $table) {
+			if (substr($table['id'], 0, 4) == 'out.') {
+				$t = array(
+					'id' => $table['id'],
+					'bucket' => $table['bucket']['id']
+				);
+				if (isset($this->configuration->definedTables[$table['id']])) {
+					$tableDef = $this->configuration->definedTables[$table['id']];
+					$t['gdName'] = isset($tableDef['gdName']) ? $tableDef['gdName'] : null;
+					$t['export'] = isset($tableDef['export']) ? (Boolean)$tableDef['export'] : false;
+					$t['lastChangeDate'] = isset($tableDef['lastChangeDate']) ? $tableDef['lastChangeDate'] : null;
+					$t['lastExportDate'] = isset($tableDef['lastExportDate']) ? $tableDef['lastExportDate'] : null;
+				}
+				$tables[] = $t;
+			}
+		}
+
+		return array('tables' => $tables);
+	}
+
+	/**
+	 *
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
+	public function postTables($params)
+	{
+		if (empty($params['tableId'])) {
+			throw new WrongParametersException("Parameter 'tableId' is missing");
+		}
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		if (!isset($this->configuration->definedTables[$params['tableId']])) {
+			$this->configuration->createTableDefinition($params['tableId']);
+		}
+
+		foreach ($params as $key => $value) if (in_array($key, array('gdName', 'export', 'lastChangeDate', 'lastExportDate'))) {
+			$this->configuration->setTableAttribute($params['tableId'], $key, $value);
+		}
+
+		return array();
 	}
 
 
@@ -1059,18 +1205,21 @@ class GoodDataWriter extends Component
 			$result = json_decode($job['result'], true);
 			if (isset($result['csvFile']) && file_exists($result['csvFile'])) {
 
-				header('Content-Disposition: attachment; filename="' . $params['id'] . '.csv"');
-				header('Content-length: ' . filesize($result['csvFile']));
-				$linesCount = !empty($params['limit']) ? $params['limit'] : -1;
-				$handle = fopen($result['csvFile'], 'r');
-				if ($handle === false) {
-					return false;
-				}
-				while (($buffer = fgets($handle)) !== false && $linesCount != 0) {
-					print $buffer;
-					$linesCount--;
-				}
-				fclose($handle);
+				$response = new StreamedResponse(function() use($result) {
+					$linesCount = !empty($params['limit']) ? $params['limit'] : -1;
+					$handle = fopen($result['csvFile'], 'r');
+					if ($handle === false) {
+						return false;
+					}
+					while (($buffer = fgets($handle)) !== false && $linesCount != 0) {
+						print $buffer;
+						$linesCount--;
+					}
+					fclose($handle);
+				});
+				$response->headers->set('Content-Disposition', $response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $params['id'] . '.csv'));
+				$response->headers->set('Content-length', filesize($result['csvFile']));
+				$response->send();
 				exit();
 
 			} else {
@@ -1080,6 +1229,30 @@ class GoodDataWriter extends Component
 			$job = $this->sharedConfig->jobToApiResponse($job);
 			return array('job' => $job);
 		}
+	}
+
+	/**
+	 * Cancel waiting jobs
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
+	public function postCancelJobs($params)
+	{
+		$this->_init($params);
+		if (!isset($params['writerId'])) {
+			throw new WrongParametersException('Missing parameter \'writerId\'');
+		}
+
+		$jobs = $this->_queue->clearQueue($this->configuration->projectId . "-" . $this->configuration->writerId);
+
+		// Cancel only waiting (to skip processing jobs)
+		foreach ($this->sharedConfig->fetchJobs($this->configuration->projectId, $this->configuration->writerId) as $job) {
+			if (in_array($job['id'], $jobs) && $job['status'] == 'waiting') {
+				$this->sharedConfig->saveJob($job['id'], array('status' => 'cancelled'));
+			}
+		}
+		return array();
 	}
 
 	/**
@@ -1099,18 +1272,22 @@ class GoodDataWriter extends Component
 		}
 
 		$data = array(
-			'runId' => (int)$params['id'],
+			'batchId' => (int)$params['id'],
 			'createdTime' => date('c'),
 			'startTime' => date('c'),
 			'endTime' => null,
 			'status' => null,
-			'jobs' => array()
+			'jobs' => array(),
+			'result' => null,
+			'log' => null
 		);
 		$waitingJobs = 0;
 		$processingJobs = 0;
 		$errorJobs = 0;
 		$successJobs = 0;
 		foreach ($this->sharedConfig->fetchBatch($params['id']) as $job) {
+			$job = $this->sharedConfig->jobToApiResponse($job);
+
 			if ($job['projectId'] != $this->configuration->projectId || $job['writerId'] != $this->configuration->writerId) {
 				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['id'], $this->configuration->writerId));
 			}
@@ -1142,11 +1319,13 @@ class GoodDataWriter extends Component
 	private function _createJob($params)
 	{
 		$jobId = $this->_storageApi->generateId();
-		if (!isset($params['runId'])) {
-			$params['runId'] = $jobId;
+		if (!isset($params['batchId'])) {
+			$params['batchId'] = $jobId;
 		}
+
 		$jobInfo = array(
 			'id' => $jobId,
+			'runId' => $this->_storageApi->getRunId(),
 			'projectId' => $this->configuration->projectId,
 			'writerId' => $this->configuration->writerId,
 			'token' => $this->_storageApi->token,
@@ -1176,12 +1355,12 @@ class GoodDataWriter extends Component
 
 		$message = "Writer job $jobId created manually";
 		$results = array('jobId' => $jobId);
-		$this->sharedConfig->logEvent($this->configuration->writerId, $params['runId'], $message, $params, $results);
+		$this->sharedConfig->logEvent($this->configuration->writerId, $jobInfo['runId'], $message, $params, $results);
 
 		$this->_log->log(Logger::INFO, $message, array(
 			'token' => $this->_storageApi->getLogData(),
 			'configurationId' => $this->configuration->writerId,
-			'runId' => $params['runId'],
+			'runId' => $jobInfo['runId'],
 			'params' => $params,
 			'results' => $results
 		));

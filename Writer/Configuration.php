@@ -159,6 +159,9 @@ class Configuration
 	}
 
 
+	/*
+	 * @TODO remove userUri check
+	 */
 	public function checkGoodDataSetup()
 	{
 		$valid = !empty($this->bucketInfo['gd']['pid'])
@@ -169,6 +172,7 @@ class Configuration
 		if (empty($this->bucketInfo['gd']['uid']) && !empty($this->bucketInfo['gd']['userUri'])) {
 			if (substr($this->bucketInfo['gd']['userUri'], 0, 21) == '/gdc/account/profile/') {
 				$this->bucketInfo['gd']['uid'] = substr($this->bucketInfo['gd']['userUri'], 21);
+				$this->_storageApi->setBucketAttribute($this->bucketId, 'gd.uid', $this->bucketInfo['gd']['uid']);
 				$this->_storageApi->deleteBucketAttribute($this->bucketId, 'gd.userUri');
 				unset($this->bucketInfo['gd']['userUri']);
 			} else {
@@ -220,12 +224,42 @@ class Configuration
 		return $this->_tableDefinitionsCache[$tableId];
 	}
 
+	public function createTableDefinition($tableId)
+	{
+		if (!isset($this->_tableDefinitionsCache[$tableId])) {
+			if (!isset($this->definedTables[$tableId])) {
+
+				$tId = mb_substr($tableId, mb_strlen(StorageApiClient::STAGE_OUT) + 1);
+				$bucket = mb_substr($tId, 0, mb_strpos($tId, '.'));
+				$tableName = mb_substr($tId, mb_strpos($tId, '.')+1);
+
+				$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . $bucket . '_' . $tableName, null, 'name');
+				$table->setHeader(array('name', 'gdName', 'type', 'dataType', 'dataTypeSize', 'schemaReference', 'reference',
+					'format', 'dateDimension', 'sortLabel', 'sortOrder'));
+				$table->setAttribute('tableId', $tableId);
+				$table->setAttribute('lastChangeDate', null);
+				$table->setAttribute('lastExportDate', null);
+				$table->save();
+
+				$this->definedTables[$tableId] = array(
+					'tableId' => $tableId,
+					'gdName' => null,
+					'lastChangeDate' => null,
+					'lastExportDate' => null,
+					'definitionId' => $this->bucketId . '.' . $bucket . '_' . $tableName
+				);
+
+			}
+		}
+	}
+
 	public function setTableAttribute($tableId, $name, $value)
 	{
 		if (!isset($this->definedTables[$tableId])) {
 			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
 		}
 
+		$this->definedTables[$tableId][$name] = $value;
 		$this->_storageApi->setTableAttribute($this->definedTables[$tableId]['definitionId'], $name, $value);
 	}
 
@@ -267,7 +301,7 @@ class Configuration
 			'includeTime' => $includeTime,
 			'lastExportDate' => ''
 		);
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME);
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME, null, 'name');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setIncremental(true);
@@ -280,7 +314,7 @@ class Configuration
 			'name' => $dimension,
 			$name => $value
 		);
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME);
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME, null, 'name');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setPartial(true);
@@ -317,7 +351,7 @@ class Configuration
 		}
 
 		if ($saveChanges) {
-			$table = new StorageApiTable($this->_storageApi, $this->definedTables[$tableId]['definitionId']);
+			$table = new StorageApiTable($this->_storageApi, $this->definedTables[$tableId]['definitionId'], null, 'name');
 			$table->setHeader($headers);
 			$table->setFromArray($data);
 			$table->save();
@@ -448,7 +482,7 @@ class Configuration
 				$this->_projects = StorageApiClient::parseCsv($csv);
 
 				if (isset($this->_projects[0])) {
-					if (count($this->_projects[0]) != 2) {
+					if (count($this->_projects[0]) < 2) {
 						throw new WrongConfigurationException('Projects table in configuration contains invalid number of columns');
 					}
 					if (!isset($this->_projects[0]['pid']) || !isset($this->_projects[0]['active'])) {
@@ -476,7 +510,7 @@ class Configuration
 		$tableId = $this->bucketId . '.' . self::PROJECTS_TABLE_NAME;
 		if ($this->_storageApi->tableExists($tableId)) {
 			$table = $this->_storageApi->getTable($tableId);
-			if (count($table['columns']) != 2) {
+			if (count($table['columns']) < 2) {
 				throw new WrongConfigurationException('Projects table in configuration contains invalid number of columns');
 			}
 			if (!in_array('pid', $table['columns']) || !in_array('active', $table['columns'])) {
@@ -500,7 +534,7 @@ class Configuration
 				$this->_users = StorageApiClient::parseCsv($csv);
 
 				if (isset($this->_users[0])) {
-					if (count($this->_users[0]) != 2) {
+					if (count($this->_users[0]) < 2) {
 						throw new WrongConfigurationException('Users table in configuration contains invalid number of columns');
 					}
 					if (!isset($this->_users[0]['email']) || !isset($this->_users[0]['uid'])) {
@@ -532,7 +566,7 @@ class Configuration
 		$tableId = $this->bucketId . '.' . self::USERS_TABLE_NAME;
 		if ($this->_storageApi->tableExists($tableId)) {
 			$table = $this->_storageApi->getTable($tableId);
-			if (count($table['columns']) != 2) {
+			if (count($table['columns']) < 2) {
 				throw new WrongConfigurationException('Users table in configuration contains invalid number of columns');
 			}
 			if (!in_array('email', $table['columns']) || !in_array('uid', $table['columns'])) {
@@ -554,7 +588,7 @@ class Configuration
 				$this->_projectUsers = StorageApiClient::parseCsv($csv);
 
 				if (isset($this->_projectUsers[0])) {
-					if (count($this->_projectUsers[0]) != 5) {
+					if (count($this->_projectUsers[0]) < 5) {
 						throw new WrongConfigurationException('Project Users table in configuration contains invalid number of columns');
 					}
 					if (!isset($this->_projectUsers[0]['id']) || !isset($this->_projectUsers[0]['pid']) || !isset($this->_projectUsers[0]['email'])
@@ -591,7 +625,7 @@ class Configuration
 		$tableId = $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME;
 		if ($this->_storageApi->tableExists($tableId)) {
 			$table = $this->_storageApi->getTable($tableId);
-			if (count($table['columns']) != 5) {
+			if (count($table['columns']) < 5) {
 				throw new WrongConfigurationException('Project Users table in configuration contains invalid number of columns');
 			}
 			if (!in_array('id', $table['columns']) || !in_array('pid', $table['columns']) || !in_array('email', $table['columns'])
@@ -611,7 +645,7 @@ class Configuration
 			'pid' => $pid,
 			'active' => 1
 		);
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECTS_TABLE_NAME);
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECTS_TABLE_NAME, null, 'pid');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setPartial(true);
@@ -631,7 +665,7 @@ class Configuration
 			'email' => $email,
 			'uid' => $uid
 		);
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::USERS_TABLE_NAME);
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::USERS_TABLE_NAME, null, 'email');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setPartial(true);
@@ -651,17 +685,21 @@ class Configuration
 	{
 		$action = 'add';
 		$data = array(
-			'id' => $pid . $email . $action . date('c'),
+			'id' => sha1($pid . $email . $action . date('c')),
 			'pid' => $pid,
 			'email' => $email,
 			'role' => $role,
 			'action' => $action
 		);
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME);
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setPartial(true);
 		$table->setIncremental(true);
+		if (!$this->_storageApi->tableExists($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME)) {
+			$table->addIndex('pid');
+			$table->addIndex('email');
+		}
 		$table->save();
 
 		$this->_projectUsers[] = $data;
