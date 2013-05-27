@@ -90,6 +90,10 @@ class Configuration
 
 	private $_dateDimensions;
 	private $_tablesCache;
+
+	/**
+	 * @var array
+	 */
 	private $_tableDefinitionsCache;
 
 
@@ -107,7 +111,7 @@ class Configuration
 			$this->bucketInfo = Reader::read($this->bucketId, null, false);
 
 			if (isset($this->bucketInfo['items'])) {
-				foreach ($this->bucketInfo['items'] as $tableName => $table) {
+				foreach ($this->bucketInfo['items'] as $tableName => $table ) if (isset($table['tableId'])) {
 					$this->definedTables[$table['tableId']] = array_merge($table, array('definitionId' => $this->bucketId . '.' . $tableName));
 				}
 				unset($this->bucketInfo['items']);
