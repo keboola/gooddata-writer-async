@@ -589,6 +589,209 @@ class GoodDataWriter extends Component
 		}
 	}
 
+	/***********************
+	 * @section Filters
+	 */
+
+	/**
+	 *
+	 */
+	public function getFilters($params)
+	{
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		return array('filters' => $this->configuration->getFilters());
+	}
+
+	public function postFilters($params)
+	{
+		$command = 'createFilter';
+		$createdTime = time();
+
+		// Init parameters
+		if (empty($params['name'])) {
+			throw new WrongParametersException("Parameter 'name' is missing");
+		}
+		if (empty($params['attribute'])) {
+			throw new WrongParametersException("Parameter 'attribute' is missing");
+		}
+		if (empty($params['element'])) {
+			throw new WrongParametersException("Parameter 'element' is missing");
+		}
+		if (empty($params['pid'])) {
+			throw new WrongParametersException("Parameter 'pid' is missing");
+		}
+		if (!isset($params['operator'])) {
+			$params['operator'] = '=';
+		}
+
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$jobInfo = $this->_createJob(array(
+			'command' => $command,
+			'createdTime' => date('c', $createdTime),
+			'parameters' => $params
+		));
+
+		$this->_queue->enqueueJob($jobInfo);
+
+		if (empty($params['wait'])) {
+			return array('job' => (int)$jobInfo['id']);
+		} else {
+			$jobId = $jobInfo['id'];
+			$jobFinished = false;
+			do {
+				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
+				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep(30);
+			} while(!$jobFinished);
+
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
+				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			} else {
+				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+			}
+		}
+	}
+
+	public function deleteFilters($params)
+	{
+		$command = 'deleteFilter';
+		$createdTime = time();
+
+		// Init parameters
+		if (empty($params['uri'])) {
+			throw new WrongParametersException("Parameter 'uri' is missing");
+		}
+
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$jobInfo = $this->_createJob(array(
+			'command' => $command,
+			'createdTime' => date('c', $createdTime),
+			'parameters' => $params
+		));
+
+		$this->_queue->enqueueJob($jobInfo);
+
+
+		if (empty($params['wait'])) {
+			return array('job' => (int)$jobInfo['id']);
+		} else {
+			$jobId = $jobInfo['id'];
+			$jobFinished = false;
+			do {
+				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
+				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep(30);
+			} while(!$jobFinished);
+
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
+				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			} else {
+				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+			}
+		}
+	}
+
+	public function postFiltersUser($params)
+	{
+		$command = 'assignFiltersToUser';
+		$createdTime = time();
+
+		if (empty($params['filters'])) {
+			throw new WrongParametersException("Parameter 'filters' is missing");
+		}
+		if (empty($params['userId'])) {
+			throw new WrongParametersException("Parameter 'attribute' is missing");
+		}
+
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$jobInfo = $this->_createJob(array(
+			'command' => $command,
+			'createdTime' => date('c', $createdTime),
+			'parameters' => $params
+		));
+
+		$this->_queue->enqueueJob($jobInfo);
+
+		if (empty($params['wait'])) {
+			return array('job' => (int)$jobInfo['id']);
+		} else {
+			$jobId = $jobInfo['id'];
+			$jobFinished = false;
+			do {
+				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
+				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep(30);
+			} while(!$jobFinished);
+
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
+				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			} else {
+				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+			}
+		}
+	}
+
+	public function postSyncFilters($params)
+	{
+		$command = 'syncFilters';
+		$createdTime = time();
+
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$jobInfo = $this->_createJob(array(
+			'command' => $command,
+			'createdTime' => date('c', $createdTime),
+			'parameters' => $params
+		));
+
+		$this->_queue->enqueueJob($jobInfo);
+
+		if (empty($params['wait'])) {
+			return array('job' => (int)$jobInfo['id']);
+		} else {
+			$jobId = $jobInfo['id'];
+			$jobFinished = false;
+			do {
+				$jobInfo = $this->getJob(array('id' => $jobId, 'writerId' => $params['writerId']));
+				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep(30);
+			} while(!$jobFinished);
+
+			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
+				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			} else {
+				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+			}
+		}
+	}
+
 
 
 	/***********************
@@ -713,10 +916,10 @@ class GoodDataWriter extends Component
 			$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
 
 			$tables[$tableInfo['tableId']] = array(
-				'dataset'		=> !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'],
-				'tableId'		=> $tableInfo['tableId'],
-				'xml'			=> $xmlUrl,
-				'definition'	=> $definition['columns']
+				'dataset'               => !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'],
+				'tableId'               => $tableInfo['tableId'],
+				'xml'                   => $xmlUrl,
+				'definition'    => $definition['columns']
 			);
 		}
 

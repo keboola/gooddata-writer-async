@@ -8,10 +8,13 @@
 
 namespace Keboola\GoodDataWriter\Writer;
 
+use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Client as StorageApiClient,
+	Keboola\StorageApi\Exception as StorageApiException,
 	Keboola\StorageApi\Config\Reader,
 	Keboola\Csv\CsvFile,
+	Keboola\Csv\Exception as CsvFileException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 
 class Configuration
@@ -19,7 +22,9 @@ class Configuration
 	const WRITER_NAME = 'gooddata';
 	const PROJECTS_TABLE_NAME = 'projects';
 	const USERS_TABLE_NAME = 'users';
+	const FILTERS_TABLE_NAME = 'filters';
 	const PROJECT_USERS_TABLE_NAME = 'project_users';
+	const FILTERS_USERS_TABLE_NAME = 'filters_users';
 	const DATE_DIMENSIONS_TABLE_NAME = 'dateDimensions';
 
 
@@ -62,25 +67,30 @@ class Configuration
 
 
 	/**
-	 * @var array
+	 * @var Array
 	 */
 	private $_projects;
 	/**
-	 * @var array
+	 * @var Array
 	 */
 	private $_users;
 	/**
-	 * @var array
+	 * @var Array
+	 */
+	private $_filters;
+	/**
+	 * @var Array
 	 */
 	private $_projectUsers;
 	/**
-	 * @var array
+	 * @var Array
 	 */
+	private $_filtersUsers;
+
+
 	private $_dateDimensions;
-	/**
-	 * @var array
-	 */
 	private $_tablesCache;
+
 	/**
 	 * @var array
 	 */
@@ -105,7 +115,7 @@ class Configuration
 			$this->bucketInfo = Reader::read($this->bucketId, null, false);
 
 			if (isset($this->bucketInfo['items'])) {
-				foreach ($this->bucketInfo['items'] as $tableName => $table) if (isset($table['tableId'])) {
+				foreach ($this->bucketInfo['items'] as $tableName => $table ) if (isset($table['tableId'])) {
 					$this->definedTables[$table['tableId']] = array_merge($table, array('definitionId' => $this->bucketId . '.' . $tableName));
 				}
 				unset($this->bucketInfo['items']);
@@ -805,5 +815,198 @@ class Configuration
 			$this->_storageApi->dropTable($table['id']);
 		}
 		$this->_storageApi->dropBucket($this->bucketId);
+	}
+
+
+	/**
+	 * @return array
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 */
+	public function getFilters()
+	{
+		$tableId = $this->bucketId . '.' . self::FILTERS_TABLE_NAME;
+		$header = array('name', 'attribute', 'element', 'operator', 'uri');
+		if ($this->_storageApi->tableExists($tableId)) {
+			$csv = $this->_storageApi->exportTable($tableId);
+			$this->_filters = StorageApiClient::parseCsv($csv);
+
+			if (isset($this->_filters[0])) {
+				if (count($this->_filters[0]) != count($header)) {
+					throw new WrongConfigurationException('Filters table in configuration contains invalid number of columns');
+				}
+				if (array_keys($this->_filters[0]) != $header) {
+					throw new WrongConfigurationException('Filters table in configuration appears to be wrongly configured');
+				}
+			}
+		} else {
+			$table = new StorageApiTable($this->_storageApi, $tableId, null, $header[0]);
+			$table->setFromArray(array($header), true);
+			$table->save();
+			$this->_filters = array();
+		}
+
+		return $this->_filters;
+	}
+
+
+	/**
+	 * @return array
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 */
+	public function getFiltersUsers()
+	{
+		$tableId = $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME;
+		$header = array('filterName', 'userEmail');
+		if ($this->_storageApi->tableExists($tableId)) {
+			$csv = $this->_storageApi->exportTable($tableId);
+			$this->_filtersUsers = StorageApiClient::parseCsv($csv);
+
+			if (isset($this->_filtersUsers[0])) {
+				if (count($this->_filtersUsers[0]) != count($header)) {
+					throw new WrongConfigurationException('FiltersUsers table in configuration contains invalid number of columns');
+				}
+				if (array_keys($this->_filtersUsers[0]) != $header) {
+					throw new WrongConfigurationException('FiltersUsers table in configuration appears to be wrongly configured');
+				}
+			}
+		} else {
+			$table = new StorageApiTable($this->_storageApi, $tableId, null, $header[0]);
+			$table->setFromArray(array($header), true);
+			$table->save();
+			$this->_filtersUsers = array();
+		}
+		return $this->_filtersUsers;
+	}
+
+
+	/**
+	 *
+	 * @param string $name
+	 * @param string $attribute
+	 * @param string $element
+	 * @param string $operator
+	 * @param string $uri
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongParametersException
+	 */
+	public function saveFilterToConfiguration($name, $attribute, $element, $operator, $uri)
+	{
+		// check for existing name
+		foreach ($this->getFilters() as $f) {
+			if ($f['name'] == $name) {
+				throw new WrongParametersException("Filter of that name already exists.");
+			}
+		}
+
+		$filter = array(
+			'name'      => $name,
+			'attribute' => $attribute,
+			'element'   => $element,
+			'operator'  => $operator,
+			'uri'       => $uri
+		);
+
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_TABLE_NAME);
+		$table->setHeader(array_keys($filter));
+		$table->setFromArray(array($filter));
+		$table->setPartial(true);
+		$table->setIncremental(true);
+		$table->save();
+
+		$this->_filters[] = $filter;
+	}
+
+	public function updateFilters($name, $attribute, $element, $operator, $uri)
+	{
+		$this->_filters = null;
+		$filters = $this->getFilters();
+
+		foreach ($filters as $k => $v) {
+			if ($v['name'] == $name) {
+				$filters[$k] = array($name, $attribute, $element, $operator, $uri);
+				break;
+			}
+		}
+
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_TABLE_NAME);
+		$table->setHeader(array('name', 'attribute', 'element', 'operator', 'uri'));
+		$table->setFromArray($filters);
+		$table->save();
+
+		$this->_filters = $filters;
+	}
+
+	/**
+	 * @param array $filters
+	 * @param $userId
+	 */
+	public function saveFilterUserToConfiguration(array $filters, $userId)
+	{
+		$filterNames = array();
+		foreach ($filters as $filterUri) {
+			foreach ($this->getFilters() as $filter) {
+				if ($filter['uri'] == $filterUri) {
+					$filterNames[] = $filter['name'];
+				}
+			}
+		}
+
+		$userEmail = null;
+		foreach ($this->getUsers() as $user) {
+			if ($user['uid'] == $userId) {
+				$userEmail = $user['email'];
+			}
+		}
+
+		$data = array();
+		foreach ($filterNames as $fn) {
+			$data[] = array($fn, $userEmail);
+		}
+
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME);
+		$table->setHeader(array('filterName', 'userEmail'));
+		$table->setFromArray($data);
+		$table->setPartial(true);
+		$table->setIncremental(true);
+		$table->save();
+	}
+
+	public function deleteFilterFromConfiguration($filterUri)
+	{
+		$filters = array();
+
+		$filterName = null;
+		foreach ($this->getFilters() as $filter) {
+			if ($filter['uri'] != $filterUri) {
+				$filters[] = $filter;
+			} else {
+				$filterName = $filter['name'];
+			}
+		}
+
+		if (empty($filters)) {
+			$this->_storageApi->dropTable($this->bucketId . '.' . self::FILTERS_TABLE_NAME);
+		} else {
+			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_TABLE_NAME);
+			$table->setHeader(array('name','attribute','element','operator','uri'));
+			$table->setFromArray($filters);
+			$table->save();
+		}
+
+		// Update filtersUsers table
+		$filtersUsers = array();
+		foreach ($this->getFiltersUsers() as $row) {
+			if ($row['filterName'] != $filterName) {
+				$filtersUsers[] = $row;
+			}
+		}
+
+		if (empty($filtersUsers)) {
+			$this->_storageApi->dropTable($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME);
+		} else {
+			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME);
+			$table->setHeader(array('filterName', 'userEmail'));
+			$table->setFromArray($filtersUsers);
+			$table->save();
+		}
 	}
 }
