@@ -821,24 +821,29 @@ class Configuration
 
 
 	/**
-	 * @param array $data - fields: [id], name, attribute, element, operator, uri
+	 *
+	 * @param string $name
+	 * @param string $attribute
+	 * @param string $element
+	 * @param string $operator
+	 * @param string $uri
 	 * @throws \Keboola\GoodDataWriter\Exception\WrongParametersException
 	 */
-	public function saveFilterToConfiguration(array $data)
+	public function saveFilterToConfiguration($name, $attribute, $element, $operator, $uri)
 	{
 		// check for existing name
 		foreach ($this->getFilters() as $f) {
-			if ($f['name'] == $data['name']) {
+			if ($f['name'] == $name) {
 				throw new WrongParametersException("Filter of that name already exists.");
 			}
 		}
 
 		$filter = array(
-			'name'      => $data['name'],
-			'attribute' => $data['attribute'],
-			'element'   => $data['element'],
-			'operator'  => $data['operator'],
-			'uri'       => $data['uri']
+			'name'      => $name,
+			'attribute' => $attribute,
+			'element'   => $element,
+			'operator'  => $operator,
+			'uri'       => $uri
 		);
 
 		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_TABLE_NAME);
@@ -851,47 +856,51 @@ class Configuration
 		$this->_filters[] = $filter;
 	}
 
-	public function updateFilters($filter)
+	public function updateFilters($name, $attribute, $element, $operator, $uri)
 	{
 		$this->_filters = null;
 		$filters = $this->getFilters();
 
 		foreach ($filters as $k => $v) {
-			if ($v['name'] == $filter['name']) {
-				$filters[$k] = $filter;
+			if ($v['name'] == $name) {
+				$filters[$k] = array($name, $attribute, $element, $operator, $uri);
 				break;
 			}
 		}
 
 		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_TABLE_NAME);
-		$table->setHeader(array_keys($filter));
+		$table->setHeader(array('name', 'attribute', 'element', 'operator', 'uri'));
 		$table->setFromArray($filters);
 		$table->save();
 
 		$this->_filters = $filters;
 	}
 
-	public function saveFilterUserToConfiguration(array $data)
+	/**
+	 * @param array $filters
+	 * @param $userId
+	 */
+	public function saveFilterUserToConfiguration(array $filters, $userId)
 	{
-		$filterIds = array();
-		foreach ($data['filters'] as $filterUri) {
+		$filterNames = array();
+		foreach ($filters as $filterUri) {
 			foreach ($this->getFilters() as $filter) {
 				if ($filter['uri'] == $filterUri) {
-					$filterIds[] = $filter['name'];
+					$filterNames[] = $filter['name'];
 				}
 			}
 		}
 
-		$userId = null;
+		$userEmail = null;
 		foreach ($this->getUsers() as $user) {
-			if ($user['uid'] == $data['userId']) {
-				$userId = $user['email'];
+			if ($user['uid'] == $userId) {
+				$userEmail = $user['email'];
 			}
 		}
 
 		$data = array();
-		foreach ($filterIds as $fid) {
-			$data[] = array($fid, $userId);
+		foreach ($filterNames as $fn) {
+			$data[] = array($fn, $userEmail);
 		}
 
 		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME);
@@ -900,7 +909,6 @@ class Configuration
 		$table->setPartial(true);
 		$table->setIncremental(true);
 		$table->save();
-
 	}
 
 	public function deleteFilterFromConfiguration($filterUri)

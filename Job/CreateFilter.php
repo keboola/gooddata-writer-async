@@ -24,15 +24,33 @@ class createFilter extends GenericJob
 		$mainConfig = $this->mainConfig['gd'][$env];
 
 		$gdWriteStartTime = date('c');
+
+		$this->_checkParams($params, array(
+			'name',
+			'attribute',
+			'element',
+			'pid',
+			'operator'
+		));
+
 		try {
 			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
-			$filterUri = $this->restApi->createFilter($params);
 
-			$data = $params;
-			$data['uri'] = $filterUri;
+			$filterUri = $this->restApi->createFilter(
+				$params['name'],
+				$params['attribute'],
+				$params['element'],
+				$params['operator'],
+				$params['pid']
+			);
 
-			$this->configuration->saveFilterToConfiguration($data);
-//			$this->sharedConfig->saveFilter();
+			$this->configuration->saveFilterToConfiguration(
+				$params['name'],
+				$params['attribute'],
+				$params['element'],
+				$params['operator'],
+				$filterUri
+			);
 
 			return $this->_prepareResult($job['id'], array(
 				'uri' => $filterUri,

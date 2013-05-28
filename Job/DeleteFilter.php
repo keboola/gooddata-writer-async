@@ -21,6 +21,10 @@ class DeleteFilter extends GenericJob {
 
 		$gdWriteStartTime = date('c');
 
+		$this->_checkParams($params, array(
+			'uri'
+		));
+
 		try {
 			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
 			try {

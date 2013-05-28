@@ -20,6 +20,11 @@ class SyncFilters extends GenericJob {
 		$mainConfig = $this->mainConfig['gd'][$env];
 
 		$gdWriteStartTime = date('c');
+
+		$this->_checkParams($params, array(
+			'pid'
+		));
+
 		try {
 			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
 
@@ -31,12 +36,22 @@ class SyncFilters extends GenericJob {
 
 			// Create filters
 			foreach ($this->configuration->getFilters() as $f) {
-				$filterParams = $f;
-				$filterParams['pid'] = $params['pid'];
 
-				$f['uri'] = $this->restApi->createFilter($filterParams);
+				$filterUri = $this->restApi->createFilter(
+					$f['name'],
+					$f['attribute'],
+					$f['element'],
+					$f['operator'],
+					$params['pid']
+				);
 
-				$this->configuration->updateFilters($f);
+				$this->configuration->updateFilters(
+					$f['name'],
+					$f['attribute'],
+					$f['element'],
+					$f['operator'],
+					$filterUri
+				);
 			}
 
 			// Assign filters to user
