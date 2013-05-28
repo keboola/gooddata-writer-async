@@ -31,10 +31,6 @@ class DebugCommand extends ContainerAwareCommand
 		$restApi = new \Keboola\GoodDataWriter\GoodData\RestApi(null, $this->getContainer()->get('logger'));
 		$restApi->login($mainConfig['gd']['prod']['username'], $mainConfig['gd']['prod']['password']);
 
-		$userId = $restApi->createUser('keboola', 'vojta-user@clients.keboola.com', 'Wf4Xe008a2d48562C885C52f2eC6cb2', 'Keboola', 'Bot', 'keboola.com');
-		$restApi->addUserToProject($userId, 'i0p60nwjk8ykio989jn3pjgvcdv90rjq', 'adminRole');
-		echo $userId.PHP_EOL;
-		die();
 
 		/*$users = $restApi->get('/gdc/account/domains/keboola-devel/users');
 		foreach ($users['accountSettings']['items'] as $i => $user) {
@@ -48,12 +44,14 @@ class DebugCommand extends ContainerAwareCommand
 			try {
 				$counterAll++;
 				$projectInfo = '"' . $counter . '","' . $project['title'] . '","' . $project['identifier'] . '","';
-				if ($project['title'] == 'Keboola Academy BU1 (Milan@veverka.ca)')
+				$counter++;
+				echo $projectInfo.PHP_EOL;
+				/*if ($project['title'] == 'Keboola Academy BU1 (petr@tarifomat.cz)')
 				{
-					if ($project['identifier']!='zpjkjhlp3by1ac8iepzbpgxe6q81d2ew') {
-						//$restApi->dropProject($project['identifier']);
+					if ($project['identifier']!='lxi4tkx4t2fnpq8p1q88y4zr4yneaxuw') {
+						$restApi->dropProject($project['identifier']);
 					}
-					echo $project['identifier'].',';//echo $projectInfo.PHP_EOL;
+					echo '"'.$project['identifier'].'",';//echo $projectInfo.PHP_EOL;
 					$counter++;
 					//
 				}
