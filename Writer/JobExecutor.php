@@ -245,5 +245,4 @@ class JobExecutor
 			return array('status' => 'error', 'error' => $e->getMessage());
 		}
 	}
-
 }
