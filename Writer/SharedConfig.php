@@ -200,7 +200,6 @@ class SharedConfig
 	}
 
 
-
 	/**
 	 * @param $projectId
 	 * @param $writerId
