@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\Writer\SharedConfig,
 	Keboola\GoodDataWriter\GoodData\RestApi,
@@ -68,5 +69,19 @@ abstract class GenericJob
 		}
 
 		return $data;
+	}
+
+	/**
+	 * @param array $params
+	 * @param array $required
+	 * @throws WrongConfigurationException
+	 */
+	protected function _checkParams($params, $required)
+	{
+		foreach($required as $k) {
+			if (empty($params[$k])) {
+				throw new WrongConfigurationException("Parameter '" . $k . "' is missing");
+			}
+		}
 	}
 }

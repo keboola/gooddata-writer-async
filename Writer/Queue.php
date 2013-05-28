@@ -62,7 +62,6 @@ class Queue
 			SELECT q.queue_name, MIN(m.created) as minTime
 			FROM message m
 			JOIN queue q ON (q.queue_id=m.queue_id)
-			WHERE m.handle is NULL
 			GROUP BY m.queue_id
 			ORDER BY minTime ASC
 		");
