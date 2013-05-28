@@ -84,6 +84,10 @@ class Configuration
 	/**
 	 * @var array
 	 */
+	private $_outputTables;
+	/**
+	 * @var array
+	 */
 	private $_tableDefinitionsCache;
 
 
@@ -117,6 +121,7 @@ class Configuration
 
 		$this->_tablesCache = array();
 		$this->_tableDefinitionsCache = array();
+		$this->_outputTables = array();
 	}
 
 	public function __destruct()
@@ -180,6 +185,20 @@ class Configuration
 	}
 
 
+	public function getOutputTables()
+	{
+		if (!$this->_outputTables) {
+			$this->_outputTables = array();
+			foreach ($this->_storageApi->listBuckets() as $bucket) {
+				if (substr($bucket['id'], 0, 3) == 'out') {
+					foreach ($this->_storageApi->listTables($bucket['id']) as $table) {
+						$this->_outputTables[] = $table['id'];
+					}
+				}
+			}
+		}
+		return $this->_outputTables;
+	}
 
 	public function getTable($tableId)
 	{
@@ -192,6 +211,46 @@ class Configuration
 		}
 
 		return  $this->_tablesCache[$tableId];
+	}
+
+	public function getTableForApi($tableId)
+	{
+		$data = array('columns' => array());
+		$tableInfo = $this->getTable($this->definedTables[$tableId]['definitionId']);
+		if (isset($tableInfo['attributes'])) foreach ($tableInfo['attributes'] as $attr) {
+			if ($attr['name'] == 'export')
+				$attr['value'] = (bool)$attr['value'];
+			$data[$attr['name']] = $attr['value'];
+		}
+
+		$previews = array();
+		if ($this->_storageApi->tableExists($tableId)) {
+			$tableExportCsv = $this->_storageApi->exportTable($tableId, null, array('limit' => 10));
+			foreach(StorageApiClient::parseCsv($tableExportCsv) as $row) {
+				foreach ($row as $key => $value) {
+					$previews[$key][] = $value;
+				}
+			}
+		}
+
+		$csv = $this->_storageApi->exportTable($this->definedTables[$tableId]['definitionId']);
+		$tableDefinition = array();
+		foreach (StorageApiClient::parseCsv($csv) as $row) {
+			if (!empty($row['dataTypeSize'])) {
+				$row['dataTypeSize'] = (int)$row['dataTypeSize'];
+			}
+			$row['preview'] = isset($previews[$row['name']]) ? $previews[$row['name']] : array();
+
+			$tableDefinition[$row['name']] = $row;
+		}
+
+		$sourceTableInfo = $this->getTable($tableId);
+		foreach ($sourceTableInfo['columns'] as $columnName) {
+			$data['columns'][] = isset($tableDefinition[$columnName]) ? $tableDefinition[$columnName]
+				: array('name' => $columnName, 'gdName' => $columnName, 'type' => 'IGNORE');
+		}
+
+		return $data;
 	}
 
 	public function getTableDefinition($tableId)

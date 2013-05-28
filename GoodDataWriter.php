@@ -903,25 +903,38 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		$tables = array();
-		foreach ($this->_storageApi->listTables() as $table) {
-			if (substr($table['id'], 0, 4) == 'out.') {
-				$t = array(
-					'id' => $table['id'],
-					'bucket' => $table['bucket']['id']
-				);
-				if (isset($this->configuration->definedTables[$table['id']])) {
-					$tableDef = $this->configuration->definedTables[$table['id']];
-					$t['gdName'] = isset($tableDef['gdName']) ? $tableDef['gdName'] : null;
-					$t['export'] = isset($tableDef['export']) ? (Boolean)$tableDef['export'] : false;
-					$t['lastChangeDate'] = isset($tableDef['lastChangeDate']) ? $tableDef['lastChangeDate'] : null;
-					$t['lastExportDate'] = isset($tableDef['lastExportDate']) ? $tableDef['lastExportDate'] : null;
-				}
-				$tables[] = $t;
+		if (isset($params['tableId'])) {
+			// Table detail
+			if (!in_array($params['tableId'], $this->configuration->getOutputTables())) {
+				throw new WrongParametersException(sprintf("Table '%s' does not exist", $params['tableId']));
 			}
-		}
+			if (!isset($this->configuration->definedTables[$params['tableId']])) {
+				$this->configuration->createTableDefinition($params['tableId']);
+			}
 
-		return array('tables' => $tables);
+			return array('table' => $this->configuration->getTableForApi($params['tableId']));
+		} else {
+			// Tables list
+			$tables = array();
+			foreach ($this->_storageApi->listTables() as $table) {
+				if (substr($table['id'], 0, 4) == 'out.') {
+					$t = array(
+						'id' => $table['id'],
+						'bucket' => $table['bucket']['id']
+					);
+					if (isset($this->configuration->definedTables[$table['id']])) {
+						$tableDef = $this->configuration->definedTables[$table['id']];
+						$t['gdName'] = isset($tableDef['gdName']) ? $tableDef['gdName'] : null;
+						$t['export'] = isset($tableDef['export']) ? (Boolean)$tableDef['export'] : false;
+						$t['lastChangeDate'] = isset($tableDef['lastChangeDate']) ? $tableDef['lastChangeDate'] : null;
+						$t['lastExportDate'] = isset($tableDef['lastExportDate']) ? $tableDef['lastExportDate'] : null;
+					}
+					$tables[] = $t;
+				}
+			}
+
+			return array('tables' => $tables);
+		}
 	}
 
 	/**
@@ -939,13 +952,29 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
+		if (!in_array($params['tableId'], $this->configuration->getOutputTables())) {
+			throw new WrongParametersException(sprintf("Table '%s' does not exist", $params['tableId']));
+		}
 
 		if (!isset($this->configuration->definedTables[$params['tableId']])) {
 			$this->configuration->createTableDefinition($params['tableId']);
 		}
 
-		foreach ($params as $key => $value) if (in_array($key, array('gdName', 'export', 'lastChangeDate', 'lastExportDate'))) {
-			$this->configuration->setTableAttribute($params['tableId'], $key, $value);
+		if (isset($params['column'])) {
+			// Column detail
+			$sourceTableInfo = $this->configuration->getTable($params['tableId']);
+			if (!in_array($params['column'], $sourceTableInfo['columns'])) {
+				throw new WrongParametersException(sprintf("Table '%s' does not exist", $params['tableId']));
+			}
+
+
+
+			return array('table' => $this->configuration->getTableForApi($params['tableId']));
+		} else {
+			// Table detail
+			foreach ($params as $key => $value) if (in_array($key, array('gdName', 'export', 'lastChangeDate', 'lastExportDate'))) {
+				$this->configuration->setTableAttribute($params['tableId'], $key, $value);
+			}
 		}
 
 		return array();
