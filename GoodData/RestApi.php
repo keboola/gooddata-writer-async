@@ -565,22 +565,26 @@ class RestApi
 	/**
 	 * Creates new Mandatory User Filter
 	 *
-	 * @param array $params - fields: name, attribute, element, operator, pid
-	 * @return mixed
+	 * @param $name
+	 * @param $attribute
+	 * @param $element
+	 * @param $operator
+	 * @param $pid
 	 * @throws RestApiException
+	 * @return mixed
 	 */
-	public function createFilter(array $params)
+	public function createFilter($name, $attribute, $element, $operator, $pid)
 	{
-		$attribute = $this->getAttributeByTitle($params['pid'], $params['attribute']);
+		$gdAttribute = $this->getAttributeByTitle($pid, $attribute);
 
 		$elementUri = $this->getElementUriByTitle(
-			$attribute['content']['displayForms'][0]['links']['elements'],
-			$params['element']
+			$gdAttribute['content']['displayForms'][0]['links']['elements'],
+			$element
 		);
 
-		$expression = "[" . $attribute['meta']['uri'] . "]" . $params['operator'] . "[" . $elementUri . "]";
+		$expression = "[" . $gdAttribute['meta']['uri'] . "]" . $operator . "[" . $elementUri . "]";
 
-		$filterUri = sprintf('/gdc/md/%s/obj', $params['pid']);
+		$filterUri = sprintf('/gdc/md/%s/obj', $pid);
 		$result = $this->_jsonRequest($filterUri, 'POST', array(
 			'userFilter' => array(
 				'content' => array(
@@ -588,7 +592,7 @@ class RestApi
 				),
 				'meta' => array(
 					'category'  => 'userFilter',
-					'title'     => $params['name']
+					'title'     => $name
 				)
 			)
 		), array(
