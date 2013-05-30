@@ -31,6 +31,7 @@ class DeleteFilter extends GenericJob {
 				$this->restApi->deleteFilter($params['uri']);
 			} catch (RestApiException $e) {
 				$mes = json_decode($e->getMessage(), true);
+
 				if ($mes['error']['errorClass'] != 'GDC::Exception::NotFound') {
 					throw new RestApiException($e->getMessage(), $e->getCode(), $e);
 				}

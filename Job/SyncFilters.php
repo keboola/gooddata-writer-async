@@ -21,57 +21,64 @@ class SyncFilters extends GenericJob {
 
 		$gdWriteStartTime = date('c');
 
-		$this->_checkParams($params, array(
-			'pid'
-		));
-
 		try {
 			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
 
-			// Delete filters from GD project
-			$gdFilters = $this->restApi->getFilters($params['pid']);
-			foreach ($gdFilters as $gdf) {
-				$this->restApi->deleteFilter($gdf['link']);
+			$projects = $this->configuration->getProjects();
+			if (isset($params['pid'])) {
+				$projects = array($this->configuration->getProject($params['pid']));
 			}
 
-			// Create filters
-			foreach ($this->configuration->getFilters() as $f) {
+			foreach($projects as $p) {
 
-				$filterUri = $this->restApi->createFilter(
-					$f['name'],
-					$f['attribute'],
-					$f['element'],
-					$f['operator'],
-					$params['pid']
-				);
+				// Delete filters from project
+				$gdFilters = $this->restApi->getFilters($p['pid']);
+				foreach ($gdFilters as $gdf) {
+					$this->restApi->deleteFilter($gdf['link']);
+				}
 
-				$this->configuration->updateFilters(
-					$f['name'],
-					$f['attribute'],
-					$f['element'],
-					$f['operator'],
-					$filterUri
-				);
-			}
+				// get users in project
+				foreach($this->configuration->getProjectUsers() as $pu) {
 
-			// Assign filters to user
-			foreach ($this->configuration->getUsers() as $u) {
-				$filters = array();
-				foreach ($this->configuration->getFiltersUsers() as $fu) {
-					if ($fu['userEmail'] == $u['email']) {
-						foreach ($this->configuration->getFilters() as $f) {
-							if ($fu['filterName'] == $f['name']) {
-								$filters[] = $f['uri'];
+					if ($pu['pid'] == $p['pid']) {
+						$user = $this->configuration->getUser($pu['email']);
+
+						// get filters for user
+						$filters = array();
+						foreach($this->configuration->getFiltersUsers() as $fu) {
+							if ($fu['userEmail'] == $user['email'] && $this->isFilterInProject($fu['filterName'], $p['pid'])) {
+
+								// Create filter
+								$filter = $this->configuration->getFilter($fu['filterName']);
+								$filterUri = $this->restApi->createFilter(
+									$filter['name'],
+									$filter['attribute'],
+									$filter['element'],
+									$filter['operator'],
+									$p['pid']
+								);
+
+								// Update filter uri
+								$this->configuration->updateFilters(
+									$filter['name'],
+									$filter['attribute'],
+									$filter['element'],
+									$filter['operator'],
+									$filterUri
+								);
+
+								$filters[] = $filterUri;
 							}
+						}
+
+						if (count($filters)) {
+							$this->restApi->assignFiltersToUser($filters, $user['uid'], $p['pid']);
 						}
 					}
 				}
-
-				$this->restApi->assignFiltersToUser($filters, $u['uid'], $params['pid']);
 			}
 
 			return $this->_prepareResult($job['id'], array(
-				'filters'   => $this->configuration->getFilters(),
 				'gdWriteStartTime' => $gdWriteStartTime
 			), $this->restApi->callsLog());
 
@@ -84,5 +91,14 @@ class SyncFilters extends GenericJob {
 				'gdWriteStartTime' => $gdWriteStartTime
 			), $this->restApi->callsLog());
 		}
+	}
+
+	protected function isFilterInProject($filterName, $pid) {
+		foreach ($this->configuration->getFiltersProjects() as $fp) {
+			if ($fp['filterName'] == $filterName && $fp['pid'] == $pid) {
+				return true;
+			}
+		}
+		return false;
 	}
 }
