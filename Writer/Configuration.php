@@ -25,6 +25,7 @@ class Configuration
 	const FILTERS_TABLE_NAME = 'filters';
 	const PROJECT_USERS_TABLE_NAME = 'project_users';
 	const FILTERS_USERS_TABLE_NAME = 'filters_users';
+	const FILTERS_PROJECTS_TABLE_NAME = 'filters_projects';
 	const DATE_DIMENSIONS_TABLE_NAME = 'dateDimensions';
 
 
@@ -86,6 +87,10 @@ class Configuration
 	 * @var Array
 	 */
 	private $_filtersUsers;
+	/**
+	 * @var Array
+	 */
+	private $_filtersProjects;
 
 
 	private $_dateDimensions;
@@ -831,6 +836,20 @@ class Configuration
 		$this->_storageApi->dropBucket($this->bucketId);
 	}
 
+	/**
+	 * @param $name
+	 * @return bool|array
+	 */
+	public function getFilter($name)
+	{
+		foreach ($this->getFilters() as $filter) {
+			if ($filter['name'] == $name) {
+				return $filter;
+			}
+		}
+		return false;
+	}
+
 
 	/**
 	 * @return array
@@ -892,6 +911,34 @@ class Configuration
 		return $this->_filtersUsers;
 	}
 
+	/**
+	 * @return array
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 */
+	public function getFiltersProjects()
+	{
+		$tableId = $this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME;
+		$header = array('filterName', 'pid');
+		if ($this->_storageApi->tableExists($tableId)) {
+			$csv = $this->_storageApi->exportTable($tableId);
+			$this->_filtersProjects = StorageApiClient::parseCsv($csv);
+
+			if (isset($this->_filtersProjects[0])) {
+				if (count($this->_filtersProjects[0]) != count($header)) {
+					throw new WrongConfigurationException('FiltersUsers table in configuration contains invalid number of columns');
+				}
+				if (array_keys($this->_filtersProjects[0]) != $header) {
+					throw new WrongConfigurationException('FiltersUsers table in configuration appears to be wrongly configured');
+				}
+			}
+		} else {
+			$table = new StorageApiTable($this->_storageApi, $tableId, null, $header[0]);
+			$table->setFromArray(array($header), true);
+			$table->save();
+			$this->_filtersProjects = array();
+		}
+		return $this->_filtersProjects;
+	}
 
 	/**
 	 *
@@ -929,6 +976,38 @@ class Configuration
 		$this->_filters[] = $filter;
 	}
 
+	public function saveFiltersProjectsToConfiguration($filterName, $pid)
+	{
+		foreach($this->getFiltersProjects() as $fp) {
+			if ($fp['filterName'] == $filterName && $fp['pid'] == $pid) {
+				throw new WrongParametersException("Filter " . $filterName . " is already assigned to project " . $pid);
+			}
+		}
+
+		$data = array(
+			'filterName'    => $filterName,
+			'pid'           => $pid
+		);
+
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME);
+		$table->setHeader(array_keys($data));
+		$table->setFromArray(array($data));
+		$table->setPartial(true);
+		$table->setIncremental(true);
+		$table->save();
+
+		$this->_filtersProjects[] = $data;
+	}
+
+	/**
+	 * Update URI of the filter
+	 *
+	 * @param $name
+	 * @param $attribute
+	 * @param $element
+	 * @param $operator
+	 * @param $uri
+	 */
 	public function updateFilters($name, $attribute, $element, $operator, $uri)
 	{
 		$this->_filters = null;
@@ -951,9 +1030,9 @@ class Configuration
 
 	/**
 	 * @param array $filters
-	 * @param $userId
+	 * @param $userEmail
 	 */
-	public function saveFilterUserToConfiguration(array $filters, $userId)
+	public function saveFilterUserToConfiguration(array $filters, $userEmail)
 	{
 		$filterNames = array();
 		foreach ($filters as $filterUri) {
@@ -961,13 +1040,6 @@ class Configuration
 				if ($filter['uri'] == $filterUri) {
 					$filterNames[] = $filter['name'];
 				}
-			}
-		}
-
-		$userEmail = null;
-		foreach ($this->getUsers() as $user) {
-			if ($user['uid'] == $userId) {
-				$userEmail = $user['email'];
 			}
 		}
 
@@ -1020,6 +1092,23 @@ class Configuration
 			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME);
 			$table->setHeader(array('filterName', 'userEmail'));
 			$table->setFromArray($filtersUsers);
+			$table->save();
+		}
+
+		// Update filtersProjects table
+		$filtersProjects = array();
+		foreach ($this->getFiltersProjects() as $row) {
+			if ($row['filterName'] != $filterName) {
+				$filtersProjects[] = $row;
+			}
+		}
+
+		if (empty($filtersProjects)) {
+			$this->_storageApi->dropTable($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME);
+		} else {
+			$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME);
+			$table->setHeader(array('filterName', 'pid'));
+			$table->setFromArray($filtersProjects);
 			$table->save();
 		}
 	}
