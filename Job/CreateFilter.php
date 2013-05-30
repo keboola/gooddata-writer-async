@@ -52,6 +52,8 @@ class createFilter extends GenericJob
 				$filterUri
 			);
 
+			$this->configuration->saveFiltersProjectsToConfiguration($params['name'], $params['pid']);
+
 			return $this->_prepareResult($job['id'], array(
 				'uri' => $filterUri,
 				'gdWriteStartTime' => $gdWriteStartTime

@@ -27,19 +27,24 @@ class assignFiltersToUser extends GenericJob
 
 		$this->_checkParams($params, array(
 			'filters',
-			'userId',
+			'userEmail',
 			'pid'
 		));
 
+		$user = $this->configuration->getUser($params['userEmail']);
+		$filterUris = array();
+		foreach ($params['filters'] as $name) {
+			$filter = $this->configuration->getFilter($name);
+			$filterUris[] = $filter['uri'];
+		}
+
 		try {
 			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
-			$this->restApi->assignFiltersToUser($params['filters'], $params['userId'], $params['pid']);
+			$this->restApi->assignFiltersToUser($filterUris, $user['uid'], $params['pid']);
 
-			$this->configuration->saveFilterUserToConfiguration($params['filters'], $params['userId']);
+			$this->configuration->saveFilterUserToConfiguration($filterUris, $params['userEmail']);
 
 			return $this->_prepareResult($job['id'], array(
-				'filters'   => $params['filters'],
-				'userId'      => $params['userId'],
 				'gdWriteStartTime' => $gdWriteStartTime
 			), $this->restApi->callsLog());
 
