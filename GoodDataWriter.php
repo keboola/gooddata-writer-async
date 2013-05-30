@@ -1131,6 +1131,9 @@ class GoodDataWriter extends Component
 						$t['export'] = isset($tableDef['export']) ? (Boolean)$tableDef['export'] : false;
 						$t['lastChangeDate'] = isset($tableDef['lastChangeDate']) ? $tableDef['lastChangeDate'] : null;
 						$t['lastExportDate'] = isset($tableDef['lastExportDate']) ? $tableDef['lastExportDate'] : null;
+						$tableDefinition = $this->configuration->getTableForApi($table['id']);
+						if (isset($tableDefinition['columns']))
+							$t['columns'] = $tableDefinition['columns'];
 					}
 					$tables[] = $t;
 				}
@@ -1170,9 +1173,14 @@ class GoodDataWriter extends Component
 				throw new WrongParametersException(sprintf("Table '%s' does not exist", $params['tableId']));
 			}
 
-
-
-			return array('table' => $this->configuration->getTableForApi($params['tableId']));
+			$values = array('name' => $params['column']);
+			foreach ($params as $key => $value) if (in_array($key, array('gdName', 'type', 'dataType', 'dataTypeSize',
+				'schemaReference', 'reference', 'format', 'dateDimension', 'sortLabel', 'sortOrder'))) {
+				$values[$key] = $value;
+			}
+			if (count($values) > 1) {
+				$this->configuration->saveColumnDefinition($params['tableId'], $values);
+			}
 		} else {
 			// Table detail
 			foreach ($params as $key => $value) if (in_array($key, array('gdName', 'export', 'lastChangeDate', 'lastExportDate'))) {
