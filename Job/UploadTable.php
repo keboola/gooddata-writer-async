@@ -34,7 +34,7 @@ class UploadTable extends GenericJob
 		// Create used date dimensions
 		$dateDimensions = null;
 		$xmlObject = simplexml_load_file($xmlFile);
-		foreach ($xmlObject->columns->column as $column) if ((string)$column->ldmType == 'DATE') {
+		if ($xmlObject->columns) foreach ($xmlObject->columns->column as $column) if ((string)$column->ldmType == 'DATE') {
 			if (!$dateDimensions) {
 				$dateDimensions = $this->configuration->getDateDimensions();
 			}

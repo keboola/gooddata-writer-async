@@ -316,6 +316,20 @@ class Configuration
 		}
 	}
 
+	public function saveColumnDefinition($tableId, $data)
+	{
+		if (!isset($this->definedTables[$tableId])) {
+			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
+		}
+
+		$table = new StorageApiTable($this->_storageApi, $this->definedTables[$tableId]['definitionId'], null, 'name');
+		$table->setHeader(array_keys($data));
+		$table->setFromArray(array($data));
+		$table->setIncremental(true);
+		$table->setPartial(true);
+		$table->save();
+	}
+
 	public function setTableAttribute($tableId, $name, $value)
 	{
 		if (!isset($this->definedTables[$tableId])) {
