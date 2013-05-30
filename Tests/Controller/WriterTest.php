@@ -461,7 +461,7 @@ class WriterTest extends WebTestCase
 			self::$mainConfig['tmp_path']);
 
 		$usersList = $configuration->getUsers();
-		$user = $usersList[1];
+		$user = $usersList[0];
 
 		$filters = $configuration->getFilters();
 		$filter = $filters[0];
@@ -469,8 +469,8 @@ class WriterTest extends WebTestCase
 		// Create and process job
 		$this->_processJob('/gooddata-writer/filters-user', array(
 			"pid"       => $configuration->bucketInfo['gd']['pid'],
-			"filters"   => array($filter['uri']),
-			"userId"    => $user['uid']
+			"filters"   => array($filter['name']),
+			"userEmail"    => $user['email']
 		));
 
 		// Check result
@@ -509,7 +509,7 @@ class WriterTest extends WebTestCase
 
 		// Create and process job
 		$this->_processJob(
-			'/gooddata-writer/filters?writerId=' . self::WRITER_ID . '&uri=' . $filter['uri'],
+			'/gooddata-writer/filters?writerId=' . self::WRITER_ID . '&uri=' . $filter['uri'] . '&dev=1',
 			array(),
 			'DELETE'
 		);
