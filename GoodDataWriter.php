@@ -715,8 +715,8 @@ class GoodDataWriter extends Component
 		if (empty($params['filters'])) {
 			throw new WrongParametersException("Parameter 'filters' is missing");
 		}
-		if (empty($params['userId'])) {
-			throw new WrongParametersException("Parameter 'attribute' is missing");
+		if (empty($params['userEmail'])) {
+			throw new WrongParametersException("Parameter 'userEmail' is missing");
 		}
 
 		$this->_init($params);
