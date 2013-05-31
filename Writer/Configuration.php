@@ -292,6 +292,17 @@ class Configuration
 		return $this->_tableDefinitionsCache[$tableId];
 	}
 
+	public function tableIsReferenceable($tableId)
+	{
+		$csv = $this->_storageApi->exportTable($this->definedTables[$tableId]['definitionId']);
+		foreach (StorageApiClient::parseCsv($csv) as $row) {
+			if ($row['type'] == 'CONNECTION_POINT') {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public function createTableDefinition($tableId)
 	{
 		if (!isset($this->_tableDefinitionsCache[$tableId])) {

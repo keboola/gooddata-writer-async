@@ -1116,6 +1116,16 @@ class GoodDataWriter extends Component
 			}
 
 			return array('table' => $this->configuration->getTableForApi($params['tableId']));
+		} elseif (isset($params['referenceable'])) {
+			$tables = array();
+			foreach ($this->configuration->definedTables as $table) {
+				$tables[$table['tableId']] = array(
+					'name' => isset($table['gdName']) ? $table['gdName'] : $table['tableId'],
+					'referenceable' => $this->configuration->tableIsReferenceable($table['tableId'])
+				);
+			}
+
+			return array('tables' => $tables);
 		} else {
 			// Tables list
 			$tables = array();
@@ -1131,9 +1141,6 @@ class GoodDataWriter extends Component
 						$t['export'] = isset($tableDef['export']) ? (Boolean)$tableDef['export'] : false;
 						$t['lastChangeDate'] = isset($tableDef['lastChangeDate']) ? $tableDef['lastChangeDate'] : null;
 						$t['lastExportDate'] = isset($tableDef['lastExportDate']) ? $tableDef['lastExportDate'] : null;
-						$tableDefinition = $this->configuration->getTableForApi($table['id']);
-						if (isset($tableDefinition['columns']))
-							$t['columns'] = $tableDefinition['columns'];
 					}
 					$tables[] = $t;
 				}
@@ -1191,6 +1198,57 @@ class GoodDataWriter extends Component
 		return array();
 	}
 
+
+	/**
+	 *
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
+	public function getDateDimensions($params)
+	{
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		return array('dimensions' => $this->configuration->getDateDimensions());
+	}
+
+
+	/**
+	 *
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
+	public function postDateDimensions($params)
+	{
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		if (!isset($params['name'])) {
+			throw new WrongParametersException("Parameter 'name' is missing");
+		}
+
+		$dimensions = $this->configuration->getDateDimensions();
+		if (isset($dimensions[$params['name']])) {
+			// Update
+			if (isset($params['includeTime'])) {
+				$this->configuration->setDateDimensionAttribute($params['name'], 'includeTime', $params['includeTime']);
+			}
+			if (isset($params['lastExportDate'])) {
+				$this->configuration->setDateDimensionAttribute($params['name'], 'lastExportDate', $params['lastExportDate']);
+			}
+		} else {
+			// Create
+			$this->configuration->addDateDimension($params['name'], !empty($params['includeTime']));
+		}
+
+		return array();
+	}
 
 
 
