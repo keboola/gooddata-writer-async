@@ -34,9 +34,10 @@ class SharedConfig
 	/**
 	 * @param $projectId
 	 * @param $writerId
+	 * @param $days
 	 * @return mixed
 	 */
-	public function fetchJobs($projectId, $writerId)
+	public function fetchJobs($projectId, $writerId, $days)
 	{
 		$csv = $this->_storageApiClient->exportTable(
 			self::JOBS_TABLE_ID,
@@ -44,7 +45,7 @@ class SharedConfig
 			array(
 				'whereColumn' => 'projectIdWriterId',
 				'whereValues' => array($projectId . '.' . $writerId),
-				'changedSince' => '-4 days'
+				'changedSince' => '-' . $days . ' days'
 			)
 		);
 
