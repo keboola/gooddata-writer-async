@@ -1270,7 +1270,8 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		$jobs = $this->sharedConfig->fetchJobs($this->configuration->projectId, $params['writerId']);
+		$days = isset($params['days']) ? $params['days'] : 7;
+		$jobs = $this->sharedConfig->fetchJobs($this->configuration->projectId, $params['writerId'], $days);
 
 		return array('jobs' => $jobs);
 	}
