@@ -254,15 +254,18 @@ class Configuration
 			if (!empty($row['dataTypeSize'])) {
 				$row['dataTypeSize'] = (int)$row['dataTypeSize'];
 			}
-			$row['preview'] = isset($previews[$row['name']]) ? $previews[$row['name']] : array();
 
 			$tableDefinition[$row['name']] = $row;
 		}
 
 		$sourceTableInfo = $this->getTable($tableId);
 		foreach ($sourceTableInfo['columns'] as $columnName) {
-			$data['columns'][] = isset($tableDefinition[$columnName]) ? $tableDefinition[$columnName]
+			$column = isset($tableDefinition[$columnName]) ? $tableDefinition[$columnName]
 				: array('name' => $columnName, 'gdName' => $columnName, 'type' => 'IGNORE');
+			$column['preview'] = isset($previews[$columnName]) ? $previews[$columnName] : array();
+			if (!$column['gdName'])
+				$column['gdName'] = $column['name'];
+			$data['columns'][] = $column;
 		}
 
 		return $data;
