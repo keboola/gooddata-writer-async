@@ -37,7 +37,7 @@ class SharedConfig
 	 * @param $days
 	 * @return mixed
 	 */
-	public function fetchJobs($projectId, $writerId, $days)
+	public function fetchJobs($projectId, $writerId, $days = 7)
 	{
 		$csv = $this->_storageApiClient->exportTable(
 			self::JOBS_TABLE_ID,

@@ -1174,6 +1174,8 @@ class GoodDataWriter extends Component
 		}
 
 		if (isset($params['column'])) {
+			$params['column'] = trim($params['column']);
+
 			// Column detail
 			$sourceTableInfo = $this->configuration->getTable($params['tableId']);
 			if (!in_array($params['column'], $sourceTableInfo['columns'])) {
@@ -1190,7 +1192,7 @@ class GoodDataWriter extends Component
 			}
 		} else {
 			// Table detail
-			foreach ($params as $key => $value) if (in_array($key, array('gdName', 'export', 'lastChangeDate', 'lastExportDate'))) {
+			foreach ($params as $key => $value) if (in_array($key, array('gdName', 'export', 'lastChangeDate', 'lastExportDate', 'sanitize', 'incrementalLoad'))) {
 				$this->configuration->setTableAttribute($params['tableId'], $key, $value);
 			}
 		}
@@ -1232,6 +1234,7 @@ class GoodDataWriter extends Component
 		if (!isset($params['name'])) {
 			throw new WrongParametersException("Parameter 'name' is missing");
 		}
+		$params['name'] = trim($params['name']);
 
 		$dimensions = $this->configuration->getDateDimensions();
 		if (isset($dimensions[$params['name']])) {
