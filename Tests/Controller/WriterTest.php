@@ -264,6 +264,7 @@ class WriterTest extends WebTestCase
 				'tableId' => $tableId,
 				'gdName' => $testName . '2'
 			)));
+		self::$client->request('GET', '/gooddata-writer/tables?writerId=' . self::WRITER_ID);
 		$response = self::$client->getResponse();
 		$responseJson = json_decode($response->getContent(), true);
 
