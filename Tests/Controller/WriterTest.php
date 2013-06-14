@@ -245,16 +245,40 @@ class WriterTest extends WebTestCase
 		$this->assertArrayHasKey('tables', $responseJson);
 
 		$testResult = false;
+		$lastChangeDate = null;
 		foreach ($responseJson['tables'] as $t) {
 			if ($t['id'] == $tableId) {
 				$this->assertArrayHasKey('gdName', $t);
 				if ($t['gdName'] == $testName) {
 					$testResult = true;
 				}
+				$lastChangeDate = $t['lastChangeDate'];
 			}
 		}
 		$this->assertTrue($testResult);
+		$this->assertNotEmpty($lastChangeDate);
+
+		self::$client->request('POST', '/gooddata-writer/tables', array(), array(), array(),
+			json_encode(array(
+				'writerId' => self::WRITER_ID,
+				'tableId' => $tableId,
+				'gdName' => $testName . '2'
+			)));
+		$response = self::$client->getResponse();
+		$responseJson = json_decode($response->getContent(), true);
+
+		$lastChangeDateAfterUpdate = null;
+		foreach ($responseJson['tables'] as $t) {
+			if ($t['id'] != $tableId) {
+				continue;
+			}
+			$lastChangeDateAfterUpdate = $t['lastChangeDate'];
+		}
+
+		$this->assertNotEquals($lastChangeDate, $lastChangeDateAfterUpdate, 'Last change date should be changed after update');
 	}
+
+
 
 	public function testUploadTable()
 	{

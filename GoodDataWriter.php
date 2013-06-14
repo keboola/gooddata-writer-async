@@ -1189,9 +1189,11 @@ class GoodDataWriter extends Component
 			}
 			if (count($values) > 1) {
 				$this->configuration->saveColumnDefinition($params['tableId'], $values);
+				$this->configuration->setTableAttribute($params['tableId'], 'lastChangeDate', date('c'));
 			}
 		} else {
 			// Table detail
+			$this->configuration->setTableAttribute($params['tableId'], 'lastChangeDate', date('c'));
 			foreach ($params as $key => $value) if (in_array($key, array('gdName', 'export', 'lastChangeDate', 'lastExportDate', 'sanitize', 'incrementalLoad'))) {
 				$this->configuration->setTableAttribute($params['tableId'], $key, $value);
 			}
