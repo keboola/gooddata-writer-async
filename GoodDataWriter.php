@@ -1088,6 +1088,7 @@ class GoodDataWriter extends Component
 
 		$response = new Response(json_encode($result));
 		$response->headers->set('Content-Type', 'application/json');
+		$response->headers->set('Access-Control-Allow-Origin', '*');
 		$response->send();
 		exit();
 	}
@@ -1197,6 +1198,30 @@ class GoodDataWriter extends Component
 			foreach ($params as $key => $value) if (in_array($key, array('gdName', 'export', 'lastChangeDate', 'lastExportDate', 'sanitize', 'incrementalLoad'))) {
 				$this->configuration->setTableAttribute($params['tableId'], $key, $value);
 			}
+		}
+
+		return array();
+	}
+
+
+	/**
+	 * Reset export status of all datasets and dimensions
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
+	public function postResetExport($params)
+	{
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		foreach ($this->configuration->definedTables as $table) if (!empty($table['lastExportDate'])) {
+			$this->configuration->setTableAttribute($table['tableId'], 'lastExportDate', '');
+		}
+		foreach ($this->configuration->getDateDimensions() as $dimension) if (!empty($dimension['lastExportDate'])) {
+			$this->configuration->setDateDimensionAttribute($dimension['name'], 'lastExportDate', '');
 		}
 
 		return array();
