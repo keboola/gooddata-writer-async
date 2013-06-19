@@ -173,26 +173,12 @@ class Configuration
 	}
 
 
-	/*
-	 * @TODO remove userUri check
-	 */
 	public function checkGoodDataSetup()
 	{
 		$valid = !empty($this->bucketInfo['gd']['pid'])
 			&& !empty($this->bucketInfo['gd']['username'])
-			&& (!empty($this->bucketInfo['gd']['userUri']) || !empty($this->bucketInfo['gd']['uid']))
+			&& !empty($this->bucketInfo['gd']['uid'])
 			&& !empty($this->bucketInfo['gd']['password']);
-
-		if (empty($this->bucketInfo['gd']['uid']) && !empty($this->bucketInfo['gd']['userUri'])) {
-			if (substr($this->bucketInfo['gd']['userUri'], 0, 21) == '/gdc/account/profile/') {
-				$this->bucketInfo['gd']['uid'] = substr($this->bucketInfo['gd']['userUri'], 21);
-				$this->_storageApi->setBucketAttribute($this->bucketId, 'gd.uid', $this->bucketInfo['gd']['uid']);
-				$this->_storageApi->deleteBucketAttribute($this->bucketId, 'gd.userUri');
-				unset($this->bucketInfo['gd']['userUri']);
-			} else {
-				$valid = false;
-			}
-		}
 
 		if (!$valid) {
 			throw new WrongConfigurationException('Writer is missing GoodData configuration');

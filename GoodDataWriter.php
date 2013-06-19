@@ -86,34 +86,46 @@ class GoodDataWriter extends Component
 
 	/**
 	 * List all configured writers
+	 *
+	 * @param $params
+	 * @throws Exception\WrongParametersException
 	 * @return array
 	 */
-	public function getWriters()
+	public function getWriters($params)
 	{
-		$writers = array();
-		foreach ($this->_storageApi->listBuckets() as $bucket) {
-			$writerId = false;
-			$foundWriterType = false;
-			if (isset($bucket['attributes']) && is_array($bucket['attributes'])) foreach($bucket['attributes'] as $attribute) {
-				if ($attribute['name'] == 'writerId') {
-					$writerId = $attribute['value'];
-				}
-				if ($attribute['name'] == 'writer') {
-					$foundWriterType = $attribute['value'] == $this->_name;
+		if (isset($params['writerId'])) {
+			$this->_init($params);
+			if (!$this->configuration->bucketId) {
+				throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+			}
+
+			return array('writer' => $this->configuration->bucketInfo);
+		} else {
+			$writers = array();
+			foreach ($this->_storageApi->listBuckets() as $bucket) {
+				$writerId = false;
+				$foundWriterType = false;
+				if (isset($bucket['attributes']) && is_array($bucket['attributes'])) foreach($bucket['attributes'] as $attribute) {
+					if ($attribute['name'] == 'writerId') {
+						$writerId = $attribute['value'];
+					}
+					if ($attribute['name'] == 'writer') {
+						$foundWriterType = $attribute['value'] == $this->_name;
+					}
+					if ($writerId && $foundWriterType) {
+						break;
+					}
 				}
 				if ($writerId && $foundWriterType) {
-					break;
+					$writers[] = array(
+						'id' => $writerId,
+						'bucket' => $bucket['id']
+					);
 				}
 			}
-			if ($writerId && $foundWriterType) {
-				$writers[] = array(
-					'id' => $writerId,
-					'bucket' => $bucket['id']
-				);
-			}
-		}
 
-		return array('writers' => $writers);
+			return array('writers' => $writers);
+		}
 	}
 
 
@@ -198,7 +210,7 @@ class GoodDataWriter extends Component
 	 * @throws Exception\WrongParametersException
 	 * @return array
 	 */
-	public function postDeleteWriters($params)
+	public function deleteWriters($params)
 	{
 		$command = 'dropWriter';
 		$createdTime = time();
@@ -207,6 +219,8 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
+
+		$this->configuration->setBucketAttribute('toDelete', '1');
 
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
