@@ -9,6 +9,7 @@
 namespace Keboola\GoodDataWriter;
 
 use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\GoodData\SSO;
 use Monolog\Logger;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -589,6 +590,40 @@ class GoodDataWriter extends Component
 		}
 	}
 
+	public function getSso($params)
+	{
+		// Init parameters
+		if (empty($params['email'])) {
+			throw new WrongParametersException("Parameter 'email' is missing");
+		}
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+		if (!empty($params['pid']) && !$this->configuration->getProject($params['pid'])) {
+			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
+		}
+
+		if (!empty($params['createUser']) && $params['createUser'] = 1) {
+			$params['wait'] = 1;
+			$this->postUsers($params);
+			$this->postProjectUsers($params);
+		}
+
+		$user = $this->configuration->getUser($params['email']);
+		if (!$user) {
+			throw new WrongParametersException("User " . $user . " doesn't exist in writer");
+		}
+
+		$gdProjectUrl = '/#s=/gdc/projects/' . $params['pid'];
+
+		/** @var SSO $sso */
+		$sso = $this->_container->get('gooddata_writer.sso');
+		$ssoLink = $sso->url($gdProjectUrl, $params['email']);
+
+		return array('ssoLink' => $ssoLink);
+	}
+
 	/***********************
 	 * @section Filters
 	 */
@@ -1106,48 +1141,25 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		if (isset($params['tableId'])) {
-			// Table detail
-			if (!in_array($params['tableId'], $this->configuration->getOutputTables())) {
-				throw new WrongParametersException(sprintf("Table '%s' does not exist", $params['tableId']));
-			}
-			if (!isset($this->configuration->definedTables[$params['tableId']])) {
-				$this->configuration->createTableDefinition($params['tableId']);
-			}
-
-			return array('table' => $this->configuration->getTableForApi($params['tableId']));
-		} elseif (isset($params['referenceable'])) {
-			$tables = array();
-			foreach ($this->configuration->definedTables as $table) {
-				$tables[$table['tableId']] = array(
-					'name' => isset($table['gdName']) ? $table['gdName'] : $table['tableId'],
-					'referenceable' => $this->configuration->tableIsReferenceable($table['tableId'])
+		$tables = array();
+		foreach ($this->_storageApi->listTables() as $table) {
+			if (substr($table['id'], 0, 4) == 'out.') {
+				$t = array(
+					'id' => $table['id'],
+					'bucket' => $table['bucket']['id']
 				);
-			}
-
-			return array('tables' => $tables);
-		} else {
-			// Tables list
-			$tables = array();
-			foreach ($this->_storageApi->listTables() as $table) {
-				if (substr($table['id'], 0, 4) == 'out.') {
-					$t = array(
-						'id' => $table['id'],
-						'bucket' => $table['bucket']['id']
-					);
-					if (isset($this->configuration->definedTables[$table['id']])) {
-						$tableDef = $this->configuration->definedTables[$table['id']];
-						$t['gdName'] = isset($tableDef['gdName']) ? $tableDef['gdName'] : null;
-						$t['export'] = isset($tableDef['export']) ? (Boolean)$tableDef['export'] : false;
-						$t['lastChangeDate'] = isset($tableDef['lastChangeDate']) ? $tableDef['lastChangeDate'] : null;
-						$t['lastExportDate'] = isset($tableDef['lastExportDate']) ? $tableDef['lastExportDate'] : null;
-					}
-					$tables[] = $t;
+				if (isset($this->configuration->definedTables[$table['id']])) {
+					$tableDef = $this->configuration->definedTables[$table['id']];
+					$t['gdName'] = isset($tableDef['gdName']) ? $tableDef['gdName'] : null;
+					$t['export'] = isset($tableDef['export']) ? (Boolean)$tableDef['export'] : false;
+					$t['lastChangeDate'] = isset($tableDef['lastChangeDate']) ? $tableDef['lastChangeDate'] : null;
+					$t['lastExportDate'] = isset($tableDef['lastExportDate']) ? $tableDef['lastExportDate'] : null;
 				}
+				$tables[] = $t;
 			}
-
-			return array('tables' => $tables);
 		}
+
+		return array('tables' => $tables);
 	}
 
 	/**
@@ -1165,95 +1177,18 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		if (!in_array($params['tableId'], $this->configuration->getOutputTables())) {
-			throw new WrongParametersException(sprintf("Table '%s' does not exist", $params['tableId']));
-		}
 
 		if (!isset($this->configuration->definedTables[$params['tableId']])) {
 			$this->configuration->createTableDefinition($params['tableId']);
 		}
 
-		if (isset($params['column'])) {
-			$params['column'] = trim($params['column']);
-
-			// Column detail
-			$sourceTableInfo = $this->configuration->getTable($params['tableId']);
-			if (!in_array($params['column'], $sourceTableInfo['columns'])) {
-				throw new WrongParametersException(sprintf("Table '%s' does not exist", $params['tableId']));
-			}
-
-			$values = array('name' => $params['column']);
-			foreach ($params as $key => $value) if (in_array($key, array('gdName', 'type', 'dataType', 'dataTypeSize',
-				'schemaReference', 'reference', 'format', 'dateDimension', 'sortLabel', 'sortOrder'))) {
-				$values[$key] = $value;
-			}
-			if (count($values) > 1) {
-				$this->configuration->saveColumnDefinition($params['tableId'], $values);
-				$this->configuration->setTableAttribute($params['tableId'], 'lastChangeDate', date('c'));
-			}
-		} else {
-			// Table detail
-			$this->configuration->setTableAttribute($params['tableId'], 'lastChangeDate', date('c'));
-			foreach ($params as $key => $value) if (in_array($key, array('gdName', 'export', 'lastChangeDate', 'lastExportDate', 'sanitize', 'incrementalLoad'))) {
-				$this->configuration->setTableAttribute($params['tableId'], $key, $value);
-			}
+		foreach ($params as $key => $value) if (in_array($key, array('gdName', 'export', 'lastChangeDate', 'lastExportDate'))) {
+			$this->configuration->setTableAttribute($params['tableId'], $key, $value);
 		}
 
 		return array();
 	}
 
-
-	/**
-	 *
-	 * @param $params
-	 * @return array
-	 * @throws Exception\WrongParametersException
-	 */
-	public function getDateDimensions($params)
-	{
-		$this->_init($params);
-		if (!$this->configuration->bucketId) {
-			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
-		}
-
-		return array('dimensions' => $this->configuration->getDateDimensions());
-	}
-
-
-	/**
-	 *
-	 * @param $params
-	 * @return array
-	 * @throws Exception\WrongParametersException
-	 */
-	public function postDateDimensions($params)
-	{
-		$this->_init($params);
-		if (!$this->configuration->bucketId) {
-			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
-		}
-
-		if (!isset($params['name'])) {
-			throw new WrongParametersException("Parameter 'name' is missing");
-		}
-		$params['name'] = trim($params['name']);
-
-		$dimensions = $this->configuration->getDateDimensions();
-		if (isset($dimensions[$params['name']])) {
-			// Update
-			if (isset($params['includeTime'])) {
-				$this->configuration->setDateDimensionAttribute($params['name'], 'includeTime', $params['includeTime']);
-			}
-			if (isset($params['lastExportDate'])) {
-				$this->configuration->setDateDimensionAttribute($params['name'], 'lastExportDate', $params['lastExportDate']);
-			}
-		} else {
-			// Create
-			$this->configuration->addDateDimension($params['name'], !empty($params['includeTime']));
-		}
-
-		return array();
-	}
 
 
 
@@ -1275,8 +1210,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		$days = isset($params['days']) ? $params['days'] : 7;
-		$jobs = $this->sharedConfig->fetchJobs($this->configuration->projectId, $params['writerId'], $days);
+		$jobs = $this->sharedConfig->fetchJobs($this->configuration->projectId, $params['writerId']);
 
 		return array('jobs' => $jobs);
 	}
