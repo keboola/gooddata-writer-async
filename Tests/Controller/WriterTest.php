@@ -580,7 +580,7 @@ class WriterTest extends WebTestCase
 
 
 		foreach ($jobs as $jobId) {
-			self::$client->request('GET', sprintf('/gooddata-writer/job?writerId=%s&id=%d', self::WRITER_ID, $jobId));
+			self::$client->request('GET', sprintf('/gooddata-writer/jobs?writerId=%s&jobId=%d', self::WRITER_ID, $jobId));
 			$response = self::$client->getResponse();
 			$responseJson = json_decode($response->getContent(), true);
 			$this->assertArrayHasKey('status', $responseJson);
