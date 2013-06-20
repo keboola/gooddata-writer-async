@@ -547,6 +547,30 @@ class WriterTest extends WebTestCase
 		$this->assertCount(0, $filtersUsers);
 	}
 
+	public function testGetSso()
+	{
+		$configuration = new \Keboola\GoodDataWriter\Writer\Configuration(self::WRITER_ID, self::$storageApi,
+			self::$mainConfig['tmp_path']);
+
+		$usersList = $configuration->getUsers();
+		$user = $usersList[0];
+
+		$projectsList = $configuration->getProjects();
+		$project = $projectsList[0];
+
+		self::$client->request('GET',
+			'/gooddata-writer/sso?writerId=' . self::WRITER_ID
+			. '&email=' . $user['email']
+			. '&pid=' . $project['pid']
+			. '&dev=1'
+		);
+		$response = self::$client->getResponse();
+		$this->assertEquals(200, $response->getStatusCode());
+		$responseJson = json_decode($response->getContent(), true);
+		$this->assertNotEmpty($responseJson);
+		$this->assertArrayHasKey('ssoLink', $responseJson);
+	}
+
 	public function testCancelJobs()
 	{
 		self::$client->request('POST', '/gooddata-writer/upload-project', array(), array(), array(),
@@ -580,7 +604,7 @@ class WriterTest extends WebTestCase
 
 
 		foreach ($jobs as $jobId) {
-			self::$client->request('GET', sprintf('/gooddata-writer/job?writerId=%s&id=%d', self::WRITER_ID, $jobId));
+			self::$client->request('GET', sprintf('/gooddata-writer/jobs?writerId=%s&jobId=%d', self::WRITER_ID, $jobId));
 			$response = self::$client->getResponse();
 			$responseJson = json_decode($response->getContent(), true);
 			$this->assertArrayHasKey('status', $responseJson);
