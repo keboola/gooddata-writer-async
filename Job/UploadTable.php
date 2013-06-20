@@ -58,7 +58,7 @@ class UploadTable extends GenericJob
 		}
 
 		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
-		$incremental = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
+		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
 		$sanitize = (isset($params['sanitize'])) ? $params['sanitize']
 			: empty($tableDefinition['sanitize']);
@@ -78,14 +78,13 @@ class UploadTable extends GenericJob
 
 			$gdJobs[] = array(
 				'command' => 'loadData',
-				'pid' => $project['pid'],
-				'incremental' => $incremental
+				'pid' => $project['pid']
 			);
 		}
 
 
 		$csvUrl = $this->mainConfig['storageApi.url'] . '/storage/tables/' . $params['tableId'] . '/export?escape=1'
-			. ($incremental ? '&changedSince=-' . $incremental . '+days' : null);
+			. ($incrementalLoad ? '&changedSince=-' . $incrementalLoad . '+days' : null);
 		$csvFilePath = tempnam($this->tmpDir, 'csv');
 		exec('curl --header "X-StorageApi-Token: ' . $job['token'] . '" -s ' . escapeshellarg($csvUrl) . ' > ' . escapeshellarg($csvFilePath));
 		chmod($csvFilePath, 0644);
@@ -171,7 +170,7 @@ class UploadTable extends GenericJob
 						$this->clToolApi->updateDataset($gdJob['pid'], $xmlFile, 1);
 						break;
 					case 'loadData':
-						$this->clToolApi->loadData($gdJob['pid'], $xmlFile, $csvFile, $incremental);
+						$this->clToolApi->loadData($gdJob['pid'], $xmlFile, $csvFile, $incrementalLoad);
 						break;
 				}
 			} catch (CLToolApiErrorException $e) {
