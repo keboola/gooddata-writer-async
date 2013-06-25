@@ -115,6 +115,7 @@ class Configuration
 		$this->tokenInfo = $this->_storageApi->verifyToken();
 		$this->projectId = $this->tokenInfo['owner']['id'];
 
+		$this->definedTables = array();
 		if ($this->bucketId && $this->_storageApi->bucketExists($this->bucketId)) {
 			Reader::$client = $this->_storageApi;
 			$this->bucketInfo = Reader::read($this->bucketId, null, false);
@@ -592,7 +593,8 @@ class Configuration
 				$this->_projects = array();
 			}
 
-			array_unshift($this->_projects, array('pid' => $this->bucketInfo['gd']['pid'], 'active' => true, 'main' => true));
+			if (isset($this->bucketInfo['gd']['pid']))
+				array_unshift($this->_projects, array('pid' => $this->bucketInfo['gd']['pid'], 'active' => true, 'main' => true));
 		}
 		return $this->_projects;
 	}
@@ -644,11 +646,13 @@ class Configuration
 				$this->_users = array();
 			}
 
-			array_unshift($this->_users, array(
-				'email' => $this->bucketInfo['gd']['username'],
-				'uid' => $this->bucketInfo['gd']['uid'],
-				'main' => true
-			));
+			if (isset($this->bucketInfo['gd']['username']) && isset($this->bucketInfo['gd']['uid'])) {
+				array_unshift($this->_users, array(
+					'email' => $this->bucketInfo['gd']['username'],
+					'uid' => $this->bucketInfo['gd']['uid'],
+					'main' => true
+				));
+			}
 		}
 		return $this->_users;
 	}

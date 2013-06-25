@@ -15,8 +15,11 @@
 	</php>
     <testsuites>
         <testsuite name="Keboola GoodData Writer">
-            <directory>Tests/GoodData</directory>
-			<directory>Tests/Controller</directory>
+			<file>Tests/Controller/WritersTest.php</file>
+			<file>Tests/Controller/DatasetsTest.php</file>
+			<file>Tests/Controller/ProjectsTest.php</file>
+			<file>Tests/Controller/UsersTest.php</file>
+			<!--file>Tests/Controller/FiltersTest.php</file-->
         </testsuite>
     </testsuites>
 </phpunit>
