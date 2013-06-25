@@ -1348,7 +1348,9 @@ class GoodDataWriter extends Component
 						fclose($handle);
 					});
 					$response->headers->set('Content-Disposition', $response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $params['jobId'] . '.csv'));
-					$response->headers->set('Content-length', filesize($result['csvFile']));
+					$response->headers->set('Content-Length', filesize($result['csvFile']));
+					$response->headers->set('Content-Type', 'text/csv');
+					$response->headers->set('Access-Control-Allow-Origin', '*');
 					$response->send();
 					exit();
 
