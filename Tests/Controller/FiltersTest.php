@@ -11,23 +11,17 @@ use Keboola\GoodDataWriter\Test\WriterTest,
 
 class FiltersTest extends WriterTest
 {
-
-	public function testCreateFilter()
+	protected function _createFilter($pid)
 	{
-
 		$this->_processJob('/gooddata-writer/filters', array(
-			"pid"       => self::$configuration->bucketInfo['gd']['pid'],
+			"pid"       => $pid,
 			"name"      => "filter",
 			"attribute" => "Name (Products)",
 			"element"   => "Product 1"
 		));
-
-		// Check result
-		$filterList = self::$configuration->getFilters();
-		$this->assertCount(1, $filterList);
 	}
 
-	public function testAssignFilterToUser()
+	protected function _assignFilterToUser($pid)
 	{
 		$usersList = self::$configuration->getUsers();
 		$user = $usersList[0];
@@ -37,10 +31,45 @@ class FiltersTest extends WriterTest
 
 		// Create and process job
 		$this->_processJob('/gooddata-writer/filters-user', array(
-			"pid"       => self::$configuration->bucketInfo['gd']['pid'],
+			"pid"       => $pid,
 			"filters"   => array($filter['name']),
 			"userEmail"    => $user['email']
 		));
+	}
+
+	public function testCreateFilter()
+	{
+		$pid = self::$configuration->bucketInfo['gd']['pid'];
+
+		// Upload data
+		$this->_prepareData();
+		$this->_processJob('/gooddata-writer/upload-project');
+
+		$this->_createFilter($pid);
+
+		// Check result
+		$filterList = self::$configuration->getFilters();
+		$this->assertCount(1, $filterList);
+
+		self::$restApi->login(
+			self::$configuration->bucketInfo['gd']['username'],
+			self::$configuration->bucketInfo['gd']['password']
+		);
+		$gdFilters = self::$restApi->getFilters($pid);
+		$gdFilter = $gdFilters[0];
+		$this->assertEquals($gdFilter['link'], $filterList[0]['uri']);
+	}
+
+	public function testAssignFilterToUser()
+	{
+		$pid = self::$configuration->bucketInfo['gd']['pid'];
+
+		// Upload data
+		$this->_prepareData();
+		$this->_processJob('/gooddata-writer/upload-project');
+
+		$this->_createFilter($pid);
+		$this->_assignFilterToUser($pid);
 
 		// Check result
 		$filtersUsers = self::$configuration->getFiltersUsers();
@@ -51,6 +80,13 @@ class FiltersTest extends WriterTest
 	{
 		$pid = self::$configuration->bucketInfo['gd']['pid'];
 
+		// Upload data
+		$this->_prepareData();
+		$this->_processJob('/gooddata-writer/upload-project');
+
+		$this->_createFilter($pid);
+		$this->_assignFilterToUser($pid);
+
 		// Create and process job
 		$this->_processJob('/gooddata-writer/sync-filters', array(
 			"pid"   => $pid,
@@ -59,14 +95,26 @@ class FiltersTest extends WriterTest
 		// Check result
 		$filterList = self::$configuration->getFilters();
 
+		self::$restApi->login(
+			self::$configuration->bucketInfo['gd']['username'],
+			self::$configuration->bucketInfo['gd']['password']
+		);
 		$gdFilters = self::$restApi->getFilters($pid);
 		$gdFilter = $gdFilters[0];
-
 		$this->assertEquals($gdFilter['link'], $filterList[0]['uri']);
 	}
 
 	public function testDeleteFilter()
 	{
+		$pid = self::$configuration->bucketInfo['gd']['pid'];
+
+		// Upload data
+		$this->_prepareData();
+		$this->_processJob('/gooddata-writer/upload-project');
+
+		$this->_createFilter($pid);
+		$this->_assignFilterToUser($pid);
+
 		$filters = self::$configuration->getFilters();
 		$filter = $filters[0];
 

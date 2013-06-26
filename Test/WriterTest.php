@@ -58,8 +58,8 @@ abstract class WriterTest extends WebTestCase
 		$this->bucketId = 'sys.c-wr-gooddata-test' . $uniqueIndex;
 		$this->dataBucketName = 'test' . $uniqueIndex;
 		$this->dataBucketId = 'out.c-test' . $uniqueIndex;
-		
-		
+
+
 		self::$client = static::createClient();
 		$container = self::$client->getContainer();
 		self::$client->setServerParameters(array(
@@ -253,4 +253,17 @@ abstract class WriterTest extends WebTestCase
 		}
 	}
 
+	protected  function _createUser()
+	{
+		$this->_processJob('/gooddata-writer/users', array(
+			'email' => 'test' . time() . uniqid() . '@test.keboola.com',
+			'password' => md5(uniqid()),
+			'firstName' => 'Test',
+			'lastName' => 'KBC'
+		));
+
+		$usersList = self::$configuration->getUsers();
+		$this->assertGreaterThanOrEqual(2, $usersList, "Response for writer call '/users' should return at least two GoodData users.");
+		return $usersList[count($usersList)-1];
+	}
 }
