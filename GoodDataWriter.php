@@ -9,6 +9,7 @@
 namespace Keboola\GoodDataWriter;
 
 use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\GoodData\SSO;
 use Monolog\Logger;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -601,6 +602,40 @@ class GoodDataWriter extends Component
 				throw $e;
 			}
 		}
+	}
+
+	public function getSso($params)
+	{
+		// Init parameters
+		if (empty($params['email'])) {
+			throw new WrongParametersException("Parameter 'email' is missing");
+		}
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+		if (!empty($params['pid']) && !$this->configuration->getProject($params['pid'])) {
+			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
+		}
+
+		if (!empty($params['createUser']) && $params['createUser'] = 1) {
+			$params['wait'] = 1;
+			$this->postUsers($params);
+			$this->postProjectUsers($params);
+		}
+
+		$user = $this->configuration->getUser($params['email']);
+		if (!$user) {
+			throw new WrongParametersException("User " . $user . " doesn't exist in writer");
+		}
+
+		$gdProjectUrl = '/#s=/gdc/projects/' . $params['pid'];
+
+		/** @var SSO $sso */
+		$sso = $this->_container->get('gooddata_writer.sso');
+		$ssoLink = $sso->url($gdProjectUrl, $params['email']);
+
+		return array('ssoLink' => $ssoLink);
 	}
 
 	/***********************
@@ -1208,7 +1243,7 @@ class GoodDataWriter extends Component
 			foreach ($params as $key => $value) if (in_array($key, array('gdName', 'type', 'dataType', 'dataTypeSize',
 				'schemaReference', 'reference', 'format', 'dateDimension', 'sortLabel', 'sortOrder'))) {
 				$values[$key] = $value;
-			}
+							}
 			if (count($values) > 1) {
 				$this->configuration->saveColumnDefinition($params['tableId'], $values);
 				$this->configuration->setTableAttribute($params['tableId'], 'lastChangeDate', date('c'));
@@ -1300,7 +1335,6 @@ class GoodDataWriter extends Component
 
 		return array();
 	}
-
 
 
 
