@@ -595,8 +595,6 @@ class RestApi
 					'title'     => $name
 				)
 			)
-		), array(
-			'Content-Type' => 'application/json'
 		));
 
 		if (isset($result['uri'])) {
@@ -623,8 +621,6 @@ class RestApi
 					)
 				)
 			)
-		), array(
-			'Content-Type' => 'application/json'
 		));
 
 		if (isset($result['userFiltersUpdateResult']['successful']) && count($result['userFiltersUpdateResult']['successful'])) {
