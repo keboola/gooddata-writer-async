@@ -1262,7 +1262,33 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		return array('dimensions' => $this->configuration->getDateDimensions());
+		return array('dimensions' => $this->configuration->getDateDimensions(isset($params['usage'])));
+	}
+
+
+	/**
+	 *
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
+	public function deleteDateDimensions($params)
+	{
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+		if (!isset($params['name'])) {
+			throw new WrongParametersException("Parameter 'name' is missing");
+		}
+
+		$dimensions = $this->configuration->getDateDimensions();
+		if (isset($dimensions[$params['name']])) {
+			$this->configuration->deleteDateDimension($params['name']);
+			return array();
+		} else {
+			throw new WrongParametersException(sprintf("Dimension '%s' does not exist", $params['name']));
+		}
 	}
 
 
