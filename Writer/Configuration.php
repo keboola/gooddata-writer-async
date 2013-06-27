@@ -94,6 +94,7 @@ class Configuration
 
 
 	private $_dateDimensions;
+	private $_dateDimensionsWithUsage;
 	private $_tablesCache;
 
 	/**
@@ -360,17 +361,30 @@ class Configuration
 		$this->_storageApi->setTableAttribute($this->definedTables[$tableId]['definitionId'], $name, $value);
 	}
 
-	public function getDateDimensions()
+	public function getDateDimensions($usage = false)
 	{
-		if (!$this->_dateDimensions) {
+		if ((!$usage && !$this->_dateDimensions) || ($usage && !$this->_dateDimensionsWithUsage)) {
 			$tableId = $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME;
 			if ($this->_storageApi->tableExists($tableId)) {
 				$data = array();
 				$csv = $this->_storageApi->exportTable($tableId);
 				foreach (StorageApiClient::parseCsv($csv) as $row) {
+					$row['includeTime'] = (bool)$row['includeTime'];
+					if ($usage) {
+						$row['usedIn'] = array();
+						foreach (array_keys($this->definedTables) as $tableId) {
+							if ($this->tableHasDateDimension($tableId, $row['name'])) {
+								$row['usedIn'][] = $tableId;
+							}
+						}
+					}
 					$data[$row['name']] = $row;
 				}
-				$this->_dateDimensions = $data;
+				if ($usage) {
+					$this->_dateDimensionsWithUsage = $data;
+				} else {
+					$this->_dateDimensions = $data;
+				}
 
 				if (isset($this->_dateDimensions[0])) {
 					if (count($this->_dateDimensions[0]) != 3) {
@@ -388,7 +402,7 @@ class Configuration
 				$this->_dateDimensions = array();
 			}
 		}
-		return $this->_dateDimensions;
+		return $usage ? $this->_dateDimensionsWithUsage : $this->_dateDimensions;
 	}
 
 	public function addDateDimension($name, $includeTime)
@@ -403,6 +417,41 @@ class Configuration
 		$table->setFromArray(array($data));
 		$table->setIncremental(true);
 		$table->save();
+	}
+
+	public function deleteDateDimension($name)
+	{
+		$data = array();
+		foreach ($this->getDateDimensions() as $dimension) {
+			if ($dimension['name'] != $name) {
+				$data[] = $dimension;
+			} else {
+				if (!empty($dimension['lastExportDate'])) {
+					throw new WrongConfigurationException(sprintf('Date Dimension %s has been exported to GoodData and cannot be deleted this way.', $name));
+				}
+				foreach (array_keys($this->definedTables) as $tableId) {
+					if ($this->tableHasDateDimension($tableId, $name)) {
+						throw new WrongConfigurationException(sprintf('Date Dimension %s is used in dataset %s and cannot be deleted.', $name, $tableId));
+					}
+				}
+			}
+		}
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME, null, 'name');
+		$table->setHeader(array('name', 'includeTime', 'lastExportDate'));
+		$table->setFromArray($data);
+		$table->setIncremental(false);
+		$table->save();
+	}
+
+	public function tableHasDateDimension($tableId, $dimension)
+	{
+		$csv = $this->_storageApi->exportTable($this->definedTables[$tableId]['definitionId']);
+		foreach (StorageApiClient::parseCsv($csv) as $row) {
+			if ($row['type'] == 'DATE' && $row['dateDimension'] == $dimension) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public function setDateDimensionAttribute($dimension, $name, $value)
@@ -477,8 +526,20 @@ class Configuration
 		}
 
 		$columns = $xml->createElement('columns');
-		foreach ($dataTableConfig['columns'] as $columnName) if (isset($gdDefinition['columns'][$columnName])) {
-			$columnDefinition = $gdDefinition['columns'][$columnName];
+
+		$sourceTableInfo = $this->getTable($tableId);
+		foreach ($sourceTableInfo['columns'] as $columnName) {
+
+			if (!isset($gdDefinition['columns'][$columnName])) {
+				$columnDefinition = array(
+					'name' => $columnName,
+					'type' => 'IGNORE',
+					'gdName' => $columnName,
+					'dataType' => ''
+				);
+			} else {
+				$columnDefinition = $gdDefinition['columns'][$columnName];
+			}
 
 			$column = $xml->createElement('column');
 			$column->appendChild($xml->createElement('name', $columnDefinition['name']));
