@@ -366,17 +366,24 @@ class Configuration
 		if ((!$usage && !$this->_dateDimensions) || ($usage && !$this->_dateDimensionsWithUsage)) {
 			$tableId = $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME;
 			if ($this->_storageApi->tableExists($tableId)) {
+				if ($usage) {
+					$usedIn = array();
+					foreach (array_keys($this->definedTables) as $tId) {
+						foreach ($this->tableDateDimensions($tId) as $dim) {
+							if (!isset($usedIn[$dim])) {
+								$usedIn[$dim] = array();
+							}
+							$usedIn[$dim][] = $tId;
+						}
+					}
+				}
+
 				$data = array();
 				$csv = $this->_storageApi->exportTable($tableId);
 				foreach (StorageApiClient::parseCsv($csv) as $row) {
 					$row['includeTime'] = (bool)$row['includeTime'];
 					if ($usage) {
-						$row['usedIn'] = array();
-						foreach (array_keys($this->definedTables) as $tableId) {
-							if ($this->tableHasDateDimension($tableId, $row['name'])) {
-								$row['usedIn'][] = $tableId;
-							}
-						}
+						$row['usedIn'] = isset($usedIn[$row['name']]) ? $usedIn[$row['name']] : array();
 					}
 					$data[$row['name']] = $row;
 				}
@@ -452,6 +459,18 @@ class Configuration
 			}
 		}
 		return false;
+	}
+
+	public function tableDateDimensions($tableId)
+	{
+		$result = array();
+		$csv = $this->_storageApi->exportTable($this->definedTables[$tableId]['definitionId']);
+		foreach (StorageApiClient::parseCsv($csv) as $row) {
+			if ($row['type'] == 'DATE' && $row['dateDimension']) {
+				$result[] = $row['dateDimension'];
+			}
+		}
+		return $result;
 	}
 
 	public function setDateDimensionAttribute($dimension, $name, $value)
