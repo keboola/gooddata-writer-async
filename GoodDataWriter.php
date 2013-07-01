@@ -80,7 +80,11 @@ class GoodDataWriter extends Component
 			'dbname' => $this->_mainConfig['db']['name']
 		)));
 
-		$sharedStorageApi = new StorageApiClient($this->_mainConfig['shared_sapi']['token'], $this->_mainConfig['shared_sapi']['url']);
+		$sharedStorageApi = new StorageApiClient(
+			$this->_mainConfig['shared_sapi']['token'],
+			$this->_mainConfig['shared_sapi']['url'],
+			$this->_mainConfig['user_agent']
+		);
 		$this->sharedConfig = new Writer\SharedConfig($sharedStorageApi);
 	}
 

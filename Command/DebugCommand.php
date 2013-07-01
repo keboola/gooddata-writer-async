@@ -29,7 +29,8 @@ class DebugCommand extends ContainerAwareCommand
 		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
 
 		$restApi = new \Keboola\GoodDataWriter\GoodData\RestApi(null, $this->getContainer()->get('logger'));
-		$restApi->login($mainConfig['gd']['prod']['username'], $mainConfig['gd']['prod']['password']);
+		//$restApi->login($mainConfig['gd']['prod']['username'], $mainConfig['gd']['prod']['password']);
+		$restApi->login($mainConfig['gd']['dev']['username'], $mainConfig['gd']['dev']['password']);
 
 
 		/*$users = $restApi->get('/gdc/account/domains/keboola-devel/users');
@@ -44,39 +45,21 @@ class DebugCommand extends ContainerAwareCommand
 			try {
 				$counterAll++;
 				$projectInfo = '"' . $counter . '","' . $project['title'] . '","' . $project['identifier'] . '","';
-				$counter++;
-				echo $projectInfo.PHP_EOL;
-				/*if ($project['title'] == 'Keboola Academy BU1 (petr@tarifomat.cz)')
-				{
-					if ($project['identifier']!='lxi4tkx4t2fnpq8p1q88y4zr4yneaxuw') {
-						$restApi->dropProject($project['identifier']);
-					}
-					echo '"'.$project['identifier'].'",';//echo $projectInfo.PHP_EOL;
-					$counter++;
-					//
-				}
-				/*if (strstr($project['title'], 'Keboola Academy RM1 -')) {
+
+				$counter++;  echo $projectInfo.PHP_EOL;
+				/*if (strstr($project['title'], 'DEV - [Test] Jakub - test')) {
 					$counter++;
 					echo $projectInfo.PHP_EOL;
-					//$restApi->dropProject($project['identifier']);
-				}*/
+					$restApi->dropProject($project['identifier']);
+				}
+
 				/*$usersInfo = array();
 				$users = $restApi->get('/gdc/projects/' . $project['identifier'] . '/users');
 				if (count($users['users']) == 2) {
 					echo $projectInfo.PHP_EOL;
-				}*/
-
-
-
-				/*foreach ($users['users'] as $user) if ($user['user']['content']['email'] != 'gooddata@keboola.com' && strstr($user['user']['content']['email'], '@keboola.com')) {
-					$usersInfo[] = substr($user['user']['content']['email'], 0, strpos($user['user']['content']['email'], '@'));
 				}
-				$projectInfo .= implode(',', $usersInfo) . '"';
-				echo $projectInfo.PHP_EOL;
-				//if (count($users['users']) == 2) *//*if (strstr($project['title'], 'Syrup'))*/
+				/**/
 
-					//$restApi->dropProject($project['identifier']);
-					//echo $users['users'][0]['user']['content']['email'].PHP_EOL.PHP_EOL;
 
 			} catch (\Keboola\GoodDataWriter\GoodData\RestApiException $e) {
 

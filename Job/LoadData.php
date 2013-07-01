@@ -41,10 +41,15 @@ class LoadData extends GenericJob
 		$incrementalLoad = !empty($params['incremental']) ? $params['incremental']
 			: (isset($tableInfo['sanitize']) ? $tableInfo['sanitize'] : null);
 
-		$csvUrl = $job['sapiUrl'] . '/storage/tables/' . $params['tableId'] . '/export?escape=1'
+		$csvUrl = $this->mainConfig['storageApi.url'] . '/v2/storage/tables/' . $params['tableId'] . '/export?format=escaped'
 			. ($incrementalLoad ? '&changedSince=-' . $incrementalLoad . '+days' : null);
 		$csvFilePath = tempnam($this->tmpDir, 'csv');
-		exec('curl --header "X-StorageApi-Token: ' . $job['token'] . '" -s ' . escapeshellarg($csvUrl) . ' > ' . escapeshellarg($csvFilePath));
+		exec('curl --header "X-StorageApi-Token: ' . $job['token'] . '" --header "Accept-encoding: gzip" '
+			.'-A "' . $this->mainConfig['user_agent']
+			. '" -s ' . escapeshellarg($csvUrl) . ' > ' . escapeshellarg($csvFilePath . '.gz'));
+		exec('gzip -dc ' . escapeshellarg($csvFilePath . '.gz') . ' > ' . escapeshellarg($csvFilePath));
+		unlink($csvFilePath . '.gz');
+		chmod($csvFilePath, 0644);
 		$csvFile = $csvFilePath;
 
 
