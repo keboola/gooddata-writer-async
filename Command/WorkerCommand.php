@@ -59,7 +59,11 @@ class WorkerCommand extends ContainerAwareCommand
 		$this->_queue = new Queue($this->_db);
 
 		$this->_sharedConfig = new SharedConfig(
-			new StorageApiClient($mainConfig['shared_sapi']['token'], $mainConfig['shared_sapi']['url'])
+			new StorageApiClient(
+				$mainConfig['shared_sapi']['token'],
+				$mainConfig['shared_sapi']['url'],
+				$mainConfig['user_agent']
+			)
 		);
 
 		$this->_output = $output;

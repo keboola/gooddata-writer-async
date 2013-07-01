@@ -18,7 +18,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class JobExecutor
 {
-	const APP_NAME = 'wr-gooddata';
+	const APP_NAME = 'gooddata-writer';
 
 
 	/**
@@ -71,10 +71,11 @@ class JobExecutor
 		}
 
 		try {
+			$gdWriterParams = $this->_container->getParameter('gooddata_writer');
 			$this->_storageApiClient = new StorageApiClient(
 				$job['token'],
 				$this->_container->getParameter('storageApi.url'),
-				self::APP_NAME
+				$gdWriterParams['user_agent']
 			);
 		} catch(StorageApiException $e) {
 			throw new WrongConfigurationException("Invalid token for job $jobId", 0, $e);
