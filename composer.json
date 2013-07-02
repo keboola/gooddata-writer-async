@@ -28,12 +28,13 @@
 		"gooddata/gooddata-cl": "1.2.*"
 	},
 	"require-dev": {
-		"syrup/component-bundle": "1.1.*",
-		"syrup/development-bundle": ">=1.0.8",
+		"syrup/component-bundle": "1.2.*",
+		"syrup/development-bundle": "1.1.*",
 		"phpunit/phpunit": "3.7.*"
 	},
 	"scripts": {
 		"post-install-cmd": [
+			"Incenteev\\ParameterHandler\\ScriptHandler::buildParameters",
 			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap"
 		],
 		"post-update-cmd": [
@@ -41,13 +42,17 @@
 			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::clearCache"
 		]
 	},
-	"minimum-stability": "alpha",
+	"minimum-stability": "stable",
 	"autoload": {
 		"psr-0": { "Keboola\\GoodDataWriter": "" }
 	},
 	"target-dir": "Keboola/GoodDataWriter",
 	"extra": {
 		"symfony-app-dir": "vendor/syrup/development-bundle/app",
-		"symfony-web-dir": "vendor/syrup/development-bundle/web"
+		"symfony-web-dir": "vendor/syrup/development-bundle/web",
+		"incenteev-parameters": {
+			"keep-outdated": true,
+			"file": "vendor/syrup/development-bundle/app/config/parameters.yml"
+		}
 	}
 }
