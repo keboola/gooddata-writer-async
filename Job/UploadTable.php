@@ -82,16 +82,17 @@ class UploadTable extends GenericJob
 			);
 		}
 
-		$csvUrl = $this->mainConfig['storageApi.url'] . '/v2/storage/tables/' . $params['tableId'] . '/export?format=escaped'
-			. ($incrementalLoad ? '&changedSince=-' . $incrementalLoad . '+days' : null);
-		$csvFilePath = tempnam($this->tmpDir, 'csv');
-		exec('curl --header "X-StorageApi-Token: ' . $job['token'] . '" --header "Accept-encoding: gzip" '
-		.'-A "' . $this->mainConfig['user_agent']
-		. '" -s ' . escapeshellarg($csvUrl) . ' > ' . escapeshellarg($csvFilePath . '.gz'));
-		exec('gzip -dc ' . escapeshellarg($csvFilePath . '.gz') . ' > ' . escapeshellarg($csvFilePath));
-		unlink($csvFilePath . '.gz');
-		chmod($csvFilePath, 0644);
-		$csvFile = $csvFilePath;
+		$sapiClient = new \Keboola\StorageApi\Client(
+			$job['token'],
+			$this->mainConfig['storageApi.url'],
+			$this->mainConfig['user_agent']
+		);
+		$csvFile = $this->tmpDir . '/' . $job['id'] . '-' . uniqid() . '.csv';
+		$options = array('format' => 'escaped');
+		if ($incrementalLoad) {
+			$options['changedSince'] = '-' . $incrementalLoad . '+days';
+		}
+		$sapiClient->exportTable($params['tableId'], $csvFile, $options);
 
 		if ($sanitize) {
 			libxml_use_internal_errors(TRUE);
@@ -147,7 +148,7 @@ class UploadTable extends GenericJob
 					'status' => 'error',
 					'error' => $errors,
 					'debug' => $this->clToolApi->debugLogUrl,
-					'csvFile' => $csvFilePath
+					'csvFile' => $csvFile
 				), $this->clToolApi->output);
 			}
 		}
@@ -195,8 +196,8 @@ class UploadTable extends GenericJob
 			'status' => $error ? 'error' : 'success',
 			'debug' => json_encode($debug),
 			'gdWriteStartTime' => $gdWriteStartTime,
-			'gdWriteBytes' => filesize($csvFilePath),
-			'csvFile' => $csvFilePath
+			'gdWriteBytes' => filesize($csvFile),
+			'csvFile' => $csvFile
 		), $output);
 	}
 }
