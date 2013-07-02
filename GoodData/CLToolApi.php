@@ -128,6 +128,7 @@ class CLToolApi
 		$outputFile = $workingDirectory . '/output-' . date('Ymd-His') . '-' . uniqid() . '.txt';
 		file_put_contents($outputFile . '.1', $args . "\n\n");
 
+		$backoffInterval = self::BACKOFF_INTERVAL;
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
 			exec($command . ' 2>&1 > ' . escapeshellarg($outputFile . '.2'));
 			exec('cat ' . escapeshellarg($outputFile . '.1') . ' ' . escapeshellarg($outputFile . '.2') .' > ' . escapeshellarg($outputFile));
@@ -154,9 +155,13 @@ class CLToolApi
 
 				$cleanUp();
 				return;
+			} else {
+				// Wait indefinitely
+				$i--;
+				$backoffInterval = 10 * 60;
 			}
 
-			sleep(self::BACKOFF_INTERVAL * ($i + 1));
+			sleep($backoffInterval * ($i + 1));
 		}
 
 		$cleanUp();

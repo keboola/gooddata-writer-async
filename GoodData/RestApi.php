@@ -816,6 +816,7 @@ class RestApi
 	{
 		$jsonParams = is_array($params) ? json_encode($params) : $params;
 
+		$backoffInterval = self::BACKOFF_INTERVAL;
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
 
 			switch ($method) {
@@ -866,9 +867,14 @@ class RestApi
 				throw new RestApiException($response);
 			} catch (ServerErrorResponseException $e) {
 				// Backoff
+				if ($request->getResponse()->getStatusCode() == 503) {
+					// Wait indefinitely
+					$i--;
+					$backoffInterval = 10 * 60;
+				}
 			}
 
-			sleep(self::BACKOFF_INTERVAL * ($i + 1));
+			sleep($backoffInterval * ($i + 1));
 		}
 
 		/** @var $response \Guzzle\Http\Message\Response */
