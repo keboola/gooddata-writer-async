@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Command;
 
+use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand,
 	Symfony\Component\Console\Input\InputArgument,
 	Symfony\Component\Console\Input\InputInterface,
@@ -42,21 +43,29 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		foreach ($sharedConfig->projectsToDelete() as $project) {
 			$env = $project['dev'] ? 'dev' : 'prod';
 			$restApi->login($mainConfig['gd'][$env]['username'], $mainConfig['gd'][$env]['password']);
-			$restApi->dropProject($project['pid']);
-			$pids[] = $project['pid'];
+			try {
+				$restApi->dropProject($project['pid']);
+				$pids[] = $project['pid'];
+				$output->writeln(sprintf('Project %s deleted', $project['pid']));
+			} catch (RestApiException $e) {
+				// Ignore
+			}
 		}
 		$sharedConfig->markProjectsDeleted($pids);
-		print_r($pids);
 
 		$uids = array();
 		foreach ($sharedConfig->usersToDelete() as $user) {
 			$env = $user['dev'] ? 'dev' : 'prod';
 			$restApi->login($mainConfig['gd'][$env]['username'], $mainConfig['gd'][$env]['password']);
-			$restApi->dropUser($user['uid']);
-			$uids[] = $user['uid'];
+			try {
+				$restApi->dropUser($user['uid']);
+				$uids[] = $user['uid'];
+				$output->writeln(sprintf('User %s deleted', $user['uid']));
+			} catch (RestApiException $e) {
+				// Ignore
+			}
 		}
 		$sharedConfig->markUsersDeleted($uids);
-		print_r($uids);die();
 	}
 
 }
