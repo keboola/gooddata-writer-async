@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Writer;
 
+use Keboola\Csv\CsvFile;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Table as StorageApiTable;
@@ -201,6 +202,38 @@ class SharedConfig
 	}
 
 
+	public function projectsToDelete()
+	{
+		$now = time();
+		$csv = $this->_storageApiClient->exportTable(self::PROJECTS_TO_DELETE_TABLE_ID, null, array(
+			'whereColumn' => 'deletedTime',
+			'whereValues' => array('')
+		));
+		$result = array();
+		foreach (StorageApiClient::parseCsv($csv) as $project) {
+			if ($now - strtotime($project['createdTime']) >= 60 * 60 * 24 * 30) {
+				$result[] = $project;
+			}
+		}
+		return $result;
+	}
+
+	public function markProjectsDeleted($pids)
+	{
+		$nowTime = date('c');
+		$data = array();
+		foreach ($pids as $pid) {
+			$data[] = array($pid, $nowTime);
+		}
+
+		$table = new StorageApiTable($this->_storageApiClient, self::PROJECTS_TO_DELETE_TABLE_ID, null, 'pid');
+		$table->setHeader(array('pid', 'deletedTime'));
+		$table->setFromArray($data);
+		$table->setPartial(true);
+		$table->setIncremental(true);
+		$table->save();
+	}
+
 	/**
 	 * @param $projectId
 	 * @param $writerId
@@ -213,12 +246,46 @@ class SharedConfig
 			'pid' => $pid,
 			'projectId' => $projectId,
 			'writerId' => $writerId,
-			'deleteDate' => date('c', strtotime('+30 days')),
+			'createdTime' => date('c'),
+			'deletedTime' => null,
 			'dev' => $dev
 		);
 		$table = new StorageApiTable($this->_storageApiClient, self::PROJECTS_TO_DELETE_TABLE_ID, null, 'pid');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
+		$table->setPartial(true);
+		$table->setIncremental(true);
+		$table->save();
+	}
+
+
+	public function usersToDelete()
+	{
+		$now = time();
+		$csv = $this->_storageApiClient->exportTable(self::USERS_TO_DELETE_TABLE_ID, null, array(
+			'whereColumn' => 'deletedTime',
+			'whereValues' => array('')
+		));
+		$result = array();
+		foreach (StorageApiClient::parseCsv($csv) as $user) {
+			if ($now - strtotime($user['createdTime']) >= 60 * 60 * 24 * 30) {
+				$result[] = $user;
+			}
+		}
+		return $result;
+	}
+
+	public function markUsersDeleted($ids)
+	{
+		$nowTime = date('c');
+		$data = array();
+		foreach ($ids as $id) {
+			$data[] = array($id, $nowTime);
+		}
+
+		$table = new StorageApiTable($this->_storageApiClient, self::USERS_TO_DELETE_TABLE_ID, null, 'uid');
+		$table->setHeader(array('uid', 'deletedTime'));
+		$table->setFromArray($data);
 		$table->setPartial(true);
 		$table->setIncremental(true);
 		$table->save();
@@ -238,7 +305,8 @@ class SharedConfig
 			'projectId' => $projectId,
 			'writerId' => $writerId,
 			'email' => $email,
-			'deleteDate' => date('c', strtotime('+30 days')),
+			'createdTime' => date('c'),
+			'deletedTime' => null,
 			'dev' => $dev
 		);
 		$table = new StorageApiTable($this->_storageApiClient, self::USERS_TO_DELETE_TABLE_ID, null, 'uid');
