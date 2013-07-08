@@ -50,9 +50,10 @@ class SyncFilters extends GenericJob {
 
 								// Create filter
 								$filter = $this->configuration->getFilter($fu['filterName']);
+								$attrId = $this->configuration->translateAttributeName($filter['attribute']);
 								$filterUri = $this->restApi->createFilter(
 									$filter['name'],
-									$filter['attribute'],
+									$attrId,
 									$filter['element'],
 									$filter['operator'],
 									$p['pid']
