@@ -9,6 +9,7 @@ namespace Keboola\GoodDataWriter\Job;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
+use Keboola\GoodDataWriter\Exception\WrongParametersException;
 
 class createFilter extends GenericJob
 {
@@ -33,12 +34,14 @@ class createFilter extends GenericJob
 			'operator'
 		));
 
+		$attrId = $this->configuration->translateAttributeName($params['attribute']);
+
 		try {
 			$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
 			$filterUri = $this->restApi->createFilter(
 				$params['name'],
-				$params['attribute'],
+				$attrId,
 				$params['element'],
 				$params['operator'],
 				$params['pid']
@@ -61,6 +64,8 @@ class createFilter extends GenericJob
 
 		} catch (UnauthorizedException $e) {
 			throw new WrongConfigurationException('Login failed');
+		} catch (WrongParametersException $e) {
+			throw new WrongConfigurationException($e->getMessage());
 		} catch (RestApiException $e) {
 			return $this->_prepareResult($job['id'], array(
 				'status' => 'error',
