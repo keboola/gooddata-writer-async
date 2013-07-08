@@ -124,4 +124,21 @@ class DatasetsTest extends WriterTest
 
 		$this->assertNotEquals($lastChangeDate, $lastChangeDateAfterUpdate, 'Last change date should be changed after update');
 	}
+
+
+	public function testRemoveColumn()
+	{
+		$this->_prepareData();
+		$tableId = $this->dataBucketId . '.products';
+		$nowTime = date('c');
+
+		// Remove column and test if lastChangeDate changed
+		self::$storageApi->deleteTableColumn($tableId, 'price');
+
+		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $tableId);
+		$this->assertArrayHasKey('table', $responseJson, "Response for writer call '/tables&tableId=' should contain 'table' key.");
+
+		$this->assertArrayHasKey('lastChangeDate', $responseJson['table'], "Response for writer call '/tables&tableId=' should contain 'table.lastChangeDate' key.");
+		$this->assertGreaterThan($nowTime, $responseJson['table']['lastChangeDate'], "Response for writer call '/tables&tableId=' should have 'table.lastChangeDate' updated.");
+	}
 }

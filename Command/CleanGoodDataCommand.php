@@ -6,8 +6,18 @@
 
 namespace Keboola\GoodDataWriter\Command;
 
+use Keboola\GoodDataWriter\GoodData\RestApiException;
+use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand,
+	Symfony\Component\Console\Input\InputArgument,
+	Symfony\Component\Console\Input\InputInterface,
+	Symfony\Component\Console\Input\InputOption,
+	Symfony\Component\Console\Output\OutputInterface;
+use Keboola\GoodDataWriter\GoodData\RestApi,
+	Keboola\GoodDataWriter\Writer\Configuration,
+	Keboola\StorageApi\Client as StorageApiClient,
+	Keboola\GoodDataWriter\Writer\SharedConfig;
 
-class CleanGoodDataCommand
+class CleanGoodDataCommand extends ContainerAwareCommand
 {
 
 	protected function configure()
@@ -20,34 +30,48 @@ class CleanGoodDataCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
-		$this->_log = $this->getContainer()->get('logger');
+		$log = $this->getContainer()->get('logger');
 		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
-		$this->_db = new \Zend_Db_Adapter_Pdo_Mysql(array(
-			'host' => $mainConfig['db']['host'],
-			'username' => $mainConfig['db']['user'],
-			'password' => $mainConfig['db']['password'],
-			'dbname' => $mainConfig['db']['name']
-		));
-		$this->_queue = new Queue($this->_db);
 
-		$this->_sharedConfig = new SharedConfig(
+		$sharedConfig = new SharedConfig(
 			new StorageApiClient($mainConfig['shared_sapi']['token'], $mainConfig['shared_sapi']['url'])
 		);
 
-		$this->_output = $output;
+		$restApi = new RestApi(null, $log);
 
-		// process messages from first queue
-		foreach ($this->_queue->fetchAllQueuesNamesOrderedByMessageAge() as $queueName) {
-			$lock = $this->_getLock('queue-' . $queueName);
-			if (!$lock->lock()) {
-				continue; // locked
+		$pids = array();
+		foreach ($sharedConfig->projectsToDelete() as $project) {
+			$env = $project['dev'] ? 'dev' : 'prod';
+			$restApi->login($mainConfig['gd'][$env]['username'], $mainConfig['gd'][$env]['password']);
+			try {
+				$restApi->dropProject($project['pid']);
+				$pids[] = $project['pid'];
+				$output->writeln(sprintf('Project %s deleted', $project['pid']));
+			} catch (RestApiException $e) {
+				$log->alert('Could nor delete project', array(
+					'project' => $project,
+					'exception' => $e
+				));
 			}
-
-			$this->_receiveQueue($queueName);
-
-			$lock->unlock();
-			break;
 		}
+		$sharedConfig->markProjectsDeleted($pids);
+
+		$uids = array();
+		foreach ($sharedConfig->usersToDelete() as $user) {
+			$env = $user['dev'] ? 'dev' : 'prod';
+			$restApi->login($mainConfig['gd'][$env]['username'], $mainConfig['gd'][$env]['password']);
+			try {
+				$restApi->dropUser($user['uid']);
+				$uids[] = $user['uid'];
+				$output->writeln(sprintf('User %s deleted', $user['uid']));
+			} catch (RestApiException $e) {
+				$log->alert('Could nor delete user', array(
+					'user' => $user,
+					'exception' => $e
+				));
+			}
+		}
+		$sharedConfig->markUsersDeleted($uids);
 	}
 
 }

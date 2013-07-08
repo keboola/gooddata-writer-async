@@ -92,17 +92,20 @@ class WorkerCommand extends ContainerAwareCommand
 		$queue = $this->_queue->getQueue($queueName);
 
 		foreach ($queue->receive($maxMessagesCount) as $message) {
-			try {
-				$this->_executeJob($message->body);
-			} catch (\Exception $e) {
-				$this->_log->alert('Job execution error', array(
-					'jobId' => $message->body,
-					'queueName' => $queueName,
-					'exception' => $e,
-				));
-				$this->_output->writeln('Job execution error:' . $e->getMessage());
+			// Check if job is still in the queue and has not been cancelled meanwhile
+			if ($this->_queue->checkJobInQueue($message->body)) {
+				try {
+					$this->_executeJob($message->body);
+				} catch (\Exception $e) {
+					$this->_log->alert('Job execution error', array(
+						'jobId' => $message->body,
+						'queueName' => $queueName,
+						'exception' => $e,
+					));
+					$this->_output->writeln('Job execution error:' . $e->getMessage());
+				}
+				$queue->deleteMessage($message);
 			}
-			$queue->deleteMessage($message);
 		}
 	}
 

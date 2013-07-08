@@ -128,6 +128,7 @@ class CLToolApi
 		$outputFile = $workingDirectory . '/output-' . date('Ymd-His') . '-' . uniqid() . '.txt';
 		file_put_contents($outputFile . '.1', $args . "\n\n");
 
+		$backoffInterval = self::BACKOFF_INTERVAL;
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
 			exec($command . ' 2>&1 > ' . escapeshellarg($outputFile . '.2'));
 			exec('cat ' . escapeshellarg($outputFile . '.1') . ' ' . escapeshellarg($outputFile . '.2') .' > ' . escapeshellarg($outputFile));
@@ -148,15 +149,21 @@ class CLToolApi
 				$this->debugLogUrl = $this->s3uploader->uploadFile($outputFile);
 
 				// Test output for runtime error
-				if (shell_exec(sprintf("cat %s | grep -v 'SocketException' | egrep 'ERROR|Exception'", escapeshellarg($outputFile)))) {
+				if (shell_exec("egrep 'com.gooddata.exception.HttpMethodException: 401 Unauthorized' " . escapeshellarg($outputFile))) {
+					// Backoff and try again
+				} elseif (shell_exec(sprintf("cat %s | grep -v 'SocketException' | egrep 'ERROR|Exception'", escapeshellarg($outputFile)))) {
 					throw new CLToolApiErrorException('CL Tool Error, see debug log for details: ' . $this->debugLogUrl);
 				}
 
 				$cleanUp();
 				return;
+			} else {
+				// Wait indefinitely
+				$i--;
+				$backoffInterval = 10 * 60;
 			}
 
-			sleep(self::BACKOFF_INTERVAL * ($i + 1));
+			sleep($backoffInterval * ($i + 1));
 		}
 
 		$cleanUp();
