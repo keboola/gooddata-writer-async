@@ -16,7 +16,7 @@ class FiltersTest extends WriterTest
 		$this->_processJob('/gooddata-writer/filters', array(
 			"pid"       => $pid,
 			"name"      => "filter",
-			"attribute" => "Name (Products)",
+			"attribute" => $this->dataBucketId . '.' . 'products' . '.' . 'name',
 			"element"   => "Product 1"
 		));
 	}
