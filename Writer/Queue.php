@@ -67,4 +67,9 @@ class Queue
 		");
 	}
 
+	public function checkJobInQueue($id)
+	{
+		return ($this->_db->fetchOne('SELECT COUNT(*) FROM message WHERE body = ?', $id)) > 0;
+	}
+
 }
