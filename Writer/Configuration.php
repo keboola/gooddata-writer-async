@@ -1215,4 +1215,28 @@ class Configuration
 			$table->save();
 		}
 	}
+
+	/**
+	 * Translates attribute name from SAPI form to GD form
+	 * Example: out.c-main.users.id -> attr.outcmainusers.id
+	 * If GdName is set on SAPI table (GdName = users): out.c-main.users.id -> attr.users.id
+	 *
+	 * @param $attribute
+	 * @return string
+	 */
+	public function translateAttributeName($attribute)
+	{
+		$idArr = explode('.', $attribute);
+		$tableId = $idArr[0] . '.' . $idArr[1] . '.' . $idArr[2];
+		$attrName = $idArr[3];
+
+		$tableDef = $this->getTableDefinition($tableId);
+
+		$tableName = $tableId;
+		if (isset($tableDef['gdName'])) {
+			$tableName = $tableDef['gdName'];
+		}
+
+		return strtolower('attr.' . preg_replace('/[^a-z\d ]/i', '', $tableName) . '.' . $attrName);
+	}
 }
