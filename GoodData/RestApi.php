@@ -575,7 +575,7 @@ class RestApi
 	 */
 	public function createFilter($name, $attribute, $element, $operator, $pid)
 	{
-		$gdAttribute = $this->getAttributeByTitle($pid, $attribute);
+		$gdAttribute = $this->getAttributeById($pid, $attribute);
 
 		$elementUri = $this->getElementUriByTitle(
 			$gdAttribute['content']['displayForms'][0]['links']['elements'],
@@ -669,6 +669,27 @@ class RestApi
 			));
 			throw new RestApiException('Attributes in project could not be fetched');
 		}
+	}
+
+	public function getAttributeById($pid, $id)
+	{
+		$attributes = $this->getAttributes($pid);
+
+		foreach ($attributes as $attr) {
+			$object = $this->_jsonRequest($attr['link']);
+			if (isset($object['attribute']['meta']['identifier'])) {
+				if ($object['attribute']['meta']['identifier'] == $id) {
+					return $object['attribute'];
+				}
+			}
+		}
+
+		$this->_log->alert('', array(
+			'pid'               => $pid,
+			'attribute'         => $id,
+			'attributesFound'   => $attributes
+		));
+		throw new RestApiException('Attribute ' . $id . ' not found in project.');
 	}
 
 	public function getAttributeByTitle($pid, $title)
