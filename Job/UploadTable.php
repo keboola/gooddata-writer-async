@@ -90,7 +90,7 @@ class UploadTable extends GenericJob
 		$csvFile = $this->tmpDir . '/' . $job['id'] . '-' . uniqid() . '.csv';
 		$options = array('format' => 'escaped');
 		if ($incrementalLoad) {
-			$options['changedSince'] = '-' . $incrementalLoad . '+days';
+			$options['changedSince'] = '-' . $incrementalLoad . ' days';
 		}
 		$sapiClient->exportTable($params['tableId'], $csvFile, $options);
 
