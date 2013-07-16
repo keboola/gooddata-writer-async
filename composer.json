@@ -38,6 +38,7 @@
 			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap"
 		],
 		"post-update-cmd": [
+			"Incenteev\\ParameterHandler\\ScriptHandler::buildParameters",
 			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap",
 			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::clearCache"
 		]
@@ -52,7 +53,8 @@
 		"symfony-web-dir": "vendor/syrup/development-bundle/web",
 		"incenteev-parameters": {
 			"keep-outdated": true,
-			"file": "vendor/syrup/development-bundle/app/config/parameters.yml"
+			"file": "vendor/syrup/development-bundle/app/config/parameters.yml",
+			"dist-file": "parameters.yml.dist"
 		}
 	}
 }

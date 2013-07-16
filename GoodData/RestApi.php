@@ -863,10 +863,9 @@ class RestApi
 		$error401 = false;
 		$response = null;
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
-
 			switch ($method) {
 				case 'GET':
-					$request = $this->_client->get($uri, $headers, $jsonParams);
+					$request = $this->_client->get($uri, $headers);
 					break;
 				case 'POST':
 					$request = $this->_client->post($uri, $headers, $jsonParams);
@@ -875,7 +874,7 @@ class RestApi
 					$request = $this->_client->put($uri, $headers, $jsonParams);
 					break;
 				case 'DELETE':
-					$request = $this->_client->delete($uri, $headers, $jsonParams);
+					$request = $this->_client->delete($uri, $headers);
 					break;
 				default:
 					throw new RestApiException('Unsupported request method');
