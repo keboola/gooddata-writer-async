@@ -34,6 +34,7 @@
 		<exec executable="php" failonerror="true">
 			<arg value="composer.phar"/>
 			<arg value="update"/>
+			<arg value="-n"/>
 			<arg value="--dev"/>
 		</exec>
 	</target>
