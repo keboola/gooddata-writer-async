@@ -40,6 +40,7 @@ abstract class GenericJob
 	 */
 	public $logUploader;
 	public $tmpDir;
+	public $rootPath;
 
 
 	public function __construct($configuration, $mainConfig, $sharedConfig, $restApi, $clToolApi, $logUploader)

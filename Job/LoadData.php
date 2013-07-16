@@ -1,45 +1,99 @@
 <?php
 /**
  * @author Jakub Matejka <jakub@keboola.com>
- * @date 2013-04-12
+ * @date 2013-04-17
  */
 
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
+	Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
 
 class LoadData extends GenericJob
 {
-	/**
-	 * @param $job
-	 * @param $params
-	 * @throws WrongConfigurationException
-	 * @return array
-	 */
 	public function run($job, $params)
 	{
-		if (empty($params['pid'])) {
-			throw new WrongConfigurationException("Parameter 'pid' is missing");
-		}
 		if (empty($job['xmlFile'])) {
 			throw new WrongConfigurationException("Parameter 'xmlFile' is missing");
 		}
-		if (!isset($params['incremental'])) {
-			throw new WrongConfigurationException("Parameter 'incremental' is missing");
-		}
 		$this->configuration->checkGoodDataSetup();
-		$tableInfo = $this->configuration->getTable($params['tableId']);
+
+		$startTime = time();
 
 		$xmlFile = $job['xmlFile'];
 		if (!is_file($xmlFile)) {
 			$xmlFilePath = tempnam($this->tmpDir, 'xml');
-			exec('curl -s ' . escapeshellarg($xmlFile) . ' > ' . escapeshellarg($xmlFilePath));
+			exec('curl -s -L ' . escapeshellarg($xmlFile) . ' > ' . escapeshellarg($xmlFilePath));
 			$xmlFile = $xmlFilePath;
 		}
 
-		$incrementalLoad = !empty($params['incremental']) ? $params['incremental']
-			: (isset($tableInfo['sanitize']) ? $tableInfo['sanitize'] : null);
+		libxml_use_internal_errors(TRUE);
+		$xmlFileObject = simplexml_load_file($xmlFile);
+		if (!$xmlFileObject) {
+			$errors = '';
+			foreach (libxml_get_errors() as $error) {
+				$errors .= $error->message;
+			}
+			return $this->_prepareResult($job['id'], array(
+				'status' => 'error',
+				'error' => $errors,
+				'debug' => $this->clToolApi->debugLogUrl
+			), $this->clToolApi->output);
+		}
+
+		$projects = $this->configuration->getProjects();
+		$gdJobs = array();
+
+		// Create used date dimensions
+		$dateDimensions = null;
+		if ($xmlFileObject->columns) foreach ($xmlFileObject->columns->column as $column) if ((string)$column->ldmType == 'DATE') {
+			if (!$dateDimensions) {
+				$dateDimensions = $this->configuration->getDateDimensions();
+			}
+
+			$dimension = (string)$column->schemaReference;
+			if (!isset($dateDimensions[$dimension])) {
+				throw new WrongConfigurationException("Date dimension '$dimension' does not exist");
+			}
+
+			if (empty($dateDimensions[$dimension]['lastExportDate'])) {
+				foreach ($projects as $project) if ($project['active']) {
+					$gdJobs[] = array(
+						'command' => 'createDate',
+						'pid' => $project['pid'],
+						'name' => $dateDimensions[$dimension]['name'],
+						'includeTime' => !empty($dateDimensions[$dimension]['includeTime'])
+					);
+				}
+				$this->configuration->setDateDimensionAttribute($dimension, 'lastExportDate', date('c', $startTime));
+			}
+		}
+
+		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
+		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
+			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
+		$sanitize = (isset($params['sanitize'])) ? $params['sanitize']
+			: empty($tableDefinition['sanitize']);
+
+		foreach ($projects as $project) if ($project['active']) {
+			if (empty($tableDefinition['lastExportDate'])) {
+				$gdJobs[] = array(
+					'command' => 'createDataset',
+					'pid' => $project['pid']
+				);
+			} else if (empty($tableDefinition['lastChangeDate']) || strtotime($tableDefinition['lastChangeDate']) > strtotime($tableDefinition['lastExportDate'])) {
+				$gdJobs[] = array(
+					'command' => 'updateDataset',
+					'pid' => $project['pid']
+				);
+			}
+
+			$gdJobs[] = array(
+				'command' => 'loadData',
+				'pid' => $project['pid']
+			);
+		}
 
 		$sapiClient = new \Keboola\StorageApi\Client(
 			$job['token'],
@@ -53,91 +107,134 @@ class LoadData extends GenericJob
 		}
 		$sapiClient->exportTable($params['tableId'], $csvFile, $options);
 
+		if ($sanitize) {
+			$nullReplace = 'cat ' . escapeshellarg($csvFile) . ' | sed \'s/\"NULL\"/\"\"/g\' | awk -v OFS="\",\"" -F"\",\"" \'{';
 
-		$sanitize = !empty($params['sanitize']) ? $params['sanitize']
-			: (isset($tableInfo['sanitize']) ? $tableInfo['sanitize'] : null);
-		libxml_use_internal_errors(TRUE);
-		$sxml = simplexml_load_file($xmlFile);
-		if ($sxml) {
-
-			if ($sanitize) {
-				$nullReplace = 'cat ' . $csvFile . ' | sed \'s/\"NULL\"/\"\"/g\' | awk -v OFS="\",\"" -F"\",\"" \'{';
-
-				$i = 1;
-				$columnsCount = $sxml->columns->column->count();
-				foreach ($sxml->columns->column as $column) {
-					$type = (string)$column->ldmType;
-					$value = NULL;
-					switch ($type) {
-						case 'ATTRIBUTE':
-							$value = '-- empty --';
-							break;
-						case 'LABEL':
-						case 'FACT':
-							$value = '0';
-							break;
-						case 'DATE':
-							$format = (string)$column->format;
-							$value = str_replace(
-								array('yyyy', 'MM', 'dd', 'hh', 'HH', 'mm', 'ss', 'kk'),
-								array('1900', '01', '01', '00', '00', '00', '00', '00'),
-								$format);
-							break;
-					}
-					if (!is_null($value)) {
-						$testValue = '""';
-						if ($i == 1) {
-							$testValue = '"\""';
-							$value = '\"' . $value;
-						}
-						if ($i == $columnsCount) {
-							$testValue = '"\""';
-							$value .= '\"';
-						}
-						$nullReplace .= 'if ($' . $i . ' == ' . $testValue . ') {$' . $i . ' = "' . $value . '"} ';
-					}
-					$i++;
+			$i = 1;
+			$columnsCount = $xmlFileObject->columns->column->count();
+			foreach ($xmlFileObject->columns->column as $column) {
+				$type = (string)$column->ldmType;
+				$value = NULL;
+				switch ($type) {
+					case 'ATTRIBUTE':
+						$value = '-- empty --';
+						break;
+					case 'LABEL':
+					case 'FACT':
+						$value = '0';
+						break;
+					case 'DATE':
+						$format = (string)$column->format;
+						$value = str_replace(
+							array('yyyy', 'MM', 'dd', 'hh', 'HH', 'mm', 'ss', 'kk'),
+							array('1900', '01', '01', '00', '00', '00', '00', '00'),
+							$format);
+						break;
 				}
-				$nullReplace .= '; print }\' > ' . $csvFile . '.out';
-				shell_exec($nullReplace);
-
-				$csvFile .= '.out';
+				if (!is_null($value)) {
+					$testValue = '""';
+					if ($i == 1) {
+						$testValue = '"\""';
+						$value = '\"' . $value;
+					}
+					if ($i == $columnsCount) {
+						$testValue = '"\""';
+						$value .= '\"';
+					}
+					$nullReplace .= 'if ($' . $i . ' == ' . $testValue . ') {$' . $i . ' = "' . $value . '"} ';
+				}
+				$i++;
 			}
+			$nullReplace .= '; print }\' > ' . escapeshellarg($csvFile . '.out');
+			shell_exec($nullReplace);
 
-		} else {
-			$errors = '';
-			foreach (libxml_get_errors() as $error) {
-				$errors .= $error->message;
+			$csvFile .= '.out';
+		}
+
+
+		// Remove ignored columns from csv
+		$ignoredColumns = array();
+		$i = 1;
+		foreach ($xmlFileObject->columns->column as $column) {
+			if ((string)$column->ldmType == 'IGNORE') {
+				$ignoredColumns[] = $i;
 			}
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => $errors,
-				'debug' => $this->clToolApi->debugLogUrl,
-				'csvFile' => $csvFile
-			), $this->clToolApi->output);
+			$i++;
+		}
+		if (count($ignoredColumns)) {
+			shell_exec('cut -d"," -f' . implode(',', $ignoredColumns) . ' --complement ' . escapeshellarg($csvFile) . ' > '  . escapeshellarg($csvFile . '.i'));
+			unlink($csvFile);
+			rename($csvFile . '.i', $csvFile);
 		}
 
 
 		$gdWriteStartTime = date('c');
-		try {
-			$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$this->clToolApi->loadData($params['pid'], $xmlFile, $csvFile, $params['incremental']);
+		$debug = array();
+		$output = null;
 
-			return $this->_prepareResult($job['id'], array(
-				'debug' => $this->clToolApi->debugLogUrl,
-				'gdWriteStartTime' => $gdWriteStartTime,
-				'csvFile' => $csvFile
-			), $this->clToolApi->output);
+		$datasetName = mb_strtolower(str_replace(' ', '', $xmlFileObject->name));
+		$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
-		} catch (CLToolApiErrorException $e) {
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => $e->getMessage(),
-				'debug' => $this->clToolApi->debugLogUrl,
-				'gdWriteStartTime' => $gdWriteStartTime,
-				'csvFile' => $csvFile
-			), $this->clToolApi->output);
+		$error = false;
+		$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+		foreach ($gdJobs as $gdJob) {
+			$this->clToolApi->debugLogUrl = null;
+			try {
+				switch ($gdJob['command']) {
+					case 'createDate':
+						$this->clToolApi->createDate($gdJob['pid'], $gdJob['name'], $gdJob['includeTime']);
+						break;
+					case 'createDataset':
+						$this->clToolApi->createDataset($gdJob['pid'], $xmlFile);
+						break;
+					case 'updateDataset':
+						$this->clToolApi->updateDataset($gdJob['pid'], $xmlFile, 1);
+
+						break;
+					case 'loadData':
+						//$this->clToolApi->loadData($gdJob['pid'], $xmlFile, $csvFile, $incrementalLoad);
+
+						// Get manifest
+						$manifest = $this->restApi->get(sprintf('/gdc/md/%s/ldm/singleloadinterface/dataset.%s/manifest', $gdJob['pid'], $datasetName));
+						$columnNames = array();
+						foreach ($manifest['dataSetSLIManifest']['parts'] as &$column) {
+							$columnNames[] = $column['columnName'];
+							if ($incrementalLoad) {
+								$column['mode'] = 'INCREMENTAL';
+							}
+						}
+
+						// Add column headers according to manifest
+						shell_exec('tail -n +2 ' . escapeshellarg($csvFile) . ' > ' . escapeshellarg($csvFile . '.1'));
+						shell_exec('sed ' . escapeshellarg('1 i "' . implode('","', $columnNames) . '"') . ' ' . escapeshellarg($csvFile . '.1') . ' > ' . escapeshellarg($csvFile));
+
+
+
+						die();
+
+						break;
+				}
+			} catch (CLToolApiErrorException $e) {
+				$this->clToolApi->output .= '!!! ERROR !!' . PHP_EOL . $e->getMessage() . PHP_EOL;
+				$error = true;
+			}
+
+			if ($this->clToolApi->debugLogUrl) {
+				$debug[$gdJob['command']] = $this->clToolApi->debugLogUrl;
+			}
+			$output .= $this->clToolApi->output;
 		}
 
+		if (empty($tableDefinition['lastExportDate'])) {
+			$this->configuration->setTableAttribute($params['tableId'], 'export', 1);
+		}
+		$this->configuration->setTableAttribute($params['tableId'], 'lastExportDate', date('c', $startTime));
+		return $this->_prepareResult($job['id'], array(
+			'status' => $error ? 'error' : 'success',
+			'debug' => json_encode($debug),
+			'gdWriteStartTime' => $gdWriteStartTime,
+			'gdWriteBytes' => filesize($csvFile),
+			'csvFile' => $csvFile
+		), $output);
 	}
 }

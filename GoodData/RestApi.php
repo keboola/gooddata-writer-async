@@ -13,6 +13,7 @@ use Guzzle\Http\Client,
 	Guzzle\Http\Exception\ClientErrorResponseException,
 	Guzzle\Common\Exception\RuntimeException,
 	Guzzle\Http\Message\Header;
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
@@ -526,6 +527,48 @@ class RestApi
 
 
 	/**
+	 * Run load data task
+	 *
+	 * @param $pid
+	 * @param string $dirName
+	 * @throws \Exception|\Guzzle\Http\Exception\ClientErrorResponseException
+	 * @throws RestApiException
+	 */
+	public function loadData($pid, $dirName)
+	{
+		$uri = sprintf('/gdc/md/%s/etl/pull', $pid);
+		$result = $this->_jsonRequest($uri, 'POST', array('pullIntegration' => $dirName));
+
+		if (isset($result['pullTask']['uri'])) {
+
+			$try = 1;
+			do {
+				sleep(10 * $try);
+				$taskResponse = $this->_jsonRequest($result['pullTask']['uri']);
+
+				if (!isset($taskResponse['taskStatus'])) {
+					$this->_log->alert('loadData() has bad response', array(
+						'uri' => $result['pullTask']['uri'],
+						'result' => $taskResponse
+					));
+					throw new RestApiException('ETL task could not be checked');
+				}
+
+				$try++;
+			} while (in_array($taskResponse['taskStatus'], array('PREPARED', 'RUNNING')));
+
+		} else {
+			$this->_log->alert('loadData() has bad response', array(
+				'uri' => $uri,
+				'result' => $result
+			));
+			throw new RestApiException('Pull task could not be started');
+		}
+	}
+
+
+
+	/**
 	 * Drop dataset
 	 * @param $pid
 	 * @param $dataset
@@ -575,7 +618,7 @@ class RestApi
 	 */
 	public function createFilter($name, $attribute, $element, $operator, $pid)
 	{
-		$gdAttribute = $this->getAttributeById($pid, $attribute);
+		$gdAttribute = $this->getAttributeByTitle($pid, $attribute);
 
 		$elementUri = $this->getElementUriByTitle(
 			$gdAttribute['content']['displayForms'][0]['links']['elements'],
@@ -669,27 +712,6 @@ class RestApi
 			));
 			throw new RestApiException('Attributes in project could not be fetched');
 		}
-	}
-
-	public function getAttributeById($pid, $id)
-	{
-		$attributes = $this->getAttributes($pid);
-
-		foreach ($attributes as $attr) {
-			$object = $this->_jsonRequest($attr['link']);
-			if (isset($object['attribute']['meta']['identifier'])) {
-				if ($object['attribute']['meta']['identifier'] == $id) {
-					return $object['attribute'];
-				}
-			}
-		}
-
-		$this->_log->alert('', array(
-			'pid'               => $pid,
-			'attribute'         => $id,
-			'attributesFound'   => $attributes
-		));
-		throw new RestApiException('Attribute ' . $id . ' not found in project.');
 	}
 
 	public function getAttributeByTitle($pid, $title)

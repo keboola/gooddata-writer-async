@@ -2,12 +2,9 @@
 
 namespace Keboola\GoodDataWriter\Exception;
 
-use Syrup\ComponentBundle\Exception\SyrupComponentException;
+use Keboola\GoodDataWriter\Exception\ClientException;
 
-class WrongConfigurationException extends SyrupComponentException
+class WrongConfigurationException extends ClientException
 {
-	public function __construct($message)
-	{
-		parent::__construct(400, $message);
-	}
+
 }
