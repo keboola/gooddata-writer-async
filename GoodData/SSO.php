@@ -7,6 +7,7 @@
  */
 namespace Keboola\GoodDataWriter\GoodData;
 
+use Keboola\GoodDataWriter\Writer\Configuration;
 use Symfony\Component\HttpKernel\Kernel;
 
 class GoodDataSSOException extends \Exception
@@ -27,14 +28,15 @@ class SSO
 	public $tmpPath;
 	public $emailTemplate;
 
-	public function __construct(array $gdConfig, Kernel $kernel)
-	{
-		$this->tmpPath = $kernel->getRootDir() . '/tmp';
-		$env = $kernel->getEnvironment();
+	protected $gooddataHost = 'secure.gooddata.com';
 
-		$this->ssoProvider = $gdConfig['gd'][$env]['sso_provider'];
-		$this->ssoUser = $gdConfig['gd'][$env]['username'];
-		$this->passphrase = $gdConfig['gd'][$env]['key_passphrase'];
+	public function __construct(Configuration $configuration, array $mainConfig)
+	{
+		$this->tmpPath = $configuration->tmpDir;
+
+		$this->ssoProvider = $mainConfig['sso_provider'];
+		$this->ssoUser = $mainConfig['username'];
+		$this->passphrase = $mainConfig['key_passphrase'];
 	}
 
 	public function url($targetUrl, $email)
@@ -53,7 +55,7 @@ class SSO
 			$sign = file_get_contents($jsonFile . '.enc');
 			unlink($jsonFile . '.enc');
 
-			$url = sprintf("https://secure.gooddata.com/gdc/account/customerlogin?sessionId=%s&serverURL=%s&targetURL=%s",
+			$url = sprintf("https://{$this->gooddataHost}/gdc/account/customerlogin?sessionId=%s&serverURL=%s&targetURL=%s",
 				urlencode($sign),
 				urlencode($this->ssoProvider),
 				urlencode($targetUrl)
