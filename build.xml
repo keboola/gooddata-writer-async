@@ -25,6 +25,7 @@
 		<exec executable="php" failonerror="true">
 			<arg value="composer.phar"/>
 			<arg value="install"/>
+			<arg value="-n"/>
 			<arg value="--dev"/>
 		</exec>
 	</target>
