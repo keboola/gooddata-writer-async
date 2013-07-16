@@ -22,6 +22,10 @@ class DropWriter extends GenericJob
 		$mainConfig = $this->mainConfig['gd'][$env];
 		$dropImmediately = !empty($params['immediately']);
 
+		if (!$this->configuration->bucketId) {
+			throw new WrongConfigurationException('Writer has been already deleted.');
+		}
+
 		foreach ($this->configuration->getProjects() as $project) {
 			if ($dropImmediately) {
 
