@@ -6,12 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Exception;
 
-use Syrup\ComponentBundle\Exception\SyrupComponentException;
-
-class JobProcessException extends SyrupComponentException
+class JobProcessException extends ClientException
 {
-	public function __construct($message)
-	{
-		parent::__construct(400, $message);
-	}
+
 }

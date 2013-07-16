@@ -10,9 +10,10 @@ use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Exception as StorageApiException;
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\RestApi,
-	Keboola\GoodDataWriter\GoodData\CLToolApi;
+	Keboola\GoodDataWriter\GoodData\CLToolApi,
+	Keboola\GoodDataWriter\Exception\ClientException,
+	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Monolog\Logger;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -221,6 +222,7 @@ class JobExecutor
 			 */
 			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $clToolApi, $logUploader);
 			$command->tmpDir = $tmpDir;
+			$command->rootPath = $mainConfig['root_path'];
 			$result = $command->run($job, $parameters);
 
 			$duration = time() - $time;
@@ -233,7 +235,7 @@ class JobExecutor
 
 			return $result;
 
-		} catch (WrongConfigurationException $e) {
+		} catch (ClientException $e) {
 			$duration = $time - time();
 
 			$sapiEvent
