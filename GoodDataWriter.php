@@ -633,10 +633,10 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("User " . $user . " doesn't exist in writer");
 		}
 
-		$gdProjectUrl = '/#s=/gdc/projects/' . $params['pid'];
+		$mainConfig = empty($params['dev']) ? $this->_mainConfig['gd']['prod'] : $this->_mainConfig['gd']['dev'];
+		$sso = new SSO($this->configuration, $mainConfig);
 
-		/** @var SSO $sso */
-		$sso = $this->_container->get('gooddata_writer.sso');
+		$gdProjectUrl = '/#s=/gdc/projects/' . $params['pid'];
 		$ssoLink = $sso->url($gdProjectUrl, $params['email']);
 
 		return array('ssoLink' => $ssoLink);
