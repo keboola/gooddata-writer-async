@@ -1,3 +1,4 @@
+parameters.yml.dist
 scripts/debug.php
 *.log
 .idea

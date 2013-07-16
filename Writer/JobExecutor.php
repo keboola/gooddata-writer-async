@@ -6,6 +6,8 @@
 
 namespace Keboola\GoodDataWriter\Writer;
 
+use Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
+use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Table as StorageApiTable,
@@ -223,7 +225,13 @@ class JobExecutor
 			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $clToolApi, $logUploader);
 			$command->tmpDir = $tmpDir;
 			$command->rootPath = $mainConfig['root_path'];
-			$result = $command->run($job, $parameters);
+			try {
+				$result = $command->run($job, $parameters);
+			} catch (RestApiException $e) {
+				throw new ClientException('Rest API error: ' . $e->getMessage());
+			} catch (CLToolApiErrorException $e) {
+				throw new ClientException('CL Tool error: ' . $e->getMessage());
+			}
 
 			$duration = time() - $time;
 			$sapiEvent

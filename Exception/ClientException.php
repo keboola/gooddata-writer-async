@@ -1,7 +1,7 @@
 <?php
 /**
  * @author Jakub Matejka <jakub@keboola.com>
- * @date 2013-04-19
+ * @date 2013-07-16
  */
 
 namespace Keboola\GoodDataWriter\Exception;

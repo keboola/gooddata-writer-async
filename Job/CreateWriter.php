@@ -8,6 +8,7 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\GoodData\RestApiException;
 
 class CreateWriter extends GenericJob
 {
@@ -35,7 +36,11 @@ class CreateWriter extends GenericJob
 		$password = md5(uniqid());
 
 		$this->restApi->login($mainConfig['username'], $mainConfig['password']);
-		$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
+		try {
+			$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
+		} catch (RestApiException $e) {
+			throw new WrongConfigurationException('Project creation failed: ' . $e->getMessage());
+		}
 		$userId = $this->restApi->createUser($mainConfig['domain'], $username, $password, 'KBC', 'Writer', $mainConfig['sso_provider']);
 		$this->restApi->addUserToProject($userId, $projectPid, RestApi::$userRoles['admin']);
 
