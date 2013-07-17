@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\Exception\ClientException;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
@@ -51,6 +52,7 @@ class UploadTable extends GenericJob
 		$projects = $this->configuration->getProjects();
 		$gdJobs = array();
 
+
 		// Create used date dimensions
 		$dateDimensions = null;
 		if ($xmlFileObject->columns) foreach ($xmlFileObject->columns->column as $column) if ((string)$column->ldmType == 'DATE') {
@@ -76,6 +78,8 @@ class UploadTable extends GenericJob
 			}
 		}
 
+
+		// Prepare model alteration jobs
 		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
@@ -113,6 +117,8 @@ class UploadTable extends GenericJob
 		}
 		$sapiClient->exportTable($params['tableId'], $tmpFolder . '/data.csv', $options);
 
+
+		// Sanitize CSV
 		if ($sanitize) {
 			rename($tmpFolder . '/data.csv', $tmpFolder . '/data.csv.in');
 			$nullReplace = 'cat ' . escapeshellarg($tmpFolder . '/data.csv.in') . ' | sed \'s/\"NULL\"/\"\"/g\' | awk -v OFS="\",\"" -F"\",\"" \'{';
@@ -161,33 +167,141 @@ class UploadTable extends GenericJob
 		}
 
 
-		// Remove ignored columns from csv
-		$ignoredColumns = array();
-		$dateColumnNames = array();
-		$dateColumns = array();
-		$referenceColumns = array();
+		// Start GD load
+		$gdWriteStartTime = date('c');
+		$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+		$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+
+
+		// Prepare manifest for data load
+		$datasetName = $this->_gdName($xmlFileObject->name);
+		$manifest = array(
+			'dataSetSLIManifest' => array(
+				'file' => 'data.csv',
+				'dataSet' => 'dataset.' . $datasetName,
+				'parts' => array()
+			)
+		);
+		$csvHeaders = array();
+		$ignoredColumnsIndices = array();
+		$dateColumnsIndices = array();
+		$timeColumnsIndices = array();
 		$i = 1;
 		foreach ($xmlFileObject->columns->column as $column) {
-			if ((string)$column->ldmType == 'IGNORE') {
-				$ignoredColumns[] = $i;
-			} elseif ((string)$column->ldmType == 'DATE') {
-				$dateColumns[] = $i;
-				$dateColumnNames[] = (string)$column->name;
-			} elseif ((string)$column->ldmType == 'REFERENCE') {
-				$referenceColumns[mb_strtolower(str_replace(' ', '', (string)$column->schemaReference))] = (string)$column->name;
+			$columnName = $this->_gdName($column->name);
+			$gdName = null;
+			switch ((string)$column->ldmType) {
+				case 'CONNECTION_POINT':
+					$csvHeaders[] = (string)$column->name;
+					$manifest['dataSetSLIManifest']['parts'][] = array(
+						'columnName' => (string)$column->name,
+						'populates' => array(
+							sprintf('label.%s.%s', $datasetName, $columnName)
+						),
+						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
+						'referenceKey' => 1
+					);
+					break;
+				case 'FACT':
+					$csvHeaders[] = (string)$column->name;
+					$manifest['dataSetSLIManifest']['parts'][] = array(
+						'columnName' => (string)$column->name,
+						'populates' => array(
+							sprintf('fact.%s.%s', $datasetName, $columnName)
+						),
+						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
+					);
+					break;
+				case 'ATTRIBUTE':
+					$csvHeaders[] = (string)$column->name;
+					$manifest['dataSetSLIManifest']['parts'][] = array(
+						'columnName' => (string)$column->name,
+						'populates' => array(
+							sprintf('label.%s.%s', $datasetName, $columnName)
+						),
+						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
+						'referenceKey' => 1
+					);
+					break;
+				case 'LABEL':
+				case 'HYPERLINK':
+					$csvHeaders[] = (string)$column->name;
+					$manifest['dataSetSLIManifest']['parts'][] = array(
+						'columnName' => (string)$column->name,
+						'populates' => array(
+							sprintf('label.%s.%s.%s', $datasetName, $this->_gdName($column->reference), $columnName)
+						),
+						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
+					);
+					break;
+				case 'REFERENCE':
+					$csvHeaders[] = (string)$column->name;
+					$manifest['dataSetSLIManifest']['parts'][] = array(
+						'columnName' => (string)$column->name,
+						'populates' => array(
+							sprintf('label.%s.%s', $this->_gdName($column->schemaReference), $this->_gdName($column->reference))
+						),
+						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
+						'referenceKey' => 1
+					);
+					break;
+				case 'DATE':
+					$csvHeaders[] = (string)$column->name;
+					$manifest['dataSetSLIManifest']['parts'][] = array(
+						'columnName' => (string)$column->name,
+						'populates' => array(
+							sprintf('%s.date.mmddyyyy', $this->_gdName($column->schemaReference))
+						),
+						'constraints' => array(
+							'date' => (string)$column->format
+						),
+						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
+						'referenceKey' => 1
+					);
+					$csvHeaders[] = (string)$column->name . '_dt';
+					$manifest['dataSetSLIManifest']['parts'][] = array(
+						'columnName' => (string)$column->name . '_dt',
+						'populates' => array(
+							sprintf('dt.%s.%s', $datasetName, $columnName)
+						),
+						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
+					);
+					if ((string)$column->datetime == 'true') {
+						$csvHeaders[] = (string)$column->name . '_tm';
+						$manifest['dataSetSLIManifest']['parts'][] = array(
+							'columnName' => (string)$column->name . '_tm',
+							'populates' => array(
+								sprintf('tm.dt.%s.%s', $datasetName, $columnName)
+							),
+							'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
+						);
+						$csvHeaders[] = (string)$column->name . '_id';
+						$manifest['dataSetSLIManifest']['parts'][] = array(
+							'columnName' => (string)$column->name . '_id',
+							'populates' => array(
+								sprintf('label.time.second.of.day.%s', $this->_gdName($column->schemaReference))
+							),
+							'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
+							'referenceKey' => 1
+						);
+
+						$timeColumnsIndices[] = $i;
+					}
+
+					$dateColumnsIndices[] = $i;
+					break;
+				case 'IGNORE':
+					$ignoredColumnsIndices[] = $i;
+					break;
 			}
+
 			$i++;
 		}
 
-		$gdWriteStartTime = date('c');
+
 		$debug = array();
 		$output = null;
-
-		$datasetName = mb_strtolower(str_replace(' ', '', $xmlFileObject->name));
-		$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-
 		$error = false;
-		$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 		foreach ($gdJobs as $gdJob) {
 			$this->clToolApi->debugLogUrl = null;
 			try {
@@ -204,113 +318,18 @@ class UploadTable extends GenericJob
 						break;
 					case 'loadData':
 
-						// Get manifest
-						$manifest = $this->restApi->get(sprintf('/gdc/md/%s/ldm/singleloadinterface/dataset.%s/manifest', $gdJob['pid'], $datasetName));
-						$columns = array();
-
-						foreach ($manifest['dataSetSLIManifest']['parts'] as &$column) {
-							if ($incrementalLoad) {
-								$column['mode'] = 'INCREMENTAL';
-							}
-
-							if (substr($column['columnName'], 0, strlen($datasetName) + 5) == 'f_' . $datasetName . '.f_') {
-								// Facts have id "f_DATASET.f_COLUMN"
-								$columns[substr($column['columnName'], strlen($datasetName) + 5)] = array(
-									'name' => $column['columnName'],
-									'type' => 'FACT',
-									'manifest' => $column
-								);
-							} elseif (substr($column['columnName'], 0, strlen($datasetName) + 6) == 'f_' . $datasetName . '.nm_') {
-								// Connection points have id "f_DATASET.nm_COLUMN"
-								$columns[substr($column['columnName'], strlen($datasetName) + 6)] = array(
-									'name' => $column['columnName'],
-									'type' => 'CONNECTION_POINT',
-									'manifest' => $column
-								);
-							} elseif (substr($column['columnName'], 0, strlen($datasetName) + 6) == 'f_' . $datasetName . '.dt_') {
-								// Dates have id "f_DATASET.dt_COLUMN" and date facts have id "f_DATASET.dt_COLUMN_id"
-								$dateColumnName = substr($column['columnName'], strrpos($column['columnName'], '.dt_') + 4);
-
-								if (in_array($dateColumnName, $dateColumnNames)) {
-									// date itself
-									if (!isset($columns[$dateColumnName])) {
-										$columns[$dateColumnName] = array(
-											'type' => 'DATE'
-										);
-									}
-									$columns[$dateColumnName]['manifest'] = $column;
-									$columns[$dateColumnName]['name'] = $column['columnName'];
-								} elseif (strpos($dateColumnName, '_id') !== false) {
-									// date fact
-									$dateColumnName = substr($dateColumnName, 0, strpos($dateColumnName, '_id'));
-									if (in_array($dateColumnName, $dateColumnNames)) {
-										if (!isset($columns[$dateColumnName])) {
-											$columns[$dateColumnName] = array(
-												'type' => 'DATE'
-											);
-										}
-										$columns[$dateColumnName]['date_manifest'] = $column;
-										$columns[$dateColumnName]['date_name'] = $column['columnName'];
-									} else {
-										throw new JobProcessException(sprintf("Referenced date '%s' has not been found in writer", $dateColumnName));
-									}
-								} else {
-									throw new JobProcessException(sprintf("Referenced date '%s' has not been found in writer", $dateColumnName));
-								}
-							} elseif (substr($column['columnName'], 0, strlen($datasetName) + 3) == 'd_' . $datasetName . '_') {
-								// Attributes and labels have id "d_DATASET_COLUMN.nm_COLUMN"
-								$columns[substr($column['columnName'], strrpos($column['columnName'], '.nm_') + 4)] = array(
-									'name' => $column['columnName'],
-									'type' => 'ATTRIBUTE',
-									'manifest' => $column
-								);
-							} elseif (substr($column['columnName'], 0, 2) == 'f_' && strpos($column['columnName'], '.nm_') !== false) {
-								// References
-								$reference = substr($column['columnName'], 2, strpos($column['columnName'], '.nm_')-2);
-								if (isset($referenceColumns[$reference])) {
-									$columns[$referenceColumns[$reference]] = array(
-										'name' => $column['columnName'],
-										'type' => 'REFERENCE',
-										'manifest' => $column
-									);
-								} else {
-									throw new JobProcessException(sprintf("Referenced dataset '%s' has not been found in writer", $reference));
-								}
-							} else {
-								throw new JobProcessException(sprintf("Column '%s' from GoodData project has not been found in dataset", $column['columnName']));
-							}
-						}
-
-						// Reorder manifest columns by csv
-						$manifestColumns = array();
-						$manifestColumnNames = array();
-						$i = 0;
-						foreach ($xmlFileObject->columns->column as $column) if ((string)$column->ldmType != 'IGNORE') {
-							$columnName = mb_strtolower(str_replace(' ', '', (string)$column->name));
-							if (isset($columns[$columnName])) {
-								$manifestColumns[] = $columns[$columnName]['manifest'];
-								$manifestColumnNames[] = $columns[$columnName]['name'];
-								if (isset($columns[$columnName]['date_manifest'])) {
-									$manifestColumns[] = $columns[$columnName]['date_manifest'];
-									$manifestColumnNames[] = $columns[$columnName]['date_name'];
-								}
-							} else {
-								throw new JobProcessException(sprintf("Column '%s' has not been found in GoodData project", (string)$column->name));
-							}
-							$i++;
-						}
-						$manifest['dataSetSLIManifest']['parts'] = $manifestColumns;
-						$manifest['dataSetSLIManifest']['file'] = 'data.csv';
-
 						// Add column headers according to manifest, calculate date facts and remove ignored columns
 						rename($tmpFolder . '/data.csv', $tmpFolder . '/data.csv.1');
 						$command  = 'cat ' . escapeshellarg($tmpFolder . '/data.csv.1') . ' | php ' . escapeshellarg($this->rootPath . '/GoodData/convert_csv.php');
-						$command .= ' -h' . implode(',', $manifestColumnNames);
-						if (count($dateColumns)) {
-							$command .= ' -d' . implode(',', $dateColumns);
+						$command .= ' -h' . implode(',', $csvHeaders);
+						if (count($dateColumnsIndices)) {
+							$command .= ' -d' . implode(',', $dateColumnsIndices);
 						}
-						if (count($ignoredColumns)) {
-							$command .= ' -i' . implode(',', $ignoredColumns);
+						if (count($timeColumnsIndices)) {
+							$command .= ' -t' . implode(',', $timeColumnsIndices);
+						}
+						if (count($ignoredColumnsIndices)) {
+							$command .= ' -i' . implode(',', $ignoredColumnsIndices);
 						}
 						$command .= ' > ' . escapeshellarg($tmpFolder . '/data.csv');
 						try {
@@ -322,7 +341,6 @@ class UploadTable extends GenericJob
 							throw new JobProcessException(sprintf("CSV preparation failed. Job id is '%s'", $tmpFolderName));
 						}
 						unlink($tmpFolder . '/data.csv.1');
-
 
 						// Send data to WebDav
 						file_put_contents($tmpFolder . '/upload_info.json', json_encode($manifest));
@@ -363,5 +381,11 @@ class UploadTable extends GenericJob
 			'gdWriteBytes' => filesize($tmpFolder . '/data.csv'),
 			'csvFile' => $tmpFolder . '/data.csv'
 		), $output);
+	}
+
+
+	private function _gdName($name)
+	{
+		return mb_strtolower(str_replace(' ', '', (string)$name));
 	}
 }

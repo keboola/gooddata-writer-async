@@ -15,11 +15,15 @@ if (!$fh) {
 	die(1);
 }
 
-$options = getopt('h:i::d::');
+$options = getopt('h:i::d::t::');
 
 $dateColumns = array();
 if (isset($options['d'])) {
 	$dateColumns = explode(',', $options['d']);
+}
+$timeColumns = array();
+if (isset($options['t'])) {
+	$timeColumns = explode(',', $options['t']);
 }
 $ignoredColumns = array();
 if (isset($options['i'])) {
@@ -33,9 +37,6 @@ while ($line = fgetcsv($fh)) {
 	if ($rowNumber > 1) {
 		$resultLine = array();
 		foreach ($line as $i => $column) {
-			if (!in_array($i+1, $ignoredColumns)) {
-				$resultLine[] = $column;
-			}
 			if (in_array($i+1, $dateColumns)) {
 				// Add date fact (number of dates since 1900-01-01 plus one)
 				try {
@@ -44,7 +45,18 @@ while ($line = fgetcsv($fh)) {
 					fwrite($stderr, sprintf('Error in date column value: "%s" on row %d', $column, $rowNumber));
 					die(1);
 				}
+				$resultLine[] = $column;
 				$resultLine[] = (int)$columnDate->diff($startDate)->format('%a') + 1;
+
+				if (in_array($i+1, $timeColumns)) {
+					$startTime = new DateTime($columnDate->format('Y-m-d 00:00:00'));
+					$seconds = $columnDate->getTimestamp() - $startTime->getTimestamp();
+					$resultLine[] = $seconds;
+					$resultLine[] = $seconds;
+				}
+
+			} elseif (!in_array($i+1, $ignoredColumns)) {
+				$resultLine[] = $column;
 			}
 		}
 		fputcsv($stdout, $resultLine);
