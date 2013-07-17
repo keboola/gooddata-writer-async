@@ -33,10 +33,10 @@ while ($line = fgetcsv($fh)) {
 	if ($rowNumber > 1) {
 		$resultLine = array();
 		foreach ($line as $i => $column) {
-			if (!in_array($i, $ignoredColumns)) {
+			if (!in_array($i+1, $ignoredColumns)) {
 				$resultLine[] = $column;
 			}
-			if (in_array($i, $dateColumns)) {
+			if (in_array($i+1, $dateColumns)) {
 				// Add date fact (number of dates since 1900-01-01 plus one)
 				try {
 					$columnDate = new DateTime($column);

@@ -8,8 +8,10 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\Exception\JobProcessException,
-	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
-use Keboola\GoodDataWriter\GoodData\RestApiException;
+	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
+	Keboola\GoodDataWriter\GoodData\RestApiException,
+	Keboola\GoodDataWriter\Writer\Process,
+	Keboola\GoodDataWriter\Writer\ProcessException;
 
 class UploadTable extends GenericJob
 {
@@ -290,6 +292,7 @@ class UploadTable extends GenericJob
 								$manifestColumnNames[] = $columns[$columnName]['name'];
 								if (isset($columns[$columnName]['date_manifest'])) {
 									$manifestColumns[] = $columns[$columnName]['date_manifest'];
+									$manifestColumnNames[] = $columns[$columnName]['date_name'];
 								}
 							} else {
 								throw new JobProcessException(sprintf("Column '%s' has not been found in GoodData project", (string)$column->name));
@@ -298,7 +301,6 @@ class UploadTable extends GenericJob
 						}
 						$manifest['dataSetSLIManifest']['parts'] = $manifestColumns;
 						$manifest['dataSetSLIManifest']['file'] = 'data.csv';
-
 
 						// Add column headers according to manifest, calculate date facts and remove ignored columns
 						rename($tmpFolder . '/data.csv', $tmpFolder . '/data.csv.1');
@@ -311,7 +313,11 @@ class UploadTable extends GenericJob
 							$command .= ' -i' . implode(',', $ignoredColumns);
 						}
 						$command .= ' > ' . escapeshellarg($tmpFolder . '/data.csv');
-						shell_exec($command);
+						try {
+							$output = Process::exec($command);
+						} catch (ProcessException $e) {
+							throw new JobProcessException(sprintf("CSV preparation failed: %s", $e->getMessage()), NULL, $e);
+						}
 						if (!file_exists($tmpFolder . '/data.csv')) {
 							throw new JobProcessException(sprintf("CSV preparation failed. Job id is '%s'", $tmpFolderName));
 						}
