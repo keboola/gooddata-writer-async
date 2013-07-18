@@ -238,7 +238,7 @@ abstract class WriterTest extends WebTestCase
 				'job' => $responseJson['job']
 			));
 		} else if (isset($responseJson['batch'])) {
-			$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/batch?writerId=%s&id=%d', $this->writerId, $responseJson['batch']));
+			$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/batch?writerId=%s&batchId=%d', $this->writerId, $responseJson['batch']));
 
 			$this->assertArrayHasKey('batch', $responseJson, "Response for writer call '/batch' should contain 'batch' key.");
 			$this->assertArrayHasKey('jobs', $responseJson['batch'], "Response for writer call '/batch' should contain 'batch.jobs' key.");

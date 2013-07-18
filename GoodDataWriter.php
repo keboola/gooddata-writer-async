@@ -187,21 +187,12 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['pid'])) {
-				return array('pid' => $jobInfo['job']['result']['pid']);
+			$result = $this->_waitForJob($jobInfo['job'], $params['writerId']);
+			if (isset($result['job']['result']['pid'])) {
+				return array('pid' => $result['job']['result']['pid']);
 			} else {
-				$e = new JobProcessException('Create Writer job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
 				throw $e;
 			}
 		}
@@ -240,23 +231,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success') {
-				return array();
-			} else {
-				$e = new JobProcessException('Delete Writer job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
-				throw $e;
-			}
+			$this->_waitForJob($jobInfo['job'], $params['writerId']);
 		}
 	}
 
@@ -326,21 +301,12 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['pid'])) {
-				return array('pid' => $jobInfo['job']['result']['pid']);
+			$result = $this->_waitForJob($jobInfo['job'], $params['writerId']);
+			if (isset($result['job']['result']['pid'])) {
+				return array('pid' => $result['job']['result']['pid']);
 			} else {
-				$e = new JobProcessException('Create Project job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
 				throw $e;
 			}
 		}
@@ -432,23 +398,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success') {
-				return array();
-			} else {
-				$e = new JobProcessException('Create Project User job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
-				throw $e;
-			}
+			$this->_waitForJob($jobInfo['job'], $params['writerId']);
 		}
 	}
 
@@ -497,23 +447,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success') {
-				return array();
-			} else {
-				$e = new JobProcessException('Invite User job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
-				throw $e;
-			}
+			$this->_waitForJob($jobInfo['job'], $params['writerId']);
 		}
 	}
 
@@ -588,21 +522,12 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['uid'])) {
-				return array('uid' => $jobInfo['job']['result']['uid']);
+			$result = $this->_waitForJob($jobInfo['job'], $params['writerId']);
+			if (isset($result['job']['result']['uid'])) {
+				return array('uid' => $result['job']['result']['uid']);
 			} else {
-				$e = new JobProcessException('Create User job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
 				throw $e;
 			}
 		}
@@ -697,20 +622,13 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
-				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			$result = $this->_waitForJob($jobInfo['job'], $params['writerId']);
+			if (isset($result['job']['result']['response']['uri'])) {
+				return array('uri' => $result['job']['result']['response']['uri']);
 			} else {
-				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
+				throw $e;
 			}
 		}
 	}
@@ -742,20 +660,13 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
-				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			$result = $this->_waitForJob($jobInfo['job'], $params['writerId']);
+			if (isset($result['job']['result']['response']['uri'])) {
+				return array('uri' => $result['job']['result']['response']['uri']);
 			} else {
-				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
+				throw $e;
 			}
 		}
 	}
@@ -788,20 +699,13 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
-				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			$result = $this->_waitForJob($jobInfo['job'], $params['writerId']);
+			if (isset($result['job']['result']['response']['uri'])) {
+				return array('uri' => $result['job']['result']['response']['uri']);
 			} else {
-				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
+				throw $e;
 			}
 		}
 	}
@@ -827,20 +731,13 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
-				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			$result = $this->_waitForJob($jobInfo['job'], $params['writerId']);
+			if (isset($result['job']['result']['response']['uri'])) {
+				return array('uri' => $result['job']['result']['response']['uri']);
 			} else {
-				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
+				throw $e;
 			}
 		}
 	}
@@ -921,23 +818,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success') {
-				return array();
-			} else {
-				$e = new JobProcessException('Upload Table job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
-				throw $e;
-			}
+			$this->_waitForJob($jobInfo['job'], $params['writerId']);
 		}
 	}
 
@@ -1059,22 +940,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('batch' => (int)$batchId);
 		} else {
-			$jobsFinished = false;
-			do {
-				$jobsInfo = $this->getBatch(array('id' => $batchId, 'writerId' => $params['writerId']));
-				if (isset($jobsInfo['batch']['status']) && ($jobsInfo['batch']['status'] == 'success' || $jobsInfo['batch']['status'] == 'error')) {
-					$jobsFinished = true;
-				}
-				if (!$jobsFinished) sleep(30);
-			} while(!$jobsFinished);
-
-			if ($jobsInfo['batch']['status'] == 'success') {
-				return array();
-			} else {
-				$e = new JobProcessException('Upload Project job failed');
-				$e->setData(array('result' => $jobsInfo['batch']['result'], 'log' => $jobsInfo['batch']['log']));
-				throw $e;
-			}
+			$this->_waitForBatch($batchId, $params['writerId']);
 		}
 	}
 
@@ -1464,12 +1330,12 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		if (empty($params['id'])) {
-			throw new WrongParametersException("Parameter 'id' is missing");
+		if (empty($params['batchId'])) {
+			throw new WrongParametersException("Parameter 'batchId' is missing");
 		}
 
 		$data = array(
-			'batchId' => (int)$params['id'],
+			'batchId' => (int)$params['batchId'],
 			'createdTime' => date('c'),
 			'startTime' => date('c'),
 			'endTime' => null,
@@ -1478,15 +1344,16 @@ class GoodDataWriter extends Component
 			'result' => null,
 			'log' => null
 		);
+		$cancelledJobs = 0;
 		$waitingJobs = 0;
 		$processingJobs = 0;
 		$errorJobs = 0;
 		$successJobs = 0;
-		foreach ($this->sharedConfig->fetchBatch($params['id']) as $job) {
+		foreach ($this->sharedConfig->fetchBatch($params['batchId']) as $job) {
 			$job = $this->sharedConfig->jobToApiResponse($job);
 
 			if ($job['projectId'] != $this->configuration->projectId || $job['writerId'] != $this->configuration->writerId) {
-				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['id'], $this->configuration->writerId));
+				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['batchId'], $this->configuration->writerId));
 			}
 
 			if ($job['createdTime'] < $data['createdTime']) $data['createdTime'] = $job['createdTime'];
@@ -1495,6 +1362,7 @@ class GoodDataWriter extends Component
 			$data['jobs'][] = (int)$job['id'];
 			if ($job['status'] == 'waiting') $waitingJobs++;
 			elseif ($job['status'] == 'processing') $processingJobs++;
+			elseif ($job['status'] == 'cancelled') $cancelledJobs++;
 			elseif ($job['status'] == 'error') {
 				$errorJobs++;
 				$data['result'] = $job['result'];
@@ -1502,7 +1370,8 @@ class GoodDataWriter extends Component
 			else $successJobs++;
 		}
 
-		if ($processingJobs > 0) $data['status'] = 'processing';
+		if ($cancelledJobs > 0) $data['status'] = 'cancelled';
+		elseif ($processingJobs > 0) $data['status'] = 'processing';
 		elseif ($waitingJobs > 0) $data['status'] = 'waiting';
 		elseif ($errorJobs > 0) $data['status'] = 'error';
 		else $data['status'] = 'success';
@@ -1563,6 +1432,51 @@ class GoodDataWriter extends Component
 		));
 
 		return $jobInfo;
+	}
+
+
+	protected function _waitForJob($jobId, $writerId)
+	{
+		$jobFinished = false;
+		$i = 1;
+		do {
+			$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $writerId));
+			if (isset($jobInfo['job']['status']) && !in_array($jobInfo['job']['status'], array('waiting', 'processing'))) {
+				$jobFinished = true;
+			}
+			if (!$jobFinished) sleep($i * 10);
+			$i++;
+		} while(!$jobFinished);
+
+		if ($jobInfo['job']['status'] == 'success') {
+			return $jobInfo;
+		} else {
+			$e = new JobProcessException('Job processing failed');
+			$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+			throw $e;
+		}
+	}
+
+	protected function _waitForBatch($batchId, $writerId)
+	{
+		$jobsFinished = false;
+		$i = 1;
+		do {
+			$jobsInfo = $this->getBatch(array('batchId' => $batchId, 'writerId' => $writerId));
+			if (isset($jobsInfo['batch']['status']) && !in_array($jobsInfo['batch']['status'], array('waiting', 'processing'))) {
+				$jobsFinished = true;
+			}
+			if (!$jobsFinished) sleep($i * 10);
+			$i++;
+		} while(!$jobsFinished);
+
+		if ($jobsInfo['batch']['status'] == 'success') {
+			return $jobsInfo;
+		} else {
+			$e = new JobProcessException('Batch processing failed');
+			$e->setData(array('result' => $jobsInfo['batch']['result'], 'log' => $jobsInfo['batch']['log']));
+			throw $e;
+		}
 	}
 
 }
