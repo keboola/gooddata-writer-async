@@ -26,19 +26,16 @@ class DropWriter extends GenericJob
 			throw new WrongConfigurationException('Writer has been already deleted.');
 		}
 
-		foreach ($this->configuration->getProjects() as $project) {
+		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) {
 			if ($dropImmediately) {
-
+				//@TODO
 			} else {
 				$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid'], empty($params['dev']));
 			}
 		}
-		foreach ($this->configuration->getUsers() as $user) {
-			if (!$user['uid']) {
-				$user['uid'] = $this->restApi->userId($user['email'], $mainConfig['domain']);
-			}
+		foreach ($this->sharedConfig->getUsers($job['projectId'], $job['writerId']) as $user) {
 			if ($dropImmediately) {
-
+				//@TODO
 			} else {
 				$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid'], $user['email'], empty($params['dev']));
 			}

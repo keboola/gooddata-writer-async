@@ -202,6 +202,26 @@ class SharedConfig
 	}
 
 
+	/**
+	 * @param $projectId
+	 * @param $writerId
+	 * @return mixed
+	 */
+	public function getProjects($projectId, $writerId)
+	{
+		$csv = $this->_storageApiClient->exportTable(
+			self::PROJECTS_TABLE_ID,
+			null,
+			array(
+				'whereColumn' => 'projectIdWriterId',
+				'whereValues' => array($projectId . '.' . $writerId)
+			)
+		);
+
+		return StorageApiClient::parseCsv($csv, true);
+	}
+
+
 	public function projectsToDelete()
 	{
 		$now = time();
@@ -258,6 +278,25 @@ class SharedConfig
 		$table->save();
 	}
 
+
+	/**
+	 * @param $projectId
+	 * @param $writerId
+	 * @return mixed
+	 */
+	public function getUsers($projectId, $writerId)
+	{
+		$csv = $this->_storageApiClient->exportTable(
+			self::USERS_TABLE_ID,
+			null,
+			array(
+				'whereColumn' => 'projectIdWriterId',
+				'whereValues' => array($projectId . '.' . $writerId)
+			)
+		);
+
+		return StorageApiClient::parseCsv($csv, true);
+	}
 
 	public function usersToDelete()
 	{
