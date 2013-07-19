@@ -176,7 +176,8 @@ class SharedConfig
 			'writerId' => $job['writerId'],
 			'backendUrl' => $backendUrl,
 			'accessToken' => $accessToken,
-			'createdTime' => date('c')
+			'createdTime' => date('c'),
+			'projectIdWriterId' => $job['projectId'] . '.' . $job['writerId']
 		);
 		$table = new StorageApiTable($this->_storageApiClient, self::PROJECTS_TABLE_ID);
 		$table->setHeader(array_keys($data));
@@ -192,7 +193,8 @@ class SharedConfig
 			'projectId' => $job['projectId'],
 			'writerId' => $job['writerId'],
 			'email' => $email,
-			'createdTime' => date('c')
+			'createdTime' => date('c'),
+			'projectIdWriterId' => $job['projectId'] . '.' . $job['writerId']
 		);
 		$table = new StorageApiTable($this->_storageApiClient, self::USERS_TABLE_ID);
 		$table->setHeader(array_keys($data));
