@@ -40,6 +40,10 @@ abstract class GenericJob
 	 */
 	public $logUploader;
 	public $tmpDir;
+	/**
+	 * @var \Monolog\Logger
+	 */
+	public $log;
 
 
 	public function __construct($configuration, $mainConfig, $sharedConfig, $restApi, $clToolApi, $logUploader)

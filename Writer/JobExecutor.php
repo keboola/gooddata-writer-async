@@ -224,6 +224,7 @@ class JobExecutor
 			 */
 			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $clToolApi, $logUploader);
 			$command->tmpDir = $tmpDir;
+			$command->log = $this->_log;
 			try {
 				$result = $command->run($job, $parameters);
 			} catch (RestApiException $e) {
