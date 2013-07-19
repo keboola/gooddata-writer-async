@@ -187,7 +187,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$result = $this->_waitForJob($jobInfo['job'], $params['writerId']);
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
 			if (isset($result['job']['result']['pid'])) {
 				return array('pid' => $result['job']['result']['pid']);
 			} else {
@@ -231,7 +231,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$this->_waitForJob($jobInfo['job'], $params['writerId']);
+			$this->_waitForJob($jobInfo['id'], $params['writerId']);
 		}
 	}
 
@@ -301,7 +301,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$result = $this->_waitForJob($jobInfo['job'], $params['writerId']);
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
 			if (isset($result['job']['result']['pid'])) {
 				return array('pid' => $result['job']['result']['pid']);
 			} else {
@@ -398,7 +398,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$this->_waitForJob($jobInfo['job'], $params['writerId']);
+			$this->_waitForJob($jobInfo['id'], $params['writerId']);
 		}
 	}
 
@@ -447,7 +447,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$this->_waitForJob($jobInfo['job'], $params['writerId']);
+			$this->_waitForJob($jobInfo['id'], $params['writerId']);
 		}
 	}
 
@@ -522,7 +522,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$result = $this->_waitForJob($jobInfo['job'], $params['writerId']);
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
 			if (isset($result['job']['result']['uid'])) {
 				return array('uid' => $result['job']['result']['uid']);
 			} else {
@@ -622,7 +622,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$result = $this->_waitForJob($jobInfo['job'], $params['writerId']);
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
 			if (isset($result['job']['result']['response']['uri'])) {
 				return array('uri' => $result['job']['result']['response']['uri']);
 			} else {
@@ -660,7 +660,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$result = $this->_waitForJob($jobInfo['job'], $params['writerId']);
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
 			if (isset($result['job']['result']['response']['uri'])) {
 				return array('uri' => $result['job']['result']['response']['uri']);
 			} else {
@@ -699,7 +699,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$result = $this->_waitForJob($jobInfo['job'], $params['writerId']);
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
 			if (isset($result['job']['result']['response']['uri'])) {
 				return array('uri' => $result['job']['result']['response']['uri']);
 			} else {
@@ -731,7 +731,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$result = $this->_waitForJob($jobInfo['job'], $params['writerId']);
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
 			if (isset($result['job']['result']['response']['uri'])) {
 				return array('uri' => $result['job']['result']['response']['uri']);
 			} else {
@@ -818,7 +818,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$this->_waitForJob($jobInfo['job'], $params['writerId']);
+			$this->_waitForJob($jobInfo['id'], $params['writerId']);
 		}
 	}
 
@@ -1441,18 +1441,18 @@ class GoodDataWriter extends Component
 		$i = 1;
 		do {
 			$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $writerId));
-			if (isset($jobInfo['job']['status']) && !in_array($jobInfo['job']['status'], array('waiting', 'processing'))) {
+			if (isset($jobInfo['id']['status']) && !in_array($jobInfo['id']['status'], array('waiting', 'processing'))) {
 				$jobFinished = true;
 			}
 			if (!$jobFinished) sleep($i * 10);
 			$i++;
 		} while(!$jobFinished);
 
-		if ($jobInfo['job']['status'] == 'success') {
+		if ($jobInfo['id']['status'] == 'success') {
 			return $jobInfo;
 		} else {
 			$e = new JobProcessException('Job processing failed');
-			$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+			$e->setData(array('result' => $jobInfo['id']['result'], 'log' => $jobInfo['id']['log']));
 			throw $e;
 		}
 	}
