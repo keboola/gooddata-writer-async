@@ -46,7 +46,7 @@ class DebugCommand extends ContainerAwareCommand
 				$counterAll++;
 				$projectInfo = '"' . $counter . '","' . $project['title'] . '","' . $project['identifier'] . '","';
 
-				//$counter++;  echo $projectInfo.PHP_EOL;/*
+				$counter++;  echo $projectInfo.PHP_EOL;/*
 				if (strstr($project['title'], '[Test] GoodData Writer -')) {
 					$counter++;
 					echo $projectInfo.PHP_EOL;

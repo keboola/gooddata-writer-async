@@ -9,7 +9,8 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Monolog\Logger;
-use Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
+use Keboola\GoodDataWriter\Service\S3Client,
+	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
 
 class CLToolApi
 {
@@ -54,9 +55,9 @@ class CLToolApi
 	public $clToolPath;
 	public $rootPath;
 	/**
-	 * @var \Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader
+	 * @var S3Client
 	 */
-	public $s3uploader;
+	public $s3client;
 	public $jobId;
 
 	/**
@@ -146,7 +147,7 @@ class CLToolApi
 					exec(sprintf('mv %s %s ', escapeshellarg($outputFile . '.D'), escapeshellarg($outputFile)));
 				}
 
-				$this->debugLogUrl = $this->s3uploader->uploadFile($outputFile);
+				$this->debugLogUrl = $this->s3client->uploadFile($outputFile);
 
 				// Test output for runtime error
 				if (shell_exec("egrep 'com.gooddata.exception.HttpMethodException: 401 Unauthorized' " . escapeshellarg($outputFile))) {
