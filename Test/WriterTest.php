@@ -193,7 +193,7 @@ abstract class WriterTest extends WebTestCase
 	 * @param $params
 	 * @return mixed
 	 */
-	protected function _postWriterApi($url, $params)
+	protected function _postWriterApi($url, $params = array())
 	{
 		return $this->_callWriterApi($url, 'POST', $params);
 	}

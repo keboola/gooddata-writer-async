@@ -59,9 +59,11 @@ class SharedConfig
 
 	/**
 	 * @param $jobId
+	 * @param null $writerId
+	 * @param null $projectId
 	 * @return mixed
 	 */
-	public function fetchJob($jobId)
+	public function fetchJob($jobId, $writerId = null, $projectId = null)
 	{
 		$csv = $this->_storageApiClient->exportTable(
 			self::JOBS_TABLE_ID,
@@ -72,8 +74,14 @@ class SharedConfig
 			)
 		);
 
-		$jobs = StorageApiClient::parseCsv($csv, true);
-		return reset($jobs);
+		$job = StorageApiClient::parseCsv($csv, true);
+		$job = reset($job);
+
+		if ((!$writerId || $job['writerId'] == $writerId) && (!$projectId || $job['projectId'] == $projectId)) {
+			return $job;
+		}
+
+		return false;
 	}
 
 	/**
