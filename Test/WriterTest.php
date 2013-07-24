@@ -83,15 +83,17 @@ abstract class WriterTest extends WebTestCase
 			$isDataBucket = substr($bucket['id'], 0, 4) == 'out.';
 
 			if ($isConfigBucket) {
-				if (isset($bucket['gd.pid'])) {
-					try {
-						self::$restApi->dropProject($bucket['gd.pid']);
-					} catch (RestApiException $e) {}
-				}
-				if (isset($bucket['gd.uid'])) {
-					try {
-						self::$restApi->dropUser($bucket['gd.uid']);
-					} catch (RestApiException $e) {}
+				foreach ($bucket['attributes'] as $attr) {
+					if ($attr['name'] == 'gd.pid') {
+						try {
+							self::$restApi->dropProject($attr['value']);
+						} catch (RestApiException $e) {}
+					}
+					if ($attr['name'] == 'gd.uid') {
+						try {
+							self::$restApi->dropUser($attr['value']);
+						} catch (RestApiException $e) {}
+					}
 				}
 			}
 
