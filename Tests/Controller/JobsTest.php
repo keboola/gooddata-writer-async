@@ -9,7 +9,9 @@ namespace Keboola\GoodDataWriter\Tests\Controller;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Test\WriterTest,
 	Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\StorageApi\Table as StorageApiTable;
+	Keboola\StorageApi\Table as StorageApiTable,
+	Keboola\GoodDataWriter\Service\S3Client;
+use Guzzle\Http\Client;
 
 class JobsTest extends WriterTest
 {
@@ -81,6 +83,8 @@ class JobsTest extends WriterTest
 
 	public function testCancelJobs()
 	{
+		$this->_prepareData();
+
 		// Upload project
 		$responseJson = $this->_postWriterApi('/gooddata-writer/upload-project', array(
 			'writerId' => $this->writerId,

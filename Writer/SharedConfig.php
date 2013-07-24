@@ -9,7 +9,8 @@ namespace Keboola\GoodDataWriter\Writer;
 use Keboola\Csv\CsvFile;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
-	Keboola\StorageApi\Table as StorageApiTable;
+	Keboola\StorageApi\Table as StorageApiTable,
+	Keboola\GoodDataWriter\Service\S3Client;
 
 class SharedConfig
 {
@@ -50,11 +51,7 @@ class SharedConfig
 			)
 		);
 
-		$jobs = array();
-		foreach (StorageApiClient::parseCsv($csv, true) as $j) {
-			$jobs[] = $this->jobToApiResponse($j);
-		}
-		return $jobs;
+		return StorageApiClient::parseCsv($csv, true);
 	}
 
 	/**
@@ -130,22 +127,51 @@ class SharedConfig
 		$jobsTable->save();
 	}
 
-	public function jobToApiResponse(array $job)
+	/**
+	 * @param array $job
+	 * @param S3Client $s3Client
+	 * @return array
+	 */
+	public function jobToApiResponse(array $job, $s3Client = null)
 	{
 		if (!is_array($job['result'])) {
 			$result = json_decode($job['result'], true);
 			if (isset($result['debug']) && !is_array($result['debug'])) $result['debug'] = json_decode($result['debug']);
 			if (isset($result['csvFile'])) unset($result['csvFile']);
-			if (!$result) $result = $job['result'];
-		} else {
-			$result = $job['result'];
+			if ($result) {
+				$job['result'] = $result;
+			}
 		}
 
 		if (!is_array($job['parameters'])) {
 			$params = json_decode($job['parameters'], true);
-			if (!$params) $params = $job['parameters'];
-		} else {
-			$params = $job['parameters'];
+			if ($params) {
+				$job['parameters'] = $params;
+			}
+		}
+
+		// Find private links and make them accessible
+		if ($s3Client) {
+			if ($job['xmlFile']) {
+				$url = parse_url($job['xmlFile']);
+				if (empty($url['host'])) {
+					$job['xmlFile'] = $s3Client->url($job['xmlFile'], 3600);
+				}
+			}
+			if ($job['log']) {
+				$url = parse_url($job['log']);
+				if (empty($url['host'])) {
+					$job['log'] = $s3Client->url($job['log'], 3600);
+				}
+			}
+			if (!empty($result['debug']) && is_array($result['debug'])) {
+				foreach ($result['debug'] as $key => &$value) {
+					$url = parse_url($value);
+					if (empty($url['host'])) {
+						$value = $s3Client->url($value, 3600);
+					}
+				}
+			}
 		}
 
 		return array(
@@ -165,8 +191,8 @@ class SharedConfig
 			'command' => $job['command'],
 			'dataset' => $job['dataset'],
 			'xmlFile' => $job['xmlFile'],
-			'parameters' => $params,
-			'result' => $result,
+			'parameters' => $job['parameters'],
+			'result' => $job['result'],
 			'gdWriteStartTime' => $job['gdWriteStartTime'],
 			'gdWriteBytes' => $job['gdWriteBytes'] ? (int) $job['gdWriteBytes'] : null,
 			'status' => $job['status'],

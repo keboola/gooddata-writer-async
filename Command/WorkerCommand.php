@@ -116,7 +116,7 @@ class WorkerCommand extends ContainerAwareCommand
 	{
 		$this->_output->writeln('Executing job: ' . $jobId);
 
-		$executor = new JobExecutor($this->_sharedConfig, $this->_log, $this->getContainer());
+		$executor = new JobExecutor($this->_sharedConfig, $this->getContainer());
 		$executor->runJob($jobId);
 	}
 

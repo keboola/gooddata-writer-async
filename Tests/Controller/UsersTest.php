@@ -12,7 +12,7 @@ use Keboola\GoodDataWriter\Test\WriterTest,
 
 class UsersTest extends WriterTest
 {
-	public function testCreateUser()
+	/*public function testCreateUser()
 	{
 		$user = $this->_createUser();
 
@@ -33,7 +33,7 @@ class UsersTest extends WriterTest
 			}
 		}
 		$this->assertTrue($userFound, "Response for writer call '/users' should return tested user.");
-	}
+	}*/
 
 	public function testAddUserToProject()
 	{
@@ -79,7 +79,7 @@ class UsersTest extends WriterTest
 		$this->assertTrue($userInProject, "Response for writer call '/project-users' should return tested user.");
 	}
 
-	public function testInviteUserToProject()
+	/*public function testInviteUserToProject()
 	{
 		$user = $this->_createUser();
 
@@ -107,7 +107,7 @@ class UsersTest extends WriterTest
 			}
 		}
 		$this->assertTrue($userInvited, "Response for GoodData API project invitations call should return tested user.");
-	}
+	}*/
 
 
 }

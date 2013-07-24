@@ -12,7 +12,8 @@ use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Exception as StorageApiException;
-use Keboola\GoodDataWriter\GoodData\RestApi,
+use Keboola\GoodDataWriter\Service\S3Client,
+	Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\GoodData\CLToolApi,
 	Keboola\GoodDataWriter\Exception\ClientException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
@@ -49,13 +50,12 @@ class JobExecutor
 
 	/**
 	 * @param SharedConfig $sharedConfig
-	 * @param Logger $log
 	 * @param ContainerInterface $container
 	 */
-	public function __construct(SharedConfig $sharedConfig, Logger $log, ContainerInterface $container)
+	public function __construct(SharedConfig $sharedConfig, ContainerInterface $container)
 	{
 		$this->_sharedConfig = $sharedConfig;
-		$this->_log = $log;
+		$this->_log = $container->get('logger');
 		$this->_container = $container;
 	}
 
@@ -205,7 +205,9 @@ class JobExecutor
 			$mainConfig['storageApi.url'] = $this->_container->getParameter('storageApi.url');
 			$tmpDir = $mainConfig['tmp_path'];
 			$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
-			$logUploader = $this->_container->get('syrup.monolog.s3_uploader');
+
+			$s3Client = new S3Client($mainConfig['s3']['access_key'], $mainConfig['s3']['secret_key'],
+				$mainConfig['s3']['bucket'], $job['projectId'] . '.' . $job['writerId']);
 
 			$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
 
@@ -216,13 +218,13 @@ class JobExecutor
 			$clToolApi->clToolPath = $mainConfig['cli_path'];
 			$clToolApi->rootPath = $mainConfig['root_path'];
 			$clToolApi->jobId = $job['id'];
-			$clToolApi->s3uploader = $this->_container->get('syrup.monolog.s3_uploader');
+			$clToolApi->s3client = $s3Client;
 			if ($backendUrl) $clToolApi->setBackendUrl($backendUrl);
 
 			/**
 			 * @var \Keboola\GoodDataWriter\Job\GenericJob $command
 			 */
-			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $clToolApi, $logUploader);
+			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $clToolApi, $s3Client);
 			$command->tmpDir = $tmpDir;
 			$command->log = $this->_log;
 			try {
