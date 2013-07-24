@@ -1256,6 +1256,9 @@ class GoodDataWriter extends Component
 			$jobs = $this->sharedConfig->fetchJobs($this->configuration->projectId, $params['writerId'], $days);
 			return array('jobs' => $jobs);
 		} else {
+			if (is_array($params['jobId'])) {
+				throw new WrongParametersException("Parameter 'jobId' has to be a number");
+			}
 			$job = $this->sharedConfig->fetchJob($params['jobId'], $this->configuration->writerId, $this->configuration->projectId);
 			if (!$job) {
 				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['jobId'], $this->configuration->writerId));
