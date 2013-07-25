@@ -13,6 +13,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase,
 use Keboola\GoodDataWriter\Command\RunJobCommand,
 	Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\GoodData\RestApi,
+	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable;
 
 abstract class WriterTest extends WebTestCase
@@ -75,37 +76,48 @@ abstract class WriterTest extends WebTestCase
 		$mainConfig = self::$mainConfig['gd']['dev'];
 
 		// Clear test environment
-		if (self::$storageApi->bucketExists($this->bucketId)) {
-
-			self::$restApi->login($mainConfig['username'], $mainConfig['password']);
-
-			// Drop all projects from GD
-			foreach (self::$configuration->getProjects() as $p) {
-				try {
-					self::$restApi->dropProject($p['pid']);
-				} catch (RestApiException $e) {}
-			}
-
-			// Drop all users from GD
-			foreach (self::$configuration->getUsers() as $u) {
-				try {
-					self::$restApi->dropUser($u['uid']);
-				} catch (RestApiException $e) {}
-			}
-
-			// Drop configuration from SAPI
-			foreach (self::$storageApi->listTables($this->bucketId) as $table) {
-				self::$storageApi->dropTable($table['id']);
-			}
-			self::$storageApi->dropBucket($this->bucketId);
-		}
-
 		// Drop data tables from SAPI
-		foreach (self::$storageApi->listBuckets() as $bucket) if (substr($bucket['id'], 0, 22) == 'sys.c-wr-gooddata-test' || substr($bucket['id'], 0, 4) == 'out.') {
-			foreach (self::$storageApi->listTables($bucket['id']) as $table) {
-				self::$storageApi->dropTable($table['id']);
+		self::$restApi->login($mainConfig['username'], $mainConfig['password']);
+		foreach (self::$storageApi->listBuckets() as $bucket) {
+			$isConfigBucket = substr($bucket['id'], 0, 22) == 'sys.c-wr-gooddata-test';
+			$isDataBucket = substr($bucket['id'], 0, 4) == 'out.';
+
+			if ($isConfigBucket) {
+				foreach ($bucket['attributes'] as $attr) {
+					if ($attr['name'] == 'gd.pid') {
+						try {
+							self::$restApi->dropProject($attr['value']);
+						} catch (RestApiException $e) {}
+					}
+					if ($attr['name'] == 'gd.uid') {
+						try {
+							self::$restApi->dropUser($attr['value']);
+						} catch (RestApiException $e) {}
+					}
+				}
 			}
-			self::$storageApi->dropBucket($bucket['id']);
+
+			if ($isConfigBucket || $isDataBucket) {
+				foreach (self::$storageApi->listTables($bucket['id']) as $table) {
+					if ($isConfigBucket && $table['id'] == $bucket['id'] . '.projects') {
+						$csv = self::$storageApi->exportTable($table['id']);
+						foreach(StorageApiClient::parseCsv($csv) as $project) {
+							try {
+								self::$restApi->dropProject($project['pid']);
+							} catch (RestApiException $e) {}
+						}
+					} elseif ($isConfigBucket && $table['id'] == $bucket['id'] . '.users') {
+						$csv = self::$storageApi->exportTable($table['id']);
+						foreach(StorageApiClient::parseCsv($csv) as $user) {
+							try {
+								self::$restApi->dropUser($user['uid']);
+							} catch (RestApiException $e) {}
+						}
+					}
+					self::$storageApi->dropTable($table['id']);
+				}
+				self::$storageApi->dropBucket($bucket['id']);
+			}
 		}
 
 		// Init job processing
@@ -193,7 +205,7 @@ abstract class WriterTest extends WebTestCase
 	 * @param $params
 	 * @return mixed
 	 */
-	protected function _postWriterApi($url, $params)
+	protected function _postWriterApi($url, $params = array())
 	{
 		return $this->_callWriterApi($url, 'POST', $params);
 	}
@@ -238,7 +250,7 @@ abstract class WriterTest extends WebTestCase
 				'job' => $responseJson['job']
 			));
 		} else if (isset($responseJson['batch'])) {
-			$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/batch?writerId=%s&id=%d', $this->writerId, $responseJson['batch']));
+			$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/batch?writerId=%s&batchId=%d', $this->writerId, $responseJson['batch']));
 
 			$this->assertArrayHasKey('batch', $responseJson, "Response for writer call '/batch' should contain 'batch' key.");
 			$this->assertArrayHasKey('jobs', $responseJson['batch'], "Response for writer call '/batch' should contain 'batch.jobs' key.");

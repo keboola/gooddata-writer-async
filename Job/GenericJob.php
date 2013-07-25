@@ -11,7 +11,8 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\Writer\SharedConfig,
 	Keboola\GoodDataWriter\GoodData\RestApi,
-	Keboola\GoodDataWriter\GoodData\CLToolApi;
+	Keboola\GoodDataWriter\GoodData\CLToolApi,
+	Keboola\GoodDataWriter\Service\S3Client;
 
 abstract class GenericJob
 {
@@ -36,19 +37,19 @@ abstract class GenericJob
 	 */
 	public $clToolApi;
 	/**
-	 * @var \Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader
+	 * @var S3Client
 	 */
-	public $logUploader;
+	public $s3Client;
 	public $tmpDir;
 	public $rootPath;
 
 
-	public function __construct($configuration, $mainConfig, $sharedConfig, $restApi, $clToolApi, $logUploader)
+	public function __construct($configuration, $mainConfig, $sharedConfig, $restApi, $clToolApi, $s3Client)
 	{
 		$this->configuration = $configuration;
 		$this->mainConfig = $mainConfig;
 		$this->sharedConfig = $sharedConfig;
-		$this->logUploader = $logUploader;
+		$this->s3Client = $s3Client;
 
 		$this->restApi = $restApi;
 		$this->clToolApi = $clToolApi;
@@ -62,7 +63,7 @@ abstract class GenericJob
 	{
 		$logUrl = null;
 		if ($callsLog) {
-			$logUrl = $this->logUploader->uploadString('calls-' . $jobId, $callsLog);
+			$logUrl = $this->s3Client->uploadString('calls-' . $jobId, $callsLog);
 		}
 
 		if ($logUrl) {

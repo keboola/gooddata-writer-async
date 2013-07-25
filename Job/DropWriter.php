@@ -6,7 +6,8 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
+	Keboola\GoodDataWriter\GoodData\RestApiException;
 
 class DropWriter extends GenericJob
 {
@@ -26,22 +27,48 @@ class DropWriter extends GenericJob
 			throw new WrongConfigurationException('Writer has been already deleted.');
 		}
 
-		foreach ($this->configuration->getProjects() as $project) {
-			if ($dropImmediately) {
+		if ($dropImmediately) {
+			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
+		}
 
-			} else {
-				$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid'], empty($params['dev']));
+		$pids = array();
+		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) {
+			$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid'], empty($params['dev']));
+
+			if ($dropImmediately) {
+				try {
+					$this->restApi->dropProject($project['pid']);
+					$pids[] = $project['pid'];
+				} catch (RestApiException $e) {
+					$this->log->alert('Could nor delete project', array(
+						'project' => $project,
+						'exception' => $e
+					));
+				}
 			}
 		}
-		foreach ($this->configuration->getUsers() as $user) {
-			if (!$user['uid']) {
-				$user['uid'] = $this->restApi->userId($user['email'], $mainConfig['domain']);
-			}
-			if ($dropImmediately) {
+		if (count($pids)) {
+			$this->sharedConfig->markProjectsDeleted($pids);
+		}
 
-			} else {
-				$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid'], $user['email'], empty($params['dev']));
+		$uids = array();
+		foreach ($this->sharedConfig->getUsers($job['projectId'], $job['writerId']) as $user) {
+			$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid'], $user['email'], empty($params['dev']));
+
+			if ($dropImmediately) {
+				try {
+					$this->restApi->dropUser($user['uid']);
+					$uids[] = $user['uid'];
+				} catch (RestApiException $e) {
+					$this->log->alert('Could nor delete user', array(
+						'user' => $user,
+						'exception' => $e
+					));
+				}
 			}
+		}
+		if (count($uids)) {
+			$this->sharedConfig->markUsersDeleted($uids);
 		}
 
 		$this->configuration->dropBucket();

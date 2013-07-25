@@ -45,9 +45,9 @@ class GoodDataWriter extends Component
 	 */
 	private $_mainConfig;
 	/**
-	 * @var \Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader
+	 * @var Service\S3Client
 	 */
-	private $_s3Uploader;
+	private $_s3Client;
 	/**
 	 * @var Writer\Queue
 	 */
@@ -68,10 +68,12 @@ class GoodDataWriter extends Component
 
 		// Init main temp directory
 		$this->_mainConfig = $this->_container->getParameter('gooddata_writer');
-		$this->_s3Uploader = $this->_container->get('syrup.monolog.s3_uploader');
 		$tmpDir = $this->_mainConfig['tmp_path'];
 
 		$this->configuration = new Configuration($params['writerId'], $this->_storageApi, $tmpDir);
+
+		$this->_s3Client = new Service\S3Client($this->_mainConfig['s3']['access_key'], $this->_mainConfig['s3']['secret_key'],
+			$this->_mainConfig['s3']['bucket'], $this->configuration->projectId . '.' . $this->configuration->writerId);
 
 		$this->_queue = new Writer\Queue(new \Zend_Db_Adapter_Pdo_Mysql(array(
 			'host' => $this->_mainConfig['db']['host'],
@@ -106,30 +108,7 @@ class GoodDataWriter extends Component
 
 			return array('writer' => $this->configuration->bucketInfo);
 		} else {
-			$writers = array();
-			foreach ($this->_storageApi->listBuckets() as $bucket) {
-				$writerId = false;
-				$foundWriterType = false;
-				if (isset($bucket['attributes']) && is_array($bucket['attributes'])) foreach($bucket['attributes'] as $attribute) {
-					if ($attribute['name'] == 'writerId') {
-						$writerId = $attribute['value'];
-					}
-					if ($attribute['name'] == 'writer') {
-						$foundWriterType = $attribute['value'] == $this->_name;
-					}
-					if ($writerId && $foundWriterType) {
-						break;
-					}
-				}
-				if ($writerId && $foundWriterType) {
-					$writers[] = array(
-						'id' => $writerId,
-						'bucket' => $bucket['id']
-					);
-				}
-			}
-
-			return array('writers' => $writers);
+			return array('writers' => Configuration::getWriters($this->_storageApi));
 		}
 	}
 
@@ -155,17 +134,7 @@ class GoodDataWriter extends Component
 
 		$this->_init($params);
 
-		if ($this->configuration->configurationBucket($params['writerId'])) {
-			throw new WrongParametersException('Writer with id \'writerId\' already exists');
-		}
-
-		$this->_storageApi->createBucket('wr-gooddata-' . $params['writerId'], 'sys', 'GoodData Writer Configuration');
-		$this->_storageApi->setBucketAttribute('sys.c-wr-gooddata-' . $params['writerId'], 'writer', 'gooddata');
-		$this->_storageApi->setBucketAttribute('sys.c-wr-gooddata-' . $params['writerId'], 'writerId', $params['writerId']);
-		if (isset($params['backendUrl'])) {
-			$this->_storageApi->setBucketAttribute('sys.c-wr-gooddata-' . $params['writerId'], 'gd.backendUrl', $params['backendUrl']);
-		}
-		$this->configuration->bucketId = 'sys.c-wr-gooddata-' . $params['writerId'];
+		$this->configuration->createWriter($params['writerId'], isset($params['backendUrl']) ? $params['backendUrl'] : null);
 
 		$mainConfig = empty($params['dev']) ? $this->_mainConfig['gd']['prod'] : $this->_mainConfig['gd']['dev'];
 		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $mainConfig['access_token'];
@@ -187,21 +156,12 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['pid'])) {
-				return array('pid' => $jobInfo['job']['result']['pid']);
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
+			if (isset($result['job']['result']['pid'])) {
+				return array('pid' => $result['job']['result']['pid']);
 			} else {
-				$e = new JobProcessException('Create Writer job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
 				throw $e;
 			}
 		}
@@ -240,23 +200,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success') {
-				return array();
-			} else {
-				$e = new JobProcessException('Delete Writer job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
-				throw $e;
-			}
+			$this->_waitForJob($jobInfo['id'], $params['writerId']);
 		}
 	}
 
@@ -326,21 +270,12 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['pid'])) {
-				return array('pid' => $jobInfo['job']['result']['pid']);
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
+			if (isset($result['job']['result']['pid'])) {
+				return array('pid' => $result['job']['result']['pid']);
 			} else {
-				$e = new JobProcessException('Create Project job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
 				throw $e;
 			}
 		}
@@ -365,16 +300,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		$users = array();
-		foreach ($this->configuration->getProjectUsers() as $u) {
-			if ($u['pid'] == $params['pid']) {
-				$users[] = array(
-					'email' => $u['email'],
-					'role' => $u['role']
-				);
-			}
-		}
-		return array('users' => $users);
+		return array('users' => $this->configuration->getProjectUsers($params['pid']));
 	}
 
 
@@ -432,23 +358,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success') {
-				return array();
-			} else {
-				$e = new JobProcessException('Create Project User job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
-				throw $e;
-			}
+			$this->_waitForJob($jobInfo['id'], $params['writerId']);
 		}
 	}
 
@@ -497,23 +407,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success') {
-				return array();
-			} else {
-				$e = new JobProcessException('Invite User job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
-				throw $e;
-			}
+			$this->_waitForJob($jobInfo['id'], $params['writerId']);
 		}
 	}
 
@@ -588,21 +482,12 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['uid'])) {
-				return array('uid' => $jobInfo['job']['result']['uid']);
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
+			if (isset($result['job']['result']['uid'])) {
+				return array('uid' => $result['job']['result']['uid']);
 			} else {
-				$e = new JobProcessException('Create User job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
 				throw $e;
 			}
 		}
@@ -633,10 +518,10 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("User " . $user . " doesn't exist in writer");
 		}
 
-		$gdProjectUrl = '/#s=/gdc/projects/' . $params['pid'];
+		$mainConfig = empty($params['dev']) ? $this->_mainConfig['gd']['prod'] : $this->_mainConfig['gd']['dev'];
+		$sso = new SSO($this->configuration, $mainConfig);
 
-		/** @var SSO $sso */
-		$sso = $this->_container->get('gooddata_writer.sso');
+		$gdProjectUrl = '/#s=/gdc/projects/' . $params['pid'];
 		$ssoLink = $sso->url($gdProjectUrl, $params['email']);
 
 		return array('ssoLink' => $ssoLink);
@@ -697,20 +582,13 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
-				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
+			if (isset($result['job']['result']['response']['uri'])) {
+				return array('uri' => $result['job']['result']['response']['uri']);
 			} else {
-				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
+				throw $e;
 			}
 		}
 	}
@@ -742,20 +620,13 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
-				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
+			if (isset($result['job']['result']['response']['uri'])) {
+				return array('uri' => $result['job']['result']['response']['uri']);
 			} else {
-				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
+				throw $e;
 			}
 		}
 	}
@@ -788,20 +659,13 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
-				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
+			if (isset($result['job']['result']['response']['uri'])) {
+				return array('uri' => $result['job']['result']['response']['uri']);
 			} else {
-				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
+				throw $e;
 			}
 		}
 	}
@@ -827,20 +691,13 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success' && isset($jobInfo['job']['result']['response']['uri'])) {
-				return array('uri' => $jobInfo['job']['result']['response']['uri']);
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
+			if (isset($result['job']['result']['response']['uri'])) {
+				return array('uri' => $result['job']['result']['response']['uri']);
 			} else {
-				return array('response' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']);
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
+				throw $e;
 			}
 		}
 	}
@@ -896,14 +753,15 @@ class GoodDataWriter extends Component
 		$this->configuration->getDateDimensions();
 
 		$xml = $this->configuration->getXml($params['tableId']);
-		$xmlUrl = $this->_s3Uploader->uploadString($params['tableId'] . '.xml', $xml, 'text/xml', false);
+		$xmlName = sprintf('%s-%s-%s.xml', date('His'), uniqid(), $params['tableId']);
+		$xmlName = $this->_s3Client->uploadString($xmlName, $xml, 'text/xml');
 
 		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
 		$jobData = array(
 			'command' => 'uploadTable',
 			'dataset' => !empty($tableDefinition['gdName']) ? $tableDefinition['gdName'] : $tableDefinition['tableId'],
 			'createdTime' => date('c', $createdTime),
-			'xmlFile' => $xmlUrl,
+			'xmlFile' => $xmlName,
 			'parameters' => array(
 				'tableId' => $params['tableId']
 			)
@@ -921,23 +779,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success') {
-				return array();
-			} else {
-				$e = new JobProcessException('Upload Table job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
-				throw $e;
-			}
+			$this->_waitForJob($jobInfo['id'], $params['writerId']);
 		}
 	}
 
@@ -972,18 +814,20 @@ class GoodDataWriter extends Component
 			} catch (WrongConfigurationException $e) {
 				throw new WrongConfigurationException(sprintf('Wrong configuration of table \'%s\': %s', $tableInfo['tableId'], $e->getMessage()));
 			}
-			$xmlUrl = $this->_s3Uploader->uploadString($tableInfo['tableId'] . '.xml', $xml, 'text/xml', false);
+			$xmlName = sprintf('%s-%s-%s.xml', date('His'), uniqid(), $tableInfo['tableId']);
+			$xmlName = $this->_s3Client->uploadString($xmlName, $xml, 'text/xml');
 			$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
 
 			$tables[$tableInfo['tableId']] = array(
 				'dataset'               => !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'],
 				'tableId'               => $tableInfo['tableId'],
-				'xml'                   => $xmlUrl,
+				'xml'                   => $xmlName,
 				'definition'    => $definition['columns']
 			);
 		}
 
 
+		// @TODO move the code somewhere else
 		// Sort tables for GD export according to their references
 		$unsortedTables = array();
 		$sortedTables = array();
@@ -1059,22 +903,7 @@ class GoodDataWriter extends Component
 		if (empty($params['wait'])) {
 			return array('batch' => (int)$batchId);
 		} else {
-			$jobsFinished = false;
-			do {
-				$jobsInfo = $this->getBatch(array('id' => $batchId, 'writerId' => $params['writerId']));
-				if (isset($jobsInfo['batch']['status']) && ($jobsInfo['batch']['status'] == 'success' || $jobsInfo['batch']['status'] == 'error')) {
-					$jobsFinished = true;
-				}
-				if (!$jobsFinished) sleep(30);
-			} while(!$jobsFinished);
-
-			if ($jobsInfo['batch']['status'] == 'success') {
-				return array();
-			} else {
-				$e = new JobProcessException('Upload Project job failed');
-				$e->setData(array('result' => $jobsInfo['batch']['result'], 'log' => $jobsInfo['batch']['log']));
-				throw $e;
-			}
+			$this->_waitForBatch($batchId, $params['writerId']);
 		}
 	}
 
@@ -1097,6 +926,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
+		// @TODO move the code somewhere else
 		$nodes = array();
 		$dateDimensions = array();
 		$references = array();
@@ -1178,36 +1008,9 @@ class GoodDataWriter extends Component
 
 			return array('table' => $this->configuration->getTableForApi($params['tableId']));
 		} elseif (isset($params['referenceable'])) {
-			$tables = array();
-			foreach ($this->configuration->definedTables as $table) {
-				$tables[$table['tableId']] = array(
-					'name' => isset($table['gdName']) ? $table['gdName'] : $table['tableId'],
-					'referenceable' => $this->configuration->tableIsReferenceable($table['tableId'])
-				);
-			}
-
-			return array('tables' => $tables);
+			return array('tables' => $this->configuration->getReferenceableTables());
 		} else {
-			// Tables list
-			$tables = array();
-			foreach ($this->_storageApi->listTables() as $table) {
-				if (substr($table['id'], 0, 4) == 'out.') {
-					$t = array(
-						'id' => $table['id'],
-						'bucket' => $table['bucket']['id']
-					);
-					if (isset($this->configuration->definedTables[$table['id']])) {
-						$tableDef = $this->configuration->definedTables[$table['id']];
-						$t['gdName'] = isset($tableDef['gdName']) ? $tableDef['gdName'] : null;
-						$t['export'] = isset($tableDef['export']) ? (Boolean)$tableDef['export'] : false;
-						$t['lastChangeDate'] = isset($tableDef['lastChangeDate']) ? $tableDef['lastChangeDate'] : null;
-						$t['lastExportDate'] = isset($tableDef['lastExportDate']) ? $tableDef['lastExportDate'] : null;
-					}
-					$tables[] = $t;
-				}
-			}
-
-			return array('tables' => $tables);
+			return array('tables' => $this->configuration->getTables());
 		}
 	}
 
@@ -1388,8 +1191,17 @@ class GoodDataWriter extends Component
 		if (empty($params['jobId'])) {
 			$days = isset($params['days']) ? $params['days'] : 7;
 			$jobs = $this->sharedConfig->fetchJobs($this->configuration->projectId, $params['writerId'], $days);
-			return array('jobs' => $jobs);
+
+			$result = array();
+			foreach ($jobs as $job) {
+				$result[] = $this->sharedConfig->jobToApiResponse($job, $this->_s3Client);
+			}
+
+			return array('jobs' => $result);
 		} else {
+			if (is_array($params['jobId'])) {
+				throw new WrongParametersException("Parameter 'jobId' has to be a number");
+			}
 			$job = $this->sharedConfig->fetchJob($params['jobId'], $this->configuration->writerId, $this->configuration->projectId);
 			if (!$job) {
 				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['jobId'], $this->configuration->writerId));
@@ -1422,7 +1234,7 @@ class GoodDataWriter extends Component
 					throw new WrongParametersException("There is no csvFile for this job");
 				}
 			} else {
-				$job = $this->sharedConfig->jobToApiResponse($job);
+				$job = $this->sharedConfig->jobToApiResponse($job, $this->_s3Client);
 				return array('job' => $job);
 			}
 		}
@@ -1464,12 +1276,12 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		if (empty($params['id'])) {
-			throw new WrongParametersException("Parameter 'id' is missing");
+		if (empty($params['batchId'])) {
+			throw new WrongParametersException("Parameter 'batchId' is missing");
 		}
 
 		$data = array(
-			'batchId' => (int)$params['id'],
+			'batchId' => (int)$params['batchId'],
 			'createdTime' => date('c'),
 			'startTime' => date('c'),
 			'endTime' => null,
@@ -1478,15 +1290,16 @@ class GoodDataWriter extends Component
 			'result' => null,
 			'log' => null
 		);
+		$cancelledJobs = 0;
 		$waitingJobs = 0;
 		$processingJobs = 0;
 		$errorJobs = 0;
 		$successJobs = 0;
-		foreach ($this->sharedConfig->fetchBatch($params['id']) as $job) {
-			$job = $this->sharedConfig->jobToApiResponse($job);
+		foreach ($this->sharedConfig->fetchBatch($params['batchId']) as $job) {
+			$job = $this->sharedConfig->jobToApiResponse($job, $this->_s3Client);
 
 			if ($job['projectId'] != $this->configuration->projectId || $job['writerId'] != $this->configuration->writerId) {
-				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['id'], $this->configuration->writerId));
+				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['batchId'], $this->configuration->writerId));
 			}
 
 			if ($job['createdTime'] < $data['createdTime']) $data['createdTime'] = $job['createdTime'];
@@ -1495,6 +1308,7 @@ class GoodDataWriter extends Component
 			$data['jobs'][] = (int)$job['id'];
 			if ($job['status'] == 'waiting') $waitingJobs++;
 			elseif ($job['status'] == 'processing') $processingJobs++;
+			elseif ($job['status'] == 'cancelled') $cancelledJobs++;
 			elseif ($job['status'] == 'error') {
 				$errorJobs++;
 				$data['result'] = $job['result'];
@@ -1502,7 +1316,8 @@ class GoodDataWriter extends Component
 			else $successJobs++;
 		}
 
-		if ($processingJobs > 0) $data['status'] = 'processing';
+		if ($cancelledJobs > 0) $data['status'] = 'cancelled';
+		elseif ($processingJobs > 0) $data['status'] = 'processing';
 		elseif ($waitingJobs > 0) $data['status'] = 'waiting';
 		elseif ($errorJobs > 0) $data['status'] = 'error';
 		else $data['status'] = 'success';
@@ -1563,6 +1378,51 @@ class GoodDataWriter extends Component
 		));
 
 		return $jobInfo;
+	}
+
+
+	protected function _waitForJob($jobId, $writerId)
+	{
+		$jobFinished = false;
+		$i = 1;
+		do {
+			$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $writerId));
+			if (isset($jobInfo['job']['status']) && !in_array($jobInfo['job']['status'], array('waiting', 'processing'))) {
+				$jobFinished = true;
+			}
+			if (!$jobFinished) sleep($i * 10);
+			$i++;
+		} while(!$jobFinished);
+
+		if ($jobInfo['job']['status'] == 'success') {
+			return $jobInfo;
+		} else {
+			$e = new JobProcessException('Job processing failed');
+			$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+			throw $e;
+		}
+	}
+
+	protected function _waitForBatch($batchId, $writerId)
+	{
+		$jobsFinished = false;
+		$i = 1;
+		do {
+			$jobsInfo = $this->getBatch(array('batchId' => $batchId, 'writerId' => $writerId));
+			if (isset($jobsInfo['batch']['status']) && !in_array($jobsInfo['batch']['status'], array('waiting', 'processing'))) {
+				$jobsFinished = true;
+			}
+			if (!$jobsFinished) sleep($i * 10);
+			$i++;
+		} while(!$jobsFinished);
+
+		if ($jobsInfo['batch']['status'] == 'success') {
+			return $jobsInfo;
+		} else {
+			$e = new JobProcessException('Batch processing failed');
+			$e->setData(array('result' => $jobsInfo['batch']['result'], 'log' => $jobsInfo['batch']['log']));
+			throw $e;
+		}
 	}
 
 }
