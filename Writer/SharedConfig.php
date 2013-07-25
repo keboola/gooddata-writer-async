@@ -136,7 +136,7 @@ class SharedConfig
 	{
 		if (!is_array($job['result'])) {
 			$result = json_decode($job['result'], true);
-			if (isset($result['debug']) && !is_array($result['debug'])) $result['debug'] = json_decode($result['debug']);
+			if (isset($result['debug']) && !is_array($result['debug'])) $result['debug'] = json_decode($result['debug'], true);
 			if (isset($result['csvFile'])) unset($result['csvFile']);
 			if ($result) {
 				$job['result'] = $result;
@@ -164,8 +164,8 @@ class SharedConfig
 					$job['log'] = $s3Client->url($job['log'], 3600);
 				}
 			}
-			if (!empty($result['debug']) && is_array($result['debug'])) {
-				foreach ($result['debug'] as $key => &$value) {
+			if (!empty($job['result']['debug']) && is_array($job['result']['debug'])) {
+				foreach ($job['result']['debug'] as $key => &$value) {
 					$url = parse_url($value);
 					if (empty($url['host'])) {
 						$value = $s3Client->url($value, 3600);
