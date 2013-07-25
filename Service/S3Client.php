@@ -79,7 +79,12 @@ class S3Client
 		return $s3FileName;
 	}
 
-	public function url($object, $expires = 3600)
+	/**
+	 * @param $object
+	 * @param int $expires default is two days
+	 * @return string
+	 */
+	public function url($object, $expires = 172800)
 	{
 		return $this->_client->getObjectUrl($this->_bucket, $object, '+' . $expires . ' seconds');
 	}
