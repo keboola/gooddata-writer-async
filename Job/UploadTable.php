@@ -23,7 +23,11 @@ class UploadTable extends GenericJob
 
 		$xmlFile = $job['xmlFile'];
 		if (!is_file($xmlFile)) {
-			$xmlUrl = $this->s3Client->url($xmlFile);
+			$xmlUrl = $xmlFile;
+			$url = parse_url($xmlFile);
+			if (empty($url['host'])) {
+				$xmlUrl = $this->s3Client->url($xmlFile);
+			}
 			$xmlFilePath = tempnam($this->tmpDir, 'xml');
 			exec('curl -s -L ' . escapeshellarg($xmlUrl) . ' > ' . escapeshellarg($xmlFilePath));
 			$xmlFile = $xmlFilePath;
