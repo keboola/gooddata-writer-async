@@ -339,27 +339,6 @@ class CLToolApi
 		}
 	}
 
-	/**
-	 * @param $pid
-	 * @return string|bool
-	 */
-	public function executeReports($pid)
-	{
-		$maqlFile = $this->tmpDir . '/temp-' . date('Ymd-His') . '-' . uniqid() . '.maql';
-
-		$command  = 'OpenProject(id="' . $pid . '");';
-		$command .= 'GetReports(fileName="' . $maqlFile . '");';
-
-		$this->call($command);
-
-		if (file_exists($maqlFile) && filesize($maqlFile)) {
-			$command  = 'OpenProject(id="' . $pid . '");';
-			$command .= 'ExecuteReports(fileName="' . $maqlFile . '");';
-			$this->call($command);
-
-			unlink($maqlFile);
-		}
-	}
 
 
 }
