@@ -233,6 +233,8 @@ class JobExecutor
 				throw new ClientException('Rest API error: ' . $e->getMessage());
 			} catch (CLToolApiErrorException $e) {
 				throw new ClientException('CL Tool error: ' . $e->getMessage());
+			} catch (\Keboola\StorageApi\ClientException $e) {
+				throw new ClientException('Storage API problem: ' . $e->getMessage());
 			}
 
 			$duration = time() - $time;
