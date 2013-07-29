@@ -542,6 +542,16 @@ class RestApi
 	}
 
 
+	public function executeReport($uri)
+	{
+		$result = $this->_request('/gdc/xtab2/executor3', 'POST', array(
+			'report_req' => array(
+				'report' => $uri
+			)
+		));
+	}
+
+
 
 
 	/**
