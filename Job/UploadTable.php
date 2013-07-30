@@ -66,7 +66,7 @@ class UploadTable extends GenericJob
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
 		$sanitize = (isset($params['sanitize'])) ? $params['sanitize']
-			: empty($tableDefinition['sanitize']);
+			: !empty($tableDefinition['sanitize']);
 
 		foreach ($projects as $project) if ($project['active']) {
 			if (empty($tableDefinition['lastExportDate'])) {
