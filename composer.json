@@ -25,7 +25,8 @@
 	"require": {
 		"php": ">=5.3.5",
 		"emagister/zendframework1": "1.*",
-		"gooddata/gooddata-cl": "1.2.*"
+		"gooddata/gooddata-cl": "1.2.*",
+		"sabre/dav": "1.8.*"
 	},
 	"require-dev": {
 		"syrup/component-bundle": "1.2.*",

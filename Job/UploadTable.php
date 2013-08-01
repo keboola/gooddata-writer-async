@@ -13,6 +13,7 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\Writer\Process,
 	Keboola\GoodDataWriter\Writer\ProcessException;
+use Sabre\DAV;
 
 class UploadTable extends GenericJob
 {
@@ -89,7 +90,7 @@ class UploadTable extends GenericJob
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
 		$sanitize = (isset($params['sanitize'])) ? $params['sanitize']
-			: empty($tableDefinition['sanitize']);
+			: !empty($tableDefinition['sanitize']);
 
 		foreach ($projects as $project) if ($project['active']) {
 			if (empty($tableDefinition['lastExportDate'])) {
@@ -110,7 +111,7 @@ class UploadTable extends GenericJob
 			);
 		}
 
-		$sapiClient = new \Keboola\StorageApi\Client(
+		/**$sapiClient = new \Keboola\StorageApi\Client(
 			$job['token'],
 			$this->mainConfig['storageApi.url'],
 			$this->mainConfig['user_agent']
@@ -174,7 +175,6 @@ class UploadTable extends GenericJob
 
 		// Start GD load
 		$gdWriteStartTime = date('c');
-		$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 		$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
 
@@ -304,6 +304,65 @@ class UploadTable extends GenericJob
 		}
 
 
+		// Add column headers according to manifest, calculate date facts and remove ignored columns
+		rename($tmpFolder . '/data.csv', $tmpFolder . '/data.csv.1');
+		$command  = 'cat ' . escapeshellarg($tmpFolder . '/data.csv.1') . ' | php ' . escapeshellarg($this->rootPath . '/GoodData/convert_csv.php');
+		$command .= ' -h' . implode(',', $csvHeaders);
+		if (count($dateColumnsIndices)) {
+			$command .= ' -d' . implode(',', $dateColumnsIndices);
+		}
+		if (count($timeColumnsIndices)) {
+			$command .= ' -t' . implode(',', $timeColumnsIndices);
+		}
+		if (count($ignoredColumnsIndices)) {
+			$command .= ' -i' . implode(',', $ignoredColumnsIndices);
+		}
+		$command .= ' > ' . escapeshellarg($tmpFolder . '/data.csv');
+		try {
+			$output = Process::exec($command);
+		} catch (ProcessException $e) {
+			throw new JobProcessException(sprintf("CSV preparation failed: %s", $e->getMessage()), NULL, $e);
+		}
+		if (!file_exists($tmpFolder . '/data.csv')) {
+			throw new JobProcessException(sprintf("CSV preparation failed. Job id is '%s'", $tmpFolderName));
+		}
+		unlink($tmpFolder . '/data.csv.1');
+
+		// Compress files
+		$csvFileSize = filesize($tmpFolder . '/data.csv');
+		file_put_contents($tmpFolder . '/upload_info.json', json_encode($manifest));
+		shell_exec('zip -j ' . escapeshellarg($tmpFolder . '/upload.zip') . ' '
+			. escapeshellarg($tmpFolder . '/upload_info.json') . ' ' . escapeshellarg($tmpFolder . '/data.csv'));
+		unlink($tmpFolder . '/data.csv');
+
+		// Send data to WebDav
+		shell_exec(sprintf('curl -i --insecure -X MKCOL -v https://%s:%s@secure-di.gooddata.com/uploads/%s/',
+			urlencode($this->configuration->bucketInfo['gd']['username']), $this->configuration->bucketInfo['gd']['password'], $tmpFolderName));
+		shell_exec(sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@secure-di.gooddata.com/uploads/%s/upload.zip',
+			$tmpFolder . '/upload.zip', urlencode($this->configuration->bucketInfo['gd']['username']), $this->configuration->bucketInfo['gd']['password'], $tmpFolderName));*/
+$tmpFolderName = '5401764-51f8dcc364c43';
+
+		$davClient = new DAV\Client(array(
+			'baseUri' => 'https://secure-di.gooddata.com',
+			'userName' => $this->configuration->bucketInfo['gd']['username'],
+			'password' => $this->configuration->bucketInfo['gd']['password']
+		));
+		//$davClient->request('MKCOL', '/uploads/' . $tmpFolderName);
+
+		// Look for .json and .log files in WebDav folder
+		$files = $davClient->propFind('/uploads/' . $tmpFolderName, array(
+			'{DAV:}displayname',
+			'{DAV:}getcontentlength',
+		), 1);
+		foreach (array_keys($files) as $file) {echo $file.PHP_EOL;
+			if (substr_compare($file, '.log', -strlen($file), strlen($file)) === 0 || substr_compare($file, '.json', -strlen($file), strlen($file)) === 0) {
+				echo '-- FOUND'.PHP_EOL;
+			}
+		}
+
+
+die();
+
 		$debug = array();
 		$output = null;
 		$error = false;
@@ -323,41 +382,13 @@ class UploadTable extends GenericJob
 						break;
 					case 'loadData':
 
-						// Add column headers according to manifest, calculate date facts and remove ignored columns
-						rename($tmpFolder . '/data.csv', $tmpFolder . '/data.csv.1');
-						$command  = 'cat ' . escapeshellarg($tmpFolder . '/data.csv.1') . ' | php ' . escapeshellarg($this->rootPath . '/GoodData/convert_csv.php');
-						$command .= ' -h' . implode(',', $csvHeaders);
-						if (count($dateColumnsIndices)) {
-							$command .= ' -d' . implode(',', $dateColumnsIndices);
-						}
-						if (count($timeColumnsIndices)) {
-							$command .= ' -t' . implode(',', $timeColumnsIndices);
-						}
-						if (count($ignoredColumnsIndices)) {
-							$command .= ' -i' . implode(',', $ignoredColumnsIndices);
-						}
-						$command .= ' > ' . escapeshellarg($tmpFolder . '/data.csv');
-						try {
-							$output = Process::exec($command);
-						} catch (ProcessException $e) {
-							throw new JobProcessException(sprintf("CSV preparation failed: %s", $e->getMessage()), NULL, $e);
-						}
-						if (!file_exists($tmpFolder . '/data.csv')) {
-							throw new JobProcessException(sprintf("CSV preparation failed. Job id is '%s'", $tmpFolderName));
-						}
-						unlink($tmpFolder . '/data.csv.1');
-
-						// Send data to WebDav
-						file_put_contents($tmpFolder . '/upload_info.json', json_encode($manifest));
-						shell_exec('zip -j ' . escapeshellarg($tmpFolder . '/upload.zip') . ' ' . escapeshellarg($tmpFolder . '/upload_info.json') . ' ' . escapeshellarg($tmpFolder . '/data.csv'));
-						shell_exec(sprintf('curl -i --insecure -X MKCOL -v https://%s:%s@secure-di.gooddata.com/uploads/%s/',
-							urlencode($this->configuration->bucketInfo['gd']['username']), $this->configuration->bucketInfo['gd']['password'], $tmpFolderName));
-						shell_exec(sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@secure-di.gooddata.com/uploads/%s/upload.zip',
-							$tmpFolder . '/upload.zip', urlencode($this->configuration->bucketInfo['gd']['username']), $this->configuration->bucketInfo['gd']['password'], $tmpFolderName));
-
 						// Run load task
 						try {
-							$this->restApi->loadData($gdJob['pid'], $tmpFolderName);
+							$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+							$result = $this->restApi->loadData($gdJob['pid'], $tmpFolderName);
+							if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
+
+							}
 						} catch (RestApiException $e) {
 							throw new JobProcessException('ETL load failed: ' . $e->getMessage());
 						}
@@ -383,8 +414,8 @@ class UploadTable extends GenericJob
 			'status' => $error ? 'error' : 'success',
 			'debug' => json_encode($debug),
 			'gdWriteStartTime' => $gdWriteStartTime,
-			'gdWriteBytes' => filesize($tmpFolder . '/data.csv'),
-			'csvFile' => $tmpFolder . '/data.csv'
+			'gdWriteBytes' => $csvFileSize,
+			'csvFile' => $tmpFolder
 		), $output);
 	}
 

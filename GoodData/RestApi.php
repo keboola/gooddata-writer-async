@@ -557,6 +557,8 @@ class RestApi
 				$try++;
 			} while (in_array($taskResponse['taskStatus'], array('PREPARED', 'RUNNING')));
 
+			return $taskResponse;
+
 		} else {
 			$this->_log->alert('loadData() has bad response', array(
 				'uri' => $uri,
