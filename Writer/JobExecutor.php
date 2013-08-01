@@ -80,19 +80,28 @@ class JobExecutor
 				$this->_container->getParameter('storageApi.url'),
 				$gdWriterParams['user_agent']
 			);
+			$this->_storageApiClient->setRunId($jobId);
+
+			// start work on job
+			$this->_sharedConfig->saveJob($jobId, array(
+				'status' => 'processing',
+				'startTime' => date('c', time()),
+			));
+
+			$result = $this->_executeJob($job);
+
 		} catch(StorageApiException $e) {
-			throw new WrongConfigurationException("Invalid token for job $jobId", 0, $e);
+			$error = "Storage API error: " . $e->getMessage();
+			$sapiEvent = $this->_prepareSapiEventForJob($job);
+			$sapiEvent
+				->setMessage("Job $job[id] end")
+				->setType(StorageApiEvent::TYPE_WARN)
+				->setDescription($error);
+			$this->_logEvent($sapiEvent);
+
+			$result = array('status' => 'error', 'error' => $error);
 		}
-		$this->_storageApiClient->setRunId($jobId);
 
-		$time = time();
-		// start work on job
-		$this->_sharedConfig->saveJob($jobId, array(
-			'status' => 'processing',
-			'startTime' => date('c', $time),
-		));
-
-		$result = $this->_executeJob($job);
 		$jobStatus = ($result['status'] === 'error') ? StorageApiEvent::TYPE_ERROR : StorageApiEvent::TYPE_SUCCESS;
 
 		// end work on job
@@ -100,6 +109,7 @@ class JobExecutor
 			'status' => $jobStatus,
 			'endTime' => date('c'),
 		);
+
 		if (isset($result['gdWriteStartTime'])) {
 			$jobInfo['gdWriteStartTime'] = $result['gdWriteStartTime'];
 			unset($result['gdWriteStartTime']);
