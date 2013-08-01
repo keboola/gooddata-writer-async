@@ -91,15 +91,7 @@ class JobExecutor
 			$result = $this->_executeJob($job);
 
 		} catch(StorageApiException $e) {
-			$error = "Storage API error: " . $e->getMessage();
-			$sapiEvent = $this->_prepareSapiEventForJob($job);
-			$sapiEvent
-				->setMessage("Job $job[id] end")
-				->setType(StorageApiEvent::TYPE_WARN)
-				->setDescription($error);
-			$this->_logEvent($sapiEvent);
-
-			$result = array('status' => 'error', 'error' => $error);
+			$result = array('status' => 'error', 'error' => "Storage API error: " . $e->getMessage());
 		}
 
 		$jobStatus = ($result['status'] === 'error') ? StorageApiEvent::TYPE_ERROR : StorageApiEvent::TYPE_SUCCESS;
