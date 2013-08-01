@@ -105,19 +105,10 @@ class CLToolApi
 	{
 		// Prepare directory for logs
 		$prevCwd = getcwd();
-		$workingDirectory = $this->tmpDir . '/' . uniqid('gooddata-export', TRUE);
-		if (!mkdir($workingDirectory)) {
-			throw new \Exception('GoodDataExport: cannot create dir: ' . $workingDirectory);
-		}
 
-		if (!chdir($workingDirectory)) {
-			throw new \Exception('GoodDataExport: cannot change dir: ' . $workingDirectory);
+		if (!chdir($this->tmpDir)) {
+			throw new \Exception('GoodDataExport: cannot change dir: ' . $this->tmpDir);
 		}
-
-		$cleanUp = function() use($workingDirectory, $prevCwd) {
-			system('rm -rf ' . escapeshellarg($workingDirectory));
-			chdir($prevCwd);
-		};
 
 		// Assemble CL tool command
 		$command = escapeshellarg('/opt/ebs-disk/GD/cli/bin/gdi.sh')
@@ -126,7 +117,7 @@ class CLToolApi
 			. ' -h ' . escapeshellarg($this->_backendUrl)
 			. ' --timezone=GMT'
 			. ' -e ' . escapeshellarg($args);
-		$outputFile = $workingDirectory . '/output-' . date('Ymd-His') . '-' . uniqid() . '.txt';
+		$outputFile = $this->tmpDir . '/output-' . uniqid() . '.txt';
 		file_put_contents($outputFile . '.1', $args . "\n\n");
 
 		$backoffInterval = self::BACKOFF_INTERVAL;
@@ -141,8 +132,8 @@ class CLToolApi
 
 			if (!shell_exec($apiErrorTest)) {
 
-				if (file_exists($workingDirectory . '/debug.log')) {
-					exec(sprintf('cat %s %s > %s ', escapeshellarg($outputFile), escapeshellarg($workingDirectory . '/debug.log'), escapeshellarg($outputFile . '.D')));
+				if (file_exists($this->tmpDir . '/debug.log')) {
+					exec(sprintf('cat %s %s > %s ', escapeshellarg($outputFile), escapeshellarg($this->tmpDir . '/debug.log'), escapeshellarg($outputFile . '.D')));
 					exec(sprintf('rm %s', escapeshellarg($outputFile)));
 					exec(sprintf('mv %s %s ', escapeshellarg($outputFile . '.D'), escapeshellarg($outputFile)));
 				}
@@ -156,7 +147,6 @@ class CLToolApi
 					throw new CLToolApiErrorException('CL Tool Error, see debug log for details: ' . $this->debugLogUrl);
 				}
 
-				$cleanUp();
 				return;
 			} else {
 				// Wait indefinitely
@@ -167,7 +157,6 @@ class CLToolApi
 			sleep($backoffInterval * ($i + 1));
 		}
 
-		$cleanUp();
 		throw new \Exception('GoodData Service Unavailable', 400);
 	}
 
@@ -182,7 +171,10 @@ class CLToolApi
 	 */
 	public function createDate($pid, $name, $includeTime = FALSE)
 	{
-		$maqlFile = $this->tmpDir . '/' . $pid . '-' . date('Ymd-His') . '-createDate-' . $name . '.maql';
+		if (!file_exists($this->tmpDir . '/' . $pid)) {
+			mkdir($this->tmpDir . '/' . $pid);
+		}
+		$maqlFile = $this->tmpDir . '/' . $pid . '/createDate-' . $name . '.maql';
 
 		$command  = 'OpenProject(id="' . $pid . '");';
 		$command .= 'UseDateDimension(name="' . $name . '", includeTime="' . ($includeTime ? 'true' : 'false') . '");';
@@ -213,12 +205,16 @@ class CLToolApi
 	public function createDataset($pid, $xmlFile)
 	{
 		if (file_exists($xmlFile)) {
+			if (!file_exists($this->tmpDir . '/' . $pid)) {
+				mkdir($this->tmpDir . '/' . $pid);
+			}
+
 			libxml_use_internal_errors(TRUE);
 			$sxml = simplexml_load_file($xmlFile);
 			if ($sxml) {
 				$datasetName = (string)$sxml->name;
 
-				$maqlFile = $this->tmpDir . '/' . $pid . '-' . date('Ymd-His') . '-createDataset-' . $datasetName . '.maql';
+				$maqlFile = $this->tmpDir . '/' . $pid . '/createDataset-' . $datasetName . '.maql';
 
 				$csvFile = $this->tmpDir . '/dummy.csv';
 				if (!file_exists($csvFile)) touch($csvFile);
@@ -263,11 +259,15 @@ class CLToolApi
 	public function updateDataset($pid, $xmlFile, $updateAll=FALSE)
 	{
 		if (file_exists($xmlFile)) {
+			if (!file_exists($this->tmpDir . '/' . $pid)) {
+				mkdir($this->tmpDir . '/' . $pid);
+			}
+
 			libxml_use_internal_errors(TRUE);
 			$sxml = simplexml_load_file($xmlFile);
 			if ($sxml) {
 				$datasetName = (string)$sxml->name;
-				$maqlFile = $this->tmpDir . '/' . $pid . '-' . date('Ymd-His') . '-updateDataset-' . $datasetName . '.maql';
+				$maqlFile = $this->tmpDir . '/' . $pid . '/updateDataset-' . $datasetName . '.maql';
 				$csvFile = $this->tmpDir . '/dummy.csv';
 				if (!file_exists($csvFile)) touch($csvFile);
 
@@ -345,7 +345,10 @@ class CLToolApi
 	 */
 	public function executeReports($pid)
 	{
-		$maqlFile = $this->tmpDir . '/temp-' . date('Ymd-His') . '-' . uniqid() . '.maql';
+		if (!file_exists($this->tmpDir . '/' . $pid)) {
+			mkdir($this->tmpDir . '/' . $pid);
+		}
+		$maqlFile = $this->tmpDir . '/' . $pid . 'execute-reports.maql';
 
 		$command  = 'OpenProject(id="' . $pid . '");';
 		$command .= 'GetReports(fileName="' . $maqlFile . '");';

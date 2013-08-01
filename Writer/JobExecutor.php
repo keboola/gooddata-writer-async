@@ -8,6 +8,7 @@ namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
+use Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Table as StorageApiTable,
@@ -80,7 +81,7 @@ class JobExecutor
 				$this->_container->getParameter('storageApi.url'),
 				$gdWriterParams['user_agent']
 			);
-		} catch(StorageApiException $e) {
+		} catch(StorageApiException $e) {print_r($e->getMessage());die();
 			throw new WrongConfigurationException("Invalid token for job $jobId", 0, $e);
 		}
 		$this->_storageApiClient->setRunId($jobId);
@@ -214,7 +215,10 @@ class JobExecutor
 			$restApi = new RestApi($backendUrl, $this->_log);
 
 			$clToolApi = new CLToolApi($this->_log);
-			$clToolApi->tmpDir = $tmpDir;
+			$clToolApi->tmpDir = sprintf('%s/%s-%s', $tmpDir, $job['id'], uniqid());
+			if (!file_exists($clToolApi->tmpDir)) {
+				mkdir($clToolApi->tmpDir);
+			}
 			$clToolApi->clToolPath = $mainConfig['cli_path'];
 			$clToolApi->rootPath = $mainConfig['root_path'];
 			$clToolApi->jobId = $job['id'];
@@ -234,6 +238,8 @@ class JobExecutor
 				throw new ClientException('Rest API error: ' . $e->getMessage());
 			} catch (CLToolApiErrorException $e) {
 				throw new ClientException('CL Tool error: ' . $e->getMessage());
+			} catch (UnauthorizedException $e) {
+				throw new ClientException('Bad GoodData credentials: ' . $e->getMessage());
 			}
 
 			$duration = time() - $time;
