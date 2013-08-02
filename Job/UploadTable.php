@@ -111,7 +111,7 @@ class UploadTable extends GenericJob
 			);
 		}
 
-		/**$sapiClient = new \Keboola\StorageApi\Client(
+		$sapiClient = new \Keboola\StorageApi\Client(
 			$job['token'],
 			$this->mainConfig['storageApi.url'],
 			$this->mainConfig['user_agent']
@@ -336,32 +336,14 @@ class UploadTable extends GenericJob
 		unlink($tmpFolder . '/data.csv');
 
 		// Send data to WebDav
-		shell_exec(sprintf('curl -i --insecure -X MKCOL -v https://%s:%s@secure-di.gooddata.com/uploads/%s/',
-			urlencode($this->configuration->bucketInfo['gd']['username']), $this->configuration->bucketInfo['gd']['password'], $tmpFolderName));
-		shell_exec(sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@secure-di.gooddata.com/uploads/%s/upload.zip',
-			$tmpFolder . '/upload.zip', urlencode($this->configuration->bucketInfo['gd']['username']), $this->configuration->bucketInfo['gd']['password'], $tmpFolderName));*/
-$tmpFolderName = '5401764-51f8dcc364c43';
-
 		$davClient = new DAV\Client(array(
-			'baseUri' => 'https://secure-di.gooddata.com',
-			'userName' => $this->configuration->bucketInfo['gd']['username'],
-			'password' => $this->configuration->bucketInfo['gd']['password']
+		'baseUri' => 'https://secure-di.gooddata.com',
+		'userName' => $this->configuration->bucketInfo['gd']['username'],
+		'password' => $this->configuration->bucketInfo['gd']['password']
 		));
-		//$davClient->request('MKCOL', '/uploads/' . $tmpFolderName);
-
-		// Look for .json and .log files in WebDav folder
-		$files = $davClient->propFind('/uploads/' . $tmpFolderName, array(
-			'{DAV:}displayname',
-			'{DAV:}getcontentlength',
-		), 1);
-		foreach (array_keys($files) as $file) {echo $file.PHP_EOL;
-			if (substr_compare($file, '.log', -strlen($file), strlen($file)) === 0 || substr_compare($file, '.json', -strlen($file), strlen($file)) === 0) {
-				echo '-- FOUND'.PHP_EOL;
-			}
-		}
-
-
-die();
+		$davClient->request('MKCOL', '/uploads/' . $tmpFolderName);
+		shell_exec(sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@secure-di.gooddata.com/uploads/%s/upload.zip',
+			$tmpFolder . '/upload.zip', urlencode($this->configuration->bucketInfo['gd']['username']), $this->configuration->bucketInfo['gd']['password'], $tmpFolderName));
 
 		$debug = array();
 		$output = null;
@@ -388,6 +370,32 @@ die();
 							$result = $this->restApi->loadData($gdJob['pid'], $tmpFolderName);
 							if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
 
+								$debugFile = $tmpFolder . '/data-load-log.txt';
+
+								// Find upload message
+								$datasets = $this->restApi->get(sprintf('/gdc/md/%s/data/sets', $gdJob['pid']));
+								foreach ($datasets['dataSetsInfo']['sets'] as $dataset) {
+									if ($dataset['meta']['identifier'] == 'dataset.' . $datasetName) {
+										$error = $dataset['lastUpload']['dataUploadShort']['msg'];
+										file_put_contents($debugFile, $error . PHP_EOL . PHP_EOL, FILE_APPEND);
+									}
+								}
+
+								// Look for .json and .log files in WebDav folder
+								$files = $davClient->propFind('/uploads/' . $tmpFolderName, array(
+									'{DAV:}displayname',
+									'{DAV:}getcontentlength',
+								), 1);
+								foreach (array_keys($files) as $file) {
+									if (substr($file, -4) == '.log' || substr($file, -5) == '.json') {
+										$result = $davClient->request('GET', $file);
+										file_put_contents($debugFile, $file . PHP_EOL, FILE_APPEND);
+										file_put_contents($debugFile, print_r($result['body'], true) . PHP_EOL . PHP_EOL . PHP_EOL, FILE_APPEND);
+									}
+								}
+
+								$debug['loadData'] = $this->s3Client->uploadFile($debugFile);
+
 							}
 						} catch (RestApiException $e) {
 							throw new JobProcessException('ETL load failed: ' . $e->getMessage());
@@ -410,13 +418,17 @@ die();
 			$this->configuration->setTableAttribute($params['tableId'], 'export', 1);
 		}
 		$this->configuration->setTableAttribute($params['tableId'], 'lastExportDate', date('c', $startTime));
-		return $this->_prepareResult($job['id'], array(
+		$result = array(
 			'status' => $error ? 'error' : 'success',
 			'debug' => json_encode($debug),
 			'gdWriteStartTime' => $gdWriteStartTime,
 			'gdWriteBytes' => $csvFileSize,
 			'csvFile' => $tmpFolder
-		), $output);
+		);
+		if ($error && $error !== true) {
+			$result['error'] = $error;
+		}
+		return $this->_prepareResult($job['id'], $result, $output);
 	}
 
 
