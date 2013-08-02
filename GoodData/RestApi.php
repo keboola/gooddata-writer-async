@@ -531,6 +531,7 @@ class RestApi
 	 *
 	 * @param $pid
 	 * @param string $dirName
+	 * @return array|bool|float|int|string
 	 * @throws \Exception|\Guzzle\Http\Exception\ClientErrorResponseException
 	 * @throws RestApiException
 	 */
@@ -865,6 +866,7 @@ class RestApi
 		$error401 = false;
 		$response = null;
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
+
 			switch ($method) {
 				case 'GET':
 					$request = $this->_client->get($uri, $headers);

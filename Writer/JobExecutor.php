@@ -81,7 +81,7 @@ class JobExecutor
 				$this->_container->getParameter('storageApi.url'),
 				$gdWriterParams['user_agent']
 			);
-		} catch(StorageApiException $e) {print_r($e->getMessage());die();
+		} catch(StorageApiException $e) {
 			throw new WrongConfigurationException("Invalid token for job $jobId", 0, $e);
 		}
 		$this->_storageApiClient->setRunId($jobId);
