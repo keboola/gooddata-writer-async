@@ -239,10 +239,11 @@ abstract class WriterTest extends WebTestCase
 	 */
 	protected function _processJob($url, $params = array(), $method = 'POST')
 	{
-		$responseJson = $this->_callWriterApi($url, $method, array_merge($params, array(
-			'writerId' => $this->writerId,
-			'dev' => 1
-		)));
+		$writerId = isset($params['writerId']) ? $params['writerId'] : $this->writerId;
+
+		$params['dev'] = 1;
+		$params['writerId'] = $writerId;
+		$responseJson = $this->_callWriterApi($url, $method, $params);
 
 		if (isset($responseJson['job'])) {
 			self::$commandTester->execute(array(
@@ -250,7 +251,7 @@ abstract class WriterTest extends WebTestCase
 				'job' => $responseJson['job']
 			));
 		} else if (isset($responseJson['batch'])) {
-			$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/batch?writerId=%s&batchId=%d', $this->writerId, $responseJson['batch']));
+			$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/batch?writerId=%s&batchId=%d', $writerId, $responseJson['batch']));
 
 			$this->assertArrayHasKey('batch', $responseJson, "Response for writer call '/batch' should contain 'batch' key.");
 			$this->assertArrayHasKey('jobs', $responseJson['batch'], "Response for writer call '/batch' should contain 'batch.jobs' key.");

@@ -7,7 +7,8 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
-	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
+	Keboola\GoodDataWriter\GoodData\RestApiException,
+	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
 class ExecuteReports extends GenericJob
 {
@@ -34,23 +35,30 @@ class ExecuteReports extends GenericJob
 
 		$gdWriteStartTime = date('c');
 		try {
-			$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+			$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 			foreach ($pids as $pid) {
-				$this->clToolApi->executeReports($pid);
+				$reports = $this->restApi->get(sprintf('/gdc/md/%s/query/reports', $pid));
+				if (isset($reports['query']['entries'])) {
+					foreach ($reports['query']['entries'] as $report) {
+						$this->restApi->executeReport($report['link']);
+					}
+				} else {
+					throw new RestApiException('Bad format of response, missing query.entries key.');
+				}
 			}
 
 			return $this->_prepareResult($job['id'], array(
-				'debug' => $this->clToolApi->debugLogUrl,
 				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->clToolApi->output);
+			), $this->restApi->callsLog());
 
-		} catch (CLToolApiErrorException $e) {
+		} catch (UnauthorizedException $e) {
+			throw new WrongConfigurationException('Rest API Login failed');
+		} catch (RestApiException $e) {
 			return $this->_prepareResult($job['id'], array(
 				'status' => 'error',
 				'error' => $e->getMessage(),
-				'debug' => $this->clToolApi->debugLogUrl,
 				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->clToolApi->output);
+			), $this->restApi->callsLog());
 		}
 
 	}
