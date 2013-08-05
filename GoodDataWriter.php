@@ -141,7 +141,9 @@ class GoodDataWriter extends Component
 		$projectName = sprintf($mainConfig['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 
 
+		$batchId = $this->_storageApi->generateId();
 		$jobInfo = $this->_createJob(array(
+			'batchId' => $batchId,
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
@@ -152,19 +154,39 @@ class GoodDataWriter extends Component
 		));
 		$this->_queue->enqueueJob($jobInfo);
 
-
-		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
-		} else {
-			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
-			if (isset($result['job']['result']['pid'])) {
-				return array('pid' => $result['job']['result']['pid']);
+		if(empty($params['users'])) {
+			if (empty($params['wait'])) {
+				return array('job' => (int)$jobInfo['id']);
 			} else {
-				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
-				throw $e;
+				$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
+				if (isset($result['job']['result']['pid'])) {
+					return array('pid' => $result['job']['result']['pid']);
+				} else {
+					$e = new JobProcessException('Job failed');
+					$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
+					throw $e;
+				}
 			}
+		} else {
+
+			$users = explode(',', $params['users']);
+			foreach ($users as $user) {
+				$job = $this->_createJob(array(
+					'batchId' => $batchId,
+					'command' => 'inviteUserToProject',
+					'createdTime' => date('c', $createdTime),
+					'parameters' => array(
+						'email' => $user,
+						'role' => 'admin'
+					)
+				));
+				$this->_queue->enqueueJob($job);
+			}
+
+			return array('batch' => (int)$batchId);
 		}
+
+
 	}
 
 

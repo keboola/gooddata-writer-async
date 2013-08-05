@@ -63,6 +63,41 @@ class WritersTest extends WriterTest
 	}
 
 
+	public function testCreateWriterWithInvitations()
+	{
+		$uniqId = uniqid();
+		$writerId = 'test' . $uniqId;
+		$user1 = 'user1' . $uniqId . '@test.keboola.com';
+		$user2 = 'user2' . $uniqId . '@test.keboola.com';
+
+		$this->_processJob('/gooddata-writer/writers', array(
+			'writerId' => $writerId,
+			'users' => $user1 . ',' . $user2
+		));
+		self::$configuration = new Configuration($writerId, self::$storageApi, self::$mainConfig['tmp_path']);
+
+		// Check invitations existence in GD
+		self::$restApi->login(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . self::$configuration->bucketInfo['gd']['pid'] . '/invitations');
+		$this->assertArrayHasKey('invitations', $userProjectsInfo, "Response for GoodData API project invitations call should contain 'invitations' key.");
+		$this->assertGreaterThanOrEqual(1, $userProjectsInfo['invitations'], "Response for GoodData API project invitations call should return at least one invitation.");
+		$user1Invited = false;
+		$user2Invited = false;
+		foreach ($userProjectsInfo['invitations'] as $p) {
+			if (isset($p['invitation']['content']['email']) && $p['invitation']['content']['email'] == $user1) {
+				$user1Invited = true;
+			}
+			if (isset($p['invitation']['content']['email']) && $p['invitation']['content']['email'] == $user2) {
+				$user2Invited = true;
+			}
+		}
+		$this->assertTrue($user1Invited, "Response for GoodData API project invitations call should return tested user 1.");
+		$this->assertTrue($user2Invited, "Response for GoodData API project invitations call should return tested user 2.");
+
+		$this->_processJob('/gooddata-writer/delete-writers');
+	}
+
+
 	public function testGetWriters()
 	{
 		$responseJson = $this->_getWriterApi('/gooddata-writer/writers');
