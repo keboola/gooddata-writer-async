@@ -232,20 +232,6 @@ class Configuration
 
 	public function getTableForApi($tableId)
 	{
-		$csv = $this->_storageApi->exportTable($this->definedTables[$tableId]['definitionId']);
-		$tableDefinition = array();
-		foreach (StorageApiClient::parseCsv($csv) as $row) {
-			if (!empty($row['dataTypeSize'])) {
-				$row['dataTypeSize'] = (int)$row['dataTypeSize'];
-			}
-
-			$tableDefinition[$row['name']] = $row;
-		}
-
-		$sourceTableInfo = $this->getTable($tableId);
-		$this->checkMissingColumns($tableId, array('columns' => $tableDefinition), $sourceTableInfo['columns']);
-
-
 		$data = array('columns' => array());
 		$tableInfo = $this->getTable($this->definedTables[$tableId]['definitionId']);
 		if (isset($tableInfo['attributes'])) foreach ($tableInfo['attributes'] as $attr) {
@@ -264,6 +250,17 @@ class Configuration
 			}
 		}
 
+		$csv = $this->_storageApi->exportTable($this->definedTables[$tableId]['definitionId']);
+		$tableDefinition = array();
+		foreach (StorageApiClient::parseCsv($csv) as $row) {
+			if (!empty($row['dataTypeSize'])) {
+				$row['dataTypeSize'] = (int)$row['dataTypeSize'];
+			}
+
+			$tableDefinition[$row['name']] = $row;
+		}
+
+		$sourceTableInfo = $this->getTable($tableId);
 		foreach ($sourceTableInfo['columns'] as $columnName) {
 			$column = isset($tableDefinition[$columnName]) ? $tableDefinition[$columnName]
 				: array('name' => $columnName, 'gdName' => $columnName, 'type' => 'IGNORE');
@@ -523,8 +520,6 @@ class Configuration
 			$table->setHeader($headers);
 			$table->setFromArray($data);
 			$table->save();
-
-			$this->setTableAttribute($tableId, 'lastChangeDate', date('c'));
 		}
 	}
 
@@ -1059,6 +1054,10 @@ class Configuration
 			if ($f['name'] == $name) {
 				throw new WrongParametersException("Filter of that name already exists.");
 			}
+		}
+
+		if (is_array($element)) {
+			$element = json_encode($element);
 		}
 
 		$filter = array(
