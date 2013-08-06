@@ -556,8 +556,14 @@ class GoodDataWriter extends Component
 	 * @section Filters
 	 */
 
+
 	/**
+	 * Returns list of filters configured in writer
+	 * If 'userEmail' parameter is specified, only returns filters for specified user
 	 *
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
 	 */
 	public function getFilters($params)
 	{
@@ -566,9 +572,23 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		return array('filters' => $this->configuration->getFilters());
+		if (isset($params['userEmail'])) {
+			$filters = $this->configuration->getFiltersForUser($params['userEmail']);
+		} else {
+			$filters = $this->configuration->getFilters();
+		}
+
+		return array('filters' => $filters);
 	}
 
+	/**
+	 * Create new user filter
+	 *
+	 * @param $params
+	 * @return array
+	 * @throws Exception\JobProcessException
+	 * @throws Exception\WrongParametersException
+	 */
 	public function postFilters($params)
 	{
 		$command = 'createFilter';
@@ -656,6 +676,14 @@ class GoodDataWriter extends Component
 		}
 	}
 
+	/**
+	 * Assign filter to user
+	 *
+	 * @param $params
+	 * @return array
+	 * @throws Exception\JobProcessException
+	 * @throws Exception\WrongParametersException
+	 */
 	public function postFiltersUser($params)
 	{
 		$command = 'assignFiltersToUser';
@@ -695,6 +723,14 @@ class GoodDataWriter extends Component
 		}
 	}
 
+	/**
+	 * Synchronize filters from writer's configuration to GoodData project
+	 *
+	 * @param $params
+	 * @return array
+	 * @throws Exception\JobProcessException
+	 * @throws Exception\WrongParametersException
+	 */
 	public function postSyncFilters($params)
 	{
 		$command = 'syncFilters';
