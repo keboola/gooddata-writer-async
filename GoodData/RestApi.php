@@ -577,10 +577,23 @@ class RestApi
 	{
 		$gdAttribute = $this->getAttributeById($pid, $attribute);
 
-		$elementUri = $this->getElementUriByTitle(
-			$gdAttribute['content']['displayForms'][0]['links']['elements'],
-			$element
-		);
+		$elementUri = '';
+		if (is_array($element)) {
+			$elementArr = array();
+			foreach ($element as $e) {
+				$elementArr[] = '"' . $this->getElementUriByTitle(
+					$gdAttribute['content']['displayForms'][0]['links']['elements'],
+					$e
+				) . '"';
+			}
+
+			$elementUri = implode(',', $elementArr);
+		} else {
+			$elementUri = $this->getElementUriByTitle(
+				$gdAttribute['content']['displayForms'][0]['links']['elements'],
+				$element
+			);
+		}
 
 		$expression = "[" . $gdAttribute['meta']['uri'] . "]" . $operator . "[" . $elementUri . "]";
 
@@ -837,9 +850,6 @@ class RestApi
 	{
 		$jsonParams = is_array($params) ? json_encode($params) : $params;
 
-		$backoffInterval = self::BACKOFF_INTERVAL;
-		$error401 = false;
-		$response = null;
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
 
 			switch ($method) {
@@ -885,25 +895,14 @@ class RestApi
 				$response = $request->getResponse()->getBody(true);
 				if ($logCall) $this->_logCall($uri, $method, $params, $response);
 				if ($request->getResponse()->getStatusCode() == 401) {
-					$error401 = true;
-				} else {
-					throw new RestApiException($response);
+					throw new UnauthorizedException($response);
 				}
+				throw new RestApiException($response);
 			} catch (ServerErrorResponseException $e) {
 				// Backoff
-				if ($request->getResponse()->getStatusCode() == 503) {
-					// Wait indefinitely
-					$i--;
-					$backoffInterval = 10 * 60;
-				}
-				$error401 = false;
 			}
 
-			sleep($backoffInterval * ($i + 1));
-		}
-
-		if ($error401) {
-			throw new UnauthorizedException($response);
+			sleep(self::BACKOFF_INTERVAL * ($i + 1));
 		}
 
 		/** @var $response \Guzzle\Http\Message\Response */

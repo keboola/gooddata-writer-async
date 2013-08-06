@@ -614,6 +614,9 @@ class GoodDataWriter extends Component
 		if (empty($params['email'])) {
 			throw new WrongParametersException("Parameter 'email' is missing");
 		}
+		if (empty($params['pid'])) {
+			throw new WrongParametersException("Parameter 'pid' is missing");
+		}
 		$this->_init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
