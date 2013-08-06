@@ -30,6 +30,10 @@ class AddUserToProject extends GenericJob
 		if (empty($params['role'])) {
 			throw new WrongConfigurationException("Parameter 'role' is missing");
 		}
+		$allowedRoles = array_keys(RestApi::$userRoles);
+		if (!in_array($params['role'], $allowedRoles)) {
+			throw new WrongConfigurationException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
+		}
 
 		$env = empty($params['dev']) ? 'prod' :'dev';
 		$mainConfig = $this->mainConfig['gd'][$env];

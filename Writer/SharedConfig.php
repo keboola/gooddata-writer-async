@@ -9,7 +9,8 @@ namespace Keboola\GoodDataWriter\Writer;
 use Keboola\Csv\CsvFile;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
-	Keboola\StorageApi\Table as StorageApiTable;
+	Keboola\StorageApi\Table as StorageApiTable,
+	Keboola\GoodDataWriter\Service\S3Client;
 
 class SharedConfig
 {
@@ -50,18 +51,16 @@ class SharedConfig
 			)
 		);
 
-		$jobs = array();
-		foreach (StorageApiClient::parseCsv($csv, true) as $j) {
-			$jobs[] = $this->jobToApiResponse($j);
-		}
-		return $jobs;
+		return StorageApiClient::parseCsv($csv, true);
 	}
 
 	/**
 	 * @param $jobId
+	 * @param null $writerId
+	 * @param null $projectId
 	 * @return mixed
 	 */
-	public function fetchJob($jobId)
+	public function fetchJob($jobId, $writerId = null, $projectId = null)
 	{
 		$csv = $this->_storageApiClient->exportTable(
 			self::JOBS_TABLE_ID,
@@ -72,8 +71,14 @@ class SharedConfig
 			)
 		);
 
-		$jobs = StorageApiClient::parseCsv($csv, true);
-		return reset($jobs);
+		$job = StorageApiClient::parseCsv($csv, true);
+		$job = reset($job);
+
+		if ((!$writerId || $job['writerId'] == $writerId) && (!$projectId || $job['projectId'] == $projectId)) {
+			return $job;
+		}
+
+		return false;
 	}
 
 	/**
@@ -122,22 +127,51 @@ class SharedConfig
 		$jobsTable->save();
 	}
 
-	public function jobToApiResponse(array $job)
+	/**
+	 * @param array $job
+	 * @param S3Client $s3Client
+	 * @return array
+	 */
+	public function jobToApiResponse(array $job, $s3Client = null)
 	{
 		if (!is_array($job['result'])) {
 			$result = json_decode($job['result'], true);
-			if (isset($result['debug']) && !is_array($result['debug'])) $result['debug'] = json_decode($result['debug']);
+			if (isset($result['debug']) && !is_array($result['debug'])) $result['debug'] = json_decode($result['debug'], true);
 			if (isset($result['csvFile'])) unset($result['csvFile']);
-			if (!$result) $result = $job['result'];
-		} else {
-			$result = $job['result'];
+			if ($result) {
+				$job['result'] = $result;
+			}
 		}
 
 		if (!is_array($job['parameters'])) {
 			$params = json_decode($job['parameters'], true);
-			if (!$params) $params = $job['parameters'];
-		} else {
-			$params = $job['parameters'];
+			if ($params) {
+				$job['parameters'] = $params;
+			}
+		}
+
+		// Find private links and make them accessible
+		if ($s3Client) {
+			if ($job['xmlFile']) {
+				$url = parse_url($job['xmlFile']);
+				if (empty($url['host'])) {
+					$job['xmlFile'] = $s3Client->url($job['xmlFile'], 3600);
+				}
+			}
+			if ($job['log']) {
+				$url = parse_url($job['log']);
+				if (empty($url['host'])) {
+					$job['log'] = $s3Client->url($job['log'], 3600);
+				}
+			}
+			if (!empty($job['result']['debug']) && is_array($job['result']['debug'])) {
+				foreach ($job['result']['debug'] as $key => &$value) {
+					$url = parse_url($value);
+					if (empty($url['host'])) {
+						$value = $s3Client->url($value, 3600);
+					}
+				}
+			}
 		}
 
 		return array(
@@ -157,8 +191,8 @@ class SharedConfig
 			'command' => $job['command'],
 			'dataset' => $job['dataset'],
 			'xmlFile' => $job['xmlFile'],
-			'parameters' => $params,
-			'result' => $result,
+			'parameters' => $job['parameters'],
+			'result' => $job['result'],
 			'gdWriteStartTime' => $job['gdWriteStartTime'],
 			'gdWriteBytes' => $job['gdWriteBytes'] ? (int) $job['gdWriteBytes'] : null,
 			'status' => $job['status'],
@@ -176,7 +210,8 @@ class SharedConfig
 			'writerId' => $job['writerId'],
 			'backendUrl' => $backendUrl,
 			'accessToken' => $accessToken,
-			'createdTime' => date('c')
+			'createdTime' => date('c'),
+			'projectIdWriterId' => $job['projectId'] . '.' . $job['writerId']
 		);
 		$table = new StorageApiTable($this->_storageApiClient, self::PROJECTS_TABLE_ID);
 		$table->setHeader(array_keys($data));
@@ -192,13 +227,34 @@ class SharedConfig
 			'projectId' => $job['projectId'],
 			'writerId' => $job['writerId'],
 			'email' => $email,
-			'createdTime' => date('c')
+			'createdTime' => date('c'),
+			'projectIdWriterId' => $job['projectId'] . '.' . $job['writerId']
 		);
 		$table = new StorageApiTable($this->_storageApiClient, self::USERS_TABLE_ID);
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setIncremental(true);
 		$table->save();
+	}
+
+
+	/**
+	 * @param $projectId
+	 * @param $writerId
+	 * @return mixed
+	 */
+	public function getProjects($projectId, $writerId)
+	{
+		$csv = $this->_storageApiClient->exportTable(
+			self::PROJECTS_TABLE_ID,
+			null,
+			array(
+				'whereColumn' => 'projectIdWriterId',
+				'whereValues' => array($projectId . '.' . $writerId)
+			)
+		);
+
+		return StorageApiClient::parseCsv($csv, true);
 	}
 
 
@@ -258,6 +314,25 @@ class SharedConfig
 		$table->save();
 	}
 
+
+	/**
+	 * @param $projectId
+	 * @param $writerId
+	 * @return mixed
+	 */
+	public function getUsers($projectId, $writerId)
+	{
+		$csv = $this->_storageApiClient->exportTable(
+			self::USERS_TABLE_ID,
+			null,
+			array(
+				'whereColumn' => 'projectIdWriterId',
+				'whereValues' => array($projectId . '.' . $writerId)
+			)
+		);
+
+		return StorageApiClient::parseCsv($csv, true);
+	}
 
 	public function usersToDelete()
 	{

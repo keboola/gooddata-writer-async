@@ -8,6 +8,8 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\GoodData\RestApiException;
+use Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
 class CreateWriter extends GenericJob
 {
@@ -34,8 +36,16 @@ class CreateWriter extends GenericJob
 		$username = sprintf($mainConfig['user_email'], $job['projectId'], $job['writerId'] . '-' . uniqid());
 		$password = md5(uniqid());
 
-		$this->restApi->login($mainConfig['username'], $mainConfig['password']);
-		$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
+		try {
+			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
+		} catch (UnauthorizedException $e) {
+			throw new WrongConfigurationException('Project creation failed: ' . $e->getMessage());
+		}
+		try {
+			$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
+		} catch (RestApiException $e) {
+			throw new WrongConfigurationException('Project creation failed: ' . $e->getMessage());
+		}
 		$userId = $this->restApi->createUser($mainConfig['domain'], $username, $password, 'KBC', 'Writer', $mainConfig['sso_provider']);
 		$this->restApi->addUserToProject($userId, $projectPid, RestApi::$userRoles['admin']);
 

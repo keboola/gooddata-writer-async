@@ -23,8 +23,13 @@ class UploadTable extends GenericJob
 
 		$xmlFile = $job['xmlFile'];
 		if (!is_file($xmlFile)) {
+			$xmlUrl = $xmlFile;
+			$url = parse_url($xmlFile);
+			if (empty($url['host'])) {
+				$xmlUrl = $this->s3Client->url($xmlFile);
+			}
 			$xmlFilePath = tempnam($this->tmpDir, 'xml');
-			exec('curl -s -L ' . escapeshellarg($xmlFile) . ' > ' . escapeshellarg($xmlFilePath));
+			exec('curl -s -L ' . escapeshellarg($xmlUrl) . ' > ' . escapeshellarg($xmlFilePath));
 			$xmlFile = $xmlFilePath;
 		}
 
@@ -61,7 +66,7 @@ class UploadTable extends GenericJob
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
 		$sanitize = (isset($params['sanitize'])) ? $params['sanitize']
-			: empty($tableDefinition['sanitize']);
+			: !empty($tableDefinition['sanitize']);
 
 		foreach ($projects as $project) if ($project['active']) {
 			if (empty($tableDefinition['lastExportDate'])) {
@@ -90,7 +95,7 @@ class UploadTable extends GenericJob
 		$csvFile = $this->tmpDir . '/' . $job['id'] . '-' . uniqid() . '.csv';
 		$options = array('format' => 'escaped');
 		if ($incrementalLoad) {
-			$options['changedSince'] = '-' . $incrementalLoad . '+days';
+			$options['changedSince'] = '-' . $incrementalLoad . ' days';
 		}
 		$sapiClient->exportTable($params['tableId'], $csvFile, $options);
 

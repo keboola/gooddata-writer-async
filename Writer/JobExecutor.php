@@ -6,13 +6,17 @@
 
 namespace Keboola\GoodDataWriter\Writer;
 
+use Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
+use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Exception as StorageApiException;
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\GoodData\RestApi,
-	Keboola\GoodDataWriter\GoodData\CLToolApi;
+use Keboola\GoodDataWriter\Service\S3Client,
+	Keboola\GoodDataWriter\GoodData\RestApi,
+	Keboola\GoodDataWriter\GoodData\CLToolApi,
+	Keboola\GoodDataWriter\Exception\ClientException,
+	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Monolog\Logger;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -46,13 +50,12 @@ class JobExecutor
 
 	/**
 	 * @param SharedConfig $sharedConfig
-	 * @param Logger $log
 	 * @param ContainerInterface $container
 	 */
-	public function __construct(SharedConfig $sharedConfig, Logger $log, ContainerInterface $container)
+	public function __construct(SharedConfig $sharedConfig, ContainerInterface $container)
 	{
 		$this->_sharedConfig = $sharedConfig;
-		$this->_log = $log;
+		$this->_log = $container->get('logger');
 		$this->_container = $container;
 	}
 
@@ -77,19 +80,20 @@ class JobExecutor
 				$this->_container->getParameter('storageApi.url'),
 				$gdWriterParams['user_agent']
 			);
+			$this->_storageApiClient->setRunId($jobId);
+
+			// start work on job
+			$this->_sharedConfig->saveJob($jobId, array(
+				'status' => 'processing',
+				'startTime' => date('c', time()),
+			));
+
+			$result = $this->_executeJob($job);
+
 		} catch(StorageApiException $e) {
-			throw new WrongConfigurationException("Invalid token for job $jobId", 0, $e);
+			$result = array('status' => 'error', 'error' => "Storage API error: " . $e->getMessage());
 		}
-		$this->_storageApiClient->setRunId($jobId);
 
-		$time = time();
-		// start work on job
-		$this->_sharedConfig->saveJob($jobId, array(
-			'status' => 'processing',
-			'startTime' => date('c', $time),
-		));
-
-		$result = $this->_executeJob($job);
 		$jobStatus = ($result['status'] === 'error') ? StorageApiEvent::TYPE_ERROR : StorageApiEvent::TYPE_SUCCESS;
 
 		// end work on job
@@ -97,6 +101,7 @@ class JobExecutor
 			'status' => $jobStatus,
 			'endTime' => date('c'),
 		);
+
 		if (isset($result['gdWriteStartTime'])) {
 			$jobInfo['gdWriteStartTime'] = $result['gdWriteStartTime'];
 			unset($result['gdWriteStartTime']);
@@ -202,7 +207,9 @@ class JobExecutor
 			$mainConfig['storageApi.url'] = $this->_container->getParameter('storageApi.url');
 			$tmpDir = $mainConfig['tmp_path'];
 			$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
-			$logUploader = $this->_container->get('syrup.monolog.s3_uploader');
+
+			$s3Client = new S3Client($mainConfig['s3']['access_key'], $mainConfig['s3']['secret_key'],
+				$mainConfig['s3']['bucket'], $job['projectId'] . '.' . $job['writerId']);
 
 			$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
 
@@ -213,15 +220,24 @@ class JobExecutor
 			$clToolApi->clToolPath = $mainConfig['cli_path'];
 			$clToolApi->rootPath = $mainConfig['root_path'];
 			$clToolApi->jobId = $job['id'];
-			$clToolApi->s3uploader = $this->_container->get('syrup.monolog.s3_uploader');
+			$clToolApi->s3client = $s3Client;
 			if ($backendUrl) $clToolApi->setBackendUrl($backendUrl);
 
 			/**
 			 * @var \Keboola\GoodDataWriter\Job\GenericJob $command
 			 */
-			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $clToolApi, $logUploader);
+			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $clToolApi, $s3Client);
 			$command->tmpDir = $tmpDir;
-			$result = $command->run($job, $parameters);
+			$command->log = $this->_log;
+			try {
+				$result = $command->run($job, $parameters);
+			} catch (RestApiException $e) {
+				throw new ClientException('Rest API error: ' . $e->getMessage());
+			} catch (CLToolApiErrorException $e) {
+				throw new ClientException('CL Tool error: ' . $e->getMessage());
+			} catch (\Keboola\StorageApi\ClientException $e) {
+				throw new ClientException('Storage API problem: ' . $e->getMessage());
+			}
 
 			$duration = time() - $time;
 			$sapiEvent
@@ -233,7 +249,7 @@ class JobExecutor
 
 			return $result;
 
-		} catch (WrongConfigurationException $e) {
+		} catch (ClientException $e) {
 			$duration = $time - time();
 
 			$sapiEvent

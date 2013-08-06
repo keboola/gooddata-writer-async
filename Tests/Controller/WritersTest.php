@@ -63,52 +63,60 @@ class WritersTest extends WriterTest
 	}
 
 
+	public function testCreateWriterWithInvitations()
+	{
+		$uniqId = uniqid();
+		$writerId = 'test' . $uniqId;
+		$user1 = 'user1' . $uniqId . '@test.keboola.com';
+		$user2 = 'user2' . $uniqId . '@test.keboola.com';
+
+		$this->_processJob('/gooddata-writer/writers', array(
+			'writerId' => $writerId,
+			'users' => $user1 . ',' . $user2
+		));
+		self::$configuration = new Configuration($writerId, self::$storageApi, self::$mainConfig['tmp_path']);
+
+		// Check invitations existence in GD
+		self::$restApi->login(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . self::$configuration->bucketInfo['gd']['pid'] . '/invitations');
+		$this->assertArrayHasKey('invitations', $userProjectsInfo, "Response for GoodData API project invitations call should contain 'invitations' key.");
+		$this->assertGreaterThanOrEqual(1, $userProjectsInfo['invitations'], "Response for GoodData API project invitations call should return at least one invitation.");
+		$user1Invited = false;
+		$user2Invited = false;
+		foreach ($userProjectsInfo['invitations'] as $p) {
+			if (isset($p['invitation']['content']['email']) && $p['invitation']['content']['email'] == $user1) {
+				$user1Invited = true;
+			}
+			if (isset($p['invitation']['content']['email']) && $p['invitation']['content']['email'] == $user2) {
+				$user2Invited = true;
+			}
+		}
+		$this->assertTrue($user1Invited, "Response for GoodData API project invitations call should return tested user 1.");
+		$this->assertTrue($user2Invited, "Response for GoodData API project invitations call should return tested user 2.");
+
+		$this->_processJob('/gooddata-writer/delete-writers');
+	}
+
+
 	public function testGetWriters()
 	{
 		$responseJson = $this->_getWriterApi('/gooddata-writer/writers');
 
 		$this->assertArrayHasKey('writers', $responseJson, "Response for writer call '/writers' should contain 'writers' key.");
 		$this->assertCount(1, $responseJson['writers'], "Response for writer call '/writers' should contain only one writer.");
-		$this->assertEquals($this->writerId, $responseJson['writers'][0]['id'], "Response for writer call '/writers' should contain created writer.");
-	}
+		$this->assertArrayHasKey('id', $responseJson['writers'][0], "Response for writer call '/writers' should contain 'writers..id' key.");
+		$this->assertArrayHasKey('bucket', $responseJson['writers'][0], "Response for writer call '/writers' should contain 'writers..bucket' key.");
+		$this->assertEquals($this->writerId, $responseJson['writers'][0]['id'], "Response for writer call '/writers' should contain id of created writer.");
+		$this->assertEquals($this->bucketId, $responseJson['writers'][0]['bucket'], "Response for writer call '/writers' should contain bucket of created writer.");
 
 
+		$responseJson = $this->_getWriterApi('/gooddata-writer/writers?writerId=' . $this->writerId);
 
-	public function testCancelJobs()
-	{
-		// Upload project
-		$responseJson = $this->_postWriterApi('/gooddata-writer/upload-project', array(
-			'writerId' => $this->writerId,
-			'dev' => 1
-		));
-
-		$this->assertArrayHasKey('batch', $responseJson, "Response for writer call '/upload-project' should contain 'batch' key.");
-
-
-		// Get jobs of upload call
-		$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/batch?writerId=%s&id=%d', $this->writerId, $responseJson['batch']));
-
-		$this->assertArrayHasKey('batch', $responseJson, "Response for writer call '/batch' should contain 'batch' key.");
-		$this->assertArrayHasKey('jobs', $responseJson['batch'], "Response for writer call '/batch' should contain 'batch.jobs' key.");
-		$jobs = $responseJson['batch']['jobs'];
-
-
-		// Cancel jobs in queue
-		$this->_postWriterApi('/gooddata-writer/cancel-jobs', array(
-			'writerId' => $this->writerId,
-			'dev' => 1
-		));
-
-
-		// Check status of the jobs
-		foreach ($jobs as $jobId) {
-			$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/jobs?writerId=%s&jobId=%d', $this->writerId, $jobId));
-
-			$this->assertArrayHasKey('status', $responseJson, "Response for writer call '/jobs' should contain 'status' key.");
-			$this->assertArrayHasKey('job', $responseJson, "Response for writer call '/jobs' should contain 'job' key.");
-			$this->assertArrayHasKey('status', $responseJson['job'], "Response for writer call '/jobs' should contain 'job.status' key.");
-			$this->assertEquals('cancelled', $responseJson['job']['status'], "Response for writer call '/jobs' should have key 'job.status' with value 'cancelled'.");
-		}
+		$this->assertArrayHasKey('writer', $responseJson, "Response for writer call '/writers?writerId=' should contain 'writer' key.");
+		$this->assertArrayHasKey('writer', $responseJson['writer'], "Response for writer call '/writers?writerId=' should contain 'writer.writer' key.");
+		$this->assertArrayHasKey('writerId', $responseJson['writer'], "Response for writer call '/writers?writerId=' should contain 'writer.writerId' key.");
+		$this->assertEquals($this->writerId, $responseJson['writer']['writerId'], "Response for writer call '/writers?writerId=' should contain id of created writer.");
+		$this->assertEquals('gooddata', $responseJson['writer']['writer'], "Response for writer call '/writers?writerId=' should contain name of the writer.");
 	}
 
 }
