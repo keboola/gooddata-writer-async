@@ -587,10 +587,22 @@ class RestApi
 	{
 		$gdAttribute = $this->getAttributeById($pid, $attribute);
 
-		$elementUri = $this->getElementUriByTitle(
-			$gdAttribute['content']['displayForms'][0]['links']['elements'],
-			$element
-		);
+		if (is_array($element)) {
+			$elementArr = array();
+			foreach ($element as $e) {
+			$elementArr[] = '"' . $this->getElementUriByTitle(
+				$gdAttribute['content']['displayForms'][0]['links']['elements'],
+				$e
+				) . '"';
+			}
+
+			$elementUri = implode(',', $elementArr);
+		} else {
+			$elementUri = $this->getElementUriByTitle(
+				$gdAttribute['content']['displayForms'][0]['links']['elements'],
+				$element
+			);
+		}
 
 		$expression = "[" . $gdAttribute['meta']['uri'] . "]" . $operator . "[" . $elementUri . "]";
 

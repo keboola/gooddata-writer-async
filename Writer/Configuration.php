@@ -592,9 +592,9 @@ class Configuration
 			$table->setHeader($headers);
 			$table->setFromArray($data);
 			$table->save();
-
-			$this->setTableAttribute($tableId, 'lastChangeDate', date('c'));
 		}
+
+		$this->setTableAttribute($tableId, 'lastChangeDate', date('c'));
 	}
 
 
@@ -1068,6 +1068,24 @@ class Configuration
 		return $this->_filters;
 	}
 
+	/**
+	 * @param $userEmail
+	 * @return array
+	 */
+	public function getFiltersForUser($userEmail)
+	{
+		$filtersUsers = $this->getFiltersUsers();
+
+		$filters = array();
+		foreach ($filtersUsers as $fu) {
+			if ($fu['userEmail'] == $userEmail) {
+				$filters[] = $this->getFilter($fu['filterName']);
+			}
+		}
+
+		return $filters;
+	}
+
 
 	/**
 	 * @return array
@@ -1143,6 +1161,10 @@ class Configuration
 			if ($f['name'] == $name) {
 				throw new WrongParametersException("Filter of that name already exists.");
 			}
+		}
+
+		if (is_array($element)) {
+			$element = json_encode($element);
 		}
 
 		$filter = array(
