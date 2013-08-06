@@ -593,6 +593,8 @@ class Configuration
 			$table->setFromArray($data);
 			$table->save();
 		}
+
+		$this->setTableAttribute($tableId, 'lastChangeDate', date('c'));
 	}
 
 

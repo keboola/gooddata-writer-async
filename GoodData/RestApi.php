@@ -587,7 +587,6 @@ class RestApi
 	{
 		$gdAttribute = $this->getAttributeById($pid, $attribute);
 
-		$elementUri = '';
 		if (is_array($element)) {
 			$elementArr = array();
 			foreach ($element as $e) {
@@ -600,8 +599,8 @@ class RestApi
 			$elementUri = implode(',', $elementArr);
 		} else {
 			$elementUri = $this->getElementUriByTitle(
-			$gdAttribute['content']['displayForms'][0]['links']['elements'],
-			$element
+				$gdAttribute['content']['displayForms'][0]['links']['elements'],
+				$element
 			);
 		}
 
