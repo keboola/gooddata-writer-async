@@ -27,6 +27,10 @@ class InviteUserToProject extends GenericJob
 		if (empty($params['role'])) {
 			throw new WrongConfigurationException("Parameter 'role' is missing");
 		}
+		$allowedRoles = array_keys(RestApi::$userRoles);
+		if (!in_array($params['role'], $allowedRoles)) {
+			throw new WrongConfigurationException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
+		}
 		$this->configuration->checkGoodDataSetup();
 
 		if (empty($params['pid'])) {

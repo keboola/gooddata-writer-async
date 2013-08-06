@@ -9,7 +9,8 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Monolog\Logger;
-use Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
+use Keboola\GoodDataWriter\Service\S3Client,
+	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
 
 class CLToolApi
 {
@@ -54,9 +55,9 @@ class CLToolApi
 	public $clToolPath;
 	public $rootPath;
 	/**
-	 * @var \Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader
+	 * @var S3Client
 	 */
-	public $s3uploader;
+	public $s3client;
 	public $jobId;
 
 	/**
@@ -146,7 +147,7 @@ class CLToolApi
 					exec(sprintf('mv %s %s ', escapeshellarg($outputFile . '.D'), escapeshellarg($outputFile)));
 				}
 
-				$this->debugLogUrl = $this->s3uploader->uploadFile($outputFile);
+				$this->debugLogUrl = $this->s3client->uploadFile($outputFile);
 
 				// Test output for runtime error
 				if (shell_exec("egrep 'com.gooddata.exception.HttpMethodException: 401 Unauthorized' " . escapeshellarg($outputFile))) {
@@ -338,27 +339,6 @@ class CLToolApi
 		}
 	}
 
-	/**
-	 * @param $pid
-	 * @return string|bool
-	 */
-	public function executeReports($pid)
-	{
-		$maqlFile = $this->tmpDir . '/temp-' . date('Ymd-His') . '-' . uniqid() . '.maql';
-
-		$command  = 'OpenProject(id="' . $pid . '");';
-		$command .= 'GetReports(fileName="' . $maqlFile . '");';
-
-		$this->call($command);
-
-		if (file_exists($maqlFile) && filesize($maqlFile)) {
-			$command  = 'OpenProject(id="' . $pid . '");';
-			$command .= 'ExecuteReports(fileName="' . $maqlFile . '");';
-			$this->call($command);
-
-			unlink($maqlFile);
-		}
-	}
 
 
 }

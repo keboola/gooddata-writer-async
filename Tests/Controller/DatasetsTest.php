@@ -12,6 +12,11 @@ use Keboola\GoodDataWriter\Test\WriterTest,
 class DatasetsTest extends WriterTest
 {
 
+	/*public function testXml()
+	{
+		//@TODO
+	}*/
+
 	public function testUploadProject()
 	{
 		$this->_prepareData();
@@ -24,13 +29,41 @@ class DatasetsTest extends WriterTest
 		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
 		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
 		$this->assertCount(3, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with three values.");
+
+		$dateFound = false;
+		$categoriesFound = false;
+		$productsFound = false;
+		foreach ($data['dataSetsInfo']['sets'] as $d) {
+			if ($d['meta']['identifier'] == 'productdate.dataset.dt') {
+				$dateFound = true;
+			}
+			if ($d['meta']['identifier'] == 'dataset.categories') {
+				$categoriesFound = true;
+			}
+			if ($d['meta']['identifier'] == 'dataset.products') {
+				$productsFound = true;
+			}
+		}
+		$this->assertTrue($dateFound, "Date dimension has not been found in GoodData");
+		$this->assertTrue($categoriesFound, "Dataset 'Categories' has not been found in GoodData");
+		$this->assertTrue($productsFound, "Dataset 'Products' has not been found in GoodData");
 	}
 
 
-	/*public function testUploadTable()
+	public function testUploadTable()
 	{
-		//@TODO need to test that load data finished successfully
-	}*/
+		$this->_prepareData();
+
+		$this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.categories'));
+
+		// Check existence of datasets in the project
+		self::$restApi->login(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		$data = self::$restApi->get('/gdc/md/' . self::$configuration->bucketInfo['gd']['pid'] . '/data/sets');
+		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
+		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
+		$this->assertCount(1, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with one value.");
+		$this->assertEquals('dataset.categories', $data['dataSetsInfo']['sets'][0]['meta']['identifier'], "GoodData project should contain dataset 'Categories'.");
+	}
 
 
 	/*public function testGetModel()
@@ -69,7 +102,35 @@ class DatasetsTest extends WriterTest
 			$this->assertTrue(in_array($table['gdName'], array('Products', 'Categories')), sprintf("Table '%s' does not belong to configured tables.", $table['id']));
 			$this->assertArrayHasKey('lastExportDate', $table, sprintf("Table '%s' should have 'lastExportDate' attribute.", $table['id']));
 		}
+	}
 
+	public function testGetReferenceableTables()
+	{
+		$this->_prepareData();
+
+		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&referenceable');
+
+		$this->assertArrayHasKey('tables', $responseJson, "Response for writer call '/tables?referenceable' should contain 'tables' key.");
+
+		$this->assertCount(2, $responseJson['tables'], "Response for writer call '/tables?referenceable' should contain two configured tables.");
+		foreach ($responseJson['tables'] as $table) {
+			$this->assertArrayHasKey('referenceable', $table, "There should be 'referenceable' flag of each table.");
+			$this->assertEquals(1, $table['referenceable'], "Both tables should be referenceable");
+		}
+	}
+
+	public function testGetSpecificTable()
+	{
+		$this->_prepareData();
+
+		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $this->dataBucketId . '.products');
+
+		$this->assertArrayHasKey('table', $responseJson, "Response for writer call '/tables?tableId=' should contain 'table' key.");
+		$this->assertArrayHasKey('tableId', $responseJson['table'], "Response for writer call '/tables?tableId=' should contain 'table.tableId' key.");
+		$this->assertArrayHasKey('gdName', $responseJson['table'], "Response for writer call '/tables?tableId=' should contain 'table.gdName' key.");
+		$this->assertArrayHasKey('columns', $responseJson['table'], "Response for writer call '/tables?tableId=' should contain 'table.columns' key.");
+		$this->assertEquals($this->dataBucketId . '.products', $responseJson['table']['tableId'], "Response for writer call '/tables?tableId=' should contain 'table.tableId' key with value of data bucket Products.");
+		$this->assertCount(5, $responseJson['table']['columns'], "Response for writer call '/tables?tableId=' should contain 'table.columns' key with five columns.");
 	}
 
 
@@ -126,6 +187,22 @@ class DatasetsTest extends WriterTest
 	}
 
 
+	public function testResetExport()
+	{
+		$this->_prepareData();
+
+		$this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.categories'));
+
+		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $this->dataBucketId . '.categories');
+		$this->assertArrayHasKey('lastExportDate', $responseJson['table'], "Exported table should contain 'lastExportDate' attribute.");
+
+		$this->_postWriterApi('/gooddata-writer/reset-export', array('writerId' => $this->writerId));
+
+		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $this->dataBucketId . '.categories');
+		$this->assertEquals('', $responseJson['table']['lastExportDate'], "Reset table should contain empty 'lastExportDate' attribute.");
+	}
+
+
 	public function testRemoveColumn()
 	{
 		$this->_prepareData();
@@ -140,5 +217,47 @@ class DatasetsTest extends WriterTest
 
 		$this->assertArrayHasKey('lastChangeDate', $responseJson['table'], "Response for writer call '/tables&tableId=' should contain 'table.lastChangeDate' key.");
 		$this->assertGreaterThan($nowTime, $responseJson['table']['lastChangeDate'], "Response for writer call '/tables&tableId=' should have 'table.lastChangeDate' updated.");
+	}
+
+	public function testDateDimensions()
+	{
+		//@TODO get, delete, post
+		$this->_prepareData();
+
+		// Create dimension
+		$this->_postWriterApi('/gooddata-writer/date-dimensions', array(
+			'writerId' => $this->writerId,
+			'name' => 'TestDate'
+		));
+
+		// Get dimensions
+		$responseJson = $this->_getWriterApi('/gooddata-writer/date-dimensions?writerId=' . $this->writerId . '&usage');
+		$this->assertArrayHasKey('dimensions', $responseJson, "Response for writer call '/date-dimensions' should contain 'dimensions' key.");
+		$this->assertCount(2, $responseJson['dimensions'], "Response for writer call '/date-dimensions' should contain two dimensions.");
+		$this->assertArrayHasKey('TestDate', $responseJson['dimensions'], "Response for writer call '/date-dimensions' should contain dimension 'TestDate'.");
+		$this->assertArrayHasKey('ProductDate', $responseJson['dimensions'], "Response for writer call '/date-dimensions' should contain dimension 'ProductDate'.");
+		$this->assertArrayHasKey('usedIn', $responseJson['dimensions']['ProductDate'], "Response for writer call '/date-dimensions' should contain key 'usedIn' for dimension 'ProductDate'.");
+		$this->assertCount(1, $responseJson['dimensions']['ProductDate']['usedIn'], "Response for writer call '/date-dimensions' should contain usage of dimension 'ProductDate'.");
+		$this->assertEquals($this->dataBucketId . '.products', $responseJson['dimensions']['ProductDate']['usedIn'][0], "Response for writer call '/date-dimensions' should contain usage of dimension 'ProductDate' in dataset 'Products'.");
+
+
+		// Update dimension
+		$date = date('c');
+		$this->_postWriterApi('/gooddata-writer/date-dimensions', array(
+			'writerId' => $this->writerId,
+			'name' => 'ProductDate',
+			'lastExportDate' => $date
+		));
+
+		$responseJson = $this->_getWriterApi('/gooddata-writer/date-dimensions?writerId=' . $this->writerId);
+		$this->assertArrayHasKey('lastExportDate', $responseJson['dimensions']['ProductDate'], "Response for writer call '/date-dimensions' should contain key 'lastExportDate' for dimension 'ProductDate'.");
+		$this->assertEquals($date, $responseJson['dimensions']['ProductDate']['lastExportDate'], "Response for writer call '/date-dimensions' should contain key 'lastExportDate' for dimension 'ProductDate' with proper value.");
+
+
+		// Drop dimension
+		$this->_callWriterApi('/gooddata-writer/date-dimensions?writerId=' . $this->writerId . '&name=TestDate', 'DELETE');
+		$responseJson = $this->_getWriterApi('/gooddata-writer/date-dimensions?writerId=' . $this->writerId);
+		$this->assertCount(1, $responseJson['dimensions'], "Response for writer call '/date-dimensions' should contain one dimension.");
+		$this->assertArrayNotHasKey('TestDate', $responseJson['dimensions'], "Response for writer call '/date-dimensions' should not contain dimension 'TestDate'.");
 	}
 }

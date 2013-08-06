@@ -46,12 +46,12 @@ class DebugCommand extends ContainerAwareCommand
 				$counterAll++;
 				$projectInfo = '"' . $counter . '","' . $project['title'] . '","' . $project['identifier'] . '","';
 
-				$counter++;  echo $projectInfo.PHP_EOL;
-				/*if (strstr($project['title'], 'DEV - [Test] Jakub - test')) {
+				$counter++;  echo $projectInfo.PHP_EOL;/*
+				if (strstr($project['title'], '[Test] GoodData Writer -')) {
 					$counter++;
 					echo $projectInfo.PHP_EOL;
 					$restApi->dropProject($project['identifier']);
-				}
+				}/**/
 
 				/*$usersInfo = array();
 				$users = $restApi->get('/gdc/projects/' . $project['identifier'] . '/users');

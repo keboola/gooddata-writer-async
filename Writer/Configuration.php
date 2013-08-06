@@ -154,24 +154,59 @@ class Configuration
 	 */
 	public function configurationBucket($writerId)
 	{
-		$configurationBucket = false;
-		foreach ($this->_storageApi->listBuckets() as $bucket) {
+		foreach (self::getWriters($this->_storageApi) as $w) {
+			if ($w['id'] == $writerId) {
+				return $w['bucket'];
+			}
+    	}
+		return false;
+	}
+
+
+	/**
+	 * @param StorageApiClient $storageApi
+	 * @return array
+	 */
+	public static function getWriters($storageApi)
+	{
+		$writers = array();
+		foreach ($storageApi->listBuckets() as $bucket) {
+			$writerId = false;
 			$foundWriterType = false;
-			$foundWriterName = false;
 			if (isset($bucket['attributes']) && is_array($bucket['attributes'])) foreach($bucket['attributes'] as $attribute) {
 				if ($attribute['name'] == 'writerId') {
-					$foundWriterName = $attribute['value'] == $writerId;
+					$writerId = $attribute['value'];
 				}
 				if ($attribute['name'] == 'writer') {
 					$foundWriterType = $attribute['value'] == self::WRITER_NAME;
 				}
+				if ($writerId && $foundWriterType) {
+					break;
+				}
 			}
-			if ($foundWriterName && $foundWriterType) {
-				$configurationBucket = $bucket['id'];
-				break;
+			if ($writerId && $foundWriterType) {
+				$writers[] = array(
+					'id' => $writerId,
+					'bucket' => $bucket['id']
+				);
 			}
 		}
-		return $configurationBucket;
+		return $writers;
+	}
+
+	public function createWriter($writerId, $backendUrl = null)
+	{
+		if ($this->configurationBucket($writerId)) {
+			throw new WrongParametersException(sprintf("Writer with id '%s' already exists", $writerId));
+		}
+
+		$this->_storageApi->createBucket('wr-gooddata-' . $writerId, 'sys', 'GoodData Writer Configuration');
+		$this->_storageApi->setBucketAttribute('sys.c-wr-gooddata-' . $writerId, 'writer', self::WRITER_NAME);
+		$this->_storageApi->setBucketAttribute('sys.c-wr-gooddata-' . $writerId, 'writerId', $writerId);
+		if ($backendUrl) {
+			$this->_storageApi->setBucketAttribute('sys.c-wr-gooddata-' . $writerId, 'gd.backendUrl', $backendUrl);
+		}
+		$this->bucketId = 'sys.c-wr-gooddata-' . $writerId;
 	}
 
 
@@ -271,6 +306,40 @@ class Configuration
 		}
 
 		return $data;
+	}
+
+	public function getTables()
+	{
+		$tables = array();
+		foreach ($this->_storageApi->listTables() as $table) {
+			if (substr($table['id'], 0, 4) == 'out.') {
+				$t = array(
+					'id' => $table['id'],
+					'bucket' => $table['bucket']['id']
+				);
+				if (isset($this->definedTables[$table['id']])) {
+					$tableDef = $this->definedTables[$table['id']];
+					$t['gdName'] = isset($tableDef['gdName']) ? $tableDef['gdName'] : null;
+					$t['export'] = isset($tableDef['export']) ? (Boolean)$tableDef['export'] : false;
+					$t['lastChangeDate'] = isset($tableDef['lastChangeDate']) ? $tableDef['lastChangeDate'] : null;
+					$t['lastExportDate'] = isset($tableDef['lastExportDate']) ? $tableDef['lastExportDate'] : null;
+				}
+				$tables[] = $t;
+			}
+		}
+		return $tables;
+	}
+
+	public function getReferenceableTables()
+	{
+		$tables = array();
+		foreach ($this->definedTables as $table) {
+			$tables[$table['tableId']] = array(
+				'name' => isset($table['gdName']) ? $table['gdName'] : $table['tableId'],
+				'referenceable' => $this->tableIsReferenceable($table['tableId'])
+			);
+		}
+		return $tables;
 	}
 
 	public function getTableDefinition($tableId)
@@ -756,10 +825,11 @@ class Configuration
 	}
 
 	/**
-	 * @return array
+	 * @param null $pid
 	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 * @return array
 	 */
-	public function getProjectUsers()
+	public function getProjectUsers($pid = null)
 	{
 		if (!$this->_projectUsers) {
 			$tableId = $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME;
@@ -793,7 +863,21 @@ class Configuration
 				'main' => true
 			));
 		}
-		return $this->_projectUsers;
+
+		$result = $this->_projectUsers;
+		if ($pid) {
+			$result = array();
+			foreach ($this->_projectUsers as $u) {
+				if ($u['pid'] == $pid) {
+					$result[] = array(
+						'email' => $u['email'],
+						'role' => $u['role']
+					);
+				}
+			}
+		}
+
+		return $result;
 	}
 
 	/**

@@ -27,7 +27,6 @@ class RunJobCommand extends ContainerAwareCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
-		$log = $this->getContainer()->get('logger');
 		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
 		$sharedConfig = new SharedConfig(
 			new StorageApiClient(
@@ -45,9 +44,8 @@ class RunJobCommand extends ContainerAwareCommand
 		));
 		$db->delete('message', array('body=?' => $input->getArgument('job')));
 
-		$executor = new JobExecutor($sharedConfig, $log, $this->getContainer());
+		$executor = new JobExecutor($sharedConfig, $this->getContainer());
 		$executor->runJob($input->getArgument('job'));
-
 	}
 
 }
