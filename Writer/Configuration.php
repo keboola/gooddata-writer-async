@@ -1063,6 +1063,24 @@ class Configuration
 		return $this->_filters;
 	}
 
+	/**
+	 * @param $userEmail
+	 * @return array
+	 */
+	public function getFiltersForUser($userEmail)
+	{
+		$filtersUsers = $this->getFiltersUsers();
+
+		$filters = array();
+		foreach ($filtersUsers as $fu) {
+			if ($fu['userEmail'] == $userEmail) {
+				$filters[] = $this->getFilter($fu['filterName']);
+			}
+		}
+
+		return $filters;
+	}
+
 
 	/**
 	 * @return array
