@@ -592,9 +592,9 @@ class Configuration
 			$table->setHeader($headers);
 			$table->setFromArray($data);
 			$table->save();
-		}
 
-		$this->setTableAttribute($tableId, 'lastChangeDate', date('c'));
+			$this->setTableAttribute($tableId, 'lastChangeDate', date('c'));
+		}
 	}
 
 
@@ -685,7 +685,8 @@ class Configuration
 								. " of column '{$columnDefinition['name']}' does not exist");
 						}
 						if ($refTableDefinition) {
-							$column->appendChild($xml->createElement('schemaReference', $refTableDefinition['gdName']));
+							$refTableName = isset($refTableDefinition['gdName']) ? $refTableDefinition['gdName'] : $refTableDefinition['tableId'];
+							$column->appendChild($xml->createElement('schemaReference', $refTableName));
 							$reference = NULL;
 							foreach ($refTableDefinition['columns'] as $c) {
 								if ($c['type'] == 'CONNECTION_POINT') {
@@ -1068,27 +1069,6 @@ class Configuration
 		return $this->_filters;
 	}
 
-	/**
-	 * @param $userEmail
-	 * @param null $pid
-	 * @return array
-	 */
-	public function getFiltersForUser($userEmail, $pid = null)
-	{
-		$filtersUsers = $this->getFiltersUsers();
-
-		$filters = array();
-		foreach ($filtersUsers as $fu) {
-			if ($fu['userEmail'] == $userEmail) {
-				$filter = $this->getFilter($fu['filterName']);
-				if (null == $pid || strstr($filter['uri'], $pid)) {
-					$filters[] = $filter;
-				}
-			}
-		}
-
-		return $filters;
-	}
 
 	/**
 	 * @return array
@@ -1164,10 +1144,6 @@ class Configuration
 			if ($f['name'] == $name) {
 				throw new WrongParametersException("Filter of that name already exists.");
 			}
-		}
-
-		if (is_array($element)) {
-			$element = json_encode($element);
 		}
 
 		$filter = array(
