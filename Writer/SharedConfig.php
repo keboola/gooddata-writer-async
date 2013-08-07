@@ -124,7 +124,7 @@ class SharedConfig
 			$fields['id'] = $jobId;
 		}
 		$jobsTable->setHeader(array_keys($fields));
-		$jobsTable->setFromArray($fields);
+		$jobsTable->setFromArray(array($fields));
 		$jobsTable->setPartial(true);
 		$jobsTable->setIncremental(true);
 		$jobsTable->save();
