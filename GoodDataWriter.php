@@ -573,7 +573,11 @@ class GoodDataWriter extends Component
 		}
 
 		if (isset($params['userEmail'])) {
-			$filters = $this->configuration->getFiltersForUser($params['userEmail']);
+			if (isset($params['pid'])) {
+				$filters = $this->configuration->getFiltersForUser($params['userEmail'], $params['pid']);
+			} else {
+				$filters = $this->configuration->getFiltersForUser($params['userEmail']);
+			}
 		} else {
 			$filters = $this->configuration->getFilters();
 		}
