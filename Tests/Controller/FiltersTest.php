@@ -133,4 +133,28 @@ class FiltersTest extends WriterTest
 		$this->assertCount(0, $filtersUsers);
 	}
 
+	public function testGetFilters()
+	{
+		$pid = self::$configuration->bucketInfo['gd']['pid'];
+
+		// Upload data
+		$this->_prepareData();
+		$this->_processJob('/gooddata-writer/upload-project');
+
+		$this->_createFilter($pid);
+		$this->_assignFilterToUser($pid);
+
+		$responseJson = $this->_getWriterApi('/gooddata-writer/filters?writerId=' . $this->writerId);
+		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters should contain 'filters' key.");
+		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
+
+		// Get filters for user and pid
+		$usersList = self::$configuration->getUsers();
+		$user = $usersList[0];
+
+		$responseJson = $this->_getWriterApi('/gooddata-writer/filters?writerId=' . $this->writerId . '&userEmail=' . $user['email'] . '&pid=' . $pid);
+		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters should contain 'filters' key.");
+		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
+	}
+
 }
