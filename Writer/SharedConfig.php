@@ -120,8 +120,11 @@ class SharedConfig
 		}
 
 		$jobsTable = new StorageApiTable($this->_storageApiClient, self::JOBS_TABLE_ID);
-		$jobsTable->setHeader(array_merge(array('id'), array_keys($fields)));
-		$jobsTable->setFromArray(array(array_merge(array($jobId), $fields)));
+		if (!isset($fields['id'])) {
+			$fields['id'] = $jobId;
+		}
+		$jobsTable->setHeader(array_keys($fields));
+		$jobsTable->setFromArray($fields);
 		$jobsTable->setPartial(true);
 		$jobsTable->setIncremental(true);
 		$jobsTable->save();
