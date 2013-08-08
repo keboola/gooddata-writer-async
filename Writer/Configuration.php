@@ -1038,6 +1038,28 @@ class Configuration
 		return false;
 	}
 
+	/**
+	 * @param $userEmail
+	 * @param null $pid
+	 * @return array
+	 */
+	public function getFiltersForUser($userEmail, $pid = null)
+	{
+		$filtersUsers = $this->getFiltersUsers();
+
+		$filters = array();
+		foreach ($filtersUsers as $fu) {
+			if ($fu['userEmail'] == $userEmail) {
+				$filter = $this->getFilter($fu['filterName']);
+				if (null == $pid || strstr($filter['uri'], $pid)) {
+					$filters[] = $filter;
+				}
+			}
+		}
+
+		return $filters;
+	}
+
 
 	/**
 	 * @return array
