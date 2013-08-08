@@ -590,21 +590,22 @@ class RestApi
 		if (is_array($element)) {
 			$elementArr = array();
 			foreach ($element as $e) {
-			$elementArr[] = '"' . $this->getElementUriByTitle(
+			$elementArr[] = '[' . $this->getElementUriByTitle(
 				$gdAttribute['content']['displayForms'][0]['links']['elements'],
 				$e
-				) . '"';
+				) . ']';
 			}
 
-			$elementUri = implode(',', $elementArr);
+			$elementsUri = implode(',', $elementArr);
+			$expression = "[" . $gdAttribute['meta']['uri'] . "]" . $operator . "(" . $elementsUri . ")";
 		} else {
 			$elementUri = $this->getElementUriByTitle(
 				$gdAttribute['content']['displayForms'][0]['links']['elements'],
 				$element
 			);
-		}
 
-		$expression = "[" . $gdAttribute['meta']['uri'] . "]" . $operator . "[" . $elementUri . "]";
+			$expression = "[" . $gdAttribute['meta']['uri'] . "]" . $operator . "[" . $elementUri . "]";
+		}
 
 		$filterUri = sprintf('/gdc/md/%s/obj', $pid);
 		$result = $this->_jsonRequest($filterUri, 'POST', array(
