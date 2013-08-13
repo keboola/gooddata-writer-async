@@ -21,7 +21,7 @@ class Process
 	const FD_WRITE = 0;
 	const FD_ERR = 2;
 
-	public static  function exec($cmd)
+	public static function exec($cmd)
 	{
 		$output = '';
 		static::run($cmd, function($buffer) use(&$output) {
@@ -30,7 +30,7 @@ class Process
 		return $output;
 	}
 
-	public static  function  runPassThru($cmd)
+	public static function runPassThru($cmd)
 	{
 		$outputSize = 0;
 		ob_implicit_flush(true);
@@ -47,6 +47,7 @@ class Process
 	/**
 	 * @static
 	 * @param $cmd
+	 * @param $onBuffer
 	 * @throws ProcessException
 	 */
 	public static function run($cmd, $onBuffer)
@@ -56,27 +57,27 @@ class Process
 			throw new ProcessException('Callback is not callable');
 		}
 
-		$descriptorspec = array(
+		$descriptorSpec = array(
 			0 => array("pipe", "r"),
 			1 => array("pipe", "w"),
 			2 => array("pipe", "w")
 		);
 
-		$ptr = proc_open($cmd, $descriptorspec, $pipes, NULL, $_ENV);
+		$ptr = proc_open($cmd, $descriptorSpec, $pipes, NULL, $_ENV);
 		if (!is_resource($ptr)) {
 			throw new ProcessException('Cannot run command');
 		}
 
-		$errbuf = '';
+		$errBuffer = '';
 		$buffer = '';
 		while (($buffer = fgets($pipes[self::FD_READ])) != NULL
-			|| ($errbuf = fgets($pipes[self::FD_ERR])) != NULL) {
+			|| ($errBuffer = fgets($pipes[self::FD_ERR])) != NULL) {
 
 			if (strlen($buffer)) {
 				call_user_func($onBuffer, $buffer);
 			}
-			if (strlen($errbuf)) {
-				throw new ProcessException($errbuf);
+			if (strlen($errBuffer)) {
+				throw new ProcessException($errBuffer);
 			}
 		}
 
