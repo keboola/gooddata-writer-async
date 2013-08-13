@@ -685,7 +685,8 @@ class Configuration
 								. " of column '{$columnDefinition['name']}' does not exist");
 						}
 						if ($refTableDefinition) {
-							$column->appendChild($xml->createElement('schemaReference', $refTableDefinition['gdName']));
+							$refTableName = isset($refTableDefinition['gdName']) ? $refTableDefinition['gdName'] : $refTableDefinition['tableId'];
+							$column->appendChild($xml->createElement('schemaReference', $refTableName));
 							$reference = NULL;
 							foreach ($refTableDefinition['columns'] as $c) {
 								if ($c['type'] == 'CONNECTION_POINT') {
@@ -1035,6 +1036,28 @@ class Configuration
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * @param $userEmail
+	 * @param null $pid
+	 * @return array
+	 */
+	public function getFiltersForUser($userEmail, $pid = null)
+	{
+		$filtersUsers = $this->getFiltersUsers();
+
+		$filters = array();
+		foreach ($filtersUsers as $fu) {
+			if ($fu['userEmail'] == $userEmail) {
+				$filter = $this->getFilter($fu['filterName']);
+				if (null == $pid || strstr($filter['uri'], $pid)) {
+					$filters[] = $filter;
+				}
+			}
+		}
+
+		return $filters;
 	}
 
 
