@@ -73,7 +73,7 @@ class RestApi
 			)
 		));
 		$this->_client->setSslVerification(false);
-		$this->_client->setDefaultHeaders(array(
+		$this->_client->setDefaultOption('headers', array(
 			'accept' => 'application/json',
 			'content-type' => 'application/json; charset=utf-8'
 		));
@@ -326,6 +326,8 @@ class RestApi
 			));
 			throw new RestApiException('Create user failed');
 		}
+
+		return false;
 	}
 
 	/**
@@ -593,6 +595,81 @@ class RestApi
 		$result = $this->_request('/gdc/xtab2/executor3', 'POST', array(
 			'report_req' => array(
 				'report' => $uri
+			)
+		));
+	}
+
+	public function getUploadMessage($pid, $datasetName)
+	{
+		$datasets = $this->get(sprintf('/gdc/md/%s/data/sets', $pid));
+		foreach ($datasets['dataSetsInfo']['sets'] as $dataset) {
+			if ($dataset['meta']['identifier'] == 'dataset.' . $datasetName) {
+				return $dataset['lastUpload']['dataUploadShort']['msg'];
+			}
+		}
+
+		return null;
+	}
+
+	public function createDateDimension($pid, $name, $includeTime = false)
+	{
+		$identifier = str_replace(' ', '', strtolower($name));
+		$maql = sprintf('INCLUDE TEMPLATE "URN:GOODDATA:DATE" MODIFY (IDENTIFIER "%s", TITLE "%s");', $identifier, $name);
+
+		if ($includeTime) {
+			$maql .= 'CREATE DATASET {dataset.time.%ID%} VISUAL(TITLE "Time (%NAME%)");';
+			$maql .= 'CREATE FOLDER {dim.time.%ID%} VISUAL(TITLE "Time dimension (%NAME%)") TYPE ATTRIBUTE;';
+			$maql .= 'CREATE FOLDER {ffld.time.%ID%} VISUAL(TITLE "Time dimension (%NAME%)") TYPE FACT;';
+
+			$maql .= 'CREATE ATTRIBUTE {attr.time.second.of.day.%ID%} VISUAL(TITLE "Time (%NAME%)",'
+				. ' FOLDER {dim.time.%ID%}) AS KEYS {d_time_second_of_day_%ID%.id} FULLSET WITH LABELS'
+				. ' {label.time.%ID%} VISUAL(TITLE "Time (hh:mm:ss)") AS {d_time_second_of_day_%ID%.nm},'
+				. ' {label.time.twelve.%ID%} VISUAL(TITLE "Time (HH:mm:ss)") AS {d_time_second_of_day_%ID%.nm_12},'
+				. ' {label.time.second.of.day.%ID%} VISUAL(TITLE "Second of Day") AS {d_time_second_of_day_%ID%.nm_sec};';
+			$maql .= 'ALTER ATTRIBUTE {attr.time.second.of.day.%ID%} ORDER BY {label.time.%ID%} ASC;';
+			$maql .= 'ALTER DATASET {dataset.time.%ID%} ADD {attr.time.second.of.day.%ID%};';
+
+			$maql .= 'CREATE ATTRIBUTE {attr.time.second.%ID%} VISUAL(TITLE "Second (%NAME%)",'
+				. ' FOLDER {dim.time.%ID%}) AS KEYS {d_time_second_%ID%.id} FULLSET,'
+				. ' {d_time_second_of_day_%ID%.second_id} WITH LABELS'
+				. ' {label.time.second.%ID%} VISUAL(TITLE "Second") AS {d_time_second_%ID%.nm};';
+			$maql .= 'ALTER DATASET {dataset.time.%ID%} ADD {attr.time.second.%ID%};';
+
+			$maql .= 'CREATE ATTRIBUTE {attr.time.minute.of.day.%ID%} VISUAL(TITLE "Minute of Day (%NAME%)",'
+				. ' FOLDER {dim.time.%ID%}) AS KEYS {d_time_minute_of_day_%ID%.id} FULLSET,'
+				. ' {d_time_second_of_day_%ID%.minute_id} WITH LABELS'
+				. ' {label.time.minute.of.day.%ID%} VISUAL(TITLE "Minute of Day") AS {d_time_minute_of_day_%ID%.nm};';
+			$maql .= 'ALTER DATASET {dataset.time.%ID%} ADD {attr.time.minute.of.day.%ID%};';
+
+			$maql .= 'CREATE ATTRIBUTE {attr.time.minute.%ID%} VISUAL(TITLE "Minute (%NAME%)",'
+				. ' FOLDER {dim.time.%ID%}) AS KEYS {d_time_minute_%ID%.id} FULLSET,'
+				. ' {d_time_minute_of_day_%ID%.minute_id} WITH LABELS'
+				. ' {label.time.minute.%ID%} VISUAL(TITLE "Minute") AS {d_time_minute_%ID%.nm};';
+			$maql .= 'ALTER DATASET {dataset.time.%ID%} ADD {attr.time.minute.%ID%};';
+
+			$maql .= 'CREATE ATTRIBUTE {attr.time.hour.of.day.%ID%} VISUAL(TITLE "Hour (%NAME%)",'
+				. ' FOLDER {dim.time.%ID%}) AS KEYS {d_time_hour_of_day_%ID%.id} FULLSET,'
+				. ' {d_time_minute_of_day_%ID%.hour_id} WITH LABELS'
+				. ' {label.time.hour.of.day.%ID%} VISUAL(TITLE "Hour (0-23)") AS {d_time_hour_of_day_%ID%.nm},'
+				. ' {label.time.hour.of.day.twelve.%ID%} VISUAL(TITLE "Hour (1-12)") AS {d_time_hour_of_day_%ID%.nm_12};';
+			$maql .= 'ALTER ATTRIBUTE {attr.time.hour.of.day.%ID%} ORDER BY {label.time.hour.of.day.%ID%} ASC;';
+			$maql .= 'ALTER DATASET {dataset.time.%ID%} ADD {attr.time.hour.of.day.%ID%};';
+
+			$maql .= 'CREATE ATTRIBUTE {attr.time.ampm.%ID%} VISUAL(TITLE "AM/PM (%NAME%)", '
+				. 'FOLDER {dim.time.%ID%}) AS KEYS {d_time_ampm_%ID%.id} FULLSET,'
+				. ' {d_time_hour_of_day_%ID%.ampm_id} WITH LABELS'
+				. ' {label.time.ampm.%ID%} VISUAL(TITLE "AM/PM") AS {d_time_ampm_%ID%.nm};';
+			$maql .= 'ALTER DATASET {dataset.time.%ID%} ADD {attr.time.ampm.%ID%};';
+
+			$maql .= 'SYNCHRONIZE {dataset.time.%ID%};';
+
+			$maql = str_replace('%ID%', $identifier, $maql);
+			$maql = str_replace('%NAME%', $name, $maql);
+		}
+
+		$this->_request(sprintf('/gdc/md/%s/ldm/manage', $pid), 'POST', array(
+			'manage' => array(
+				'maql' => $maql
 			)
 		));
 	}

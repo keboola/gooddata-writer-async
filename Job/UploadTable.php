@@ -6,14 +6,15 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\ClientException;
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
+use Keboola\GoodDataWriter\Exception\ClientException,
+	Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
-	Keboola\GoodDataWriter\Writer\Process,
-	Keboola\GoodDataWriter\Writer\ProcessException;
-use Sabre\DAV;
+	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
+use Keboola\GoodDataWriter\GoodData\CsvHandler;
+use Keboola\GoodDataWriter\GoodData\WebDav;
+use Keboola\StorageApi\Client as StorageApiClient;
 
 class UploadTable extends GenericJob
 {
@@ -25,41 +26,21 @@ class UploadTable extends GenericJob
 		$this->configuration->checkGoodDataSetup();
 
 		$startTime = time();
-		$tmpFolderName = $job['id'] . '-' . uniqid();
-		$tmpFolder = $this->tmpDir . '/' . $tmpFolderName;
-		mkdir($tmpFolder);
-
-		$xmlFile = $job['xmlFile'];
-		if (!is_file($xmlFile)) {
-			$xmlUrl = $xmlFile;
-			$url = parse_url($xmlFile);
-			if (empty($url['host'])) {
-				$xmlUrl = $this->s3Client->url($xmlFile);
-			}
-			$xmlFilePath = $tmpFolder . '/model.xml';
-			exec('curl -s -L ' . escapeshellarg($xmlUrl) . ' > ' . escapeshellarg($xmlFilePath));
-			$xmlFile = $xmlFilePath;
-		}
-
-		libxml_use_internal_errors(TRUE);
-		$xmlFileObject = simplexml_load_file($xmlFile);
-		if (!$xmlFileObject) {
-			$errors = '';
-			foreach (libxml_get_errors() as $error) {
-				$errors .= $error->message;
-			}
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => $errors,
-				'debug' => $this->clToolApi->debugLogUrl
-			), $this->clToolApi->output);
-		}
-
+		$tmpFolderName = basename($this->tmpDir);
+		$csvHandler = new CsvHandler($this->rootPath, $this->s3Client, $this->tmpDir);
 		$projects = $this->configuration->getProjects();
 		$gdJobs = array();
 
 
-		// Create used date dimensions
+		// Get xml
+		$xmlFile = $job['xmlFile'];
+		if (!is_file($xmlFile)) {
+			$xmlFile = $csvHandler->downloadXml($xmlFile);
+		}
+		$xmlFileObject = $csvHandler->getXml($xmlFile);
+
+
+		// Find out new date dimensions and enqueue them for creation
 		$dateDimensions = null;
 		if ($xmlFileObject->columns) foreach ($xmlFileObject->columns->column as $column) if ((string)$column->ldmType == 'DATE') {
 			if (!$dateDimensions) {
@@ -80,12 +61,11 @@ class UploadTable extends GenericJob
 						'includeTime' => !empty($dateDimensions[$dimension]['includeTime'])
 					);
 				}
-				$this->configuration->setDateDimensionAttribute($dimension, 'lastExportDate', date('c', $startTime));
 			}
 		}
 
 
-		// Prepare model alteration jobs
+		// Enqueue jobs for creation/update of dataset and load data
 		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
@@ -111,254 +91,95 @@ class UploadTable extends GenericJob
 			);
 		}
 
-		$sapiClient = new \Keboola\StorageApi\Client(
+
+		// Get csv
+		$sapiClient = new StorageApiClient(
 			$job['token'],
 			$this->mainConfig['storageApi.url'],
 			$this->mainConfig['user_agent']
 		);
-
 		$options = array('format' => 'escaped');
 		if ($incrementalLoad) {
 			$options['changedSince'] = '-' . $incrementalLoad . ' days';
 		}
-		$sapiClient->exportTable($params['tableId'], $tmpFolder . '/data.csv', $options);
+		$sapiClient->exportTable($params['tableId'], $this->tmpDir . '/data.csv', $options);
 
 
-		// Sanitize CSV
-		if ($sanitize) {
-			rename($tmpFolder . '/data.csv', $tmpFolder . '/data.csv.in');
-			$nullReplace = 'cat ' . escapeshellarg($tmpFolder . '/data.csv.in') . ' | sed \'s/\"NULL\"/\"\"/g\' | awk -v OFS="\",\"" -F"\",\"" \'{';
-
-			$i = 1;
-			$columnsCount = $xmlFileObject->columns->column->count();
-			foreach ($xmlFileObject->columns->column as $column) {
-				$type = (string)$column->ldmType;
-				$value = NULL;
-				switch ($type) {
-					case 'ATTRIBUTE':
-						$value = '-- empty --';
-						break;
-					case 'LABEL':
-					case 'FACT':
-						$value = '0';
-						break;
-					case 'DATE':
-						$format = (string)$column->format;
-						$value = str_replace(
-							array('yyyy', 'MM', 'dd', 'hh', 'HH', 'mm', 'ss', 'kk'),
-							array('1900', '01', '01', '00', '00', '00', '00', '00'),
-							$format);
-						break;
-				}
-				if (!is_null($value)) {
-					$testValue = '""';
-					if ($i == 1) {
-						$testValue = '"\""';
-						$value = '\"' . $value;
-					}
-					if ($i == $columnsCount) {
-						$testValue = '"\""';
-						$value .= '\"';
-					}
-					$nullReplace .= 'if ($' . $i . ' == ' . $testValue . ') {$' . $i . ' = "' . $value . '"} ';
-				}
-				$i++;
-			}
-			$nullReplace .= '; print }\' > ' . escapeshellarg($tmpFolder . '/data.csv');
-			shell_exec($nullReplace);
-			if (!file_exists($tmpFolder . '/data.csv.in')) {
-				throw new JobProcessException(sprintf("CSV sanitization failed. Job id is '%s'", $tmpFolderName));
-			}
-			unlink($tmpFolder . '/data.csv.in');
-		}
-
-
-		// Start GD load
-		$gdWriteStartTime = date('c');
-		$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-
-
-		// Prepare manifest for data load
 		$datasetName = $this->_gdName($xmlFileObject->name);
-		$manifest = array(
-			'dataSetSLIManifest' => array(
-				'file' => 'data.csv',
-				'dataSet' => 'dataset.' . $datasetName,
-				'parts' => array()
-			)
-		);
-		$csvHeaders = array();
-		$ignoredColumnsIndices = array();
-		$dateColumnsIndices = array();
-		$timeColumnsIndices = array();
-		$i = 1;
-		foreach ($xmlFileObject->columns->column as $column) {
-			$columnName = $this->_gdName($column->name);
-			$gdName = null;
-			switch ((string)$column->ldmType) {
-				case 'CONNECTION_POINT':
-					$csvHeaders[] = (string)$column->name;
-					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => (string)$column->name,
-						'populates' => array(
-							sprintf('label.%s.%s', $datasetName, $columnName)
-						),
-						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
-						'referenceKey' => 1
-					);
-					break;
-				case 'FACT':
-					$csvHeaders[] = (string)$column->name;
-					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => (string)$column->name,
-						'populates' => array(
-							sprintf('fact.%s.%s', $datasetName, $columnName)
-						),
-						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
-					);
-					break;
-				case 'ATTRIBUTE':
-					$csvHeaders[] = (string)$column->name;
-					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => (string)$column->name,
-						'populates' => array(
-							sprintf('label.%s.%s', $datasetName, $columnName)
-						),
-						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
-						'referenceKey' => 1
-					);
-					break;
-				case 'LABEL':
-				case 'HYPERLINK':
-					$csvHeaders[] = (string)$column->name;
-					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => (string)$column->name,
-						'populates' => array(
-							sprintf('label.%s.%s.%s', $datasetName, $this->_gdName($column->reference), $columnName)
-						),
-						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
-					);
-					break;
-				case 'REFERENCE':
-					$csvHeaders[] = (string)$column->name;
-					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => (string)$column->name,
-						'populates' => array(
-							sprintf('label.%s.%s', $this->_gdName($column->schemaReference), $this->_gdName($column->reference))
-						),
-						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
-						'referenceKey' => 1
-					);
-					break;
-				case 'DATE':
-					$csvHeaders[] = (string)$column->name;
-					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => (string)$column->name,
-						'populates' => array(
-							sprintf('%s.date.mmddyyyy', $this->_gdName($column->schemaReference))
-						),
-						'constraints' => array(
-							'date' => (string)$column->format
-						),
-						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
-						'referenceKey' => 1
-					);
-					$csvHeaders[] = (string)$column->name . '_dt';
-					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => (string)$column->name . '_dt',
-						'populates' => array(
-							sprintf('dt.%s.%s', $datasetName, $columnName)
-						),
-						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
-					);
-					if ((string)$column->datetime == 'true') {
-						$csvHeaders[] = (string)$column->name . '_tm';
-						$manifest['dataSetSLIManifest']['parts'][] = array(
-							'columnName' => (string)$column->name . '_tm',
-							'populates' => array(
-								sprintf('tm.dt.%s.%s', $datasetName, $columnName)
-							),
-							'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
-						);
-						$csvHeaders[] = (string)$column->name . '_id';
-						$manifest['dataSetSLIManifest']['parts'][] = array(
-							'columnName' => (string)$column->name . '_id',
-							'populates' => array(
-								sprintf('label.time.second.of.day.%s', $this->_gdName($column->schemaReference))
-							),
-							'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
-							'referenceKey' => 1
-						);
 
-						$timeColumnsIndices[] = $i;
-					}
 
-					$dateColumnsIndices[] = $i;
-					break;
-				case 'IGNORE':
-					$ignoredColumnsIndices[] = $i;
-					break;
-			}
 
-			$i++;
+		// Start GoodData transfer
+		$gdWriteStartTime = date('c');
+
+
+		// Prepare manifest and csv
+		if ($sanitize) {
+			$csvHandler->sanitize($xmlFileObject, $this->tmpDir . '/data.csv');
 		}
+		$manifest = $csvHandler->getManifest($xmlFileObject, $incrementalLoad);
+		$csvHandler->prepareCsv($xmlFileObject, $this->tmpDir . '/data.csv');
+
+		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
+		$csvFileSize = filesize($this->tmpDir . '/data.csv');
 
 
-		// Add column headers according to manifest, calculate date facts and remove ignored columns
-		rename($tmpFolder . '/data.csv', $tmpFolder . '/data.csv.1');
-		$command  = 'cat ' . escapeshellarg($tmpFolder . '/data.csv.1') . ' | php ' . escapeshellarg($this->rootPath . '/GoodData/convert_csv.php');
-		$command .= ' -h' . implode(',', $csvHeaders);
-		if (count($dateColumnsIndices)) {
-			$command .= ' -d' . implode(',', $dateColumnsIndices);
-		}
-		if (count($timeColumnsIndices)) {
-			$command .= ' -t' . implode(',', $timeColumnsIndices);
-		}
-		if (count($ignoredColumnsIndices)) {
-			$command .= ' -i' . implode(',', $ignoredColumnsIndices);
-		}
-		$command .= ' > ' . escapeshellarg($tmpFolder . '/data.csv');
-		try {
-			$output = Process::exec($command);
-		} catch (ProcessException $e) {
-			throw new JobProcessException(sprintf("CSV preparation failed: %s", $e->getMessage()), NULL, $e);
-		}
-		if (!file_exists($tmpFolder . '/data.csv')) {
-			throw new JobProcessException(sprintf("CSV preparation failed. Job id is '%s'", $tmpFolderName));
-		}
-		unlink($tmpFolder . '/data.csv.1');
+		// Upload csv
+		$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+		$webDav->upload($this->tmpDir, $tmpFolderName, 'upload_info.json', 'data.csv');
 
-		// Compress files
-		$csvFileSize = filesize($tmpFolder . '/data.csv');
-		file_put_contents($tmpFolder . '/upload_info.json', json_encode($manifest));
-		shell_exec('zip -j ' . escapeshellarg($tmpFolder . '/upload.zip') . ' '
-			. escapeshellarg($tmpFolder . '/upload_info.json') . ' ' . escapeshellarg($tmpFolder . '/data.csv'));
-		unlink($tmpFolder . '/data.csv');
 
-		// Send data to WebDav
-		$davClient = new DAV\Client(array(
-		'baseUri' => 'https://secure-di.gooddata.com',
-		'userName' => $this->configuration->bucketInfo['gd']['username'],
-		'password' => $this->configuration->bucketInfo['gd']['password']
-		));
-		$davClient->request('MKCOL', '/uploads/' . $tmpFolderName);
-		shell_exec(sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@secure-di.gooddata.com/uploads/%s/upload.zip',
-			$tmpFolder . '/upload.zip', urlencode($this->configuration->bucketInfo['gd']['username']), $this->configuration->bucketInfo['gd']['password'], $tmpFolderName));
-
+		// Execute enqueued jobs
 		$debug = array();
 		$output = null;
 		$error = false;
 		foreach ($gdJobs as $gdJob) {
-			$this->clToolApi->debugLogUrl = null;
 			try {
 				switch ($gdJob['command']) {
 					case 'createDate':
-						$this->clToolApi->createDate($gdJob['pid'], $gdJob['name'], $gdJob['includeTime']);
+
+						$tmpFolderDimension = $this->tmpDir . '/' . $this->_gdName($gdJob['name']);
+						mkdir($tmpFolderDimension);
+						$tmpFolderNameDimension = $tmpFolderName . '-' . $this->_gdName($gdJob['name']);
+
+						$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+						$this->restApi->createDateDimension($gdJob['pid'], $gdJob['name'], $gdJob['includeTime']);
+
+						$timeDimensionManifest = $csvHandler->getTimeDimensionManifest($gdJob['name']);
+						file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
+						copy($this->rootPath . '/GoodData/time-dimension.csv', $tmpFolderDimension . '/data.csv');
+						$csvFileSize += filesize($tmpFolderDimension . '/data.csv');
+						$webDav->upload($tmpFolderDimension, $tmpFolderNameDimension, 'upload_info.json', 'data.csv');
+
+						$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+						$result = $this->restApi->loadData($gdJob['pid'], $tmpFolderNameDimension);
+						if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
+							$debugFile = $tmpFolderDimension . '/data-load-log.txt';
+
+							// Find upload message
+							$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+							$uploadMessage = $this->restApi->getUploadMessage($gdJob['pid'], 'time.' . $this->_gdName($gdJob['name']));
+							if ($uploadMessage) {
+								file_put_contents($debugFile, $uploadMessage . PHP_EOL . PHP_EOL, FILE_APPEND);
+							}
+
+							// Look for .json and .log files in WebDav folder
+							$webDav->saveLogs($tmpFolderNameDimension, $debugFile);
+							$debug['timeDimension'] = $this->s3Client->uploadFile($debugFile);
+
+						}
+
+						$this->configuration->setDateDimensionAttribute($gdJob['name'], 'lastExportDate', date('c', $startTime));
+
 						break;
 					case 'createDataset':
+						$this->clToolApi->debugLogUrl = null;
+						$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 						$this->clToolApi->createDataset($gdJob['pid'], $xmlFile);
 						break;
 					case 'updateDataset':
+						$this->clToolApi->debugLogUrl = null;
+						$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 						$this->clToolApi->updateDataset($gdJob['pid'], $xmlFile, 1);
 
 						break;
@@ -368,34 +189,20 @@ class UploadTable extends GenericJob
 						try {
 							$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 							$result = $this->restApi->loadData($gdJob['pid'], $tmpFolderName);
-							if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
 
-								$debugFile = $tmpFolder . '/data-load-log.txt';
+							if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
+								$debugFile = $this->tmpDir . '/data-load-log.txt';
 
 								// Find upload message
-								$datasets = $this->restApi->get(sprintf('/gdc/md/%s/data/sets', $gdJob['pid']));
-								foreach ($datasets['dataSetsInfo']['sets'] as $dataset) {
-									if ($dataset['meta']['identifier'] == 'dataset.' . $datasetName) {
-										$error = $dataset['lastUpload']['dataUploadShort']['msg'];
-										file_put_contents($debugFile, $error . PHP_EOL . PHP_EOL, FILE_APPEND);
-									}
+								$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+								$uploadMessage = $this->restApi->getUploadMessage($gdJob['pid'], $datasetName);
+								if ($uploadMessage) {
+									file_put_contents($debugFile, $uploadMessage . PHP_EOL . PHP_EOL, FILE_APPEND);
 								}
 
 								// Look for .json and .log files in WebDav folder
-								$files = $davClient->propFind('/uploads/' . $tmpFolderName, array(
-									'{DAV:}displayname',
-									'{DAV:}getcontentlength',
-								), 1);
-								foreach (array_keys($files) as $file) {
-									if (substr($file, -4) == '.log' || substr($file, -5) == '.json') {
-										$result = $davClient->request('GET', $file);
-										file_put_contents($debugFile, $file . PHP_EOL, FILE_APPEND);
-										file_put_contents($debugFile, print_r($result['body'], true) . PHP_EOL . PHP_EOL . PHP_EOL, FILE_APPEND);
-									}
-								}
-
+								$webDav->saveLogs($tmpFolderName, $debugFile);
 								$debug['loadData'] = $this->s3Client->uploadFile($debugFile);
-
 							}
 						} catch (RestApiException $e) {
 							throw new JobProcessException('ETL load failed: ' . $e->getMessage());
@@ -404,8 +211,19 @@ class UploadTable extends GenericJob
 						break;
 				}
 			} catch (CLToolApiErrorException $e) {
-				$this->clToolApi->output .= '!!! ERROR !!' . PHP_EOL . $e->getMessage() . PHP_EOL;
-				$error = true;
+				return $this->_prepareResult($job['id'], array(
+					'status' => 'error',
+					'error' => $e->getMessage(),
+					'gdWriteStartTime' => $gdWriteStartTime
+				), $this->clToolApi->output);
+			} catch (UnauthorizedException $e) {
+				throw new WrongConfigurationException('Rest API Login failed');
+			} catch (RestApiException $e) {
+				return $this->_prepareResult($job['id'], array(
+					'status' => 'error',
+					'error' => $e->getMessage(),
+					'gdWriteStartTime' => $gdWriteStartTime
+				), $this->restApi->callsLog());
 			}
 
 			if ($this->clToolApi->debugLogUrl) {
@@ -423,7 +241,7 @@ class UploadTable extends GenericJob
 			'debug' => json_encode($debug),
 			'gdWriteStartTime' => $gdWriteStartTime,
 			'gdWriteBytes' => $csvFileSize,
-			'csvFile' => $tmpFolder
+			'csvFile' => $this->tmpDir
 		);
 		if ($error && $error !== true) {
 			$result['error'] = $error;

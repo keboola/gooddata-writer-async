@@ -206,7 +206,12 @@ class JobExecutor
 
 			$mainConfig = $this->_container->getParameter('gooddata_writer');
 			$mainConfig['storageApi.url'] = $this->_container->getParameter('storageApi.url');
-			$tmpDir = $mainConfig['tmp_path'];
+
+			$tmpDir = sprintf('%s/%s-%s', $mainConfig['tmp_path'], $job['id'], uniqid());
+			if (!file_exists($tmpDir)) {
+				mkdir($tmpDir);
+			}
+
 			$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
 
 			$s3Client = new S3Client($mainConfig['s3']['access_key'], $mainConfig['s3']['secret_key'],
@@ -217,10 +222,7 @@ class JobExecutor
 			$restApi = new RestApi($backendUrl, $this->_log);
 
 			$clToolApi = new CLToolApi($this->_log);
-			$clToolApi->tmpDir = sprintf('%s/%s-%s', $tmpDir, $job['id'], uniqid());
-			if (!file_exists($clToolApi->tmpDir)) {
-				mkdir($clToolApi->tmpDir);
-			}
+			$clToolApi->tmpDir = $tmpDir;
 			$clToolApi->clToolPath = $mainConfig['cli_path'];
 			$clToolApi->rootPath = $mainConfig['root_path'];
 			$clToolApi->jobId = $job['id'];
