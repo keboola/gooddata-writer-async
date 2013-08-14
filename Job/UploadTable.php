@@ -32,13 +32,22 @@ class UploadTable extends GenericJob
 			exec('curl -s -L ' . escapeshellarg($xmlUrl) . ' > ' . escapeshellarg($xmlFilePath));
 			$xmlFile = $xmlFilePath;
 		}
+		libxml_use_internal_errors(TRUE);
+		$xmlObject = simplexml_load_file($xmlFile);
+		if (!$xmlObject) {
+			$errors = '';
+			foreach (libxml_get_errors() as $error) {
+				$errors .= $error . ' ';
+			}
+			libxml_clear_errors();
+			throw new WrongConfigurationException("Error when reading xml file: " . $errors);
+		}
 
 		$projects = $this->configuration->getProjects();
 		$gdJobs = array();
 
 		// Create used date dimensions
 		$dateDimensions = null;
-		$xmlObject = simplexml_load_file($xmlFile);
 		if ($xmlObject->columns) foreach ($xmlObject->columns->column as $column) if ((string)$column->ldmType == 'DATE') {
 			if (!$dateDimensions) {
 				$dateDimensions = $this->configuration->getDateDimensions();
