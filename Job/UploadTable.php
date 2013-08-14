@@ -37,7 +37,7 @@ class UploadTable extends GenericJob
 		if (!$xmlObject) {
 			$errors = '';
 			foreach (libxml_get_errors() as $error) {
-				$errors .= $error . ' ';
+				$errors .= $error->message . ' ';
 			}
 			libxml_clear_errors();
 			throw new WrongConfigurationException("Error when reading xml file: " . $errors);
