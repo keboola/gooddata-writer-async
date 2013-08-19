@@ -125,7 +125,9 @@ class UploadTable extends GenericJob
 
 
 		// Upload csv
-		$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+		$backendUrl = isset($this->configuration->bucketInfo['gd']['backendUrl']) ? $this->configuration->bucketInfo['gd']['backendUrl'] : null;
+		$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password'],
+			$backendUrl);
 		$webDav->upload($this->tmpDir, $tmpFolderName, 'upload_info.json', 'data.csv');
 
 
@@ -218,7 +220,7 @@ class UploadTable extends GenericJob
 				), $this->clToolApi->output);
 			} catch (UnauthorizedException $e) {
 				throw new WrongConfigurationException('Rest API Login failed');
-			} catch (RestApiException $e) {
+			} catch (RestApiException $e) {echo $e->getMessage().PHP_EOL.$e->getTraceAsString();
 				return $this->_prepareResult($job['id'], array(
 					'status' => 'error',
 					'error' => $e->getMessage(),
