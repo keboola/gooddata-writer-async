@@ -35,7 +35,7 @@ class ExecuteReports extends GenericJob
 
 		$gdWriteStartTime = date('c');
 		try {
-			$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 			foreach ($pids as $pid) {
 				$reports = $this->restApi->get(sprintf('/gdc/md/%s/query/reports', $pid));
 				if (isset($reports['query']['entries'])) {

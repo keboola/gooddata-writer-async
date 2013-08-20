@@ -111,6 +111,7 @@ class UploadTable extends GenericJob
 
 		// Start GoodData transfer
 		$gdWriteStartTime = date('c');
+		$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
 
 		// Prepare manifest and csv
@@ -127,7 +128,6 @@ class UploadTable extends GenericJob
 		// Upload csv
 		$webdavUrl = null;
 		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
-			$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 			$gdc = $this->restApi->get('/gdc');
 
 			if (isset($gdc['about']['links'])) foreach ($gdc['about']['links'] as $link) {
@@ -158,7 +158,6 @@ class UploadTable extends GenericJob
 						mkdir($tmpFolderDimension);
 						$tmpFolderNameDimension = $tmpFolderName . '-' . $this->_gdName($gdJob['name']);
 
-						$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 						$this->restApi->createDateDimension($gdJob['pid'], $gdJob['name'], $gdJob['includeTime']);
 
 						$timeDimensionManifest = $csvHandler->getTimeDimensionManifest($gdJob['name']);
@@ -167,13 +166,11 @@ class UploadTable extends GenericJob
 						$csvFileSize += filesize($tmpFolderDimension . '/data.csv');
 						$webDav->upload($tmpFolderDimension, $tmpFolderNameDimension, 'upload_info.json', 'data.csv');
 
-						$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 						$result = $this->restApi->loadData($gdJob['pid'], $tmpFolderNameDimension);
 						if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
 							$debugFile = $tmpFolderDimension . '/data-load-log.txt';
 
 							// Find upload message
-							$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 							$uploadMessage = $this->restApi->getUploadMessage($gdJob['pid'], 'time.' . $this->_gdName($gdJob['name']));
 							if ($uploadMessage) {
 								file_put_contents($debugFile, $uploadMessage . PHP_EOL . PHP_EOL, FILE_APPEND);
@@ -203,14 +200,12 @@ class UploadTable extends GenericJob
 
 						// Run load task
 						try {
-							$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 							$result = $this->restApi->loadData($gdJob['pid'], $tmpFolderName);
 
 							if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
 								$debugFile = $this->tmpDir . '/data-load-log.txt';
 
 								// Find upload message
-								$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 								$uploadMessage = $this->restApi->getUploadMessage($gdJob['pid'], $datasetName);
 								if ($uploadMessage) {
 									file_put_contents($debugFile, $uploadMessage . PHP_EOL . PHP_EOL, FILE_APPEND);
