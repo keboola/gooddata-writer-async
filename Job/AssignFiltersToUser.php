@@ -39,7 +39,7 @@ class assignFiltersToUser extends GenericJob
 		}
 
 		try {
-			$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 			$this->restApi->assignFiltersToUser($filterUris, $user['uid'], $params['pid']);
 
 			$this->configuration->saveFilterUserToConfiguration($filterUris, $params['userEmail']);

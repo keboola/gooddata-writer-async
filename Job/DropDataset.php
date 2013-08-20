@@ -32,7 +32,7 @@ class DropDataset extends GenericJob
 		$gdWriteStartTime = date('c');
 
 		try {
-			$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 			$this->restApi->getProject($this->configuration->bucketInfo['gd']['pid']);
 
 			foreach ($projects as $project) if ($project['active']) {

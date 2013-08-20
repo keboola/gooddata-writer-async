@@ -28,7 +28,8 @@ class DropWriter extends GenericJob
 		}
 
 		if ($dropImmediately) {
-			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
+			$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
+			//@TODO
 		}
 
 		$pids = array();

@@ -26,7 +26,7 @@ class DeleteFilter extends GenericJob {
 		));
 
 		try {
-			$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 			try {
 				$this->restApi->deleteFilter($params['uri']);
 			} catch (RestApiException $e) {

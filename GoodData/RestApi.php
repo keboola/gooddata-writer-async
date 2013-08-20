@@ -33,6 +33,9 @@ class RestApi
 
 	public $apiUrl;
 
+	private $_username;
+	private $_password;
+
 	public static $userRoles = array(
 		'admin' => 'adminRole',
 		'editor' => 'editorRole',
@@ -80,6 +83,12 @@ class RestApi
 
 		$this->_callsLog = array();
 		$this->_clearFromLog = array();
+	}
+
+	public function setCredentials($username, $password)
+	{
+		$this->_username = $username;
+		$this->_password = $password;
 	}
 
 
@@ -592,7 +601,7 @@ class RestApi
 
 	public function executeReport($uri)
 	{
-		$result = $this->_request('/gdc/xtab2/executor3', 'POST', array(
+		$this->_requestWithLogin('/gdc/xtab2/executor3', 'POST', array(
 			'report_req' => array(
 				'report' => $uri
 			)
@@ -667,7 +676,7 @@ class RestApi
 			$maql = str_replace('%NAME%', $name, $maql);
 		}
 
-		$this->_request(sprintf('/gdc/md/%s/ldm/manage', $pid), 'POST', array(
+		$this->_requestWithLogin(sprintf('/gdc/md/%s/ldm/manage', $pid), 'POST', array(
 			'manage' => array(
 				'maql' => $maql
 			)
@@ -935,7 +944,7 @@ class RestApi
 	private function _jsonRequest($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true)
 	{
 		try {
-			return $this->_request($uri, $method, $params, $headers, $logCall)->json();
+			return $this->_requestWithLogin($uri, $method, $params, $headers, $logCall)->json();
 		} catch (RuntimeException $e) {
 			$this->_log->alert('API error - bad response', array(
 				'uri' => $uri,
@@ -946,6 +955,13 @@ class RestApi
 			));
 			throw new RestApiException('Rest API: ' . $e->getMessage());
 		}
+	}
+
+
+	public function _requestWithLogin($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true)
+	{
+		$this->login();
+		return $this->_request($uri, $method, $params, $headers, $logCall);
 	}
 
 	/**
@@ -1048,8 +1064,11 @@ class RestApi
 	 * @param $password
 	 * @throws RestApiException
 	 */
-	public function login($login, $password)
+	public function login($login = null, $password = null)
 	{
+		if (!$login) $login = $this->_username;
+		if (!$password) $password = $this->_password;
+
 		try {
 			$response = $this->_request('/gdc/account/login', 'POST', array(
 				'postUserLogin' => array(
