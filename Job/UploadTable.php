@@ -125,9 +125,23 @@ class UploadTable extends GenericJob
 
 
 		// Upload csv
-		$backendUrl = isset($this->configuration->bucketInfo['gd']['backendUrl']) ? $this->configuration->bucketInfo['gd']['backendUrl'] : null;
-		$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password'],
-			$backendUrl);
+		$webdavUrl = null;
+		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
+			$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+			$gdc = $this->restApi->get('/gdc');
+
+			if (isset($gdc['about']['links'])) foreach ($gdc['about']['links'] as $link) {
+				if ($link['category'] == 'uploads') {
+					$webdavUrl = $link['link'];
+					break;
+				}
+			}
+
+			if (!$webdavUrl) {
+				throw new JobProcessException(sprintf("Getting of WebDav url for backend '%s' failed.", $this->configuration->bucketInfo['gd']['backendUrl']));
+			}
+		}
+		$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password'], $webdavUrl);
 		$webDav->upload($this->tmpDir, $tmpFolderName, 'upload_info.json', 'data.csv');
 
 
@@ -254,6 +268,6 @@ class UploadTable extends GenericJob
 
 	private function _gdName($name)
 	{
-		return mb_strtolower(str_replace(' ', '', (string)$name));
+		return preg_replace('/[^a-z\d ]/i', '', $name);
 	}
 }
