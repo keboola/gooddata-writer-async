@@ -10,7 +10,7 @@ use Keboola\GoodDataWriter\Test\WriterTest,
 	Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\StorageApi\Table as StorageApiTable;
 
-class ProjectTest extends WriterTest
+class ProjectsTest extends WriterTest
 {
 
 
@@ -25,7 +25,7 @@ class ProjectTest extends WriterTest
 
 
 		// Check of GoodData
-		self::$restApi->login(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
 		$projectInfo = self::$restApi->getProject($project['pid']);
 		$this->assertArrayHasKey('project', $projectInfo, "Response for GoodData API project call should contain 'project' key.");
 		$this->assertArrayHasKey('content', $projectInfo['project'], "Response for GoodData API project call should contain 'project.content' key.");

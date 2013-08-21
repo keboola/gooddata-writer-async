@@ -77,7 +77,7 @@ abstract class WriterTest extends WebTestCase
 
 		// Clear test environment
 		// Drop data tables from SAPI
-		self::$restApi->login($mainConfig['username'], $mainConfig['password']);
+		self::$restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
 		foreach (self::$storageApi->listBuckets() as $bucket) {
 			$isConfigBucket = substr($bucket['id'], 0, 22) == 'sys.c-wr-gooddata-test';
 			$isDataBucket = substr($bucket['id'], 0, 4) == 'out.';

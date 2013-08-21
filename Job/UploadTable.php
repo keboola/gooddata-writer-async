@@ -144,7 +144,6 @@ class UploadTable extends GenericJob
 		$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password'], $webdavUrl);
 		$webDav->upload($this->tmpDir, $tmpFolderName, 'upload_info.json', 'data.csv');
 
-
 		// Execute enqueued jobs
 		$debug = array();
 		$output = null;
