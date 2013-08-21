@@ -1060,19 +1060,19 @@ class RestApi
 	}
 
 	/**
-	 * @param $login
+	 * @param $username
 	 * @param $password
 	 * @throws RestApiException
 	 */
-	public function login($login = null, $password = null)
+	public function login($username = null, $password = null)
 	{
-		if (!$login) $login = $this->_username;
+		if (!$username) $username = $this->_username;
 		if (!$password) $password = $this->_password;
 
 		try {
 			$response = $this->_request('/gdc/account/login', 'POST', array(
 				'postUserLogin' => array(
-					'login' => $login,
+					'login' => $username,
 					'password' => $password,
 					'remember' => 0
 				)

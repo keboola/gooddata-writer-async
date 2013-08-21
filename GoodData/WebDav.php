@@ -57,13 +57,11 @@ class WebDav
 	 */
 	public function upload($sourceFolder, $targetFolder, $jsonFile, $csvFile)
 	{
-		$zipFile = $sourceFolder . '/upload.zip';
-		shell_exec('zip -j ' . escapeshellarg($zipFile) . ' '
+		$result = shell_exec('zip -j ' . escapeshellarg($sourceFolder . '/upload.zip') . ' '
 			. escapeshellarg($sourceFolder . '/' . $jsonFile) . ' ' . escapeshellarg($sourceFolder . '/' . $csvFile));
-
 		$this->_client->request('MKCOL', '/uploads/' . $targetFolder);
 		shell_exec(sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@%s/uploads/%s/upload.zip',
-			$zipFile, urlencode($this->_username), urlencode($this->_password), $this->_url, $targetFolder));
+			$sourceFolder . '/upload.zip', urlencode($this->_username), urlencode($this->_password), $this->_url, $targetFolder));
 	}
 
 
