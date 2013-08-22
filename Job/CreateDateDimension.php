@@ -16,13 +16,10 @@ use Keboola\GoodDataWriter\GoodData\CsvHandler;
 use Keboola\GoodDataWriter\GoodData\WebDav;
 use Keboola\StorageApi\Client as StorageApiClient;
 
-class UploadTable extends GenericJob
+class CreateDateDimension extends GenericJob
 {
 	public function run($job, $params)
 	{
-		if (empty($job['xmlFile'])) {
-			throw new WrongConfigurationException("Parameter 'xmlFile' is missing");
-		}
 		$this->configuration->checkGoodDataSetup();
 
 		$startTime = time();
@@ -128,9 +125,8 @@ class UploadTable extends GenericJob
 		// Upload csv
 		$webdavUrl = null;
 		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
-
-			// Get WebDav url for non-default backend
 			$gdc = $this->restApi->get('/gdc');
+
 			if (isset($gdc['about']['links'])) foreach ($gdc['about']['links'] as $link) {
 				if ($link['category'] == 'uploads') {
 					$webdavUrl = $link['link'];
@@ -157,7 +153,9 @@ class UploadTable extends GenericJob
 						$tmpFolderDimension = $this->tmpDir . '/' . $this->_gdName($gdJob['name']);
 						mkdir($tmpFolderDimension);
 						$tmpFolderNameDimension = $tmpFolderName . '-' . $this->_gdName($gdJob['name']);
+
 						$this->restApi->createDateDimension($gdJob['pid'], $gdJob['name'], $gdJob['includeTime']);
+
 						if ($gdJob['includeTime']) {
 							$timeDimensionManifest = $csvHandler->getTimeDimensionManifest($gdJob['name']);
 							file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);

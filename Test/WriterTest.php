@@ -158,7 +158,7 @@ abstract class WriterTest extends WebTestCase
 		$table->save();
 
 		// Prepare Writer configuration
-		self::$configuration->addDateDimension('ProductDate', false);
+		self::$configuration->addDateDimension('ProductDate', true);
 
 		$table = new StorageApiTable(self::$storageApi, $this->bucketId . '.c-' . $this->dataBucketName . '_categories', null, 'name');
 		$table->setAttribute('tableId', $this->dataBucketId . '.categories');

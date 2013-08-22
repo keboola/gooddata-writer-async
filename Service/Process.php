@@ -7,7 +7,7 @@
  *
  */
 
-namespace Keboola\GoodDataWriter\Writer;
+namespace Keboola\GoodDataWriter\Service;
 
 
 class ProcessException extends \Exception

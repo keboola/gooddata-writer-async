@@ -7,8 +7,8 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Keboola\GoodDataWriter\Exception\JobProcessException,
-	Keboola\GoodDataWriter\Writer\ProcessException;
-use Keboola\GoodDataWriter\Writer\Process;
+	Keboola\GoodDataWriter\Service\ProcessException;
+use Keboola\GoodDataWriter\Service\Process;
 
 class CsvHandler
 {
@@ -223,6 +223,7 @@ class CsvHandler
 	/**
 	 * Download xml to disk
 	 * @param $xmlFile
+	 * @throws \Keboola\GoodDataWriter\Exception\JobProcessException
 	 * @return string
 	 */
 	public function downloadXml($xmlFile)
@@ -233,7 +234,11 @@ class CsvHandler
 			$xmlUrl = $this->_s3Client->url($xmlFile);
 		}
 		$xmlFilePath = $this->_tmpDir . '/model.xml';
-		exec('curl -s -L ' . escapeshellarg($xmlUrl) . ' > ' . escapeshellarg($xmlFilePath));
+		try {
+			$output = Process::exec('curl -s -L ' . escapeshellarg($xmlUrl) . ' > ' . escapeshellarg($xmlFilePath));
+		} catch (ProcessException $e) {
+			throw new JobProcessException(sprintf("XML download failed: %s", $e->getMessage()), NULL, $e);
+		}
 		return $xmlFilePath;
 	}
 

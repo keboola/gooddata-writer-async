@@ -51,7 +51,7 @@ class FiltersTest extends WriterTest
 		$filterList = self::$configuration->getFilters();
 		$this->assertCount(1, $filterList);
 
-		self::$restApi->login(
+		self::$restApi->setCredentials(
 			self::$configuration->bucketInfo['gd']['username'],
 			self::$configuration->bucketInfo['gd']['password']
 		);
@@ -95,7 +95,7 @@ class FiltersTest extends WriterTest
 		// Check result
 		$filterList = self::$configuration->getFilters();
 
-		self::$restApi->login(
+		self::$restApi->setCredentials(
 			self::$configuration->bucketInfo['gd']['username'],
 			self::$configuration->bucketInfo['gd']['password']
 		);
