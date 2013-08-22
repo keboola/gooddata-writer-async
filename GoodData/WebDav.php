@@ -17,6 +17,9 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 use Sabre\DAV;
+use Keboola\GoodDataWriter\Exception\JobProcessException,
+	Keboola\GoodDataWriter\Service\ProcessException;
+use Keboola\GoodDataWriter\Service\Process;
 
 class WebDav
 {
@@ -54,14 +57,21 @@ class WebDav
 	 * @param $targetFolder
 	 * @param $jsonFile
 	 * @param $csvFile
+	 * @throws \Keboola\GoodDataWriter\Exception\JobProcessException
 	 */
 	public function upload($sourceFolder, $targetFolder, $jsonFile, $csvFile)
 	{
-		$result = shell_exec('zip -j ' . escapeshellarg($sourceFolder . '/upload.zip') . ' '
+		shell_exec('zip -j ' . escapeshellarg($sourceFolder . '/upload.zip') . ' '
 			. escapeshellarg($sourceFolder . '/' . $jsonFile) . ' ' . escapeshellarg($sourceFolder . '/' . $csvFile));
 		$this->_client->request('MKCOL', '/uploads/' . $targetFolder);
-		shell_exec(sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@%s/uploads/%s/upload.zip',
-			$sourceFolder . '/upload.zip', urlencode($this->_username), urlencode($this->_password), $this->_url, $targetFolder));
+
+		$command = sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@%s/uploads/%s/upload.zip 2>&1',
+			$sourceFolder . '/upload.zip', urlencode($this->_username), urlencode($this->_password), $this->_url, $targetFolder);
+		try {
+			$output = Process::exec($command);
+		} catch (ProcessException $e) {
+			throw new JobProcessException(sprintf("Upload to GoodData WebDav failed: %s", $e->getMessage()), NULL, $e);
+		}
 	}
 
 
