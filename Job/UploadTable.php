@@ -69,6 +69,9 @@ class UploadTable extends GenericJob
 		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
+		if (empty($tableDefinition['lastExportDate'])) {
+			$incrementalLoad = 0;
+		}
 		$sanitize = (isset($params['sanitize'])) ? $params['sanitize']
 			: !empty($tableDefinition['sanitize']);
 
