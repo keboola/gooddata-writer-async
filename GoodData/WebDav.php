@@ -8,18 +8,15 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
-use Guzzle\Http\Client,
-	Guzzle\Http\Exception\ServerErrorResponseException,
-	Guzzle\Http\Exception\ClientErrorResponseException,
-	Guzzle\Common\Exception\RuntimeException,
-	Guzzle\Http\Message\Header;
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\GoodData\RestApiException,
-	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 use Sabre\DAV;
-use Keboola\GoodDataWriter\Exception\JobProcessException,
+use Keboola\GoodDataWriter\Service\Process,
 	Keboola\GoodDataWriter\Service\ProcessException;
-use Keboola\GoodDataWriter\Service\Process;
+
+class WebDavException extends \Exception
+{
+
+}
+
 
 class WebDav
 {
@@ -35,13 +32,21 @@ class WebDav
 	 * @param $username
 	 * @param $password
 	 * @param null $url
+	 * @throws WebDavException
 	 */
 	public function __construct($username, $password, $url = null)
 	{
 		$this->_username = $username;
 		$this->_password = $password;
 		if ($url) {
-			$this->_url = $url;
+			$parsedUrl = parse_url($url);
+			if (!$parsedUrl || empty($parsedUrl['host'])) {
+				throw new WebDavException('Malformed base url: ' . $url);
+			}
+			$this->_url = $parsedUrl['host'];
+			if (isset($parsedUrl['path'])) {
+				$this->_url .= $parsedUrl['path'];
+			}
 		}
 		$this->_client = new DAV\Client(array(
 			'baseUri' => 'https://' . $this->_url,
@@ -57,7 +62,7 @@ class WebDav
 	 * @param $targetFolder
 	 * @param $jsonFile
 	 * @param $csvFile
-	 * @throws \Keboola\GoodDataWriter\Exception\JobProcessException
+	 * @throws WebDavException
 	 */
 	public function upload($sourceFolder, $targetFolder, $jsonFile, $csvFile)
 	{
@@ -70,7 +75,7 @@ class WebDav
 		try {
 			$output = Process::exec($command);
 		} catch (ProcessException $e) {
-			throw new JobProcessException(sprintf("Upload to GoodData WebDav failed: %s", $e->getMessage()), NULL, $e);
+			throw new WebDavException(sprintf("Upload to GoodData WebDav failed: %s", $e->getMessage()), NULL, $e);
 		}
 	}
 
