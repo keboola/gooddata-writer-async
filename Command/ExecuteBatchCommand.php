@@ -10,17 +10,17 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class RunJobCommand extends ContainerAwareCommand
+class ExecuteBatchCommand extends ContainerAwareCommand
 {
 
 
 	protected function configure()
 	{
 		$this
-			->setName('gooddata-writer:run-job')
-			->setDescription('Run selected job from queue')
+			->setName('gooddata-writer:execute-batch')
+			->setDescription('Execute selected batch from queue')
 			->setDefinition(array(
-				new InputArgument('job', InputArgument::REQUIRED, 'Job id')
+				new InputArgument('batchId', InputArgument::REQUIRED, 'Batch id')
 			))
 		;
 	}
@@ -36,16 +36,8 @@ class RunJobCommand extends ContainerAwareCommand
 			)
 		);
 
-		$db = new \Zend_Db_Adapter_Pdo_Mysql(array(
-			'host' => $mainConfig['db']['host'],
-			'username' => $mainConfig['db']['user'],
-			'password' => $mainConfig['db']['password'],
-			'dbname' => $mainConfig['db']['name']
-		));
-		$db->delete('message', array('body=?' => $input->getArgument('job')));
-
 		$executor = new JobExecutor($sharedConfig, $this->getContainer());
-		$executor->runJob($input->getArgument('job'));
+		$executor->runBatch($input->getArgument('batchId'));
 	}
 
 }

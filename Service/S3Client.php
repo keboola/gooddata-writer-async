@@ -23,17 +23,13 @@ class S3Client
 
 
 	/**
-	 * @param $accessKey
-	 * @param $secretKey
+	 * @param \Aws\S3\S3Client $s3Client
 	 * @param $bucket
 	 * @param $pathPrefix
 	 */
-	public function __construct($accessKey, $secretKey, $bucket, $pathPrefix)
+	public function __construct(Client $s3Client, $bucket, $pathPrefix)
 	{
-		$this->_client = Client::factory(array(
-			'key' => $accessKey,
-			'secret' => $secretKey
-		));
+		$this->_client = $s3Client;
 		$this->_bucket = $bucket;
 		$this->_pathPrefix = $pathPrefix;
 	}
