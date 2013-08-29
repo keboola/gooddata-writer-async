@@ -32,8 +32,6 @@ class JobCannotBeExecutedNowException extends \Exception
 
 class JobExecutor
 {
-	const APP_NAME = 'gooddata-writer';
-
 
 	/**
 	 * @var SharedConfig
@@ -176,7 +174,7 @@ class JobExecutor
 	{
 		$event = new StorageApiEvent();
 		$event
-			->setComponent(self::APP_NAME)
+			->setComponent($this->_container->getParameter('app_name'))
 			->setConfigurationId($job['writerId'])
 			->setRunId($job['id']);
 

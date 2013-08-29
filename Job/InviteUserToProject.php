@@ -43,7 +43,7 @@ class InviteUserToProject extends GenericJob
 
 		$gdWriteStartTime = date('c');
 		try {
-			$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 			$this->restApi->inviteUserToProject($params['email'], $params['pid'], RestApi::$userRoles[$params['role']]);
 
 			$this->configuration->saveProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);

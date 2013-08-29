@@ -37,7 +37,7 @@ class CreateWriter extends GenericJob
 		$password = md5(uniqid());
 
 		try {
-			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
+			$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
 		} catch (UnauthorizedException $e) {
 			throw new WrongConfigurationException('Project creation failed: ' . $e->getMessage());
 		}

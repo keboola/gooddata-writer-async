@@ -15,7 +15,7 @@
         <ini name="display_errors" value="true"/>
 	</php>
     <testsuites>
-        <testsuite name="Keboola GoodData Writer">
+        <testsuite name="KeboolaGoodDataWriterTests">
 			<file>Tests/Controller/WritersTest.php</file>
 			<file>Tests/Controller/ProjectsTest.php</file>
 			<file>Tests/Controller/UsersTest.php</file>

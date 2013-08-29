@@ -24,24 +24,40 @@ class DatasetsTest extends WriterTest
 		$this->_processJob('/gooddata-writer/upload-project');
 
 		// Check existence of datasets in the project
-		self::$restApi->login(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
 		$data = self::$restApi->get('/gdc/md/' . self::$configuration->bucketInfo['gd']['pid'] . '/data/sets');
 		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
 		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
-		$this->assertCount(3, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with three values.");
+		$this->assertCount(4, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with four values.");
 
 		$dateFound = false;
+		$dateTimeFound = false;
 		$categoriesFound = false;
 		$productsFound = false;
+		$dateTimeDataLoad = false;
+		$categoriesDataLoad = false;
+		$productsDataLoad = false;
 		foreach ($data['dataSetsInfo']['sets'] as $d) {
+			if ($d['meta']['identifier'] == 'dataset.time.productdate') {
+				$dateTimeFound = true;
+				if ($d['lastUpload']['dataUploadShort']['status'] == 'OK') {
+					$dateTimeDataLoad = true;
+				}
+			}
 			if ($d['meta']['identifier'] == 'productdate.dataset.dt') {
 				$dateFound = true;
 			}
 			if ($d['meta']['identifier'] == 'dataset.categories') {
 				$categoriesFound = true;
+				if ($d['lastUpload']['dataUploadShort']['status'] == 'OK') {
+					$categoriesDataLoad = true;
+				}
 			}
 			if ($d['meta']['identifier'] == 'dataset.products') {
 				$productsFound = true;
+				if ($d['lastUpload']['dataUploadShort']['status'] == 'OK') {
+					$productsDataLoad = true;
+				}
 			}
 		}
 		$this->assertTrue($dateFound, "Date dimension has not been found in GoodData");
@@ -57,7 +73,7 @@ class DatasetsTest extends WriterTest
 		$this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.categories'));
 
 		// Check existence of datasets in the project
-		self::$restApi->login(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
 		$data = self::$restApi->get('/gdc/md/' . self::$configuration->bucketInfo['gd']['pid'] . '/data/sets');
 		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
 		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");

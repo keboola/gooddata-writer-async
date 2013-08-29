@@ -13,17 +13,13 @@ use Keboola\GoodDataWriter\Exception\ClientException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 use Keboola\GoodDataWriter\GoodData\CsvHandler;
-use Keboola\GoodDataWriter\GoodData\WebDav,
-	Keboola\GoodDataWriter\GoodData\WebDavException;
+use Keboola\GoodDataWriter\GoodData\WebDav;
 use Keboola\StorageApi\Client as StorageApiClient;
 
-class UploadTable extends GenericJob
+class CreateDateDimension extends GenericJob
 {
 	public function run($job, $params)
 	{
-		if (empty($job['xmlFile'])) {
-			throw new WrongConfigurationException("Parameter 'xmlFile' is missing");
-		}
 		$this->configuration->checkGoodDataSetup();
 
 		$startTime = time();
@@ -70,9 +66,6 @@ class UploadTable extends GenericJob
 		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
-		if (empty($tableDefinition['lastExportDate'])) {
-			$incrementalLoad = 0;
-		}
 		$sanitize = (isset($params['sanitize'])) ? $params['sanitize']
 			: !empty($tableDefinition['sanitize']);
 
@@ -132,9 +125,8 @@ class UploadTable extends GenericJob
 		// Upload csv
 		$webdavUrl = null;
 		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
-
-			// Get WebDav url for non-default backend
 			$gdc = $this->restApi->get('/gdc');
+
 			if (isset($gdc['about']['links'])) foreach ($gdc['about']['links'] as $link) {
 				if ($link['category'] == 'uploads') {
 					$webdavUrl = $link['link'];
@@ -146,25 +138,24 @@ class UploadTable extends GenericJob
 				throw new JobProcessException(sprintf("Getting of WebDav url for backend '%s' failed.", $this->configuration->bucketInfo['gd']['backendUrl']));
 			}
 		}
+		$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password'], $webdavUrl);
+		$webDav->upload($this->tmpDir, $tmpFolderName, 'upload_info.json', 'data.csv');
 
-
+		// Execute enqueued jobs
 		$debug = array();
 		$output = null;
 		$error = false;
-		try {
-			$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password'], $webdavUrl);
-			$webDav->upload($this->tmpDir, $tmpFolderName, 'upload_info.json', 'data.csv');
-
-			// Execute enqueued jobs
-			foreach ($gdJobs as $gdJob) {
-
+		foreach ($gdJobs as $gdJob) {
+			try {
 				switch ($gdJob['command']) {
 					case 'createDate':
 
 						$tmpFolderDimension = $this->tmpDir . '/' . $this->_gdName($gdJob['name']);
 						mkdir($tmpFolderDimension);
 						$tmpFolderNameDimension = $tmpFolderName . '-' . $this->_gdName($gdJob['name']);
+
 						$this->restApi->createDateDimension($gdJob['pid'], $gdJob['name'], $gdJob['includeTime']);
+
 						if ($gdJob['includeTime']) {
 							$timeDimensionManifest = $csvHandler->getTimeDimensionManifest($gdJob['name']);
 							file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
@@ -228,30 +219,26 @@ class UploadTable extends GenericJob
 
 						break;
 				}
-
-				if ($this->clToolApi->debugLogUrl) {
-					$debug[$gdJob['command']] = $this->clToolApi->debugLogUrl;
-				}
-				$output .= $this->clToolApi->output;
+			} catch (CLToolApiErrorException $e) {
+				return $this->_prepareResult($job['id'], array(
+					'status' => 'error',
+					'error' => $e->getMessage(),
+					'gdWriteStartTime' => $gdWriteStartTime
+				), $this->clToolApi->output);
+			} catch (UnauthorizedException $e) {
+				throw new WrongConfigurationException('Rest API Login failed');
+			} catch (RestApiException $e) {echo $e->getMessage().PHP_EOL.$e->getTraceAsString();
+				return $this->_prepareResult($job['id'], array(
+					'status' => 'error',
+					'error' => $e->getMessage(),
+					'gdWriteStartTime' => $gdWriteStartTime
+				), $this->restApi->callsLog());
 			}
-		} catch (CLToolApiErrorException $e) {
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => $e->getMessage(),
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->clToolApi->output);
-		} catch (RestApiException $e) {
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => $e->getMessage(),
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->restApi->callsLog());
-		} catch (WebDavException $e) {
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => 'WebDav error: ' . $e->getMessage(),
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->restApi->callsLog());
+
+			if ($this->clToolApi->debugLogUrl) {
+				$debug[$gdJob['command']] = $this->clToolApi->debugLogUrl;
+			}
+			$output .= $this->clToolApi->output;
 		}
 
 		if (empty($tableDefinition['lastExportDate'])) {

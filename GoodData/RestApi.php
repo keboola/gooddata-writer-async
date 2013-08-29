@@ -33,6 +33,9 @@ class RestApi
 
 	public $apiUrl;
 
+	private $_username;
+	private $_password;
+
 	public static $userRoles = array(
 		'admin' => 'adminRole',
 		'editor' => 'editorRole',
@@ -80,6 +83,12 @@ class RestApi
 
 		$this->_callsLog = array();
 		$this->_clearFromLog = array();
+	}
+
+	public function setCredentials($username, $password)
+	{
+		$this->_username = $username;
+		$this->_password = $password;
 	}
 
 
@@ -592,7 +601,7 @@ class RestApi
 
 	public function executeReport($uri)
 	{
-		$result = $this->_request('/gdc/xtab2/executor3', 'POST', array(
+		$this->_requestWithLogin('/gdc/xtab2/executor3', 'POST', array(
 			'report_req' => array(
 				'report' => $uri
 			)
@@ -667,7 +676,7 @@ class RestApi
 			$maql = str_replace('%NAME%', $name, $maql);
 		}
 
-		$this->_request(sprintf('/gdc/md/%s/ldm/manage', $pid), 'POST', array(
+		$this->_requestWithLogin(sprintf('/gdc/md/%s/ldm/manage', $pid), 'POST', array(
 			'manage' => array(
 				'maql' => $maql
 			)
@@ -708,7 +717,7 @@ class RestApi
 	 */
 	public function createFilter($name, $attribute, $element, $operator, $pid)
 	{
-		$gdAttribute = $this->getAttributeByTitle($pid, $attribute);
+		$gdAttribute = $this->getAttributeById($pid, $attribute);
 
 		if (is_array($element)) {
 			$elementArr = array();
@@ -815,6 +824,27 @@ class RestApi
 			));
 			throw new RestApiException('Attributes in project could not be fetched');
 		}
+	}
+
+	public function getAttributeById($pid, $id)
+	{
+		$attributes = $this->getAttributes($pid);
+
+		foreach ($attributes as $attr) {
+			$object = $this->_jsonRequest($attr['link']);
+			if (isset($object['attribute']['meta']['identifier'])) {
+				if ($object['attribute']['meta']['identifier'] == $id) {
+					return $object['attribute'];
+				}
+			}
+		}
+
+		$this->_log->alert('', array(
+			'pid'               => $pid,
+			'attribute'         => $id,
+			'attributesFound'   => $attributes
+		));
+		throw new RestApiException('Attribute ' . $id . ' not found in project.');
 	}
 
 	public function getAttributeByTitle($pid, $title)
@@ -935,7 +965,7 @@ class RestApi
 	private function _jsonRequest($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true)
 	{
 		try {
-			return $this->_request($uri, $method, $params, $headers, $logCall)->json();
+			return $this->_requestWithLogin($uri, $method, $params, $headers, $logCall)->json();
 		} catch (RuntimeException $e) {
 			$this->_log->alert('API error - bad response', array(
 				'uri' => $uri,
@@ -946,6 +976,13 @@ class RestApi
 			));
 			throw new RestApiException('Rest API: ' . $e->getMessage());
 		}
+	}
+
+
+	public function _requestWithLogin($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true)
+	{
+		$this->login();
+		return $this->_request($uri, $method, $params, $headers, $logCall);
 	}
 
 	/**
@@ -1044,16 +1081,19 @@ class RestApi
 	}
 
 	/**
-	 * @param $login
+	 * @param $username
 	 * @param $password
 	 * @throws RestApiException
 	 */
-	public function login($login, $password)
+	public function login($username = null, $password = null)
 	{
+		if (!$username) $username = $this->_username;
+		if (!$password) $password = $this->_password;
+
 		try {
 			$response = $this->_request('/gdc/account/login', 'POST', array(
 				'postUserLogin' => array(
-					'login' => $login,
+					'login' => $username,
 					'password' => $password,
 					'remember' => 0
 				)

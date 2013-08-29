@@ -77,7 +77,7 @@ abstract class WriterTest extends WebTestCase
 
 		// Clear test environment
 		// Drop data tables from SAPI
-		self::$restApi->login($mainConfig['username'], $mainConfig['password']);
+		self::$restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
 		foreach (self::$storageApi->listBuckets() as $bucket) {
 			$isConfigBucket = substr($bucket['id'], 0, 22) == 'sys.c-wr-gooddata-test';
 			$isDataBucket = substr($bucket['id'], 0, 4) == 'out.';
@@ -158,7 +158,7 @@ abstract class WriterTest extends WebTestCase
 		$table->save();
 
 		// Prepare Writer configuration
-		self::$configuration->addDateDimension('ProductDate', false);
+		self::$configuration->addDateDimension('ProductDate', true);
 
 		$table = new StorageApiTable(self::$storageApi, $this->bucketId . '.c-' . $this->dataBucketName . '_categories', null, 'name');
 		$table->setAttribute('tableId', $this->dataBucketId . '.categories');

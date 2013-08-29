@@ -37,7 +37,7 @@ class createFilter extends GenericJob
 		$attrId = $this->configuration->translateAttributeName($params['attribute']);
 
 		try {
-			$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
 			$filterUri = $this->restApi->createFilter(
 				$params['name'],
