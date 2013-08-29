@@ -44,9 +44,6 @@ class WebDav
 				throw new WebDavException('Malformed base url: ' . $url);
 			}
 			$this->_url = $parsedUrl['host'];
-			if (isset($parsedUrl['path'])) {
-				$this->_url .= $parsedUrl['path'];
-			}
 		}
 		$this->_client = new DAV\Client(array(
 			'baseUri' => 'https://' . $this->_url,
