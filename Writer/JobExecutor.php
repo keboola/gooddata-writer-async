@@ -123,7 +123,7 @@ class JobExecutor
 	{
 		$event = new StorageApiEvent();
 		$event
-			->setComponent($this->_container->getParameter('gooddata_writer'))
+			->setComponent($this->_container->getParameter('app_name'))
 			->setConfigurationId($job['writerId'])
 			->setRunId($job['id']);
 
