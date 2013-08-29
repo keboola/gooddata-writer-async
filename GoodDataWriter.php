@@ -10,6 +10,7 @@ namespace Keboola\GoodDataWriter;
 
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\SSO;
+use Keboola\GoodDataWriter\Service\Lock;
 use Monolog\Logger;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -72,15 +73,21 @@ class GoodDataWriter extends Component
 
 		$this->configuration = new Configuration($params['writerId'], $this->_storageApi, $tmpDir);
 
-		$this->_s3Client = new Service\S3Client($this->_mainConfig['s3']['access_key'], $this->_mainConfig['s3']['secret_key'],
-			$this->_mainConfig['s3']['bucket'], $this->configuration->projectId . '.' . $this->configuration->writerId);
+		$this->_s3Client = new Service\S3Client(
+			\Aws\S3\S3Client::factory(array(
+				'key' => $this->_mainConfig['aws']['access_key'],
+				'secret' => $this->_mainConfig['aws']['secret_key'])
+			),
+			$this->_mainConfig['aws']['s3_bucket'],
+			$this->configuration->projectId . '.' . $this->configuration->writerId
+		);
 
-		$this->_queue = new Writer\Queue(new \Zend_Db_Adapter_Pdo_Mysql(array(
-			'host' => $this->_mainConfig['db']['host'],
-			'username' => $this->_mainConfig['db']['user'],
-			'password' => $this->_mainConfig['db']['password'],
-			'dbname' => $this->_mainConfig['db']['name']
-		)));
+		$sqsClient = \Aws\Sqs\SqsClient::factory(array(
+			'key' => $this->_mainConfig['aws']['access_key'],
+			'secret' => $this->_mainConfig['aws']['secret_key'],
+			'region' => $this->_mainConfig['aws']['region']
+		));
+		$this->_queue = new Service\Queue($sqsClient, $this->_mainConfig['aws']['queue_url']);
 
 		$sharedStorageApi = new StorageApiClient(
 			$this->_mainConfig['shared_sapi']['token'],
@@ -152,9 +159,10 @@ class GoodDataWriter extends Component
 				'dev' => empty($params['dev']) ? 0 : 1
 			)
 		));
-		$this->_queue->enqueueJob($jobInfo);
 
 		if(empty($params['users'])) {
+			$this->_enqueue($batchId);
+
 			if (empty($params['wait'])) {
 				return array('job' => (int)$jobInfo['id']);
 			} else {
@@ -171,7 +179,7 @@ class GoodDataWriter extends Component
 
 			$users = explode(',', $params['users']);
 			foreach ($users as $user) {
-				$job = $this->_createJob(array(
+				$this->_createJob(array(
 					'batchId' => $batchId,
 					'command' => 'inviteUserToProject',
 					'createdTime' => date('c', $createdTime),
@@ -180,8 +188,9 @@ class GoodDataWriter extends Component
 						'role' => 'admin'
 					)
 				));
-				$this->_queue->enqueueJob($job);
 			}
+
+			$this->_enqueue($batchId);
 
 			return array('batch' => (int)$batchId);
 		}
@@ -216,7 +225,7 @@ class GoodDataWriter extends Component
 				'dev' => empty($params['dev']) ? 0 : 1
 			)
 		));
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_enqueue($jobInfo['batchId']);
 
 
 		if (empty($params['wait'])) {
@@ -286,7 +295,7 @@ class GoodDataWriter extends Component
 				'dev' => empty($params['dev']) ? 0 : 1
 			)
 		));
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_enqueue($jobInfo['batchId']);
 
 
 		if (empty($params['wait'])) {
@@ -374,7 +383,7 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params
 		));
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_enqueue($jobInfo['batchId']);
 
 
 		if (empty($params['wait'])) {
@@ -423,7 +432,7 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params
 		));
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_enqueue($jobInfo['batchId']);
 
 
 		if (empty($params['wait'])) {
@@ -497,8 +506,7 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params
 		));
-
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_enqueue($jobInfo['batchId']);
 
 
 		if (empty($params['wait'])) {
@@ -625,8 +633,8 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params
 		));
+		$this->_enqueue($jobInfo['batchId']);
 
-		$this->_queue->enqueueJob($jobInfo);
 
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
@@ -663,8 +671,7 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params
 		));
-
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_enqueue($jobInfo['batchId']);
 
 
 		if (empty($params['wait'])) {
@@ -711,8 +718,8 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params
 		));
+		$this->_enqueue($jobInfo['batchId']);
 
-		$this->_queue->enqueueJob($jobInfo);
 
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
@@ -751,8 +758,8 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params
 		));
+		$this->_enqueue($jobInfo['batchId']);
 
-		$this->_queue->enqueueJob($jobInfo);
 
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
@@ -839,7 +846,7 @@ class GoodDataWriter extends Component
 			$jobData['parameters']['sanitize'] = $params['sanitize'];
 		}
 		$jobInfo = $this->_createJob($jobData);
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_enqueue($jobInfo['batchId']);
 
 
 		if (empty($params['wait'])) {
@@ -950,8 +957,7 @@ class GoodDataWriter extends Component
 			if (isset($params['sanitize'])) {
 				$jobData['parameters']['sanitize'] = $params['sanitize'];
 			}
-			$jobInfo = $this->_createJob($jobData);
-			$this->_queue->enqueueJob($jobInfo);
+			$this->_createJob($jobData);
 		}
 
 		// Execute reports
@@ -961,9 +967,9 @@ class GoodDataWriter extends Component
 			'command' => 'executeReports',
 			'createdTime' => date('c', $createdTime)
 		);
-		$jobInfo = $this->_createJob($jobData);
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_createJob($jobData);
 
+		$this->_enqueue($batchId);
 
 
 		if (empty($params['wait'])) {
@@ -1346,49 +1352,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'batchId' is missing");
 		}
 
-		$data = array(
-			'batchId' => (int)$params['batchId'],
-			'createdTime' => date('c'),
-			'startTime' => date('c'),
-			'endTime' => null,
-			'status' => null,
-			'jobs' => array(),
-			'result' => null,
-			'log' => null
-		);
-		$cancelledJobs = 0;
-		$waitingJobs = 0;
-		$processingJobs = 0;
-		$errorJobs = 0;
-		$successJobs = 0;
-		foreach ($this->sharedConfig->fetchBatch($params['batchId']) as $job) {
-			$job = $this->sharedConfig->jobToApiResponse($job, $this->_s3Client);
-
-			if ($job['projectId'] != $this->configuration->projectId || $job['writerId'] != $this->configuration->writerId) {
-				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['batchId'], $this->configuration->writerId));
-			}
-
-			if ($job['createdTime'] < $data['createdTime']) $data['createdTime'] = $job['createdTime'];
-			if ($job['startTime'] < $data['startTime']) $data['startTime'] = $job['startTime'];
-			if ($job['endTime'] > $data['endTime']) $data['endTime'] = $job['endTime'];
-			$data['jobs'][] = (int)$job['id'];
-			if ($job['status'] == 'waiting') $waitingJobs++;
-			elseif ($job['status'] == 'processing') $processingJobs++;
-			elseif ($job['status'] == 'cancelled') $cancelledJobs++;
-			elseif ($job['status'] == 'error') {
-				$errorJobs++;
-				$data['result'] = $job['result'];
-			}
-			else $successJobs++;
-		}
-
-		if ($cancelledJobs > 0) $data['status'] = 'cancelled';
-		elseif ($processingJobs > 0) $data['status'] = 'processing';
-		elseif ($waitingJobs > 0) $data['status'] = 'waiting';
-		elseif ($errorJobs > 0) $data['status'] = 'error';
-		else $data['status'] = 'success';
-
-		return array('batch' => $data);
+		return array('batch' => $this->sharedConfig->batchToApiResponse($params['batchId'], $this->_s3Client));
 	}
 
 
@@ -1444,6 +1408,18 @@ class GoodDataWriter extends Component
 		));
 
 		return $jobInfo;
+	}
+
+	/**
+	 * @param $batchId
+	 */
+	protected function _enqueue($batchId)
+	{
+		$this->_queue->enqueue(array(
+			'projectId' => $this->configuration->projectId,
+			'writerId' => $this->configuration->writerId,
+			'batchId' => $batchId
+		));
 	}
 
 
