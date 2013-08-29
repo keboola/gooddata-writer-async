@@ -240,8 +240,6 @@ class UploadTable extends GenericJob
 				'error' => $e->getMessage(),
 				'gdWriteStartTime' => $gdWriteStartTime
 			), $this->clToolApi->output);
-		} catch (UnauthorizedException $e) {
-			throw new WrongConfigurationException('Rest API Login failed');
 		} catch (RestApiException $e) {
 			return $this->_prepareResult($job['id'], array(
 				'status' => 'error',

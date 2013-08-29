@@ -23,8 +23,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class JobExecutor
 {
-	const APP_NAME = 'gooddata-writer';
-
 
 	/**
 	 * @var SharedConfig
@@ -125,7 +123,7 @@ class JobExecutor
 	{
 		$event = new StorageApiEvent();
 		$event
-			->setComponent(self::APP_NAME)
+			->setComponent($this->_container->getParameter('gooddata_writer'))
 			->setConfigurationId($job['writerId'])
 			->setRunId($job['id']);
 
