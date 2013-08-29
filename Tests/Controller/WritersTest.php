@@ -26,7 +26,7 @@ class WritersTest extends WriterTest
 		$this->assertTrue($validConfiguration, "Writer configuration is not valid.");
 
 		// Check project existence in GD
-		self::$restApi->login(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
 		$projectInfo = self::$restApi->getProject(self::$configuration->bucketInfo['gd']['pid']);
 		$this->assertArrayHasKey('project', $projectInfo, "Response for GoodData API login call should contain 'project' key.");
 		$this->assertArrayHasKey('content', $projectInfo['project'], "Response for GoodData API login call should contain 'project.content' key.");
@@ -54,8 +54,6 @@ class WritersTest extends WriterTest
 
 	public function testDeleteWriter()
 	{
-		self::$restApi->login(self::$mainConfig['gd']['dev']['username'], self::$mainConfig['gd']['dev']['password']);
-
 		$this->_processJob('/gooddata-writer/delete-writers');
 
 		// Check non-existence of configuration
@@ -77,7 +75,7 @@ class WritersTest extends WriterTest
 		self::$configuration = new Configuration($writerId, self::$storageApi, self::$mainConfig['tmp_path']);
 
 		// Check invitations existence in GD
-		self::$restApi->login(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
 		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . self::$configuration->bucketInfo['gd']['pid'] . '/invitations');
 		$this->assertArrayHasKey('invitations', $userProjectsInfo, "Response for GoodData API project invitations call should contain 'invitations' key.");
 		$this->assertGreaterThanOrEqual(1, $userProjectsInfo['invitations'], "Response for GoodData API project invitations call should return at least one invitation.");

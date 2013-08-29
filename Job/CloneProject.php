@@ -38,10 +38,10 @@ class CloneProject extends GenericJob
 		$gdWriteStartTime = date('c');
 		try {
 			// Check access to source project
-			$this->restApi->login($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 			$this->restApi->getProject($this->configuration->bucketInfo['gd']['pid']);
 
-			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
+			$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
 			// Get user uri if not set
 			if (empty($this->configuration->bucketInfo['gd']['uid'])) {
 				$userId = $this->restApi->userId($this->configuration->bucketInfo['gd']['username'], $mainConfig['domain']);

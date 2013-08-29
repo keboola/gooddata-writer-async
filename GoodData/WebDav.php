@@ -8,15 +8,15 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
-use Guzzle\Http\Client,
-	Guzzle\Http\Exception\ServerErrorResponseException,
-	Guzzle\Http\Exception\ClientErrorResponseException,
-	Guzzle\Common\Exception\RuntimeException,
-	Guzzle\Http\Message\Header;
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\GoodData\RestApiException,
-	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 use Sabre\DAV;
+use Keboola\GoodDataWriter\Service\Process,
+	Keboola\GoodDataWriter\Service\ProcessException;
+
+class WebDavException extends \Exception
+{
+
+}
+
 
 class WebDav
 {
@@ -32,13 +32,18 @@ class WebDav
 	 * @param $username
 	 * @param $password
 	 * @param null $url
+	 * @throws WebDavException
 	 */
 	public function __construct($username, $password, $url = null)
 	{
 		$this->_username = $username;
 		$this->_password = $password;
 		if ($url) {
-			$this->_url = $url;
+			$parsedUrl = parse_url($url);
+			if (!$parsedUrl || empty($parsedUrl['host'])) {
+				throw new WebDavException('Malformed base url: ' . $url);
+			}
+			$this->_url = $parsedUrl['host'];
 		}
 		$this->_client = new DAV\Client(array(
 			'baseUri' => 'https://' . $this->_url,
@@ -54,16 +59,21 @@ class WebDav
 	 * @param $targetFolder
 	 * @param $jsonFile
 	 * @param $csvFile
+	 * @throws WebDavException
 	 */
 	public function upload($sourceFolder, $targetFolder, $jsonFile, $csvFile)
 	{
-		$zipFile = $sourceFolder . '/upload.zip';
-		shell_exec('zip -j ' . escapeshellarg($zipFile) . ' '
+		shell_exec('zip -j ' . escapeshellarg($sourceFolder . '/upload.zip') . ' '
 			. escapeshellarg($sourceFolder . '/' . $jsonFile) . ' ' . escapeshellarg($sourceFolder . '/' . $csvFile));
-
 		$this->_client->request('MKCOL', '/uploads/' . $targetFolder);
-		shell_exec(sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@%s/uploads/%s/upload.zip',
-			$zipFile, urlencode($this->_username), urlencode($this->_password), $this->_url, $targetFolder));
+
+		$command = sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@%s/uploads/%s/upload.zip 2>&1',
+			$sourceFolder . '/upload.zip', urlencode($this->_username), urlencode($this->_password), $this->_url, $targetFolder);
+		try {
+			$output = Process::exec($command);
+		} catch (ProcessException $e) {
+			throw new WebDavException(sprintf("Upload to GoodData WebDav failed: %s", $e->getMessage()), NULL, $e);
+		}
 	}
 
 
