@@ -37,11 +37,10 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 			new StorageApiClient($mainConfig['shared_sapi']['token'], $mainConfig['shared_sapi']['url'])
 		);
 
-		$restApi = new RestApi(null, $log);
-
 		$pids = array();
 		foreach ($sharedConfig->projectsToDelete() as $project) {
 			$env = $project['dev'] ? 'dev' : 'prod';
+			$restApi = new RestApi($project['backendUrl'], $log);
 			$restApi->login($mainConfig['gd'][$env]['username'], $mainConfig['gd'][$env]['password']);
 			try {
 				$restApi->dropProject($project['pid']);
@@ -56,6 +55,7 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		}
 		$sharedConfig->markProjectsDeleted($pids);
 
+		$restApi = new RestApi(null, $log);
 		$uids = array();
 		foreach ($sharedConfig->usersToDelete() as $user) {
 			$env = $user['dev'] ? 'dev' : 'prod';

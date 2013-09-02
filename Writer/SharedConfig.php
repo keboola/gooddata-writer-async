@@ -154,20 +154,20 @@ class SharedConfig
 			if ($job['xmlFile']) {
 				$url = parse_url($job['xmlFile']);
 				if (empty($url['host'])) {
-					$job['xmlFile'] = $s3Client->url($job['xmlFile'], 3600);
+					$job['xmlFile'] = $s3Client->url($job['xmlFile']);
 				}
 			}
 			if ($job['log']) {
 				$url = parse_url($job['log']);
 				if (empty($url['host'])) {
-					$job['log'] = $s3Client->url($job['log'], 3600);
+					$job['log'] = $s3Client->url($job['log']);
 				}
 			}
 			if (!empty($job['result']['debug']) && is_array($job['result']['debug'])) {
 				foreach ($job['result']['debug'] as $key => &$value) {
 					$url = parse_url($value);
 					if (empty($url['host'])) {
-						$value = $s3Client->url($value, 3600);
+						$value = $s3Client->url($value);
 					}
 				}
 			}
@@ -346,14 +346,16 @@ class SharedConfig
 	 * @param $projectId
 	 * @param $writerId
 	 * @param $pid
+	 * @param $backendUrl
 	 * @param int $dev
 	 */
-	public function enqueueProjectToDelete($projectId, $writerId, $pid, $dev = 0)
+	public function enqueueProjectToDelete($projectId, $writerId, $pid, $backendUrl = null, $dev = 0)
 	{
 		$data = array(
 			'pid' => $pid,
 			'projectId' => $projectId,
 			'writerId' => $writerId,
+			'backendUrl' => $backendUrl,
 			'createdTime' => date('c'),
 			'deletedTime' => null,
 			'dev' => $dev
