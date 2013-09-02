@@ -34,7 +34,7 @@ class DropWriter extends GenericJob
 
 		$pids = array();
 		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) {
-			$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid'], empty($params['dev']));
+			$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid'], $project['backendUrl'], empty($params['dev']));
 
 			if ($dropImmediately) {
 				try {
