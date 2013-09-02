@@ -146,13 +146,14 @@ class UploadTable extends GenericJob
 				throw new JobProcessException(sprintf("Getting of WebDav url for backend '%s' failed.", $this->configuration->bucketInfo['gd']['backendUrl']));
 			}
 		}
+		$zipPath = isset($this->mainConfig['zip_path']) ? $this->mainConfig['zip_path'] : null;
 
 
 		$debug = array();
 		$output = null;
 		$error = false;
 		try {
-			$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password'], $webdavUrl);
+			$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password'], $webdavUrl, $zipPath);
 			$webDav->upload($this->tmpDir, $tmpFolderName, 'upload_info.json', 'data.csv');
 
 			// Execute enqueued jobs
@@ -252,6 +253,17 @@ class UploadTable extends GenericJob
 				'error' => 'WebDav error: ' . $e->getMessage(),
 				'gdWriteStartTime' => $gdWriteStartTime
 			), $this->restApi->callsLog());
+		} catch (UnauthorizedException $e) {
+			return $this->_prepareResult($job['id'], array(
+				'status' => 'error',
+				'error' => 'Bad GoodData Credentials: ' . $e->getMessage(),
+				'gdWriteStartTime' => $gdWriteStartTime
+			), $this->restApi->callsLog());
+		}
+
+		$callsLog = $this->restApi->callsLog();
+		if ($callsLog) {
+			$output .= "\n\nRest API:\n" . $callsLog;
 		}
 
 		if (empty($tableDefinition['lastExportDate'])) {

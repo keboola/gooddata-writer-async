@@ -27,17 +27,20 @@ class WebDav
 	protected $_url = 'secure-di.gooddata.com';
 	protected $_username;
 	protected $_password;
+	protected $_zipPath;
 
 	/**
 	 * @param $username
 	 * @param $password
 	 * @param null $url
+	 * @param null $zipPath
 	 * @throws WebDavException
 	 */
-	public function __construct($username, $password, $url = null)
+	public function __construct($username, $password, $url = null, $zipPath = null)
 	{
 		$this->_username = $username;
 		$this->_password = $password;
+		$this->_zipPath = $zipPath;
 		if ($url) {
 			$parsedUrl = parse_url($url);
 			if (!$parsedUrl || empty($parsedUrl['host'])) {
@@ -63,7 +66,8 @@ class WebDav
 	 */
 	public function upload($sourceFolder, $targetFolder, $jsonFile, $csvFile)
 	{
-		shell_exec('zip -j ' . escapeshellarg($sourceFolder . '/upload.zip') . ' '
+		$zipPath = $this->_zipPath ? $this->_zipPath : 'zip';
+		shell_exec($zipPath . ' -j ' . escapeshellarg($sourceFolder . '/upload.zip') . ' '
 			. escapeshellarg($sourceFolder . '/' . $jsonFile) . ' ' . escapeshellarg($sourceFolder . '/' . $csvFile));
 		$this->_client->request('MKCOL', '/uploads/' . $targetFolder);
 
