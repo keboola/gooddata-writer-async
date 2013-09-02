@@ -77,6 +77,10 @@ class JobExecutor
 		$batch = $this->_sharedConfig->batchToApiResponse($batchId);
 		$gdWriterParams = $this->_container->getParameter('gooddata_writer');
 
+		// Batch already executed?
+		if (SharedConfig::isJobFinished($batch['status'])) {
+			return;
+		}
 
 		//@TODO Move to Job class
 		$lockName = $batch['projectId'] . '-' . $batch['writerId'];
@@ -96,6 +100,8 @@ class JobExecutor
 		foreach ($jobs as $job) {
 			$this->runJob($job['id']);
 		}
+
+		$lock->unlock();
 	}
 
 	/**
@@ -164,8 +170,6 @@ class JobExecutor
 		}
 		$jobInfo['result'] = $result;
 		$this->_sharedConfig->saveJob($jobId, $jobInfo);
-
-		$lock->unlock();
 	}
 
 
