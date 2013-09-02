@@ -258,7 +258,7 @@ class SharedConfig
 		elseif ($processingJobs > 0) $data['status'] = self::JOB_STATUS_PROCESSING;
 		elseif ($waitingJobs > 0) $data['status'] = self::JOB_STATUS_WAITING;
 		elseif ($errorJobs > 0) $data['status'] = self::JOB_STATUS_ERROR;
-		else $data['status'] = 'success';
+		else $data['status'] = self::JOB_STATUS_SUCCESS;
 
 		return $data;
 	}

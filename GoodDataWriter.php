@@ -1325,11 +1325,9 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException('Missing parameter \'writerId\'');
 		}
 
-		$jobs = $this->_queue->clearQueue($this->configuration->projectId . "-" . $this->configuration->writerId);
-
 		// Cancel only waiting (to skip processing jobs)
 		foreach ($this->sharedConfig->fetchJobs($this->configuration->projectId, $this->configuration->writerId) as $job) {
-			if (in_array($job['id'], $jobs) && $job['status'] == 'waiting') {
+			if ($job['status'] == 'waiting') {
 				$this->sharedConfig->saveJob($job['id'], array('status' => 'cancelled'));
 			}
 		}
