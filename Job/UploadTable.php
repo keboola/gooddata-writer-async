@@ -158,6 +158,7 @@ class UploadTable extends GenericJob
 
 			// Execute enqueued jobs
 			foreach ($gdJobs as $gdJob) {
+				$this->clToolApi->debugLogUrl = null;
 
 				switch ($gdJob['command']) {
 					case 'createDate':
@@ -187,6 +188,11 @@ class UploadTable extends GenericJob
 								$webDav->saveLogs($tmpFolderNameDimension, $debugFile);
 								$debug['timeDimension'] = $this->s3Client->uploadFile($debugFile);
 
+								return $this->_prepareResult($job['id'], array(
+									'status' => 'error',
+									'error' => 'Create Dimension Error. ' . $uploadMessage,
+									'gdWriteStartTime' => $gdWriteStartTime
+								), $this->restApi->callsLog());
 							}
 						}
 
@@ -194,12 +200,10 @@ class UploadTable extends GenericJob
 
 						break;
 					case 'createDataset':
-						$this->clToolApi->debugLogUrl = null;
 						$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 						$this->clToolApi->createDataset($gdJob['pid'], $xmlFile);
 						break;
 					case 'updateDataset':
-						$this->clToolApi->debugLogUrl = null;
 						$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 						$this->clToolApi->updateDataset($gdJob['pid'], $xmlFile, 1);
 
@@ -222,6 +226,12 @@ class UploadTable extends GenericJob
 								// Look for .json and .log files in WebDav folder
 								$webDav->saveLogs($tmpFolderName, $debugFile);
 								$debug['loadData'] = $this->s3Client->uploadFile($debugFile);
+
+								return $this->_prepareResult($job['id'], array(
+									'status' => 'error',
+									'error' => 'Load Data Error. ' . $uploadMessage,
+									'gdWriteStartTime' => $gdWriteStartTime
+								), $this->restApi->callsLog());
 							}
 						} catch (RestApiException $e) {
 							throw new JobProcessException('ETL load failed: ' . $e->getMessage());
@@ -286,6 +296,6 @@ class UploadTable extends GenericJob
 
 	private function _gdName($name)
 	{
-		return preg_replace('/[^a-z\d ]/i', '', $name);
+		return preg_replace('/[^a-z\d ]/i', '', strtolower($name));
 	}
 }
