@@ -16,9 +16,6 @@ class DeleteFilter extends GenericJob {
 
 	function run($job, $params)
 	{
-		$env = empty($params['dev']) ? 'prod' :'dev';
-		$mainConfig = $this->mainConfig['gd'][$env];
-
 		$gdWriteStartTime = date('c');
 
 		$this->_checkParams($params, array(

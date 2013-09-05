@@ -149,9 +149,8 @@ class GoodDataWriter extends Component
 
 		$this->configuration->createWriter($params['writerId'], isset($params['backendUrl']) ? $params['backendUrl'] : null);
 
-		$mainConfig = empty($params['dev']) ? $this->_mainConfig['gd']['prod'] : $this->_mainConfig['gd']['dev'];
-		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $mainConfig['access_token'];
-		$projectName = sprintf($mainConfig['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
+		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->_mainConfig['gd']['access_token'];
+		$projectName = sprintf($this->_mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 
 
 		$batchId = $this->_storageApi->generateId();
@@ -161,8 +160,7 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
 				'accessToken' => $accessToken,
-				'projectName' => $projectName,
-				'dev' => empty($params['dev']) ? 0 : 1
+				'projectName' => $projectName
 			)
 		));
 
@@ -229,9 +227,7 @@ class GoodDataWriter extends Component
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'dev' => empty($params['dev']) ? 0 : 1
-			)
+			'parameters' => array()
 		));
 		$this->_enqueue($jobInfo['batchId']);
 
@@ -283,10 +279,9 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		$mainConfig = empty($params['dev']) ? $this->_mainConfig['gd']['prod'] : $this->_mainConfig['gd']['dev'];
-		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $mainConfig['access_token'];
+		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->_mainConfig['gd']['access_token'];
 		$projectName = !empty($params['name']) ? $params['name']
-			: sprintf($mainConfig['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
+			: sprintf($this->_mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 		$this->configuration->checkGoodDataSetup();
 		$this->configuration->checkProjectsTable();
 
@@ -299,8 +294,7 @@ class GoodDataWriter extends Component
 				'projectName' => $projectName,
 				'includeData' => empty($params['includeData']) ? 0 : 1,
 				'includeUsers' => empty($params['includeUsers']) ? 0 : 1,
-				'pidSource' => $this->configuration->bucketInfo['gd']['pid'],
-				'dev' => empty($params['dev']) ? 0 : 1
+				'pidSource' => $this->configuration->bucketInfo['gd']['pid']
 			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
@@ -393,8 +387,7 @@ class GoodDataWriter extends Component
 			'parameters' => array(
 				'email' => $params['email'],
 				'pid' => $params['pid'],
-				'role' => $params['role'],
-				'dev' => isset($params['dev']) ? $params['dev'] : 0
+				'role' => $params['role']
 			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
@@ -448,8 +441,7 @@ class GoodDataWriter extends Component
 			'parameters' => array(
 				'email' => $params['email'],
 				'pid' => $params['pid'],
-				'role' => $params['role'],
-				'dev' => isset($params['dev']) ? $params['dev'] : 0
+				'role' => $params['role']
 			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
@@ -529,8 +521,7 @@ class GoodDataWriter extends Component
 				'firstName' => $params['firstName'],
 				'lastName' => $params['lastName'],
 				'email' => $params['email'],
-				'password' => $params['password'],
-				'dev' => isset($params['dev']) ? $params['dev'] : 0
+				'password' => $params['password']
 			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
@@ -579,8 +570,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("User " . $user . " doesn't exist in writer");
 		}
 
-		$mainConfig = empty($params['dev']) ? $this->_mainConfig['gd']['prod'] : $this->_mainConfig['gd']['dev'];
-		$sso = new SSO($this->configuration, $mainConfig);
+		$sso = new SSO($this->configuration, $this->_mainConfig['gd']);
 
 		$gdProjectUrl = '/#s=/gdc/projects/' . $params['pid'];
 		$ssoLink = $sso->url($gdProjectUrl, $params['email']);

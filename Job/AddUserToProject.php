@@ -35,9 +35,7 @@ class AddUserToProject extends GenericJob
 			throw new WrongConfigurationException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
 		}
 
-		$env = empty($params['dev']) ? 'prod' :'dev';
-		$mainConfig = $this->mainConfig['gd'][$env];
-		$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
+		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 
 		$gdWriteStartTime = date('c');
 		try {
@@ -50,7 +48,7 @@ class AddUserToProject extends GenericJob
 			if ($user['uid']) {
 				$userId = $user['uid'];
 			} else {
-				$userId = $this->restApi->userId($params['email'], $mainConfig['domain']);
+				$userId = $this->restApi->userId($params['email'], $this->mainConfig['gd']['domain']);
 				$this->configuration->saveUserToConfiguration($params['email'], $userId);
 				if (!$userId) {
 					throw new WrongConfigurationException(sprintf("User '%s' does not exist in domain", $params['email']));

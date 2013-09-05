@@ -31,20 +31,16 @@ class CloneProject extends GenericJob
 		}
 		$this->configuration->checkGoodDataSetup();
 
-		$env = empty($params['dev']) ? 'prod' :'dev';
-		$mainConfig = $this->mainConfig['gd'][$env];
-
-
 		$gdWriteStartTime = date('c');
 		try {
 			// Check access to source project
 			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 			$this->restApi->getProject($this->configuration->bucketInfo['gd']['pid']);
 
-			$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
+			$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 			// Get user uri if not set
 			if (empty($this->configuration->bucketInfo['gd']['uid'])) {
-				$userId = $this->restApi->userId($this->configuration->bucketInfo['gd']['username'], $mainConfig['domain']);
+				$userId = $this->restApi->userId($this->configuration->bucketInfo['gd']['username'], $this->mainConfig['gd']['domain']);
 				$this->configuration->setBucketAttribute('gd.uid', $userId);
 				$this->configuration->bucketInfo['gd']['uid'] = $userId;
 			}
