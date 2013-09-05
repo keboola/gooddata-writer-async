@@ -82,16 +82,13 @@ class JobExecutor
 			return;
 		}
 
-		//@TODO Move to Job class
-		$lockName = $batch['projectId'] . '-' . $batch['writerId'];
-
 		$sqsClient = \Aws\Sqs\SqsClient::factory(array(
 			'key' => $gdWriterParams['aws']['access_key'],
 			'secret' => $gdWriterParams['aws']['secret_key'],
 			'region' => $gdWriterParams['aws']['region']
 		));
 		$lock = new Lock(new \PDO(sprintf('mysql:host=%s;dbname=%s', $gdWriterParams['db']['host'], $gdWriterParams['db']['name']),
-			$gdWriterParams['db']['user'], $gdWriterParams['db']['password']), $lockName);
+			$gdWriterParams['db']['user'], $gdWriterParams['db']['password']), $batch['queueId']);
 
 		if (!$lock->lock()) {
 			throw new JobCannotBeExecutedNowException("Batch {$batchId} cannot be executed now, another job already in progress on same writer.");

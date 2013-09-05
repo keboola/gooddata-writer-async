@@ -34,6 +34,9 @@ class SharedConfig
 	const JOB_STATUS_ERROR = 'error';
 	const JOB_STATUS_CANCELLED = 'cancelled';
 
+	const PRIMARY_QUEUE = 'primary';
+	const SECONDARY_QUEUE = 'secondary';
+
 	/**
 	 * @var StorageApiClient
 	 */
@@ -86,6 +89,19 @@ class SharedConfig
 	public function fetchBatch($batchId)
 	{
 		return $this->_fetchTableRows(self::JOBS_TABLE_ID, 'batchId', $batchId);
+	}
+
+	/**
+	 * @param $projectId
+	 * @param $writerId
+	 */
+	public function cancelJobs($projectId, $writerId)
+	{
+		foreach ($this->fetchJobs($projectId, $writerId) as $job) {
+			if ($job['status'] == 'waiting') {
+				$this->saveJob($job['id'], array('status' => 'cancelled'));
+			}
+		}
 	}
 
 	/**
@@ -217,7 +233,8 @@ class SharedConfig
 			'status' => null,
 			'jobs' => array(),
 			'result' => null,
-			'log' => null
+			'log' => null,
+			'queueId' => null
 		);
 		$cancelledJobs = 0;
 		$waitingJobs = 0;
@@ -240,6 +257,10 @@ class SharedConfig
 					$job['id'], $job['projectId'], $data['projectId']));
 			}
 
+			if ($job['queueId'] && $job['queueId'] != self::PRIMARY_QUEUE) {
+				$data['queueId'] = $job['queueId'];
+			}
+
 			if ($job['createdTime'] < $data['createdTime']) $data['createdTime'] = $job['createdTime'];
 			if ($job['startTime'] < $data['startTime']) $data['startTime'] = $job['startTime'];
 			if ($job['endTime'] > $data['endTime']) $data['endTime'] = $job['endTime'];
@@ -253,6 +274,8 @@ class SharedConfig
 			}
 			else $successJobs++;
 		}
+
+		if (!$data['queueId']) $data['queueId'] = sprintf('%s.%s.%s', $data['projectId'], $data['writerId'], self::PRIMARY_QUEUE);
 
 		if ($cancelledJobs > 0) $data['status'] = self::JOB_STATUS_CANCELLED;
 		elseif ($processingJobs > 0) $data['status'] = self::JOB_STATUS_PROCESSING;

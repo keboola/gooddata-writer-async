@@ -25,7 +25,7 @@ class SyncFilters extends GenericJob {
 			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
 			$projects = $this->configuration->getProjects();
-			if (isset($params['pid'])) {
+			if (!empty($params['pid'])) {
 				$projects = array($this->configuration->getProject($params['pid']));
 			}
 
