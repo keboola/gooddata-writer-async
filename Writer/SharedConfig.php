@@ -370,9 +370,8 @@ class SharedConfig
 	 * @param $writerId
 	 * @param $pid
 	 * @param $backendUrl
-	 * @param int $dev
 	 */
-	public function enqueueProjectToDelete($projectId, $writerId, $pid, $backendUrl = null, $dev = 0)
+	public function enqueueProjectToDelete($projectId, $writerId, $pid, $backendUrl = null)
 	{
 		$data = array(
 			'pid' => $pid,
@@ -380,8 +379,7 @@ class SharedConfig
 			'writerId' => $writerId,
 			'backendUrl' => $backendUrl,
 			'createdTime' => date('c'),
-			'deletedTime' => null,
-			'dev' => $dev
+			'deletedTime' => null
 		);
 		$this->_updateTableRow(self::PROJECTS_TO_DELETE_TABLE_ID, 'pid', $data);
 	}
@@ -432,9 +430,8 @@ class SharedConfig
 	 * @param $writerId
 	 * @param $uid
 	 * @param $email
-	 * @param int $dev
 	 */
-	public function enqueueUserToDelete($projectId, $writerId, $uid, $email, $dev = 0)
+	public function enqueueUserToDelete($projectId, $writerId, $uid, $email)
 	{
 		$data = array(
 			'uid' => $uid,
@@ -442,8 +439,7 @@ class SharedConfig
 			'writerId' => $writerId,
 			'email' => $email,
 			'createdTime' => date('c'),
-			'deletedTime' => null,
-			'dev' => $dev
+			'deletedTime' => null
 		);
 		$this->_updateTableRow(self::USERS_TO_DELETE_TABLE_ID, 'uid', $data);
 	}

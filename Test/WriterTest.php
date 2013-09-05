@@ -10,7 +10,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase,
 	Symfony\Bundle\FrameworkBundle\Console\Application,
 	Symfony\Bundle\FrameworkBundle\Client,
 	Symfony\Component\Console\Tester\CommandTester;
-use Keboola\GoodDataWriter\Command\RunJobCommand,
+use Keboola\GoodDataWriter\Command\ExecuteBatchCommand,
 	Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\StorageApi\Client as StorageApiClient,
@@ -73,11 +73,10 @@ abstract class WriterTest extends WebTestCase
 		self::$restApi = new RestApi(null, $container->get('logger'));
 		self::$configuration = new Configuration($this->writerId, self::$storageApi, self::$mainConfig['tmp_path']);
 
-		$mainConfig = self::$mainConfig['gd']['dev'];
 
 		// Clear test environment
 		// Drop data tables from SAPI
-		self::$restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
+		self::$restApi->setCredentials(self::$mainConfig['gd']['username'], self::$mainConfig['gd']['password']);
 		foreach (self::$storageApi->listBuckets() as $bucket) {
 			$isConfigBucket = substr($bucket['id'], 0, 22) == 'sys.c-wr-gooddata-test';
 			$isDataBucket = substr($bucket['id'], 0, 4) == 'out.';
@@ -122,8 +121,8 @@ abstract class WriterTest extends WebTestCase
 
 		// Init job processing
 		$application = new Application(self::$client->getKernel());
-		$application->add(new RunJobCommand());
-		$command = $application->find('gooddata-writer:run-job');
+		$application->add(new ExecuteBatchCommand());
+		$command = $application->find('gooddata-writer:execute-batch');
 		self::$commandTester = new CommandTester($command);
 
 		// Init writer
@@ -241,26 +240,21 @@ abstract class WriterTest extends WebTestCase
 	{
 		$writerId = isset($params['writerId']) ? $params['writerId'] : $this->writerId;
 
-		$params['dev'] = 1;
 		$params['writerId'] = $writerId;
 		$responseJson = $this->_callWriterApi($url, $method, $params);
 
 		if (isset($responseJson['job'])) {
+			$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/jobs?writerId=%s&jobId=%d', $writerId, $responseJson['job']));
+
 			self::$commandTester->execute(array(
-				'command' => 'gooddata-writer:run-job',
-				'job' => $responseJson['job']
+				'command' => 'gooddata-writer:execute-batch',
+				'batchId' => $responseJson['batchId']
 			));
 		} else if (isset($responseJson['batch'])) {
-			$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/batch?writerId=%s&batchId=%d', $writerId, $responseJson['batch']));
-
-			$this->assertArrayHasKey('batch', $responseJson, "Response for writer call '/batch' should contain 'batch' key.");
-			$this->assertArrayHasKey('jobs', $responseJson['batch'], "Response for writer call '/batch' should contain 'batch.jobs' key.");
-			foreach ($responseJson['batch']['jobs'] as $job) {
-				self::$commandTester->execute(array(
-					'command' => 'gooddata-writer:run-job',
-					'job' => $job
-				));
-			}
+			self::$commandTester->execute(array(
+				'command' => 'gooddata-writer:execute-batch',
+				'batchId' => $responseJson['batch']
+			));
 		} else {
 			$this->assertTrue(false, sprintf("Response for writer call '%s' should contain 'job' or 'batch' key.", $url));
 		}
