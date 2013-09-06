@@ -212,6 +212,7 @@ class SharedConfig
 			'gdWriteBytes' => $job['gdWriteBytes'] ? (int) $job['gdWriteBytes'] : null,
 			'status' => $job['status'],
 			'log' => $job['log'],
+			'queueId' => !empty($job['queueId']) ? $job['queueId'] : sprintf('%s.%s.%s', $job['projectId'], $job['writerId'], self::PRIMARY_QUEUE)
 		);
 	}
 

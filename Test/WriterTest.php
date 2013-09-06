@@ -248,7 +248,7 @@ abstract class WriterTest extends WebTestCase
 
 			self::$commandTester->execute(array(
 				'command' => 'gooddata-writer:execute-batch',
-				'batchId' => $responseJson['batchId']
+				'batchId' => $responseJson['job']['batchId']
 			));
 		} else if (isset($responseJson['batch'])) {
 			self::$commandTester->execute(array(
