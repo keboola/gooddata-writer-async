@@ -109,7 +109,7 @@ class UploadTable extends GenericJob
 		$sapiClient->exportTable($params['tableId'], $this->tmpDir . '/data.csv', $options);
 
 
-		$datasetName = $this->_gdName($xmlFileObject->name);
+		$datasetName =CsvHandler::gdName($xmlFileObject->name);
 
 
 
@@ -163,9 +163,10 @@ class UploadTable extends GenericJob
 				switch ($gdJob['command']) {
 					case 'createDate':
 
-						$tmpFolderDimension = $this->tmpDir . '/' . $this->_gdName($gdJob['name']);
+						$dimensionName = CsvHandler::gdName($gdJob['name']);
+						$tmpFolderDimension = $this->tmpDir . '/' . $dimensionName;
 						mkdir($tmpFolderDimension);
-						$tmpFolderNameDimension = $tmpFolderName . '-' . $this->_gdName($gdJob['name']);
+						$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
 						$this->restApi->createDateDimension($gdJob['pid'], $gdJob['name'], $gdJob['includeTime']);
 						if ($gdJob['includeTime']) {
 							$timeDimensionManifest = $csvHandler->getTimeDimensionManifest($gdJob['name']);
@@ -179,7 +180,7 @@ class UploadTable extends GenericJob
 								$debugFile = $tmpFolderDimension . '/data-load-log.txt';
 
 								// Find upload message
-								$uploadMessage = $this->restApi->getUploadMessage($gdJob['pid'], 'time.' . $this->_gdName($gdJob['name']));
+								$uploadMessage = $this->restApi->getUploadMessage($gdJob['pid'], 'time.' . $dimensionName);
 								if ($uploadMessage) {
 									file_put_contents($debugFile, $uploadMessage . PHP_EOL . PHP_EOL, FILE_APPEND);
 								}
@@ -294,8 +295,4 @@ class UploadTable extends GenericJob
 	}
 
 
-	private function _gdName($name)
-	{
-		return preg_replace('/[^a-z\d ]/i', '', strtolower($name));
-	}
 }

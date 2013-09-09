@@ -261,6 +261,6 @@ class CreateDateDimension extends GenericJob
 
 	private function _gdName($name)
 	{
-		return preg_replace('/[^a-z\d ]/i', '', $name);
+		return preg_replace('/[^a-z\d ]/i', '', strtolower($name));
 	}
 }
