@@ -52,7 +52,7 @@ class DropWriter extends GenericJob
 
 		$uids = array();
 		foreach ($this->sharedConfig->getUsers($job['projectId'], $job['writerId']) as $user) {
-			$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid'], $user['email'] );
+			$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid'], $user['email']);
 
 			if ($dropImmediately) {
 				try {

@@ -241,7 +241,7 @@ class JobExecutor
 		try {
 			if ($job['parameters']) {
 				$parameters = json_decode($job['parameters'], true);
-				if (!$parameters) {
+				if ($parameters === false) {
 					throw new WrongConfigurationException("Parameters decoding failed");
 				}
 			} else {
