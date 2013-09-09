@@ -100,7 +100,7 @@ class CsvHandler
 	 */
 	public function getManifest($xmlFileObject, $incrementalLoad)
 	{
-		$datasetName = $this->gdName($xmlFileObject->name);
+		$datasetName = self::gdName($xmlFileObject->name);
 		$manifest = array(
 			'dataSetSLIManifest' => array(
 				'file' => 'data.csv',
@@ -109,7 +109,7 @@ class CsvHandler
 			)
 		);
 		foreach ($xmlFileObject->columns->column as $column) {
-			$columnName = $this->gdName($column->name);
+			$columnName = self::gdName($column->name);
 			$gdName = null;
 			switch ((string)$column->ldmType) {
 				case 'CONNECTION_POINT':
@@ -146,7 +146,7 @@ class CsvHandler
 					$manifest['dataSetSLIManifest']['parts'][] = array(
 						'columnName' => (string)$column->name,
 						'populates' => array(
-							sprintf('label.%s.%s.%s', $datasetName, $this->gdName($column->reference), $columnName)
+							sprintf('label.%s.%s.%s', $datasetName, self::gdName($column->reference), $columnName)
 						),
 						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
 					);
@@ -155,7 +155,7 @@ class CsvHandler
 					$manifest['dataSetSLIManifest']['parts'][] = array(
 						'columnName' => (string)$column->name,
 						'populates' => array(
-							sprintf('label.%s.%s', $this->gdName($column->schemaReference), $this->gdName($column->reference))
+							sprintf('label.%s.%s', self::gdName($column->schemaReference), self::gdName($column->reference))
 						),
 						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
 						'referenceKey' => 1
@@ -165,7 +165,7 @@ class CsvHandler
 					$manifest['dataSetSLIManifest']['parts'][] = array(
 						'columnName' => (string)$column->name,
 						'populates' => array(
-							sprintf('%s.date.mmddyyyy', $this->gdName($column->schemaReference))
+							sprintf('%s.date.mmddyyyy', self::gdName($column->schemaReference))
 						),
 						'constraints' => array(
 							'date' => (string)$column->format
@@ -191,7 +191,7 @@ class CsvHandler
 						$manifest['dataSetSLIManifest']['parts'][] = array(
 							'columnName' => (string)$column->name . '_id',
 							'populates' => array(
-								sprintf('label.time.second.of.day.%s', $this->gdName($column->schemaReference))
+								sprintf('label.time.second.of.day.%s', self::gdName($column->schemaReference))
 							),
 							'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
 							'referenceKey' => 1
@@ -215,7 +215,7 @@ class CsvHandler
 	public function getTimeDimensionManifest($dimensionName)
 	{
 		$manifest = file_get_contents($this->_timeDimensionManifestPath);
-		$manifest = str_replace('%NAME%', $this->gdName($dimensionName), $manifest);
+		$manifest = str_replace('%NAME%', self::gdName($dimensionName), $manifest);
 		return $manifest;
 	}
 
@@ -278,7 +278,7 @@ class CsvHandler
 		$timeColumnsIndices = array();
 		$i = 1;
 		foreach ($xmlFileObject->columns->column as $column) {
-			$columnName = $this->gdName($column->name);
+			$columnName = self::gdName($column->name);
 			$gdName = null;
 			switch ((string)$column->ldmType) {
 				case 'CONNECTION_POINT':
@@ -343,9 +343,9 @@ class CsvHandler
 	}
 
 
-	public function gdName($name)
+	public static function gdName($name)
 	{
-		return mb_strtolower(str_replace(' ', '', (string)$name));
+		return preg_replace('/[^a-z\d ]/i', '', strtolower($name));
 	}
 
 }
