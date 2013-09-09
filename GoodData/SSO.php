@@ -37,6 +37,9 @@ class SSO
 		$this->ssoProvider = $mainConfig['sso_provider'];
 		$this->ssoUser = $mainConfig['username'];
 		$this->passphrase = $mainConfig['key_passphrase'];
+
+		if (!empty($configuration->backendUrl))
+			$this->gooddataHost = $configuration->backendUrl;
 	}
 
 	public function url($targetUrl, $email)
