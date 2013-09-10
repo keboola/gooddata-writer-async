@@ -109,7 +109,7 @@ class UploadTable extends GenericJob
 		$sapiClient->exportTable($params['tableId'], $this->tmpDir . '/data.csv', $options);
 
 
-		$datasetName =CsvHandler::gdName($xmlFileObject->name);
+		$datasetName = CsvHandler::gdName($xmlFileObject->name);
 
 
 
@@ -127,6 +127,7 @@ class UploadTable extends GenericJob
 
 		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
 		$csvFileSize = filesize($this->tmpDir . '/data.csv');
+		$manifestUrl = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json');
 
 
 		// Upload csv
@@ -149,9 +150,11 @@ class UploadTable extends GenericJob
 		$zipPath = isset($this->mainConfig['zip_path']) ? $this->mainConfig['zip_path'] : null;
 
 
-		$debug = array();
 		$output = null;
 		$error = false;
+		$debug = array(
+			'manifest' => $manifestUrl
+		);
 		try {
 			$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password'], $webdavUrl, $zipPath);
 			$webDav->upload($this->tmpDir, $tmpFolderName, 'upload_info.json', 'data.csv');
@@ -189,11 +192,7 @@ class UploadTable extends GenericJob
 								$webDav->saveLogs($tmpFolderNameDimension, $debugFile);
 								$debug['timeDimension'] = $this->s3Client->uploadFile($debugFile);
 
-								return $this->_prepareResult($job['id'], array(
-									'status' => 'error',
-									'error' => 'Create Dimension Error. ' . $uploadMessage,
-									'gdWriteStartTime' => $gdWriteStartTime
-								), $this->restApi->callsLog());
+								throw new RestApiException('Create Dimension Error. ' . $uploadMessage);
 							}
 						}
 
@@ -228,14 +227,10 @@ class UploadTable extends GenericJob
 								$webDav->saveLogs($tmpFolderName, $debugFile);
 								$debug['loadData'] = $this->s3Client->uploadFile($debugFile);
 
-								return $this->_prepareResult($job['id'], array(
-									'status' => 'error',
-									'error' => 'Load Data Error. ' . $uploadMessage,
-									'gdWriteStartTime' => $gdWriteStartTime
-								), $this->restApi->callsLog());
+								throw new RestApiException('Load Data Error. ' . $uploadMessage);
 							}
 						} catch (RestApiException $e) {
-							throw new JobProcessException('ETL load failed: ' . $e->getMessage());
+							throw new RestApiException('ETL load failed: ' . $e->getMessage());
 						}
 
 						break;
@@ -247,29 +242,13 @@ class UploadTable extends GenericJob
 				$output .= $this->clToolApi->output;
 			}
 		} catch (CLToolApiErrorException $e) {
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => $e->getMessage(),
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->clToolApi->output);
+			$error = 'CL Tool Error: ' . $e->getMessage();
 		} catch (RestApiException $e) {
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => $e->getMessage(),
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->restApi->callsLog());
+			$error = $e->getMessage();
 		} catch (WebDavException $e) {
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => 'WebDav error: ' . $e->getMessage(),
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->restApi->callsLog());
+			$error = 'WebDav error: ' . $e->getMessage();
 		} catch (UnauthorizedException $e) {
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => 'Bad GoodData Credentials: ' . $e->getMessage(),
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->restApi->callsLog());
+			$error = 'Bad GoodData Credentials: ' . $e->getMessage();
 		}
 
 		$callsLog = $this->restApi->callsLog();
@@ -284,11 +263,11 @@ class UploadTable extends GenericJob
 		$result = array(
 			'status' => $error ? 'error' : 'success',
 			'debug' => json_encode($debug),
-			'gdWriteStartTime' => $gdWriteStartTime,
 			'gdWriteBytes' => $csvFileSize,
-			'csvFile' => $this->tmpDir
+			'gdWriteStartTime' => $gdWriteStartTime,
+			'tmpDir' => dirname($this->tmpDir)
 		);
-		if ($error && $error !== true) {
+		if ($error) {
 			$result['error'] = $error;
 		}
 		return $this->_prepareResult($job['id'], $result, $output);

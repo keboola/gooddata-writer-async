@@ -345,7 +345,7 @@ class CsvHandler
 
 	public static function gdName($name)
 	{
-		return preg_replace('/[^a-z\d ]/i', '', strtolower($name));
+		return preg_replace('/[^a-z\d_]/i', '', strtolower($name));
 	}
 
 }
