@@ -49,7 +49,7 @@ class AddUserToProject extends GenericJob
 				$userId = $user['uid'];
 			} else {
 				$userId = $this->restApi->userId($params['email'], $this->mainConfig['gd']['domain']);
-				$this->configuration->saveUserToConfiguration($params['email'], $userId);
+				$this->configuration->saveUser($params['email'], $userId);
 				if (!$userId) {
 					throw new WrongConfigurationException(sprintf("User '%s' does not exist in domain", $params['email']));
 				}
@@ -57,7 +57,7 @@ class AddUserToProject extends GenericJob
 
 			$this->restApi->addUserToProject($userId, $params['pid'], RestApi::$userRoles[$params['role']]);
 
-			$this->configuration->saveProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
+			$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role']);
 
 
 			return $this->_prepareResult($job['id'], array(

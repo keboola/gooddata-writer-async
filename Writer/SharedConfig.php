@@ -9,8 +9,8 @@ namespace Keboola\GoodDataWriter\Writer;
 use Keboola\Csv\CsvFile;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
-	Keboola\StorageApi\Table as StorageApiTable,
-	Keboola\GoodDataWriter\Service\S3Client;
+	Keboola\GoodDataWriter\Service\S3Client,
+	Keboola\GoodDataWriter\Service\StorageApiConfiguration;
 
 
 class SharedConfigException extends \Exception
@@ -19,7 +19,7 @@ class SharedConfigException extends \Exception
 }
 
 
-class SharedConfig
+class SharedConfig extends StorageApiConfiguration
 {
 	const WRITER_NAME = 'gooddata_writer';
 	const JOBS_TABLE_ID = 'in.c-wr-gooddata.jobs';
@@ -37,13 +37,9 @@ class SharedConfig
 	const PRIMARY_QUEUE = 'primary';
 	const SECONDARY_QUEUE = 'secondary';
 
-	/**
-	 * @var StorageApiClient
-	 */
-	private $_storageApiClient;
 
 	/**
-	 * @param $storageApiClient
+	 * @param StorageApiClient $storageApiClient
 	 */
 	public function __construct($storageApiClient)
 	{
@@ -466,50 +462,4 @@ class SharedConfig
 		$this->_storageApiClient->createEvent($event);
 	}
 
-
-	/**
-	 * @param $tableId
-	 * @param $whereColumn
-	 * @param $whereValue
-	 * @param array $options
-	 * @return array
-	 */
-	private function _fetchTableRows($tableId, $whereColumn, $whereValue, $options = array())
-	{
-		$exportOptions = array(
-			'whereColumn' => $whereColumn,
-			'whereValues' => array($whereValue)
-		);
-		if (count($options)) {
-			$exportOptions = array_merge($exportOptions, $options);
-		}
-		$csv = $this->_storageApiClient->exportTable($tableId, null, $exportOptions);
-		return StorageApiClient::parseCsv($csv, true);
-	}
-
-	/**
-	 * @param $tableId
-	 * @param $primaryKey
-	 * @param $data
-	 */
-	private function _updateTableRow($tableId, $primaryKey, $data)
-	{
-		$this->_updateTable($tableId, $primaryKey, array_keys($data), array($data));
-	}
-
-	/**
-	 * @param $tableId
-	 * @param $primaryKey
-	 * @param $headers
-	 * @param $data
-	 */
-	private function _updateTable($tableId, $primaryKey, $headers, $data)
-	{
-		$table = new StorageApiTable($this->_storageApiClient, $tableId, null, $primaryKey);
-		$table->setHeader($headers);
-		$table->setFromArray($data);
-		$table->setPartial(true);
-		$table->setIncremental(true);
-		$table->save();
-	}
 }

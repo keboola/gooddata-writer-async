@@ -40,7 +40,7 @@ class CreateUser extends GenericJob
 			$userId = $this->restApi->createUser($this->mainConfig['gd']['domain'], $params['email'], $params['password'],
 				$params['firstName'], $params['lastName'], $this->mainConfig['gd']['sso_provider']);
 
-			$this->configuration->saveUserToConfiguration($params['email'], $userId);
+			$this->configuration->saveUser($params['email'], $userId);
 			$this->sharedConfig->saveUser($userId, $params['email'], $job);
 
 
