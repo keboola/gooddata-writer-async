@@ -1049,6 +1049,15 @@ class RestApi
 				if ($request->getResponse()->getStatusCode() == 401) {
 					$error401 = true;
 				} else {
+					$responseJson = json_decode($response, true);
+					if ($responseJson !== false) {
+						// Include parameters directly to error message
+						if (isset($responseJson['error']) && isset($responseJson['error']['parameters']) && isset($responseJson['error']['message'])) {
+							$responseJson['error']['message'] = vsprintf($responseJson['error']['message'], $responseJson['error']['parameters']);
+							unset($responseJson['error']['parameters']);
+						}
+						$response = json_encode($responseJson);
+					}
 					throw new RestApiException($response);
 				}
 			} catch (ServerErrorResponseException $e) {
