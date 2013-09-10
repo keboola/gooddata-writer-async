@@ -44,7 +44,7 @@ class createFilter extends GenericJob
 				$params['pid']
 			);
 
-			$this->configuration->saveFilterToConfiguration(
+			$this->configuration->saveFilter(
 				$params['name'],
 				$params['attribute'],
 				$params['element'],
@@ -52,7 +52,7 @@ class createFilter extends GenericJob
 				$filterUri
 			);
 
-			$this->configuration->saveFiltersProjectsToConfiguration($params['name'], $params['pid']);
+			$this->configuration->saveFiltersProjects($params['name'], $params['pid']);
 
 			return $this->_prepareResult($job['id'], array(
 				'uri' => $filterUri,

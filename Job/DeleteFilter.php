@@ -36,7 +36,7 @@ class DeleteFilter extends GenericJob {
 				}
 			}
 
-			$this->configuration->deleteFilterFromConfiguration($params['uri']);
+			$this->configuration->deleteFilter($params['uri']);
 
 			return $this->_prepareResult($job['id'], array(
 				'gdWriteStartTime' => $gdWriteStartTime
