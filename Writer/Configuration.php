@@ -79,8 +79,8 @@ class Configuration extends StorageApiConfiguration
 		self::FILTERS_USERS_TABLE_NAME => array(),
 		self::FILTERS_PROJECTS_TABLE_NAME => array(),
 		self::DATE_DIMENSIONS_TABLE_NAME => array(
-			'data' => array(),
-			'dataWithUsage' => array()
+			'dimensions' => array(),
+			'usage' => array()
 		)
 	);
 
@@ -291,13 +291,10 @@ class Configuration extends StorageApiConfiguration
 		$this->checkMissingColumns($tableId, array('columns' => $tableDefinition), $sourceTableInfo['columns']);
 
 
-		$data = array('columns' => array());
-		$tableInfo = $this->getTable($this->definedTables[$tableId]['definitionId']);
-		if (isset($tableInfo['attributes'])) foreach ($tableInfo['attributes'] as $attr) {
-			if ($attr['name'] == 'export')
-				$attr['value'] = (bool)$attr['value'];
-			$data[$attr['name']] = $attr['value'];
-		}
+		$data = $this->definedTables[$tableId];
+		$data['tableId'] = $tableId;
+		unset($data['definitionId']);
+		$data['columns'] = array();
 
 		$previews = array();
 		if ($this->_storageApiClient->tableExists($tableId)) {
@@ -437,40 +434,11 @@ class Configuration extends StorageApiConfiguration
 		$this->_storageApiClient->setTableAttribute($this->definedTables[$tableId]['definitionId'], $name, $value);
 	}
 
-	public function getDateDimensionsWithUsage()
-	{
-		if (!self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dataWithUsage']) {
-			$tableId = $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME;
-			if ($this->_storageApiClient->tableExists($tableId)) {
-				$usedIn = array();
-				foreach (array_keys($this->definedTables) as $tId) {
-					foreach ($this->tableDateDimensions($tId) as $dim) {
-						if (!isset($usedIn[$dim])) {
-							$usedIn[$dim] = array();
-						}
-						$usedIn[$dim][] = $tId;
-					}
-				}
-
-				$data = array();
-				foreach ($this->_fetchTableRows($tableId) as $row) {
-					$row['includeTime'] = (bool)$row['includeTime'];
-					$row['usedIn'] = isset($usedIn[$row['name']]) ? $usedIn[$row['name']] : array();
-					$data[$row['name']] = $row;
-				}
-				self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dataWithUsage'] = $data;
-			} else {
-				$this->_createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
-			}
-		}
-		return self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dataWithUsage'];
-	}
-
 	public function getDateDimensions($usage = false)
 	{
 		if ($usage) return $this->getDateDimensionsWithUsage();
 
-		if (!self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['data']) {
+		if (!count(self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'])) {
 			$tableId = $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME;
 			if ($this->_storageApiClient->tableExists($tableId)) {
 				$data = array();
@@ -478,16 +446,37 @@ class Configuration extends StorageApiConfiguration
 					$row['includeTime'] = (bool)$row['includeTime'];
 					$data[$row['name']] = $row;
 				}
-				self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['data'] = $data;
+				self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'] = $data;
 
-				if (isset(self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['data'][0])) {
-					self::_checkConfigTable(self::DATE_DIMENSIONS_TABLE_NAME, array_keys(self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['data'][0]));
+				if (count(self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'])) {
+					self::_checkConfigTable(self::DATE_DIMENSIONS_TABLE_NAME,
+						array_keys(current(self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'])));
 				}
 			} else {
 				$this->_createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
 			}
 		}
-		return self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['data'];
+		return self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'];
+	}
+
+	public function getDateDimensionsWithUsage()
+	{
+		$dimensions = $this->getDateDimensions();
+
+		if (!count(self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['usage'])) {
+			$usage = array();
+			foreach (array_keys($this->definedTables) as $tId) {
+				foreach ($this->tableDateDimensions($tId) as $dim) {
+					if (!isset($usage[$dim])) {
+						$usage[$dim]['usedIn'] = array();
+					}
+					$usage[$dim]['usedIn'][] = $tId;
+				}
+			}
+			self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['usage'] = $usage;
+		}
+
+		return array_merge_recursive($dimensions, self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['usage']);
 	}
 
 	public function addDateDimension($name, $includeTime)
@@ -498,8 +487,9 @@ class Configuration extends StorageApiConfiguration
 			'lastExportDate' => ''
 		);
 		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
-		self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['data'][$name] = $data;
-		self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dataWithUsage'][$name] = $data;
+		if (!self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'])
+			$this->getDateDimensions();
+		self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'][$name] = $data;
 	}
 
 	public function deleteDateDimension($name)
@@ -508,6 +498,9 @@ class Configuration extends StorageApiConfiguration
 			'whereColumn' => 'name',
 			'whereValues' => array($name)
 		));
+		if (!self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'])
+			$this->getDateDimensions();
+		unset(self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'][$name]);
 	}
 
 	public function tableHasDateDimension($tableId, $dimension)
@@ -538,6 +531,9 @@ class Configuration extends StorageApiConfiguration
 			$name => $value
 		);
 		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
+		if (!self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'])
+			$this->getDateDimensions();
+		self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'][$dimension][$name] = $value;
 	}
 
 

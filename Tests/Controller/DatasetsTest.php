@@ -206,15 +206,16 @@ class DatasetsTest extends WriterTest
 	public function testResetExport()
 	{
 		$this->_prepareData();
+		$tableId = $this->dataBucketId . '.categories';
 
-		$this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.categories'));
+		$this->_processJob('/gooddata-writer/upload-table', array('tableId' => $tableId));
 
-		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $this->dataBucketId . '.categories');
+		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $tableId);
 		$this->assertArrayHasKey('lastExportDate', $responseJson['table'], "Exported table should contain 'lastExportDate' attribute.");
 
 		$this->_postWriterApi('/gooddata-writer/reset-export', array('writerId' => $this->writerId));
 
-		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $this->dataBucketId . '.categories');
+		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $tableId);
 		$this->assertEquals('', $responseJson['table']['lastExportDate'], "Reset table should contain empty 'lastExportDate' attribute.");
 	}
 
