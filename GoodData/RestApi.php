@@ -1030,14 +1030,6 @@ class RestApi
 			try {
 				$response = $request->send();
 				if ($logCall) $this->_logCall($uri, $method, $params, $response->getBody(true));
-				$this->_log->debug(array(
-					'baseUrl' => $this->_client->getBaseUrl(),
-					'uri' => $uri,
-					'method' => $method,
-					'params' => $params,
-					'headers' => $headers,
-					'response' => $response->getBody(true)
-				));
 
 				if ($response->isSuccessful()) {
 					return $response;
