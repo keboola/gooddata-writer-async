@@ -31,6 +31,10 @@ class assignFiltersToUser extends GenericJob
 			'pid'
 		));
 
+		if (!is_array($params['filters'])) {
+			throw new WrongConfigurationException("Parameter 'filters' must be an array.");
+		}
+
 		$user = $this->configuration->getUser($params['userEmail']);
 		$filterUris = array();
 		foreach ($params['filters'] as $name) {
