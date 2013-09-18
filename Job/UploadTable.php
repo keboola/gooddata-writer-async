@@ -117,7 +117,6 @@ class UploadTable extends GenericJob
 		$gdWriteStartTime = date('c');
 		$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
-
 		// Prepare manifest and csv
 		if ($sanitize) {
 			$csvHandler->sanitize($xmlFileObject, $this->tmpDir . '/data.csv');
@@ -127,7 +126,7 @@ class UploadTable extends GenericJob
 
 		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
 		$csvFileSize = filesize($this->tmpDir . '/data.csv');
-		$manifestUrl = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json');
+		$manifestUrl = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
 
 
 		// Upload csv

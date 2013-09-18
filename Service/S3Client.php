@@ -41,12 +41,13 @@ class S3Client
 	/**
 	 * @param string $filePath Path to File
 	 * @param string $contentType Content Type
-	 * @return string
+	 * @param $destinationName
 	 * @throws \Exception
+	 * @return string
 	 */
-	public function uploadFile($filePath, $contentType = 'text/plain')
+	public function uploadFile($filePath, $contentType = 'text/plain', $destinationName = null)
 	{
-		$name = basename($filePath);
+		$name = $destinationName ? $destinationName : basename($filePath);
 		$fp = fopen($filePath, 'r');
 		if (!$fp) {
 			throw new \Exception('File not found');
