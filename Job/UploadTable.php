@@ -96,38 +96,26 @@ class UploadTable extends GenericJob
 		}
 
 
-		// Get csv
-		$sapiClient = new StorageApiClient(
-			$job['token'],
-			$this->mainConfig['storageApi.url'],
-			$this->mainConfig['user_agent']
-		);
-		$options = array('format' => 'escaped');
-		if ($incrementalLoad) {
-			$options['changedSince'] = '-' . $incrementalLoad . ' days';
-		}
-		$sapiClient->exportTable($params['tableId'], $this->tmpDir . '/data.csv', $options);
-
-
 		$datasetName = CsvHandler::gdName($xmlFileObject->name);
-
 
 
 		// Start GoodData transfer
 		$gdWriteStartTime = date('c');
 		$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
-
-		// Prepare manifest and csv
+		// Get csv
+		$csvHandler->initDownload($params['tableId'], $job['token'], $this->mainConfig['storageApi.url'], $this->mainConfig['user_agent'], $incrementalLoad);
 		if ($sanitize) {
-			$csvHandler->sanitize($xmlFileObject, $this->tmpDir . '/data.csv');
+			$csvHandler->prepareSanitization($xmlFileObject);
 		}
-		$manifest = $csvHandler->getManifest($xmlFileObject, $incrementalLoad);
-		$csvHandler->prepareCsv($xmlFileObject, $this->tmpDir . '/data.csv');
-
-		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
+		$csvHandler->prepareTransformation($xmlFileObject);
+		$csvHandler->runDownload($this->tmpDir . '/data.csv');
 		$csvFileSize = filesize($this->tmpDir . '/data.csv');
-		$manifestUrl = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json');
+
+		// Get manifest
+		$manifest = $csvHandler->getManifest($xmlFileObject, $incrementalLoad);
+		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
+		$manifestUrl = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
 
 
 		// Upload csv
@@ -213,7 +201,7 @@ class UploadTable extends GenericJob
 						// Run load task
 						try {
 							$result = $this->restApi->loadData($gdJob['pid'], $tmpFolderName);
-
+echo date('H:i:s').' GD end'.PHP_EOL;
 							if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
 								$debugFile = $this->tmpDir . '/data-load-log.txt';
 
@@ -265,7 +253,7 @@ class UploadTable extends GenericJob
 			'debug' => json_encode($debug),
 			'gdWriteBytes' => $csvFileSize,
 			'gdWriteStartTime' => $gdWriteStartTime,
-			'tmpDir' => dirname($this->tmpDir)
+			'csvFile' => $this->tmpDir . '/data.csv'
 		);
 		if ($error) {
 			$result['error'] = $error;

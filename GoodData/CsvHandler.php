@@ -16,6 +16,7 @@ class CsvHandler
 	private $_timeDimensionManifestPath;
 	private $_scriptPath;
 	private $_tmpDir;
+	private $_command;
 
 	/**
 	 * @var \Keboola\GoodDataWriter\Service\S3Client
@@ -36,17 +37,29 @@ class CsvHandler
 		$this->_tmpDir = $tmpDir;
 	}
 
+	/**
+	 * @param $tableId
+	 * @param $token
+	 * @param $sapiUrl
+	 * @param $userAgent
+	 * @param bool $incrementalLoad
+	 */
+	public function initDownload($tableId, $token, $sapiUrl, $userAgent, $incrementalLoad = false)
+	{
+		$incrementalLoad = $incrementalLoad ? '&changedSince=-' . $incrementalLoad . '+days' : null;
+		$this->_command = sprintf('curl -s --header "Accept-encoding: gzip" --header "X-StorageApi-Token: %s"'
+			.' --user-agent "%s" "%s/v2/storage/tables/%s/export?format=escaped%s" | gzip -d',
+			$token, $userAgent, $sapiUrl, $tableId, $incrementalLoad);
+	}
 
 	/**
 	 * Sanitize csv - normalize dates and set proper values for empty facts and attributes
 	 * @param $xmlFileObject
-	 * @param $csvFile
-	 * @throws \Keboola\GoodDataWriter\Exception\JobProcessException
+	 * @return void
 	 */
-	public function sanitize($xmlFileObject, $csvFile)
+	public function prepareSanitization($xmlFileObject)
 	{
-		rename($csvFile, $csvFile . '.in');
-		$nullReplace = 'cat ' . escapeshellarg($csvFile . '.in') . ' | sed \'s/\"NULL\"/\"\"/g\' | awk -v OFS="\",\"" -F"\",\"" \'{';
+		$nullReplace = 'sed \'s/\"NULL\"/\"\"/g\' | awk -v OFS="\",\"" -F"\",\"" \'{';
 
 		$i = 1;
 		$columnsCount = $xmlFileObject->columns->column->count();
@@ -83,13 +96,99 @@ class CsvHandler
 			}
 			$i++;
 		}
-		$nullReplace .= '; print }\' > ' . escapeshellarg($csvFile);
-		shell_exec($nullReplace);
-		if (!file_exists($csvFile . '.in')) {
-			throw new JobProcessException(sprintf("CSV sanitization failed. Job id is '%s'", basename(dirname($csvFile))));
-		}
-		unlink($csvFile . '.in');
+		$nullReplace .= '; print }\'';
+
+		$this->_command .= ' | ' . $nullReplace;
 	}
+
+	/**
+	 * Parse csv and prepare for data load
+	 * @param $xmlFileObject
+	 * @throws \Keboola\GoodDataWriter\Exception\JobProcessException
+	 */
+	public function prepareTransformation($xmlFileObject)
+	{
+		$csvHeaders = array();
+		$ignoredColumnsIndices = array();
+		$dateColumnsIndices = array();
+		$timeColumnsIndices = array();
+		$i = 1;
+		foreach ($xmlFileObject->columns->column as $column) {
+			$columnName = self::gdName($column->name);
+			$gdName = null;
+			switch ((string)$column->ldmType) {
+				case 'CONNECTION_POINT':
+					$csvHeaders[] = (string)$column->name;
+					break;
+				case 'FACT':
+					$csvHeaders[] = (string)$column->name;
+					break;
+				case 'ATTRIBUTE':
+					$csvHeaders[] = (string)$column->name;
+					break;
+				case 'LABEL':
+				case 'HYPERLINK':
+					$csvHeaders[] = (string)$column->name;
+					break;
+				case 'REFERENCE':
+					$csvHeaders[] = (string)$column->name;
+					break;
+				case 'DATE':
+					$csvHeaders[] = (string)$column->name;
+					$csvHeaders[] = (string)$column->name . '_dt';
+					if ((string)$column->datetime == 'true') {
+						$csvHeaders[] = (string)$column->name . '_tm';
+						$csvHeaders[] = (string)$column->name . '_id';
+
+						$timeColumnsIndices[] = $i;
+					}
+					$dateColumnsIndices[] = $i;
+					break;
+				case 'IGNORE':
+					$ignoredColumnsIndices[] = $i;
+					break;
+			}
+
+			$i++;
+		}
+
+
+		// Add column headers according to manifest, calculate date facts and remove ignored columns
+		$command  = 'php ' . escapeshellarg($this->_scriptPath);
+		$command .= ' -h' . implode(',', $csvHeaders);
+		if (count($dateColumnsIndices)) {
+			$command .= ' -d' . implode(',', $dateColumnsIndices);
+		}
+		if (count($timeColumnsIndices)) {
+			$command .= ' -t' . implode(',', $timeColumnsIndices);
+		}
+		if (count($ignoredColumnsIndices)) {
+			$command .= ' -i' . implode(',', $ignoredColumnsIndices);
+		}
+
+		$this->_command .= ' | ' . $command;
+	}
+
+	public function runDownload($csvFile)
+	{
+		if (!$this->_command) {
+			throw new JobProcessException('You must init the download first');
+		}
+echo $this->_command.PHP_EOL;die();
+		$this->_command .= ' > ' . $csvFile;
+
+		try {
+			$output = Process::exec($this->_command);
+		} catch (ProcessException $e) {
+			throw new JobProcessException(sprintf("CSV download and preparation failed: %s", $e->getMessage()), NULL, $e);
+		}
+		if (!file_exists($csvFile)) {
+			throw new JobProcessException(sprintf("CSV download and preparation failed. Job id is '%s'", basename($this->_tmpDir)));
+		}
+		$this->_command = null;
+	}
+
+
 
 
 	/**
@@ -264,88 +363,13 @@ class CsvHandler
 	}
 
 
-	/**
-	 * Parse csv and prepare for data load
-	 * @param $xmlFileObject
-	 * @param $csvFile
-	 * @throws \Keboola\GoodDataWriter\Exception\JobProcessException
-	 */
-	public function prepareCsv($xmlFileObject, $csvFile)
-	{
-		$csvHeaders = array();
-		$ignoredColumnsIndices = array();
-		$dateColumnsIndices = array();
-		$timeColumnsIndices = array();
-		$i = 1;
-		foreach ($xmlFileObject->columns->column as $column) {
-			$columnName = self::gdName($column->name);
-			$gdName = null;
-			switch ((string)$column->ldmType) {
-				case 'CONNECTION_POINT':
-					$csvHeaders[] = (string)$column->name;
-					break;
-				case 'FACT':
-					$csvHeaders[] = (string)$column->name;
-					break;
-				case 'ATTRIBUTE':
-					$csvHeaders[] = (string)$column->name;
-					break;
-				case 'LABEL':
-				case 'HYPERLINK':
-					$csvHeaders[] = (string)$column->name;
-					break;
-				case 'REFERENCE':
-					$csvHeaders[] = (string)$column->name;
-					break;
-				case 'DATE':
-					$csvHeaders[] = (string)$column->name;
-					$csvHeaders[] = (string)$column->name . '_dt';
-					if ((string)$column->datetime == 'true') {
-						$csvHeaders[] = (string)$column->name . '_tm';
-						$csvHeaders[] = (string)$column->name . '_id';
-
-						$timeColumnsIndices[] = $i;
-					}
-					$dateColumnsIndices[] = $i;
-					break;
-				case 'IGNORE':
-					$ignoredColumnsIndices[] = $i;
-					break;
-			}
-
-			$i++;
-		}
-
-
-		// Add column headers according to manifest, calculate date facts and remove ignored columns
-		rename($csvFile, $csvFile . '.1');
-		$command  = 'cat ' . escapeshellarg($csvFile . '.1') . ' | php ' . escapeshellarg($this->_scriptPath);
-		$command .= ' -h' . implode(',', $csvHeaders);
-		if (count($dateColumnsIndices)) {
-			$command .= ' -d' . implode(',', $dateColumnsIndices);
-		}
-		if (count($timeColumnsIndices)) {
-			$command .= ' -t' . implode(',', $timeColumnsIndices);
-		}
-		if (count($ignoredColumnsIndices)) {
-			$command .= ' -i' . implode(',', $ignoredColumnsIndices);
-		}
-		$command .= ' > ' . escapeshellarg($csvFile);
-		try {
-			$output = Process::exec($command);
-		} catch (ProcessException $e) {
-			throw new JobProcessException(sprintf("CSV preparation failed: %s", $e->getMessage()), NULL, $e);
-		}
-		if (!file_exists($csvFile)) {
-			throw new JobProcessException(sprintf("CSV preparation failed. Job id is '%s'", basename($this->_tmpDir)));
-		}
-		unlink($csvFile . '.1');
-	}
-
 
 	public static function gdName($name)
 	{
-		return preg_replace('/[^a-z\d_]/i', '', strtolower($name));
+		$string = iconv('utf-8', 'ascii//ignore//translit', $name);
+		$string = preg_replace('/[^\w\d_]/', '', $string);
+		$string = preg_replace('/^[\d_]*/', '', $string);
+		return strtolower($string);
 	}
 
 }

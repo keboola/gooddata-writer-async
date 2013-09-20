@@ -59,7 +59,12 @@ while ($line = fgetcsv($fh)) {
 				$resultLine[] = $column;
 			}
 		}
-		fputcsv($stdout, $resultLine);
+
+		$return = array();
+		foreach ($resultLine as $column) {
+			$return[] = '"' . str_replace('"', '""', $column) . '"';
+		}
+		print implode(',', $return) . "\n";
 	} else {
 		fputcsv($stdout, explode(',', $options['h']));
 	}

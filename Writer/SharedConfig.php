@@ -148,7 +148,6 @@ class SharedConfig extends StorageApiConfiguration
 		if (!is_array($job['result'])) {
 			$result = json_decode($job['result'], true);
 			if (isset($result['debug']) && !is_array($result['debug'])) $result['debug'] = json_decode($result['debug'], true);
-			if (isset($result['tmpDir'])) unset($result['tmpDir']);
 			if (isset($result['csvFile'])) unset($result['csvFile']);
 			if ($result) {
 				$job['result'] = $result;
