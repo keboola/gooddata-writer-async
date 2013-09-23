@@ -38,7 +38,7 @@ while ($line = fgetcsv($fh)) {
 		$resultLine = array();
 		foreach ($line as $i => $column) {
 			if (in_array($i+1, $dateColumns)) {
-				// Add date fact (number of dates since 1900-01-01 plus one)
+				// Add date fact (number of days since 1900-01-01 plus one)
 				try {
 					$columnDate = new DateTime($column);
 				} catch(Exception $e) {
@@ -49,6 +49,7 @@ while ($line = fgetcsv($fh)) {
 				$resultLine[] = (int)$columnDate->diff($startDate)->format('%a') + 1;
 
 				if (in_array($i+1, $timeColumns)) {
+					// Add time fact (number of seconds since midnight)
 					$startTime = new DateTime($columnDate->format('Y-m-d 00:00:00'));
 					$seconds = $columnDate->getTimestamp() - $startTime->getTimestamp();
 					$resultLine[] = $seconds;

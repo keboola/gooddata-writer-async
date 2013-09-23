@@ -174,7 +174,7 @@ class CsvHandler
 		if (!$this->_command) {
 			throw new JobProcessException('You must init the download first');
 		}
-echo $this->_command.PHP_EOL;die();
+
 		$this->_command .= ' > ' . $csvFile;
 
 		try {
