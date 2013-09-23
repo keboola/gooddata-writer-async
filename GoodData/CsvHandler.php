@@ -175,7 +175,7 @@ class CsvHandler
 			throw new JobProcessException('You must init the download first');
 		}
 
-		$this->_command .= ' > ' . $csvFile;
+		$this->_command .= ' > ' . escapeshellarg($csvFile);
 
 		try {
 			$output = Process::exec($this->_command);
