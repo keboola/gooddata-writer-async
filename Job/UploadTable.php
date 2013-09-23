@@ -201,7 +201,6 @@ class UploadTable extends GenericJob
 						// Run load task
 						try {
 							$result = $this->restApi->loadData($gdJob['pid'], $tmpFolderName);
-echo date('H:i:s').' GD end'.PHP_EOL;
 							if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
 								$debugFile = $this->tmpDir . '/data-load-log.txt';
 
