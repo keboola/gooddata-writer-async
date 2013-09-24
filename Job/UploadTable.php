@@ -28,7 +28,7 @@ class UploadTable extends GenericJob
 
 		$startTime = time();
 		$tmpFolderName = basename($this->tmpDir);
-		$csvHandler = new CsvHandler($this->rootPath, $this->s3Client, $this->tmpDir);
+		$csvHandler = new CsvHandler($this->scriptsPath, $this->s3Client, $this->tmpDir);
 		$projects = $this->configuration->getProjects();
 		$gdJobs = array();
 

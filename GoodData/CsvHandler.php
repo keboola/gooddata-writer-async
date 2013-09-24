@@ -25,14 +25,14 @@ class CsvHandler
 
 
 	/**
-	 * @param $rootPath
+	 * @param $scriptsPath
 	 * @param $s3Client
 	 * @param $tmpDir
 	 */
-	public function __construct($rootPath, $s3Client, $tmpDir)
+	public function __construct($scriptsPath, $s3Client, $tmpDir)
 	{
-		$this->_scriptPath = $rootPath . '/GoodData/convert_csv.php';
-		$this->_timeDimensionManifestPath = $rootPath . '/GoodData/time-dimension-manifest.json';
+		$this->_scriptPath = $scriptsPath . '/convert_csv.php';
+		$this->_timeDimensionManifestPath = $scriptsPath . '/time-dimension-manifest.json';
 		$this->_s3Client = $s3Client;
 		$this->_tmpDir = $tmpDir;
 	}

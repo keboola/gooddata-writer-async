@@ -233,6 +233,7 @@ class JobExecutor
 			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $clToolApi, $s3Client);
 			$command->tmpDir = $tmpDir;
 			$command->rootPath = $mainConfig['root_path'];
+			$command->scriptsPath = $mainConfig['scripts_path'];
 			$command->log = $this->_log;
 			try {
 				$result = $command->run($job, $parameters);
