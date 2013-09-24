@@ -72,7 +72,7 @@ class WebDav
 		$this->_client->request('MKCOL', '/uploads/' . $targetFolder);
 
 		$command = sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@%s/uploads/%s/upload.zip 2>&1',
-			$sourceFolder . '/upload.zip', urlencode($this->_username), urlencode($this->_password), $this->_url, $targetFolder);
+			escapeshellarg($sourceFolder . '/upload.zip'), urlencode($this->_username), urlencode($this->_password), $this->_url, $targetFolder);
 		try {
 			$output = Process::exec($command);
 		} catch (ProcessException $e) {

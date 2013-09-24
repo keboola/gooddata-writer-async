@@ -154,12 +154,12 @@ class UploadTable extends GenericJob
 				switch ($gdJob['command']) {
 					case 'createDate':
 
-						$dimensionName = CsvHandler::gdName($gdJob['name']);
-						$tmpFolderDimension = $this->tmpDir . '/' . $dimensionName;
-						mkdir($tmpFolderDimension);
-						$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
 						$this->restApi->createDateDimension($gdJob['pid'], $gdJob['name'], $gdJob['includeTime']);
 						if ($gdJob['includeTime']) {
+							$dimensionName = CsvHandler::gdName($gdJob['name']);
+							$tmpFolderDimension = $this->tmpDir . '/' . $dimensionName;
+							mkdir($tmpFolderDimension);
+							$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
 							$timeDimensionManifest = $csvHandler->getTimeDimensionManifest($gdJob['name']);
 							file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
 							copy($this->rootPath . '/GoodData/time-dimension.csv', $tmpFolderDimension . '/data.csv');
