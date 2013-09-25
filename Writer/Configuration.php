@@ -1010,6 +1010,7 @@ class Configuration
 	public function setBucketAttribute($key, $value, $protected = null)
 	{
 		$this->_storageApi->setBucketAttribute($this->bucketId, $key, $value, $protected);
+		$this->bucketInfo[$key] = $value;
 	}
 
 
