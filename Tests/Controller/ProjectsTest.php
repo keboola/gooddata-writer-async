@@ -6,11 +6,10 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Test\WriterTest,
-	Keboola\GoodDataWriter\Writer\Configuration,
+use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\StorageApi\Table as StorageApiTable;
 
-class ProjectsTest extends WriterTest
+class ProjectsTest extends AbstractControllerTest
 {
 
 

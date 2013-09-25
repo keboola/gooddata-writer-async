@@ -50,11 +50,6 @@ class CLToolApi
 	 */
 	public $tmpDir;
 	/**
-	 * @var string
-	 */
-	public $clToolPath;
-	public $rootPath;
-	/**
 	 * @var S3Client
 	 */
 	public $s3client;
@@ -117,7 +112,7 @@ class CLToolApi
 			. ' -h ' . escapeshellarg($this->_backendUrl)
 			. ' --timezone=GMT'
 			. ' -e ' . escapeshellarg($args);
-		$outputFile = $this->tmpDir . '/output-' . uniqid() . '.txt';
+		$outputFile = $this->tmpDir . '/cl-output.txt';
 		file_put_contents($outputFile . '.1', $args . "\n\n");
 
 		$backoffInterval = self::BACKOFF_INTERVAL;
