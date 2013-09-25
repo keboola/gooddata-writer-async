@@ -141,7 +141,7 @@ class UploadTable extends GenericJob
 		$output = null;
 		$error = false;
 		$debug = array(
-			'manifest' => $manifestUrl
+			'1: manifest' => $manifestUrl
 		);
 		try {
 			$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password'], $webdavUrl, $zipPath);
@@ -178,7 +178,7 @@ class UploadTable extends GenericJob
 
 								// Look for .json and .log files in WebDav folder
 								$webDav->saveLogs($tmpFolderNameDimension, $debugFile);
-								$debug['timeDimension'] = $this->s3Client->uploadFile($debugFile, 'text/plain', $tmpFolderName . '/' . $dimensionName . '-log.txt');
+								$debug[(count($debug) + 1) . ': timeDimension'] = $this->s3Client->uploadFile($debugFile, 'text/plain', $tmpFolderName . '/' . $dimensionName . '-log.txt');
 
 								throw new RestApiException('Create Dimension Error. ' . $uploadMessage);
 							}
@@ -224,7 +224,7 @@ class UploadTable extends GenericJob
 				}
 
 				if ($this->clToolApi->debugLogUrl) {
-					$debug[$gdJob['command']] = $this->clToolApi->debugLogUrl;
+					$debug[(count($debug) + 1) . ': ' . $gdJob['command']] = $this->clToolApi->debugLogUrl;
 				}
 				$output .= $this->clToolApi->output;
 			}
@@ -241,6 +241,10 @@ class UploadTable extends GenericJob
 		$callsLog = $this->restApi->callsLog();
 		if ($callsLog) {
 			$output .= "\n\nRest API:\n" . $callsLog;
+		}
+
+		if ($this->clToolApi->debugLogUrl) {
+			$debug[(count($debug) + 1) . ': CL tool'] = $this->clToolApi->debugLogUrl;
 		}
 
 		if (empty($tableDefinition['lastExportDate'])) {
