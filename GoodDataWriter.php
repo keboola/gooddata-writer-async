@@ -69,6 +69,7 @@ class GoodDataWriter extends Component
 		// Init main temp directory
 		$this->_mainConfig = $this->_container->getParameter('gooddata_writer');
 		$tmpDir = $this->_mainConfig['tmp_path'];
+		if (!file_exists($tmpDir)) mkdir($tmpDir);
 
 		$this->configuration = new Configuration($params['writerId'], $this->_storageApi, $tmpDir);
 
@@ -544,7 +545,7 @@ class GoodDataWriter extends Component
 		}
 
 		$mainConfig = empty($params['dev']) ? $this->_mainConfig['gd']['prod'] : $this->_mainConfig['gd']['dev'];
-		$sso = new SSO($this->configuration, $mainConfig);
+		$sso = new SSO($this->configuration, $mainConfig, $this->_mainConfig['tmp_path']);
 
 		$gdProjectUrl = '/#s=/gdc/projects/' . $params['pid'];
 		$ssoLink = $sso->url($gdProjectUrl, $params['email']);
@@ -818,16 +819,18 @@ class GoodDataWriter extends Component
 		$this->configuration->checkGoodDataSetup();
 		$this->configuration->getDateDimensions();
 
+		$batchId = $this->_storageApi->generateId();
+
 		$xml = $this->configuration->getXml($params['tableId']);
-		$xmlName = sprintf('%s-%s-%s.xml', date('His'), uniqid(), $params['tableId']);
-		$xmlName = $this->_s3Client->uploadString($xmlName, $xml, 'text/xml');
+		$xmlUrl = $this->_s3Client->uploadString(sprintf('batch-%s/%s.xml', $batchId, $params['tableId']), $xml, 'text/xml');
 
 		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
 		$jobData = array(
+			'batchId' => $batchId,
 			'command' => 'uploadTable',
 			'dataset' => !empty($tableDefinition['gdName']) ? $tableDefinition['gdName'] : $tableDefinition['tableId'],
 			'createdTime' => date('c', $createdTime),
-			'xmlFile' => $xmlName,
+			'xmlFile' => $xmlUrl,
 			'parameters' => array(
 				'tableId' => $params['tableId']
 			)
@@ -869,26 +872,24 @@ class GoodDataWriter extends Component
 		$this->configuration->checkGoodDataSetup();
 		$this->configuration->getDateDimensions();
 		$runId = $this->_storageApi->getRunId();
-
+		$batchId = $this->_storageApi->generateId();
 
 		// Get tables XML and check them for errors
 		$tables = array();
 		foreach ($this->configuration->definedTables as $tableInfo) if (!empty($tableInfo['export'])) {
-
 			try {
 				$xml = $this->configuration->getXml($tableInfo['tableId']);
 			} catch (WrongConfigurationException $e) {
 				throw new WrongConfigurationException(sprintf('Wrong configuration of table \'%s\': %s', $tableInfo['tableId'], $e->getMessage()));
 			}
-			$xmlName = sprintf('%s-%s-%s.xml', date('His'), uniqid(), $tableInfo['tableId']);
-			$xmlName = $this->_s3Client->uploadString($xmlName, $xml, 'text/xml');
+			$xmlUrl = $this->_s3Client->uploadString(sprintf('batch-%s/%s.xml', $batchId, $tableInfo['tableId']), $xml, 'text/xml');
 			$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
 
 			$tables[$tableInfo['tableId']] = array(
-				'dataset'               => !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'],
-				'tableId'               => $tableInfo['tableId'],
-				'xml'                   => $xmlName,
-				'definition'    => $definition['columns']
+				'dataset' => !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'],
+				'tableId' => $tableInfo['tableId'],
+				'xml' => $xmlUrl,
+				'definition' => $definition['columns']
 			);
 		}
 
@@ -931,7 +932,6 @@ class GoodDataWriter extends Component
 			}
 		}
 
-		$batchId = $this->_storageApi->generateId();
 		foreach ($sortedTables as $table) {
 			$jobData = array(
 				'batchId' => $batchId,

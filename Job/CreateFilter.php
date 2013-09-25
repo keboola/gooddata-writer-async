@@ -11,7 +11,7 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
 
-class createFilter extends GenericJob
+class createFilter extends AbstractJob
 {
 	/**
 	 * @param $job

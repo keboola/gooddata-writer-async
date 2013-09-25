@@ -10,7 +10,7 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
-class ExecuteReports extends GenericJob
+class ExecuteReports extends AbstractJob
 {
 	/**
 	 * @param $job

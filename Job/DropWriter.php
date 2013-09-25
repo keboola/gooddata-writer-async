@@ -9,7 +9,7 @@ namespace Keboola\GoodDataWriter\Job;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException;
 
-class DropWriter extends GenericJob
+class DropWriter extends AbstractJob
 {
 	/**
 	 * @param $job
