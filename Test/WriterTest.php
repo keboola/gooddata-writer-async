@@ -236,6 +236,7 @@ abstract class WriterTest extends WebTestCase
 	 * @param $url
 	 * @param $params
 	 * @param string $method
+	 * @return null
 	 */
 	protected function _processJob($url, $params = array(), $method = 'POST')
 	{
@@ -245,11 +246,13 @@ abstract class WriterTest extends WebTestCase
 		$params['writerId'] = $writerId;
 		$responseJson = $this->_callWriterApi($url, $method, $params);
 
+		$resultId = null;
 		if (isset($responseJson['job'])) {
 			self::$commandTester->execute(array(
 				'command' => 'gooddata-writer:run-job',
 				'job' => $responseJson['job']
 			));
+			$resultId = $responseJson['job'];
 		} else if (isset($responseJson['batch'])) {
 			$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/batch?writerId=%s&batchId=%d', $writerId, $responseJson['batch']));
 
@@ -261,9 +264,11 @@ abstract class WriterTest extends WebTestCase
 					'job' => $job
 				));
 			}
+			$resultId = $responseJson['batch'];
 		} else {
 			$this->assertTrue(false, sprintf("Response for writer call '%s' should contain 'job' or 'batch' key.", $url));
 		}
+		return $resultId;
 	}
 
 	protected  function _createUser()

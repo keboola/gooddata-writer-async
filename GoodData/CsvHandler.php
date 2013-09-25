@@ -43,13 +43,16 @@ class CsvHandler
 	 * @param $sapiUrl
 	 * @param $userAgent
 	 * @param bool $incrementalLoad
+	 * @param string|bool $filterColumn
+	 * @param null $filterValue
 	 */
-	public function initDownload($tableId, $token, $sapiUrl, $userAgent, $incrementalLoad = false)
+	public function initDownload($tableId, $token, $sapiUrl, $userAgent, $incrementalLoad = false, $filterColumn = false, $filterValue = null)
 	{
 		$incrementalLoad = $incrementalLoad ? '&changedSince=-' . $incrementalLoad . '+days' : null;
+		$filter = ($filterColumn && $filterValue) ? '&whereColumn=' . $filterColumn . '&whereValues[]=' . $filterValue : null;
 		$this->_command = sprintf('curl -s --header "Accept-encoding: gzip" --header "X-StorageApi-Token: %s"'
-			.' --user-agent "%s" "%s/v2/storage/tables/%s/export?format=escaped%s" | gzip -d',
-			$token, $userAgent, $sapiUrl, $tableId, $incrementalLoad);
+			.' --user-agent "%s" "%s/v2/storage/tables/%s/export?format=escaped%s%s" | gzip -d',
+			$token, $userAgent, $sapiUrl, $tableId, $incrementalLoad, $filter);
 	}
 
 	/**
@@ -174,7 +177,7 @@ class CsvHandler
 		if (!$this->_command) {
 			throw new JobProcessException('You must init the download first');
 		}
-echo $this->_command.PHP_EOL;die();
+
 		$this->_command .= ' > ' . $csvFile;
 
 		try {

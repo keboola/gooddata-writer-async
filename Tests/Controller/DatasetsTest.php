@@ -276,4 +276,99 @@ class DatasetsTest extends WriterTest
 		$this->assertCount(1, $responseJson['dimensions'], "Response for writer call '/date-dimensions' should contain one dimension.");
 		$this->assertArrayNotHasKey('TestDate', $responseJson['dimensions'], "Response for writer call '/date-dimensions' should not contain dimension 'TestDate'.");
 	}
+
+
+	public function testUploadFilteredTable()
+	{
+		self::$storageApi->createBucket($this->dataBucketName, 'out', 'Writer Test');
+		$filteredTableName = 'filteredTable';
+		$notFilteredTableName = 'notFilteredTable';
+
+
+		// Clone project
+		$this->_processJob('/gooddata-writer/projects', array());
+		$clonedPid = null;
+		foreach (self::$configuration->getProjects() as $p) if (empty($p['main'])) {
+			$clonedPid = $p['pid'];
+		}
+		$this->assertNotEmpty($clonedPid, "Configuration should contain a cloned project.");
+
+
+		// Prepare data
+		$table = new StorageApiTable(self::$storageApi, $this->dataBucketId . '.' . $filteredTableName, null, 'id');
+		$table->setHeader(array('id', 'name', 'pid'));
+		$table->addIndex('pid');
+		$table->setFromArray(array(
+			array('u1', 'User 1', 'x'),
+			array('u2', 'User 2', $clonedPid)
+		));
+		$table->save();
+
+		$table = new StorageApiTable(self::$storageApi, $this->dataBucketId . '.' . $notFilteredTableName, null, 'id');
+		$table->setHeader(array('id', 'name'));
+		$table->setFromArray(array(
+			array('x1', 'X 1'),
+			array('x2', 'X 2')
+		));
+		$table->save();
+
+
+		// Prepare configuration
+		self::$configuration->setBucketAttribute('filterColumn', 'pid');
+
+		$table = new StorageApiTable(self::$storageApi, $this->bucketId . '.c-' . $this->dataBucketName . '_' . $filteredTableName, null, 'name');
+		$table->setAttribute('tableId', $this->dataBucketId . '.' . $filteredTableName);
+		$table->setAttribute('gdName', $filteredTableName);
+		$table->setAttribute('export', '1');
+		$table->setHeader(array('name', 'gdName', 'type', 'dataType', 'dataTypeSize', 'schemaReference', 'reference',
+			'format', 'dateDimension', 'sortLabel', 'sortOrder'));
+		$table->setFromArray(array(
+			array('id', 'Id', 'CONNECTION_POINT', '', '', '', '', '', '', '', ''),
+			array('name', 'Name', 'ATTRIBUTE', '', '', '', '', '', '', '', ''),
+			array('pid', '', 'IGNORE', '', '', '', '', '', '', '', '')
+		));
+		$table->save();
+
+		$table = new StorageApiTable(self::$storageApi, $this->bucketId . '.c-' . $this->dataBucketName . '_' . $notFilteredTableName, null, 'name');
+		$table->setAttribute('tableId', $this->dataBucketId . '.' . $notFilteredTableName);
+		$table->setAttribute('gdName', $notFilteredTableName);
+		$table->setAttribute('export', '1');
+		$table->setHeader(array('name', 'gdName', 'type', 'dataType', 'dataTypeSize', 'schemaReference', 'reference',
+			'format', 'dateDimension', 'sortLabel', 'sortOrder'));
+		$table->setFromArray(array(
+			array('id', 'Id', 'CONNECTION_POINT', '', '', '', '', '', '', '', ''),
+			array('name', 'Name', 'ATTRIBUTE', '', '', '', '', '', '', '', '')
+		));
+		$table->save();
+
+
+		// Run upload
+		$jobId = $this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.' . $notFilteredTableName));
+		$response = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
+		$this->assertArrayHasKey('job', $response, "Response for writer call '/jobs?jobId=' should contain key 'job'.");
+		$this->assertArrayHasKey('result', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.result'.");
+		$this->assertArrayHasKey('status', $response['job']['result'], "Response for writer call '/jobs?jobId=' should contain key 'job.result.status'.");
+		$this->assertEquals('error', $response['job']['result']['status'], "Response for writer call '/jobs?jobId=' should contain key 'job.result.status' with value 'error'.");
+
+		$jobId = $this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.' . $filteredTableName));
+		$response = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
+		print_r($response);
+
+
+		//check dataset in main project if contains all rows
+		//check dataset in clone if contains only filtered rows
+		//try to upload with table without filteredColumn
+
+
+
+
+		// Check existence of datasets in the project
+		/*self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		$data = self::$restApi->get('/gdc/md/' . self::$configuration->bucketInfo['gd']['pid'] . '/data/sets');
+		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
+		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
+		$this->assertCount(1, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with one value.");
+		$this->assertEquals('dataset.categories', $data['dataSetsInfo']['sets'][0]['meta']['identifier'], "GoodData project should contain dataset 'Categories'.");
+		*/
+	}
 }
