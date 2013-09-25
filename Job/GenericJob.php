@@ -61,11 +61,12 @@ abstract class GenericJob
 	abstract function run($job, $params);
 
 
-	protected function _prepareResult($jobId, $data = array(), $callsLog = null)
+	protected function _prepareResult($jobId, $data = array(), $callsLog = null, $folderName = null)
 	{
 		$logUrl = null;
 		if ($callsLog) {
-			$logUrl = $this->s3Client->uploadString('calls-' . $jobId, $callsLog);
+			$fileName = ($folderName ? $folderName : $jobId . '-' . uniqid()) . '/' . 'calls-log.txt';
+			$logUrl = $this->s3Client->uploadString($fileName, $callsLog);
 		}
 
 		if ($logUrl) {
