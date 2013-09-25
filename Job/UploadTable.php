@@ -257,7 +257,7 @@ class UploadTable extends GenericJob
 		if ($error) {
 			$result['error'] = $error;
 		}
-		return $this->_prepareResult($job['id'], $result, $output);
+		return $this->_prepareResult($job['id'], $result, $output, $tmpFolderName);
 	}
 
 
