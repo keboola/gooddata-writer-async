@@ -178,7 +178,7 @@ class UploadTable extends GenericJob
 
 								// Look for .json and .log files in WebDav folder
 								$webDav->saveLogs($tmpFolderNameDimension, $debugFile);
-								$debug['timeDimension'] = $this->s3Client->uploadFile($debugFile);
+								$debug['timeDimension'] = $this->s3Client->uploadFile($debugFile, 'text/plain', $tmpFolderName . '/' . $dimensionName . '-log.txt');
 
 								throw new RestApiException('Create Dimension Error. ' . $uploadMessage);
 							}
@@ -212,7 +212,7 @@ class UploadTable extends GenericJob
 
 								// Look for .json and .log files in WebDav folder
 								$webDav->saveLogs($tmpFolderName, $debugFile);
-								$debug['loadData'] = $this->s3Client->uploadFile($debugFile);
+								$debug['loadData'] = $this->s3Client->uploadFile($debugFile, 'text/plain', $tmpFolderName . '/' . $datasetName . '-log.txt');
 
 								throw new RestApiException('Load Data Error. ' . $uploadMessage);
 							}
