@@ -1001,6 +1001,7 @@ class RestApi
 
 		$backoffInterval = self::BACKOFF_INTERVAL;
 		$error401 = false;
+		$request = null;
 		$response = null;
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
 
@@ -1075,10 +1076,10 @@ class RestApi
 			'method' => $method,
 			'params' => $jsonParams,
 			'headers' => $headers,
-			'response' => $response->getBody(true),
-			'status' => $response->getStatusCode()
+			'response' => $response,
+			'status' => $request ? $request->getResponse()->getStatusCode() : null
 		));
-		throw new RestApiException($response->getBody(true));
+		throw new RestApiException('API error: ' . $response);
 	}
 
 	/**

@@ -29,7 +29,7 @@ class UploadTable extends GenericJob
 		// Init
 		$startTime = time();
 		$tmpFolderName = basename($this->tmpDir);
-		$csvHandler = new CsvHandler($this->rootPath, $this->s3Client, $this->tmpDir);
+		$csvHandler = new CsvHandler($this->scriptsPath, $this->s3Client, $this->tmpDir);
 		$projects = $this->configuration->getProjects();
 		$csvFileSize = 0;
 		$output = null;
@@ -153,12 +153,12 @@ class UploadTable extends GenericJob
 				switch ($gdJob['command']) {
 					case 'createDate':
 
-						$dimensionName = CsvHandler::gdName($gdJob['name']);
-						$tmpFolderDimension = $this->tmpDir . '/' . $dimensionName;
-						mkdir($tmpFolderDimension);
-						$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
 						$this->restApi->createDateDimension($gdJob['pid'], $gdJob['name'], $gdJob['includeTime']);
 						if ($gdJob['includeTime']) {
+							$dimensionName = CsvHandler::gdName($gdJob['name']);
+							$tmpFolderDimension = $this->tmpDir . '/' . $dimensionName;
+							mkdir($tmpFolderDimension);
+							$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
 							$timeDimensionManifest = $csvHandler->getTimeDimensionManifest($gdJob['name']);
 							file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
 							copy($this->rootPath . '/GoodData/time-dimension.csv', $tmpFolderDimension . '/data.csv');
@@ -177,7 +177,7 @@ class UploadTable extends GenericJob
 
 								// Look for .json and .log files in WebDav folder
 								$webDav->saveLogs($tmpFolderNameDimension, $debugFile);
-								$debug['timeDimension'] = $this->s3Client->uploadFile($debugFile);
+								$debug['timeDimension'] = $this->s3Client->uploadFile($debugFile, 'text/plain', $tmpFolderName . '/' . $dimensionName . '-log.txt');
 
 								throw new RestApiException('Create Dimension Error. ' . $uploadMessage);
 							}
@@ -222,7 +222,7 @@ class UploadTable extends GenericJob
 
 								// Look for .json and .log files in WebDav folder
 								$webDav->saveLogs($tmpFolderName, $debugFile);
-								$debug['loadData'] = $this->s3Client->uploadFile($debugFile);
+								$debug['loadData'] = $this->s3Client->uploadFile($debugFile, 'text/plain', $tmpFolderName . '/' . $datasetName . '-log.txt');
 
 								throw new RestApiException('Load Data Error. ' . $uploadMessage);
 							}

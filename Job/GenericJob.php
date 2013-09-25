@@ -42,6 +42,8 @@ abstract class GenericJob
 	public $s3Client;
 	public $tmpDir;
 	public $rootPath;
+	public $scriptsPath;
+	public $log;
 
 
 	public function __construct($configuration, $mainConfig, $sharedConfig, $restApi, $clToolApi, $s3Client)
