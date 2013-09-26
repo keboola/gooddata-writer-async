@@ -188,10 +188,12 @@ class UploadTable extends GenericJob
 
 						break;
 					case 'createDataset':
+						$this->clToolApi->s3Dir = $tmpFolderName;
 						$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 						$this->clToolApi->createDataset($gdJob['pid'], $xmlFile);
 						break;
 					case 'updateDataset':
+						$this->clToolApi->s3Dir = $tmpFolderName;
 						$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 						$this->clToolApi->updateDataset($gdJob['pid'], $xmlFile, 1);
 
