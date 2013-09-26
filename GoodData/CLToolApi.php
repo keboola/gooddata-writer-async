@@ -54,7 +54,6 @@ class CLToolApi
 	 */
 	public $s3client;
 	public $s3Dir;
-	public $jobId;
 
 	/**
 	 * @var
@@ -158,40 +157,6 @@ class CLToolApi
 
 
 	/**
-	 * Set of commands which create a date
-	 * @param string $pid
-	 * @param string $name
-	 * @param bool $includeTime
-	 * @throws CLToolApiErrorException
-	 * @return string|bool
-	 */
-	public function createDate($pid, $name, $includeTime = FALSE)
-	{
-		if (!file_exists($this->tmpDir . '/' . $pid)) {
-			mkdir($this->tmpDir . '/' . $pid);
-		}
-		$maqlFile = $this->tmpDir . '/' . $pid . '/createDate-' . $name . '.maql';
-
-		$command  = 'OpenProject(id="' . $pid . '");';
-		$command .= 'UseDateDimension(name="' . $name . '", includeTime="' . ($includeTime ? 'true' : 'false') . '");';
-		$command .= 'GenerateMaql(maqlFile="' . $maqlFile . '");';
-		$command .= 'ExecuteMaql(maqlFile="' . $maqlFile . '");';
-		$command .= 'TransferData();';
-
-		$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
-
-		$this->call($command);
-
-		if (file_exists($maqlFile)) {
-			$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
-			unlink($maqlFile);
-		} else {
-			throw new CLToolApiErrorException();
-		}
-	}
-
-
-	/**
 	 * Set of commands which create a dataset
 	 * @param string $pid
 	 * @param string $xmlFile
@@ -201,16 +166,13 @@ class CLToolApi
 	public function createDataset($pid, $xmlFile)
 	{
 		if (file_exists($xmlFile)) {
-			if (!file_exists($this->tmpDir . '/' . $pid)) {
-				mkdir($this->tmpDir . '/' . $pid);
-			}
 
 			libxml_use_internal_errors(TRUE);
 			$sxml = simplexml_load_file($xmlFile);
 			if ($sxml) {
 				$datasetName = (string)$sxml->name;
 
-				$maqlFile = $this->tmpDir . '/' . $pid . '/createDataset-' . $datasetName . '.maql';
+				$maqlFile = $this->tmpDir . '/createDataset-' . $datasetName . '.maql';
 
 				$csvFile = $this->tmpDir . '/dummy.csv';
 				if (!file_exists($csvFile)) touch($csvFile);
@@ -255,15 +217,12 @@ class CLToolApi
 	public function updateDataset($pid, $xmlFile, $updateAll=FALSE)
 	{
 		if (file_exists($xmlFile)) {
-			if (!file_exists($this->tmpDir . '/' . $pid)) {
-				mkdir($this->tmpDir . '/' . $pid);
-			}
 
 			libxml_use_internal_errors(TRUE);
 			$sxml = simplexml_load_file($xmlFile);
 			if ($sxml) {
 				$datasetName = (string)$sxml->name;
-				$maqlFile = $this->tmpDir . '/' . $pid . '/updateDataset-' . $datasetName . '.maql';
+				$maqlFile = $this->tmpDir . '/updateDataset-' . $datasetName . '.maql';
 				$csvFile = $this->tmpDir . '/dummy.csv';
 				if (!file_exists($csvFile)) touch($csvFile);
 
