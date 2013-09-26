@@ -143,6 +143,7 @@ class UploadTable extends AbstractJob
 
 		$clToolApi = new CLToolApi($this->log);
 		$clToolApi->tmpDir = $this->tmpDir;
+		$clToolApi->s3Dir = $tmpFolderName;
 		$clToolApi->jobId = $job['id'];
 		$clToolApi->s3client = $this->s3Client;
 		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
@@ -250,11 +251,16 @@ class UploadTable extends AbstractJob
 
 				if ($clToolApi->debugLogUrl) {
 					$debug[(count($debug) + 1) . ': ' . $gdJob['command']] = $clToolApi->debugLogUrl;
+					$clToolApi->debugLogUrl = null;
 				}
 				$output .= $clToolApi->output;
 			}
 		} catch (CLToolApiErrorException $e) {
-			$error = 'CL Tool Error: ' . $e->getMessage();
+			if ($clToolApi->debugLogUrl) {
+				$debug[(count($debug) + 1) . ': CL tool'] = $clToolApi->debugLogUrl;
+				$clToolApi->debugLogUrl = null;
+			}
+			$error = $e->getMessage();
 		} catch (RestApiException $e) {
 			$error = $e->getMessage();
 		} catch (WebDavException $e) {
@@ -266,10 +272,6 @@ class UploadTable extends AbstractJob
 		$callsLog = $this->restApi->callsLog();
 		if ($callsLog) {
 			$output .= "\n\nRest API:\n" . $callsLog;
-		}
-
-		if ($this->clToolApi->debugLogUrl) {
-			$debug[(count($debug) + 1) . ': CL tool'] = $this->clToolApi->debugLogUrl;
 		}
 
 		if (empty($tableDefinition['lastExportDate'])) {
