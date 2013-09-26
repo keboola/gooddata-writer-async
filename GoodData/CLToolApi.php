@@ -53,6 +53,7 @@ class CLToolApi
 	 * @var S3Client
 	 */
 	public $s3client;
+	public $s3Dir;
 	public $jobId;
 
 	/**
@@ -133,7 +134,7 @@ class CLToolApi
 					exec(sprintf('mv %s %s ', escapeshellarg($outputFile . '.D'), escapeshellarg($outputFile)));
 				}
 
-				$this->debugLogUrl = $this->s3client->uploadFile($outputFile);
+				$this->debugLogUrl = $this->s3client->uploadFile($outputFile, 'text/plain', $this->s3Dir . '/cl-output.txt');
 
 				// Test output for runtime error
 				if (shell_exec("egrep 'com.gooddata.exception.HttpMethodException: 401 Unauthorized' " . escapeshellarg($outputFile))) {
