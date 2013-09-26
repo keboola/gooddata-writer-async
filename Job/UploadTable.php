@@ -225,10 +225,15 @@ class UploadTable extends GenericJob
 
 				if ($this->clToolApi->debugLogUrl) {
 					$debug[(count($debug) + 1) . ': ' . $gdJob['command']] = $this->clToolApi->debugLogUrl;
+					$this->clToolApi->debugLogUrl = null;
 				}
 				$output .= $this->clToolApi->output;
 			}
 		} catch (CLToolApiErrorException $e) {
+			if ($this->clToolApi->debugLogUrl) {
+				$debug[(count($debug) + 1) . ': CL tool'] = $this->clToolApi->debugLogUrl;
+				$this->clToolApi->debugLogUrl = null;
+			}
 			$error = 'CL Tool Error: ' . $e->getMessage();
 		} catch (RestApiException $e) {
 			$error = $e->getMessage();
@@ -241,10 +246,6 @@ class UploadTable extends GenericJob
 		$callsLog = $this->restApi->callsLog();
 		if ($callsLog) {
 			$output .= "\n\nRest API:\n" . $callsLog;
-		}
-
-		if ($this->clToolApi->debugLogUrl) {
-			$debug[(count($debug) + 1) . ': CL tool'] = $this->clToolApi->debugLogUrl;
 		}
 
 		if (empty($tableDefinition['lastExportDate'])) {
