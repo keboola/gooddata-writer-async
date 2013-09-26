@@ -92,7 +92,7 @@ class UploadTable extends AbstractJob
 		$manifest = $csvHandler->getManifest($xmlFileObject, $incrementalLoad);
 		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
 		$manifestUrl = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
-		$debug['manifest'] = $manifestUrl;
+		$debug['1: manifest'] = $manifestUrl;
 
 
 		// Find out new date dimensions and enqueue them for creation
@@ -192,7 +192,7 @@ class UploadTable extends AbstractJob
 
 								// Look for .json and .log files in WebDav folder
 								$webDav->saveLogs($tmpFolderNameDimension, $debugFile);
-								$debug['timeDimension'] = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $gdJob['pid'], $dimensionName));
+								$debug[(count($debug) + 1) . ': timeDimension'] = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $gdJob['pid'], $dimensionName));
 
 								throw new RestApiException('Create Dimension Error. ' . $uploadMessage);
 							}
@@ -249,7 +249,7 @@ class UploadTable extends AbstractJob
 				}
 
 				if ($clToolApi->debugLogUrl) {
-					$debug[$gdJob['command']] = $clToolApi->debugLogUrl;
+					$debug[(count($debug) + 1) . ': ' . $gdJob['command']] = $clToolApi->debugLogUrl;
 				}
 				$output .= $clToolApi->output;
 			}
@@ -266,6 +266,10 @@ class UploadTable extends AbstractJob
 		$callsLog = $this->restApi->callsLog();
 		if ($callsLog) {
 			$output .= "\n\nRest API:\n" . $callsLog;
+		}
+
+		if ($this->clToolApi->debugLogUrl) {
+			$debug[(count($debug) + 1) . ': CL tool'] = $this->clToolApi->debugLogUrl;
 		}
 
 		if (empty($tableDefinition['lastExportDate'])) {
