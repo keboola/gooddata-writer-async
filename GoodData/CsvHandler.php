@@ -177,6 +177,7 @@ class CsvHandler
 		$this->_command .= ' > ' . escapeshellarg($csvFile);
 
 		$process = new Process($this->_command);
+		$process->setTimeout(null);
 		$process->run();
 		if (!$process->isSuccessful()) {
 			$e = new JobProcessException("CSV download and preparation failed.");
@@ -341,6 +342,7 @@ class CsvHandler
 		$xmlFilePath = $this->_tmpDir . '/model.xml';
 		$command = 'curl -s -L ' . escapeshellarg($xmlUrl) . ' > ' . escapeshellarg($xmlFilePath);
 		$process = new Process($command);
+		$process->setTimeout(null);
 		$process->run();
 		if (!$process->isSuccessful()) {
 			$e = new JobProcessException('XML download failed.');
