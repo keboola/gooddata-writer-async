@@ -7,8 +7,7 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Keboola\GoodDataWriter\Exception\JobProcessException,
-	Keboola\GoodDataWriter\Service\ProcessException;
-use Keboola\GoodDataWriter\Service\Process;
+	Symfony\Component\Process\Process;
 
 class CsvHandler
 {
@@ -177,11 +176,14 @@ class CsvHandler
 
 		$this->_command .= ' > ' . escapeshellarg($csvFile);
 
-		try {
-			$output = Process::exec($this->_command);
-		} catch (ProcessException $e) {
-			$e = new JobProcessException(sprintf("CSV download and preparation failed. %s", $e->getMessage()), NULL, $e);
-			$e->setData(array('command' => $this->_command));
+		$process = new Process($this->_command);
+		$process->run();
+		if (!$process->isSuccessful()) {
+			$e = new JobProcessException("CSV download and preparation failed.");
+			$e->setData(array(
+				'command' => $this->_command,
+				'error' => $process->getErrorOutput()
+			));
 			throw $e;
 		}
 		if (!file_exists($csvFile)) {
@@ -337,10 +339,16 @@ class CsvHandler
 			$xmlUrl = $this->_s3Client->url($xmlFile);
 		}
 		$xmlFilePath = $this->_tmpDir . '/model.xml';
-		try {
-			$output = Process::exec('curl -s -L ' . escapeshellarg($xmlUrl) . ' > ' . escapeshellarg($xmlFilePath));
-		} catch (ProcessException $e) {
-			throw new JobProcessException(sprintf("XML download failed: %s", $e->getMessage()), NULL, $e);
+		$command = 'curl -s -L ' . escapeshellarg($xmlUrl) . ' > ' . escapeshellarg($xmlFilePath);
+		$process = new Process($command);
+		$process->run();
+		if (!$process->isSuccessful()) {
+			$e = new JobProcessException('XML download failed.');
+			$e->setData(array(
+				'command' => $command,
+				'error' => $process->getErrorOutput()
+			));
+			throw $e;
 		}
 		return $xmlFilePath;
 	}
