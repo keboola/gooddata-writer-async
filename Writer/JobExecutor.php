@@ -217,7 +217,7 @@ class JobExecutor
 			$restApi = new RestApi($backendUrl, $this->_log);
 
 			/**
-			 * @var \Keboola\GoodDataWriter\Job\GenericJob $command
+			 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 			 */
 			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $s3Client);
 			$command->tmpDir = $tmpDir;

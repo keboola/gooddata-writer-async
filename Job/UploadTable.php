@@ -66,6 +66,9 @@ class UploadTable extends AbstractJob
 		$webdavUrl = null;
 		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
 			// Get WebDav url for non-default backend
+			$env = empty($params['dev']) ? 'prod' :'dev';
+			$mainConfig = $this->mainConfig['gd'][$env];
+			$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
 			$gdc = $this->restApi->get('/gdc');
 			if (isset($gdc['about']['links'])) foreach ($gdc['about']['links'] as $link) {
 				if ($link['category'] == 'uploads') {
@@ -91,7 +94,8 @@ class UploadTable extends AbstractJob
 			$xmlFileObject = $csvHandler->getXml($xmlFile);
 		} catch (CsvHandlerException $e) {
 			$this->log->warn('Download of dataset xml failed', array(
-				'e' => (array)$e,
+				'exception' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
 				'job' => $job,
 				'params' => $params
 			));
@@ -280,7 +284,8 @@ class UploadTable extends AbstractJob
 			}
 		} catch (CsvHandlerException $e) {
 			$this->log->warn('Download of data csv failed', array(
-				'e' => (array)$e,
+				'exception' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
 				'job' => $job,
 				'params' => $params
 			));
@@ -295,7 +300,8 @@ class UploadTable extends AbstractJob
 			$error = $e->getMessage();
 		} catch (WebDavException $e) {
 			$this->log->warn('Upload to GoodData WebDav failed', array(
-				'e' => (array)$e,
+				'exception' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
 				'job' => $job,
 				'params' => $params
 			));
