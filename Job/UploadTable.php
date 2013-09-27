@@ -12,12 +12,14 @@ use Keboola\GoodDataWriter\Exception\ClientException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
-use Keboola\GoodDataWriter\GoodData\CsvHandler;
+use Keboola\GoodDataWriter\GoodData\CLToolApi,
+	Keboola\GoodDataWriter\GoodData\CsvHandler,
+	Keboola\GoodDataWriter\GoodData\CsvHandlerException;
 use Keboola\GoodDataWriter\GoodData\WebDav,
 	Keboola\GoodDataWriter\GoodData\WebDavException;
 use Keboola\StorageApi\Client as StorageApiClient;
 
-class UploadTable extends GenericJob
+class UploadTable extends AbstractJob
 {
 	public function run($job, $params)
 	{
@@ -26,19 +28,87 @@ class UploadTable extends GenericJob
 		}
 		$this->configuration->checkGoodDataSetup();
 
+		// Init
 		$startTime = time();
 		$tmpFolderName = basename($this->tmpDir);
-		$csvHandler = new CsvHandler($this->rootPath, $this->s3Client, $this->tmpDir);
+		$csvHandler = new CsvHandler($this->scriptsPath, $this->s3Client, $this->tmpDir);
 		$projects = $this->configuration->getProjects();
-		$gdJobs = array();
+		$csvFileSize = 0;
+		$output = null;
+		$error = false;
+		$debug = array();
+
+		$createDateJobs = array();
+		$updateModelJobs = array();
+		$loadDataJobs = array();
+
+		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
+		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
+			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
+		if (empty($tableDefinition['lastExportDate'])) {
+			$incrementalLoad = 0;
+		}
+		$sanitize = (isset($params['sanitize'])) ? $params['sanitize'] : !empty($tableDefinition['sanitize']);
+
+		$filterColumn = null;
+		if (isset($this->configuration->bucketInfo['filterColumn']) && empty($tableDefinition['ignoreFilter'])) {
+			$filterColumn = $this->configuration->bucketInfo['filterColumn'];
+			$tableInfo = $this->configuration->getTable($params['tableId']);
+			if (!in_array($filterColumn, $tableInfo['columns'])) {
+				throw new WrongConfigurationException("Filter column does not exist in the table");
+			}
+			if (!in_array($filterColumn, $tableInfo['indexedColumns'])) {
+				throw new WrongConfigurationException("Filter column does not have index");
+			}
+		}
+
+		$zipPath = isset($this->mainConfig['zip_path']) ? $this->mainConfig['zip_path'] : null;
+		$webdavUrl = null;
+		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
+			// Get WebDav url for non-default backend
+			$env = empty($params['dev']) ? 'prod' :'dev';
+			$mainConfig = $this->mainConfig['gd'][$env];
+			$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
+			$gdc = $this->restApi->get('/gdc');
+			if (isset($gdc['about']['links'])) foreach ($gdc['about']['links'] as $link) {
+				if ($link['category'] == 'uploads') {
+					$webdavUrl = $link['link'];
+					break;
+				}
+			}
+			if (!$webdavUrl) {
+				throw new JobProcessException(sprintf("Getting of WebDav url for backend '%s' failed.", $this->configuration->bucketInfo['gd']['backendUrl']));
+			}
+		}
+
+		$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+
 
 
 		// Get xml
 		$xmlFile = $job['xmlFile'];
-		if (!is_file($xmlFile)) {
-			$xmlFile = $csvHandler->downloadXml($xmlFile);
+		try {
+			if (!is_file($xmlFile)) {
+				$xmlFile = $csvHandler->downloadXml($xmlFile);
+			}
+			$xmlFileObject = $csvHandler->getXml($xmlFile);
+		} catch (CsvHandlerException $e) {
+			$this->log->warn('Download of dataset xml failed', array(
+				'exception' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+				'job' => $job,
+				'params' => $params
+			));
+			throw new JobProcessException('Download of dataset xml failed');
 		}
-		$xmlFileObject = $csvHandler->getXml($xmlFile);
+
+		$datasetName = CsvHandler::gdName($xmlFileObject->name);
+
+
+		// Get manifest
+		$manifest = $csvHandler->getManifest($xmlFileObject, $incrementalLoad);
+		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
+		$manifestUrl = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
 
 
 		// Find out new date dimensions and enqueue them for creation
@@ -55,11 +125,11 @@ class UploadTable extends GenericJob
 
 			if (empty($dateDimensions[$dimension]['lastExportDate'])) {
 				foreach ($projects as $project) if ($project['active']) {
-					$gdJobs[] = array(
-						'command' => 'createDate',
+					$createDateJobs[] = array(
 						'pid' => $project['pid'],
 						'name' => $dateDimensions[$dimension]['name'],
-						'includeTime' => !empty($dateDimensions[$dimension]['includeTime'])
+						'includeTime' => !empty($dateDimensions[$dimension]['includeTime']),
+						'mainProject' => !empty($project['main'])
 					);
 				}
 			}
@@ -67,174 +137,175 @@ class UploadTable extends GenericJob
 
 
 		// Enqueue jobs for creation/update of dataset and load data
-		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
-		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
-			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
-		if (empty($tableDefinition['lastExportDate'])) {
-			$incrementalLoad = 0;
-		}
-		$sanitize = (isset($params['sanitize'])) ? $params['sanitize']
-			: !empty($tableDefinition['sanitize']);
-
 		foreach ($projects as $project) if ($project['active']) {
 			if (empty($tableDefinition['lastExportDate'])) {
-				$gdJobs[] = array(
-					'command' => 'createDataset',
-					'pid' => $project['pid']
+				$updateModelJobs[] = array(
+					'command' => 'create',
+					'pid' => $project['pid'],
+					'mainProject' => !empty($project['main'])
 				);
 			} else if (empty($tableDefinition['lastChangeDate']) || strtotime($tableDefinition['lastChangeDate']) > strtotime($tableDefinition['lastExportDate'])) {
-				$gdJobs[] = array(
-					'command' => 'updateDataset',
-					'pid' => $project['pid']
+				$updateModelJobs[] = array(
+					'command' => 'update',
+					'pid' => $project['pid'],
+					'mainProject' => !empty($project['main'])
 				);
 			}
 
-			$gdJobs[] = array(
+			$loadDataJobs[] = array(
 				'command' => 'loadData',
-				'pid' => $project['pid']
+				'pid' => $project['pid'],
+				'filterColumn' => ($filterColumn && empty($project['main'])) ? $filterColumn : false,
+				'mainProject' => !empty($project['main'])
 			);
 		}
 
-
-		$datasetName = CsvHandler::gdName($xmlFileObject->name);
-
+		$clToolApi = new CLToolApi($this->log);
+		$clToolApi->s3client = $this->s3Client;
+		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
+			$clToolApi->setBackendUrl($this->configuration->bucketInfo['gd']['backendUrl']);
+		}
+		$clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
 		// Start GoodData transfer
 		$gdWriteStartTime = date('c');
-		$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-
-		// Get csv
-		$csvHandler->initDownload($params['tableId'], $job['token'], $this->mainConfig['storageApi.url'], $this->mainConfig['user_agent'], $incrementalLoad);
-		if ($sanitize) {
-			$csvHandler->prepareSanitization($xmlFileObject);
-		}
-		$csvHandler->prepareTransformation($xmlFileObject);
-		$csvHandler->runDownload($this->tmpDir . '/data.csv');
-		$csvFileSize = filesize($this->tmpDir . '/data.csv');
-
-		// Get manifest
-		$manifest = $csvHandler->getManifest($xmlFileObject, $incrementalLoad);
-		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
-		$manifestUrl = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
-
-
-		// Upload csv
-		$webdavUrl = null;
-		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
-
-			// Get WebDav url for non-default backend
-			$gdc = $this->restApi->get('/gdc');
-			if (isset($gdc['about']['links'])) foreach ($gdc['about']['links'] as $link) {
-				if ($link['category'] == 'uploads') {
-					$webdavUrl = $link['link'];
-					break;
-				}
-			}
-
-			if (!$webdavUrl) {
-				throw new JobProcessException(sprintf("Getting of WebDav url for backend '%s' failed.", $this->configuration->bucketInfo['gd']['backendUrl']));
-			}
-		}
-		$zipPath = isset($this->mainConfig['zip_path']) ? $this->mainConfig['zip_path'] : null;
-
-
-		$output = null;
-		$error = false;
-		$debug = array(
-			'manifest' => $manifestUrl
-		);
 		try {
 			$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password'], $webdavUrl, $zipPath);
-			$webDav->upload($this->tmpDir, $tmpFolderName, 'upload_info.json', 'data.csv');
 
-			// Execute enqueued jobs
-			foreach ($gdJobs as $gdJob) {
-				$this->clToolApi->debugLogUrl = null;
+			$uploadedDimensions = array();
+			foreach ($createDateJobs as $gdJob) {
+				$this->restApi->createDateDimension($gdJob['pid'], $gdJob['name'], $gdJob['includeTime']);
+				if ($gdJob['includeTime']) {
+					$dimensionName = CsvHandler::gdName($gdJob['name']);
+					$tmpFolderDimension = $this->tmpDir . '/' . $dimensionName;
+					$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
 
-				switch ($gdJob['command']) {
-					case 'createDate':
-
-						$dimensionName = CsvHandler::gdName($gdJob['name']);
-						$tmpFolderDimension = $this->tmpDir . '/' . $dimensionName;
+					// Upload csv to WebDav only once for all projects
+					if (!in_array($gdJob['name'], $uploadedDimensions)) {
 						mkdir($tmpFolderDimension);
-						$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
-						$this->restApi->createDateDimension($gdJob['pid'], $gdJob['name'], $gdJob['includeTime']);
-						if ($gdJob['includeTime']) {
-							$timeDimensionManifest = $csvHandler->getTimeDimensionManifest($gdJob['name']);
-							file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
-							copy($this->rootPath . '/GoodData/time-dimension.csv', $tmpFolderDimension . '/data.csv');
-							$csvFileSize += filesize($tmpFolderDimension . '/data.csv');
-							$webDav->upload($tmpFolderDimension, $tmpFolderNameDimension, 'upload_info.json', 'data.csv');
+						$timeDimensionManifest = $csvHandler->getTimeDimensionManifest($gdJob['name']);
+						file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
+						copy($this->scriptsPath . '/time-dimension.csv', $tmpFolderDimension . '/data.csv');
+						$csvFileSize += filesize($tmpFolderDimension . '/data.csv');
+						$webDav->upload($tmpFolderDimension, $tmpFolderNameDimension, $tmpFolderDimension . '/upload_info.json', $tmpFolderDimension . '/data.csv');
+						$uploadedDimensions[] = $gdJob['name'];
+					}
 
-							$result = $this->restApi->loadData($gdJob['pid'], $tmpFolderNameDimension);
-							if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
-								$debugFile = $tmpFolderDimension . '/data-load-log.txt';
+					$result = $this->restApi->loadData($gdJob['pid'], $tmpFolderNameDimension);
+					if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
+						$debugFile = $tmpFolderDimension . '/' . $gdJob['pid'] . '-etl.log';
 
-								// Find upload message
-								$uploadMessage = $this->restApi->getUploadMessage($gdJob['pid'], 'time.' . $dimensionName);
-								if ($uploadMessage) {
-									file_put_contents($debugFile, $uploadMessage . PHP_EOL . PHP_EOL, FILE_APPEND);
-								}
-
-								// Look for .json and .log files in WebDav folder
-								$webDav->saveLogs($tmpFolderNameDimension, $debugFile);
-								$debug['timeDimension'] = $this->s3Client->uploadFile($debugFile);
-
-								throw new RestApiException('Create Dimension Error. ' . $uploadMessage);
-							}
+						// Find upload message
+						$uploadMessage = $this->restApi->getUploadMessage($gdJob['pid'], 'time.' . $dimensionName);
+						if ($uploadMessage) {
+							file_put_contents($debugFile, $uploadMessage . PHP_EOL . PHP_EOL, FILE_APPEND);
 						}
 
-						$this->configuration->setDateDimensionAttribute($gdJob['name'], 'lastExportDate', date('c', $startTime));
-
-						break;
-					case 'createDataset':
-						$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-						$this->clToolApi->createDataset($gdJob['pid'], $xmlFile);
-						break;
-					case 'updateDataset':
-						$this->clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-						$this->clToolApi->updateDataset($gdJob['pid'], $xmlFile, 1);
-
-						break;
-					case 'loadData':
-
-						// Run load task
-						try {
-							$result = $this->restApi->loadData($gdJob['pid'], $tmpFolderName);
-echo date('H:i:s').' GD end'.PHP_EOL;
-							if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
-								$debugFile = $this->tmpDir . '/data-load-log.txt';
-
-								// Find upload message
-								$uploadMessage = $this->restApi->getUploadMessage($gdJob['pid'], $datasetName);
-								if ($uploadMessage) {
-									file_put_contents($debugFile, $uploadMessage . PHP_EOL . PHP_EOL, FILE_APPEND);
-								}
-
-								// Look for .json and .log files in WebDav folder
-								$webDav->saveLogs($tmpFolderName, $debugFile);
-								$debug['loadData'] = $this->s3Client->uploadFile($debugFile);
-
-								throw new RestApiException('Load Data Error. ' . $uploadMessage);
-							}
-						} catch (RestApiException $e) {
-							throw new RestApiException('ETL load failed: ' . $e->getMessage());
+						// Look for .json and .log files in WebDav folder
+						$webDav->saveLogs($tmpFolderNameDimension, $debugFile);
+						$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $gdJob['pid'], $dimensionName));
+						if ($gdJob['mainProject']) {
+							$debug['dimension ' . $gdJob['name']] = $logUrl;
+						} else {
+							$debug[$gdJob['pid']]['dimension ' . $gdJob['name']] = $logUrl;
 						}
 
-						break;
+						throw new RestApiException('Create Dimension Error. ' . $uploadMessage);
+					}
 				}
 
-				if ($this->clToolApi->debugLogUrl) {
-					$debug[$gdJob['command']] = $this->clToolApi->debugLogUrl;
-				}
-				$output .= $this->clToolApi->output;
+				$this->configuration->setDateDimensionAttribute($gdJob['name'], 'lastExportDate', date('c', $startTime));
 			}
+
+			foreach ($updateModelJobs as $gdJob) {
+				$clToolApi->debugLogUrl = null;
+				$clToolApi->s3Dir = $tmpFolderName . '/' . $gdJob['pid'];
+				$clToolApi->tmpDir = $this->tmpDir . '/' . $gdJob['pid'];
+				if (!file_exists($clToolApi->tmpDir)) mkdir($clToolApi->tmpDir);
+				if ($gdJob['command'] == 'create') {
+					$clToolApi->createDataset($gdJob['pid'], $xmlFile);
+				} else {
+					$clToolApi->updateDataset($gdJob['pid'], $xmlFile, 1);
+				}
+				if ($clToolApi->debugLogUrl) {
+					if ($gdJob['mainProject']) {
+						$debug[$gdJob['command'] . ' dataset'] = $clToolApi->debugLogUrl;
+					} else {
+						$debug[$gdJob['pid']][$gdJob['command'] . ' dataset'] = $clToolApi->debugLogUrl;
+					}
+					$clToolApi->debugLogUrl = null;
+				}
+				$output .= $clToolApi->output;
+			}
+
+			$debug['manifest'] = $manifestUrl;
+			foreach ($loadDataJobs as $gdJob) {
+				$dataTmpDir = $this->tmpDir . '/' . $gdJob['pid'];
+				if (!file_exists($dataTmpDir)) mkdir($dataTmpDir);
+
+				$csvHandler->initDownload($params['tableId'], $job['token'], $this->mainConfig['storageApi.url'],
+					$this->mainConfig['user_agent'], $incrementalLoad, $gdJob['filterColumn'], $gdJob['pid']);
+				if ($sanitize) {
+					$csvHandler->prepareSanitization($xmlFileObject);
+				}
+				$csvHandler->prepareTransformation($xmlFileObject);
+				$csvHandler->runDownload($dataTmpDir . '/data.csv');
+				$csvFileSize += filesize($dataTmpDir . '/data.csv');
+
+				$webDavFolder = $tmpFolderName . '-' . $gdJob['pid'];
+				$webDav->upload($dataTmpDir, $webDavFolder, $this->tmpDir . '/upload_info.json', $dataTmpDir . '/data.csv');
+
+				// Run load task
+				try {
+					$result = $this->restApi->loadData($gdJob['pid'], $webDavFolder);
+					if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
+						$debugFile = $dataTmpDir . '/etl.log';
+
+						// Find upload message
+						$uploadMessage = $this->restApi->getUploadMessage($gdJob['pid'], $datasetName);
+						if ($uploadMessage) {
+							file_put_contents($debugFile, $uploadMessage . PHP_EOL . PHP_EOL, FILE_APPEND);
+						}
+
+						// Look for .json and .log files in WebDav folder
+						$webDav->saveLogs($webDavFolder, $debugFile);
+						$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $gdJob['pid'], $datasetName));
+						if ($gdJob['mainProject']) {
+							$debug['load data'] = $logUrl;
+						} else {
+							$debug[$gdJob['pid']]['load data'] = $logUrl;
+						}
+
+						throw new RestApiException('Load Data Error. ' . $uploadMessage);
+					}
+				} catch (RestApiException $e) {
+					throw new RestApiException('ETL load failed: ' . $e->getMessage());
+				}
+			}
+		} catch (CsvHandlerException $e) {
+			$this->log->warn('Download of data csv failed', array(
+				'exception' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+				'job' => $job,
+				'params' => $params
+			));
+			throw new JobProcessException('Download of data csv failed');
 		} catch (CLToolApiErrorException $e) {
-			$error = 'CL Tool Error: ' . $e->getMessage();
+			if ($clToolApi->debugLogUrl) {
+				$debug[(count($debug) + 1) . ': CL tool'] = $clToolApi->debugLogUrl;
+				$clToolApi->debugLogUrl = null;
+			}
+			$error = $e->getMessage();
 		} catch (RestApiException $e) {
 			$error = $e->getMessage();
 		} catch (WebDavException $e) {
-			$error = 'WebDav error: ' . $e->getMessage();
+			$this->log->warn('Upload to GoodData WebDav failed', array(
+				'exception' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+				'job' => $job,
+				'params' => $params
+			));
+			$error = 'Upload to GoodData WebDav failed.';
 		} catch (UnauthorizedException $e) {
 			$error = 'Bad GoodData Credentials: ' . $e->getMessage();
 		}
@@ -252,13 +323,12 @@ echo date('H:i:s').' GD end'.PHP_EOL;
 			'status' => $error ? 'error' : 'success',
 			'debug' => json_encode($debug),
 			'gdWriteBytes' => $csvFileSize,
-			'gdWriteStartTime' => $gdWriteStartTime,
-			'csvFile' => $this->tmpDir . '/data.csv'
+			'gdWriteStartTime' => $gdWriteStartTime
 		);
 		if ($error) {
 			$result['error'] = $error;
 		}
-		return $this->_prepareResult($job['id'], $result, $output);
+		return $this->_prepareResult($job['id'], $result, $output, $tmpFolderName);
 	}
 
 

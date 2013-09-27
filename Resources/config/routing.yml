@@ -1,3 +1,0 @@
-wr_gooddata_home:
-    pattern:  /run
-    defaults: { _controller: KeboolaGoodDataWriter:Default:index }

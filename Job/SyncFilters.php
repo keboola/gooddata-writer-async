@@ -12,7 +12,7 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
-class SyncFilters extends GenericJob {
+class SyncFilters extends AbstractJob {
 
 	function run($job, $params)
 	{

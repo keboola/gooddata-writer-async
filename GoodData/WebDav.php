@@ -9,8 +9,7 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Sabre\DAV;
-use Keboola\GoodDataWriter\Service\Process,
-	Keboola\GoodDataWriter\Service\ProcessException;
+use Symfony\Component\Process\Process;
 
 class WebDavException extends \Exception
 {
@@ -58,25 +57,29 @@ class WebDav
 
 	/**
 	 * Upload compressed json and csv files from sourceFolder to targetFolder
-	 * @param $sourceFolder
-	 * @param $targetFolder
+	 * @param $zipFolder
+	 * @param $davFolder
 	 * @param $jsonFile
-	 * @param $csvFile
 	 * @throws WebDavException
+	 * @param $csvFile
 	 */
-	public function upload($sourceFolder, $targetFolder, $jsonFile, $csvFile)
+	public function upload($zipFolder, $davFolder, $jsonFile, $csvFile)
 	{
+		if (!file_exists($jsonFile)) throw new WebDavException(sprintf("Manifest '%s' for WebDav upload was not found", $jsonFile));
+		if (!file_exists($csvFile)) throw new WebDavException(sprintf("Data csv '%s' for WebDav upload was not found", $csvFile));
+
 		$zipPath = $this->_zipPath ? $this->_zipPath : 'zip';
-		shell_exec($zipPath . ' -j ' . escapeshellarg($sourceFolder . '/upload.zip') . ' '
-			. escapeshellarg($sourceFolder . '/' . $jsonFile) . ' ' . escapeshellarg($sourceFolder . '/' . $csvFile));
-		$this->_client->request('MKCOL', '/uploads/' . $targetFolder);
+		shell_exec($zipPath . ' -j ' . escapeshellarg($zipFolder . '/upload.zip') . ' ' . escapeshellarg($jsonFile) . ' ' . escapeshellarg($csvFile));
+		if (!file_exists($zipFolder . '/upload.zip')) throw new WebDavException(sprintf("Zip file '%s/upload.zip' for WebDav upload was not created", $zipFolder));
+
+		$this->_client->request('MKCOL', '/uploads/' . $davFolder);
 
 		$command = sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@%s/uploads/%s/upload.zip 2>&1',
-			$sourceFolder . '/upload.zip', urlencode($this->_username), urlencode($this->_password), $this->_url, $targetFolder);
-		try {
-			$output = Process::exec($command);
-		} catch (ProcessException $e) {
-			throw new WebDavException(sprintf("Upload to GoodData WebDav failed: %s", $e->getMessage()), NULL, $e);
+			escapeshellarg($zipFolder . '/upload.zip'), urlencode($this->_username), urlencode($this->_password), $this->_url, $davFolder);
+		$process = new Process($command);
+		$process->run();
+		if (!$process->isSuccessful()) {
+			throw new WebDavException($process->getErrorOutput());
 		}
 	}
 
