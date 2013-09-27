@@ -7,13 +7,12 @@
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\Test\WriterTest,
-	Keboola\GoodDataWriter\Writer\Configuration,
+use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\GoodDataWriter\Service\S3Client;
 use Guzzle\Http\Client;
 
-class JobsTest extends WriterTest
+class JobsTest extends AbstractControllerTest
 {
 
 	public function testJobInfo()

@@ -11,7 +11,7 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 
-class InviteUserToProject extends GenericJob
+class InviteUserToProject extends AbstractJob
 {
 	/**
 	 * @param $job

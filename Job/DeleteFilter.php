@@ -12,7 +12,7 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
-class DeleteFilter extends GenericJob {
+class DeleteFilter extends AbstractJob {
 
 	function run($job, $params)
 	{

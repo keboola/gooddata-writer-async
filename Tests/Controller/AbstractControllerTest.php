@@ -3,7 +3,7 @@
  * @author Jakub Matejka <jakub@keboola.com>
  * @date 2013-03-26
  */
-namespace Keboola\GoodDataWriter\Test;
+namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase,
@@ -16,7 +16,7 @@ use Keboola\GoodDataWriter\Command\ExecuteBatchCommand,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable;
 
-abstract class WriterTest extends WebTestCase
+abstract class AbstractControllerTest extends WebTestCase
 {
 	/**
 	 * @var \Keboola\StorageApi\Client
@@ -235,6 +235,7 @@ abstract class WriterTest extends WebTestCase
 	 * @param $url
 	 * @param $params
 	 * @param string $method
+	 * @return null
 	 */
 	protected function _processJob($url, $params = array(), $method = 'POST')
 	{
@@ -243,6 +244,7 @@ abstract class WriterTest extends WebTestCase
 		$params['writerId'] = $writerId;
 		$responseJson = $this->_callWriterApi($url, $method, $params);
 
+		$resultId = null;
 		if (isset($responseJson['job'])) {
 			$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/jobs?writerId=%s&jobId=%d', $writerId, $responseJson['job']));
 
@@ -250,14 +252,17 @@ abstract class WriterTest extends WebTestCase
 				'command' => 'gooddata-writer:execute-batch',
 				'batchId' => $responseJson['job']['batchId']
 			));
+			$resultId = $responseJson['job'];
 		} else if (isset($responseJson['batch'])) {
 			self::$commandTester->execute(array(
 				'command' => 'gooddata-writer:execute-batch',
 				'batchId' => $responseJson['batch']
 			));
+			$resultId = $responseJson['batch'];
 		} else {
 			$this->assertTrue(false, sprintf("Response for writer call '%s' should contain 'job' or 'batch' key.", $url));
 		}
+		return $resultId;
 	}
 
 	protected  function _createUser()

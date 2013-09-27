@@ -113,14 +113,10 @@ class Configuration extends StorageApiConfiguration
 	 * @var string
 	 */
 	public $backendUrl;
-	/**
-	 * @var string
-	 */
-	public $tmpDir;
 
 
 
-	public function __construct($writerId, StorageApiClient $storageApiClient, $tmpDir)
+	public function __construct($writerId, StorageApiClient $storageApiClient)
 	{
 		$this->writerId = $writerId;
 		$this->_storageApiClient = $storageApiClient;
@@ -142,18 +138,9 @@ class Configuration extends StorageApiConfiguration
 			}
 
 			$this->backendUrl = !empty($this->bucketInfo['gd']['backendUrl']) ? $this->bucketInfo['gd']['backendUrl'] : null;
-
-			$this->tmpDir = $tmpDir . '/' . $this->_storageApiClient->token . '-' . $this->bucketId . '-' . uniqid();
-			if (!file_exists($this->tmpDir)) {
-				system('mkdir ' . escapeshellarg($this->tmpDir));
-			}
 		}
 	}
 
-	public function __destruct()
-	{
-		system('rm -rf ' . escapeshellarg($this->tmpDir));
-	}
 
 
 	/**
@@ -884,6 +871,7 @@ class Configuration extends StorageApiConfiguration
 	public function setBucketAttribute($key, $value, $protected = null)
 	{
 		$this->_storageApiClient->setBucketAttribute($this->bucketId, $key, $value, $protected);
+		$this->bucketInfo[$key] = $value;
 	}
 
 

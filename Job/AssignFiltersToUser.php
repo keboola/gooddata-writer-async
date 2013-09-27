@@ -10,7 +10,7 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
-class assignFiltersToUser extends GenericJob
+class assignFiltersToUser extends AbstractJob
 {
 	/**
 	 * @param $job
@@ -27,6 +27,10 @@ class assignFiltersToUser extends GenericJob
 			'userEmail',
 			'pid'
 		));
+
+		if (!is_array($params['filters'])) {
+			throw new WrongConfigurationException("Parameter 'filters' must be an array.");
+		}
 
 		$user = $this->configuration->getUser($params['userEmail']);
 		$filterUris = array();

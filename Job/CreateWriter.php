@@ -11,7 +11,7 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
-class CreateWriter extends GenericJob
+class CreateWriter extends AbstractJob
 {
 	/**
 	 * @param $job

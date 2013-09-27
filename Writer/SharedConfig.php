@@ -148,7 +148,6 @@ class SharedConfig extends StorageApiConfiguration
 		if (!is_array($job['result'])) {
 			$result = json_decode($job['result'], true);
 			if (isset($result['debug']) && !is_array($result['debug'])) $result['debug'] = json_decode($result['debug'], true);
-			if (isset($result['csvFile'])) unset($result['csvFile']);
 			if ($result) {
 				$job['result'] = $result;
 			}
@@ -177,9 +176,18 @@ class SharedConfig extends StorageApiConfiguration
 			}
 			if (!empty($job['result']['debug']) && is_array($job['result']['debug'])) {
 				foreach ($job['result']['debug'] as $key => &$value) {
-					$url = parse_url($value);
-					if (empty($url['host'])) {
-						$value = $s3Client->url($value);
+					if (is_array($value)) {
+						foreach ($value as $k => &$v) {
+							$url = parse_url($v);
+							if (empty($url['host'])) {
+								$v = $s3Client->url($v);
+							}
+						}
+					} else {
+						$url = parse_url($value);
+						if (empty($url['host'])) {
+							$value = $s3Client->url($value);
+						}
 					}
 				}
 			}

@@ -5,11 +5,10 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Test\WriterTest,
-	Keboola\GoodDataWriter\Writer\Configuration,
+use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\StorageApi\Table as StorageApiTable;
 
-class DatasetsTest extends WriterTest
+class DatasetsTest extends AbstractControllerTest
 {
 
 	/*public function testXml()
@@ -277,4 +276,6 @@ class DatasetsTest extends WriterTest
 		$this->assertCount(1, $responseJson['dimensions'], "Response for writer call '/date-dimensions' should contain one dimension.");
 		$this->assertArrayNotHasKey('TestDate', $responseJson['dimensions'], "Response for writer call '/date-dimensions' should not contain dimension 'TestDate'.");
 	}
+
+
 }
