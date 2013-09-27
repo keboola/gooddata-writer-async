@@ -9,8 +9,7 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Sabre\DAV;
-use Keboola\GoodDataWriter\Service\Process,
-	Keboola\GoodDataWriter\Service\ProcessException;
+use Symfony\Component\Process\Process;
 
 class WebDavException extends \Exception
 {
@@ -73,10 +72,10 @@ class WebDav
 
 		$command = sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@%s/uploads/%s/upload.zip 2>&1',
 			escapeshellarg($sourceFolder . '/upload.zip'), urlencode($this->_username), urlencode($this->_password), $this->_url, $targetFolder);
-		try {
-			$output = Process::exec($command);
-		} catch (ProcessException $e) {
-			throw new WebDavException(sprintf("Upload to GoodData WebDav failed: %s", $e->getMessage()), NULL, $e);
+		$process = new Process($command);
+		$process->run();
+		if (!$process->isSuccessful()) {
+			throw new WebDavException('Upload to GoodData WebDav failed: ' . $process->getErrorOutput());
 		}
 	}
 
