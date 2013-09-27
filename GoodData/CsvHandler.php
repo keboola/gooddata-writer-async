@@ -180,10 +180,14 @@ class CsvHandler
 		try {
 			$output = Process::exec($this->_command);
 		} catch (ProcessException $e) {
-			throw new JobProcessException(sprintf("CSV download and preparation failed: %s", $e->getMessage()), NULL, $e);
+			$e = new JobProcessException(sprintf("CSV download and preparation failed. %s", $e->getMessage()), NULL, $e);
+			$e->setData(array('command' => $this->_command));
+			throw $e;
 		}
 		if (!file_exists($csvFile)) {
-			throw new JobProcessException(sprintf("CSV download and preparation failed. Job id is '%s'", basename($this->_tmpDir)));
+			$e = new JobProcessException(sprintf("CSV download and preparation failed. Job id is '%s'", basename($this->_tmpDir)));
+			$e->setData(array('command' => $this->_command));
+			throw $e;
 		}
 		$this->_command = null;
 	}
