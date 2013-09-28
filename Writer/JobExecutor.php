@@ -267,6 +267,12 @@ class JobExecutor
 				->setDuration($duration);
 			$this->_logEvent($sapiEvent);
 
+			$data = $e->getData();
+			if (count($data)) {
+				$data['job'] = $job['id'];
+				$this->_log->warn('Possible Writer Error', $data);
+			}
+
 			return array('status' => 'error', 'error' => $e->getMessage());
 		}
 	}
