@@ -162,7 +162,7 @@ class UploadTable extends GenericJob
 							$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
 							$timeDimensionManifest = $csvHandler->getTimeDimensionManifest($gdJob['name']);
 							file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
-							copy($this->rootPath . '/GoodData/time-dimension.csv', $tmpFolderDimension . '/data.csv');
+							copy($this->scriptsPath . '/time-dimension.csv', $tmpFolderDimension . '/data.csv');
 							$csvFileSize += filesize($tmpFolderDimension . '/data.csv');
 							$webDav->upload($tmpFolderDimension, $tmpFolderNameDimension, 'upload_info.json', 'data.csv');
 
