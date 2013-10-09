@@ -103,7 +103,7 @@ class Configuration
 	private $_tableDefinitionsCache;
 
 
-	public function __construct($writerId, StorageApiClient $storageApi, $tmpDir)
+	public function __construct($writerId, StorageApiClient $storageApi)
 	{
 		$this->writerId = $writerId;
 		$this->_storageApi = $storageApi;
