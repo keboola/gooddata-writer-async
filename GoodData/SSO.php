@@ -42,12 +42,12 @@ class SSO
 			$this->gooddataHost = $configuration->backendUrl;
 	}
 
-	public function url($targetUrl, $email)
+	public function url($targetUrl, $email, $validity = 86400)
 	{
 		$jsonFile = sprintf('%s/%s-%s.json', $this->tmpPath, date('Ymd-His'), uniqid());
 		$signData = array(
 			'email' => $email,
-			'validity' => time() + 60 * 60 * 24
+			'validity' => time() + $validity
 		);
 		file_put_contents($jsonFile, json_encode($signData));
 
