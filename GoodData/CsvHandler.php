@@ -185,6 +185,7 @@ class CsvHandler
 		$this->_command .= ' > ' . escapeshellarg($csvFile);
 
 		$process = new Process($this->_command);
+		$process->setTimeout(null);
 		$process->run();
 		if (!$process->isSuccessful()) {
 			throw new CsvHandlerException($process->getErrorOutput());
@@ -343,6 +344,7 @@ class CsvHandler
 
 		$command = 'curl -s -L ' . escapeshellarg($xmlUrl) . ' > ' . escapeshellarg($xmlFilePath);
 		$process = new Process($command);
+		$process->setTimeout(null);
 		$process->run();
 		if (!$process->isSuccessful()) {
 			throw new CsvHandlerException($process->getErrorOutput());
