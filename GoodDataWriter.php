@@ -837,6 +837,9 @@ class GoodDataWriter extends Component
 				'tableId' => $params['tableId']
 			)
 		);
+		if (isset($params['pid'])) {
+			$jobData['parameters']['pid'] = $params['pid'];
+		}
 		if (isset($params['incrementalLoad'])) {
 			$jobData['parameters']['incrementalLoad'] = $params['incrementalLoad'];
 		}
@@ -946,6 +949,9 @@ class GoodDataWriter extends Component
 					'tableId' => $table['tableId']
 				)
 			);
+			if (isset($params['pid'])) {
+				$jobData['parameters']['pid'] = $params['pid'];
+			}
 			if (isset($params['incrementalLoad'])) {
 				$jobData['parameters']['incrementalLoad'] = $params['incrementalLoad'];
 			}
