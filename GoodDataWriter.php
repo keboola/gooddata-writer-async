@@ -547,9 +547,11 @@ class GoodDataWriter extends Component
 		$sso = new SSO($this->configuration, $mainConfig);
 
 		$gdProjectUrl = '/#s=/gdc/projects/' . $params['pid'];
-		$ssoLink = $sso->url($gdProjectUrl, $params['email']);
+		$validity = (isset($params['validity']))?$params['validity']:86400;
 
-		return array('ssoLink' => $ssoLink);
+		return array(
+			'ssoLink' => $sso->url($gdProjectUrl, $params['email'], $validity)
+		);
 	}
 
 	/***********************
