@@ -150,4 +150,65 @@ class ProjectsTest extends AbstractControllerTest
 		$this->assertEquals(2, $rowsNumber, "Csv of cloned project should contain only one row with header.");
 	}
 
+	public function testUploadChosenProject()
+	{
+		$tableName = 'table';
+		self::$storageApi->createBucket($this->dataBucketName, 'out', 'Writer Test');
+
+		// Clone project
+		$this->_processJob('/gooddata-writer/projects', array());
+		$clonedPid = null;
+		$mainPid = null;
+		foreach (self::$configuration->getProjects() as $p) if (empty($p['main'])) {
+			$clonedPid = $p['pid'];
+		} else {
+			$mainPid = $p['pid'];
+		}
+		$this->assertNotEmpty($clonedPid, "Configuration should contain a cloned project.");
+
+
+		// Prepare data
+		$table = new StorageApiTable(self::$storageApi, $this->dataBucketId . '.' . $tableName, null, 'id');
+		$table->setHeader(array('id', 'name', 'pid'));
+		$table->addIndex('pid');
+		$table->setFromArray(array(
+			array('u1', 'User 1', 'x'),
+			array('u2', 'User 2', $clonedPid)
+		));
+		$table->save();
+
+
+		// Prepare configuration
+		self::$configuration->setBucketAttribute('filterColumn', 'pid');
+
+		self::$configuration->createTableDefinition($this->dataBucketId . '.' . $tableName);
+		self::$configuration->saveColumnDefinition($this->dataBucketId . '.' . $tableName,
+			array('name' => 'id', 'gdName' => 'Id', 'type' => 'CONNECTION_POINT'));
+		self::$configuration->saveColumnDefinition($this->dataBucketId . '.' . $tableName,
+			array('name' => 'name', 'gdName' => 'Name', 'type' => 'ATTRIBUTE'));
+		self::$configuration->saveColumnDefinition($this->dataBucketId . '.' . $tableName,
+			array('name' => 'pid', 'gdName' => '', 'type' => 'IGNORE'));
+
+
+		// Test if upload went only to clone
+		$jobId = $this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.' . $tableName, 'pid' => $clonedPid));
+		$response = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
+		$this->assertArrayHasKey('job', $response, "Response for writer call '/jobs?jobId=' should contain key 'job'.");
+		$this->assertArrayHasKey('result', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.result'.");
+		$this->assertArrayHasKey('status', $response['job']['result'], "Response for writer call '/jobs?jobId=' should contain key 'job.result.status'.");
+		$this->assertEquals('success', $response['job']['result']['status'], "Response for writer call '/jobs?jobId=' should contain key 'job.result.status' with value 'success'.");
+
+		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		$data = self::$restApi->get('/gdc/md/' . $mainPid . '/data/sets');
+		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
+		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
+		$this->assertCount(0, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with no values.");
+
+		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		$data = self::$restApi->get('/gdc/md/' . $clonedPid . '/data/sets');
+		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
+		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
+		$this->assertCount(1, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with one value.");
+	}
+
 }
