@@ -188,10 +188,24 @@ class CsvHandler
 		$process->setTimeout(null);
 		$process->run();
 		if (!$process->isSuccessful()) {
-			throw new CsvHandlerException($process->getErrorOutput());
+			$e = new CsvHandlerException("CSV download and preparation failed. " . $process->getErrorOutput());
+			if (!$process->getErrorOutput()) {
+				$e->setData(array(
+					'priority' => 'alert',
+					'command' => $this->_command,
+					'error' => 'No error output'
+				));
+			}
+			throw $e;
 		}
 		if (!file_exists($csvFile)) {
-			throw new CsvHandlerException('CSV was not downloaded');
+			$e = new CsvHandlerException(sprintf("CSV download and preparation failed. Job id is '%s'", basename($this->_tmpDir)));
+			$e->setData(array(
+				'priority' => 'alert',
+				'command' => $this->_command,
+				'error' => 'Csv not created'
+			));
+			throw $e;
 		}
 		$this->_command = null;
 	}
@@ -347,7 +361,13 @@ class CsvHandler
 		$process->setTimeout(null);
 		$process->run();
 		if (!$process->isSuccessful()) {
-			throw new CsvHandlerException($process->getErrorOutput());
+			$e = new CsvHandlerException('XML download failed.');
+			$e->setData(array(
+				'priority' => 'alert',
+				'command' => $command,
+				'error' => $process->getErrorOutput()
+			));
+			throw $e;
 		}
 		return $xmlFilePath;
 	}

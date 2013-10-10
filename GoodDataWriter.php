@@ -548,9 +548,11 @@ class GoodDataWriter extends Component
 		$sso = new SSO($this->configuration, $mainConfig, $this->_mainConfig['tmp_path']);
 
 		$gdProjectUrl = '/#s=/gdc/projects/' . $params['pid'];
-		$ssoLink = $sso->url($gdProjectUrl, $params['email']);
+		$validity = (isset($params['validity']))?$params['validity']:86400;
 
-		return array('ssoLink' => $ssoLink);
+		return array(
+			'ssoLink' => $sso->url($gdProjectUrl, $params['email'], $validity)
+		);
 	}
 
 	/***********************
@@ -902,7 +904,7 @@ class GoodDataWriter extends Component
 		$allTableIds = array_keys($tables);
 		foreach ($tables as $tableId => $tableConfig) {
 			$unsortedTables[$tableId] = $tableConfig;
-			foreach ($tableConfig['definition'] as $c) if (!empty($c['schemaReference'])) {
+			foreach ($tableConfig['definition'] as $c) if ($c['type'] == 'REFERENCE' && !empty($c['schemaReference'])) {
 				if (in_array($c['schemaReference'], $allTableIds)) {
 					$references[$tableId][] = $c['schemaReference'];
 				} else {

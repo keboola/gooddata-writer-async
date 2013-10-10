@@ -257,6 +257,25 @@ class Configuration
 		$csv = $this->_storageApi->exportTable($this->definedTables[$tableId]['definitionId']);
 		$tableDefinition = array();
 		foreach (StorageApiClient::parseCsv($csv) as $row) {
+
+			if ($row['type'] != 'ATTRIBUTE' && $row['sortLabel']) {
+				$row['sortLabel'] = null;
+			}
+			if ($row['type'] != 'ATTRIBUTE' && $row['sortOrder']) {
+				$row['sortOrder'] = null;
+			}
+			if ($row['type'] != 'REFERENCE' && $row['schemaReference']) {
+				$row['schemaReference'] = null;
+			}
+			if (!in_array($row['type'], array('REFERENCE', 'HYPERLINK', 'LABEL')) && $row['reference']) {
+				$row['reference'] = null;
+			}
+			if ($row['type'] != 'DATE' && $row['format']) {
+				$row['format'] = null;
+			}
+			if ($row['type'] != 'DATE' && $row['dateDimension']) {
+				$row['dateDimension'] = null;
+			}
 			if (!empty($row['dataTypeSize'])) {
 				$row['dataTypeSize'] = (int)$row['dataTypeSize'];
 			}
