@@ -901,7 +901,7 @@ class GoodDataWriter extends Component
 		$allTableIds = array_keys($tables);
 		foreach ($tables as $tableId => $tableConfig) {
 			$unsortedTables[$tableId] = $tableConfig;
-			foreach ($tableConfig['definition'] as $c) if (!empty($c['schemaReference'])) {
+			foreach ($tableConfig['definition'] as $c) if ($c['type'] == 'REFERENCE' && !empty($c['schemaReference'])) {
 				if (in_array($c['schemaReference'], $allTableIds)) {
 					$references[$tableId][] = $c['schemaReference'];
 				} else {
