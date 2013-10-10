@@ -7,8 +7,7 @@
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\Csv\CsvFile;
-use Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\StorageApi\Table as StorageApiTable;
+use Keboola\StorageApi\Table as StorageApiTable;
 
 class ProjectsTest extends AbstractControllerTest
 {
