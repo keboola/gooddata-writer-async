@@ -50,11 +50,6 @@ class CLToolApi
 	 */
 	public $tmpDir;
 	/**
-	 * @var string
-	 */
-	public $clToolPath;
-	public $rootPath;
-	/**
 	 * @var S3Client
 	 */
 	public $s3client;
@@ -118,7 +113,7 @@ class CLToolApi
 			. ' -h ' . escapeshellarg($this->_backendUrl)
 			. ' --timezone=GMT'
 			. ' -e ' . escapeshellarg($args);
-		$outputFile = $this->tmpDir . '/output-' . uniqid() . '.txt';
+		$outputFile = $this->tmpDir . '/cl-output.txt';
 		file_put_contents($outputFile . '.1', $args . "\n\n");
 
 		$backoffInterval = self::BACKOFF_INTERVAL;
@@ -139,7 +134,7 @@ class CLToolApi
 					exec(sprintf('mv %s %s ', escapeshellarg($outputFile . '.D'), escapeshellarg($outputFile)));
 				}
 
-				$this->debugLogUrl = $this->s3client->uploadFile($outputFile, 'text/plain', $this->s3Dir . '/output-cl.txt');
+				$this->debugLogUrl = $this->s3client->uploadFile($outputFile, 'text/plain', $this->s3Dir . '/cl-output.txt');
 
 				// Test output for runtime error
 				if (shell_exec("egrep 'com.gooddata.exception.HttpMethodException: 401 Unauthorized' " . escapeshellarg($outputFile))) {
@@ -163,40 +158,6 @@ class CLToolApi
 
 
 	/**
-	 * Set of commands which create a date
-	 * @param string $pid
-	 * @param string $name
-	 * @param bool $includeTime
-	 * @throws CLToolApiErrorException
-	 * @return string|bool
-	 */
-	public function createDate($pid, $name, $includeTime = FALSE)
-	{
-		if (!file_exists($this->tmpDir . '/' . $pid)) {
-			mkdir($this->tmpDir . '/' . $pid);
-		}
-		$maqlFile = $this->tmpDir . '/' . $pid . '/createDate-' . $name . '.maql';
-
-		$command  = 'OpenProject(id="' . $pid . '");';
-		$command .= 'UseDateDimension(name="' . $name . '", includeTime="' . ($includeTime ? 'true' : 'false') . '");';
-		$command .= 'GenerateMaql(maqlFile="' . $maqlFile . '");';
-		$command .= 'ExecuteMaql(maqlFile="' . $maqlFile . '");';
-		$command .= 'TransferData();';
-
-		$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
-
-		$this->call($command);
-
-		if (file_exists($maqlFile)) {
-			$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
-			unlink($maqlFile);
-		} else {
-			throw new CLToolApiErrorException();
-		}
-	}
-
-
-	/**
 	 * Set of commands which create a dataset
 	 * @param string $pid
 	 * @param string $xmlFile
@@ -206,16 +167,13 @@ class CLToolApi
 	public function createDataset($pid, $xmlFile)
 	{
 		if (file_exists($xmlFile)) {
-			if (!file_exists($this->tmpDir . '/' . $pid)) {
-				mkdir($this->tmpDir . '/' . $pid);
-			}
 
 			libxml_use_internal_errors(TRUE);
 			$sxml = simplexml_load_file($xmlFile);
 			if ($sxml) {
 				$datasetName = (string)$sxml->name;
 
-				$maqlFile = $this->tmpDir . '/' . $pid . '/createDataset-' . $datasetName . '.maql';
+				$maqlFile = $this->tmpDir . '/createDataset-' . $datasetName . '.maql';
 
 				$csvFile = $this->tmpDir . '/dummy.csv';
 				if (!file_exists($csvFile)) touch($csvFile);
@@ -260,15 +218,12 @@ class CLToolApi
 	public function updateDataset($pid, $xmlFile, $updateAll=FALSE)
 	{
 		if (file_exists($xmlFile)) {
-			if (!file_exists($this->tmpDir . '/' . $pid)) {
-				mkdir($this->tmpDir . '/' . $pid);
-			}
 
 			libxml_use_internal_errors(TRUE);
 			$sxml = simplexml_load_file($xmlFile);
 			if ($sxml) {
 				$datasetName = (string)$sxml->name;
-				$maqlFile = $this->tmpDir . '/' . $pid . '/updateDataset-' . $datasetName . '.maql';
+				$maqlFile = $this->tmpDir . '/updateDataset-' . $datasetName . '.maql';
 				$csvFile = $this->tmpDir . '/dummy.csv';
 				if (!file_exists($csvFile)) touch($csvFile);
 

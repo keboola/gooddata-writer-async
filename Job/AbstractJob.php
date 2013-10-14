@@ -6,15 +6,13 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\Writer\SharedConfig,
 	Keboola\GoodDataWriter\GoodData\RestApi,
-	Keboola\GoodDataWriter\GoodData\CLToolApi,
 	Keboola\GoodDataWriter\Service\S3Client;
 
-abstract class GenericJob
+abstract class AbstractJob
 {
 	/**
 	 * @var Configuration
@@ -33,20 +31,19 @@ abstract class GenericJob
 	 */
 	public $restApi;
 	/**
-	 * @var CLToolApi
-	 */
-	public $clToolApi;
-	/**
 	 * @var S3Client
 	 */
 	public $s3Client;
 	public $tmpDir;
 	public $rootPath;
 	public $scriptsPath;
+	/**
+	 * @var \Monolog\Logger
+	 */
 	public $log;
 
 
-	public function __construct($configuration, $mainConfig, $sharedConfig, $restApi, $clToolApi, $s3Client)
+	public function __construct($configuration, $mainConfig, $sharedConfig, $restApi, $s3Client)
 	{
 		$this->configuration = $configuration;
 		$this->mainConfig = $mainConfig;
@@ -54,7 +51,6 @@ abstract class GenericJob
 		$this->s3Client = $s3Client;
 
 		$this->restApi = $restApi;
-		$this->clToolApi = $clToolApi;
 	}
 
 
@@ -65,7 +61,7 @@ abstract class GenericJob
 	{
 		$logUrl = null;
 		if ($callsLog) {
-			$fileName = ($folderName ? $folderName : $jobId . '-' . uniqid()) . '/' . 'calls-log.txt';
+			$fileName = ($folderName ? $folderName : $jobId) . '/' . 'api-calls.log';
 			$logUrl = $this->s3Client->uploadString($fileName, $callsLog);
 		}
 
