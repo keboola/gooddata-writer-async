@@ -32,13 +32,15 @@ class CsvHandler
 	 * @param $scriptsPath
 	 * @param $s3Client
 	 * @param $tmpDir
+	 * @param $jobId
 	 */
-	public function __construct($scriptsPath, $s3Client, $tmpDir)
+	public function __construct($scriptsPath, $s3Client, $tmpDir, $jobId)
 	{
 		$this->_scriptPath = $scriptsPath . '/convert_csv.php';
 		$this->_timeDimensionManifestPath = $scriptsPath . '/time-dimension-manifest.json';
 		$this->_s3Client = $s3Client;
 		$this->_tmpDir = $tmpDir;
+		$this->_jobId = $jobId;
 	}
 
 	/**
@@ -55,8 +57,8 @@ class CsvHandler
 		$incrementalLoad = $incrementalLoad ? '&changedSince=-' . $incrementalLoad . '+days' : null;
 		$filter = ($filterColumn && $filterValue) ? '&whereColumn=' . $filterColumn . '&whereValues[]=' . $filterValue : null;
 		$this->_command = sprintf('curl -g -s --header "Accept-encoding: gzip" --header "X-StorageApi-Token: %s"'
-			.' --user-agent "%s" "%s/v2/storage/tables/%s/export?format=escaped%s%s" | gzip -d',
-			$token, $userAgent, $sapiUrl, $tableId, $incrementalLoad, $filter);
+			.' --header "X-KBC-RunId: %d" --user-agent "%s" "%s/v2/storage/tables/%s/export?format=escaped%s%s" | gzip -d',
+			$token, $this->_jobId, $userAgent, $sapiUrl, $tableId, $incrementalLoad, $filter);
 	}
 
 	/**

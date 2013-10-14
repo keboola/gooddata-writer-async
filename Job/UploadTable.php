@@ -31,7 +31,7 @@ class UploadTable extends AbstractJob
 		// Init
 		$startTime = time();
 		$tmpFolderName = basename($this->tmpDir);
-		$csvHandler = new CsvHandler($this->scriptsPath, $this->s3Client, $this->tmpDir);
+		$csvHandler = new CsvHandler($this->scriptsPath, $this->s3Client, $this->tmpDir, $job['id']);
 		$projects = $this->configuration->getProjects();
 		$csvFileSize = 0;
 		$output = null;
