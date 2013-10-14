@@ -77,6 +77,7 @@ class WebDav
 		$command = sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@%s/uploads/%s/upload.zip 2>&1',
 			escapeshellarg($zipFolder . '/upload.zip'), urlencode($this->_username), urlencode($this->_password), $this->_url, $davFolder);
 		$process = new Process($command);
+		$process->setTimeout(null);
 		$process->run();
 		if (!$process->isSuccessful()) {
 			throw new WebDavException($process->getErrorOutput());

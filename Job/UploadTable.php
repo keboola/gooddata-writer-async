@@ -31,7 +31,7 @@ class UploadTable extends AbstractJob
 		// Init
 		$startTime = time();
 		$tmpFolderName = basename($this->tmpDir);
-		$csvHandler = new CsvHandler($this->scriptsPath, $this->s3Client, $this->tmpDir);
+		$csvHandler = new CsvHandler($this->scriptsPath, $this->s3Client, $this->tmpDir, $job['id']);
 		$projects = $this->configuration->getProjects();
 		$csvFileSize = 0;
 		$output = null;
@@ -137,7 +137,14 @@ class UploadTable extends AbstractJob
 
 
 		// Enqueue jobs for creation/update of dataset and load data
+		$usedProjects = array();
+		$chosenProject = null;
 		foreach ($projects as $project) if ($project['active']) {
+			if (in_array($project['pid'], $usedProjects)) {
+				throw new WrongConfigurationException("Project '" . $project['pid'] . "' is duplicated in configuration");
+			}
+			$usedProjects[] = $project['pid'];
+
 			if (empty($tableDefinition['lastExportDate'])) {
 				$updateModelJobs[] = array(
 					'command' => 'create',
@@ -152,12 +159,18 @@ class UploadTable extends AbstractJob
 				);
 			}
 
-			$loadDataJobs[] = array(
-				'command' => 'loadData',
-				'pid' => $project['pid'],
-				'filterColumn' => ($filterColumn && empty($project['main'])) ? $filterColumn : false,
-				'mainProject' => !empty($project['main'])
-			);
+			if (!isset($params['pid'])  || $project['pid'] == $params['pid']) {
+				$chosenProject = $project['pid'];
+				$loadDataJobs[] = array(
+					'command' => 'loadData',
+					'pid' => $project['pid'],
+					'filterColumn' => ($filterColumn && empty($project['main'])) ? $filterColumn : false,
+					'mainProject' => !empty($project['main'])
+				);
+			}
+		}
+		if (isset($params['pid']) && !$chosenProject) {
+			throw new WrongConfigurationException("Project '" . $params['pid'] . "' was not found in configuration");
 		}
 
 		$clToolApi = new CLToolApi($this->log);
