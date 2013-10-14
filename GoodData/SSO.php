@@ -30,9 +30,9 @@ class SSO
 
 	protected $gooddataHost = 'secure.gooddata.com';
 
-	public function __construct(Configuration $configuration, array $mainConfig)
+	public function __construct(Configuration $configuration, array $mainConfig, $tmpPath)
 	{
-		$this->tmpPath = $configuration->tmpDir;
+		$this->tmpPath = $tmpPath;
 
 		$this->ssoProvider = $mainConfig['sso_provider'];
 		$this->ssoUser = $mainConfig['username'];

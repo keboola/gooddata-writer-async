@@ -1187,6 +1187,10 @@ class RestApi
 
 	public function callsLog()
 	{
-		return json_encode($this->_callsLog);
+		if (!defined('JSON_PRETTY_PRINT')) {
+			// fallback for PHP <= 5.3
+			define('JSON_PRETTY_PRINT', 0);
+		}
+		return json_encode($this->_callsLog, JSON_PRETTY_PRINT);
 	}
 }

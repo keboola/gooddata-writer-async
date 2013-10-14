@@ -6,8 +6,13 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
-use Keboola\GoodDataWriter\Exception\JobProcessException,
-	Symfony\Component\Process\Process;
+use Symfony\Component\Process\Process;
+use Keboola\GoodDataWriter\Exception\JobProcessException;
+
+class CsvHandlerException extends \Exception
+{
+
+}
 
 class CsvHandler
 {
@@ -42,13 +47,16 @@ class CsvHandler
 	 * @param $sapiUrl
 	 * @param $userAgent
 	 * @param bool $incrementalLoad
+	 * @param string|bool $filterColumn
+	 * @param null $filterValue
 	 */
-	public function initDownload($tableId, $token, $sapiUrl, $userAgent, $incrementalLoad = false)
+	public function initDownload($tableId, $token, $sapiUrl, $userAgent, $incrementalLoad = false, $filterColumn = false, $filterValue = null)
 	{
 		$incrementalLoad = $incrementalLoad ? '&changedSince=-' . $incrementalLoad . '+days' : null;
-		$this->_command = sprintf('curl -s --header "Accept-encoding: gzip" --header "X-StorageApi-Token: %s"'
-			.' --user-agent "%s" "%s/v2/storage/tables/%s/export?format=escaped%s" | gzip -d',
-			$token, $userAgent, $sapiUrl, $tableId, $incrementalLoad);
+		$filter = ($filterColumn && $filterValue) ? '&whereColumn=' . $filterColumn . '&whereValues[]=' . $filterValue : null;
+		$this->_command = sprintf('curl -g -s --header "Accept-encoding: gzip" --header "X-StorageApi-Token: %s"'
+			.' --user-agent "%s" "%s/v2/storage/tables/%s/export?format=escaped%s%s" | gzip -d',
+			$token, $userAgent, $sapiUrl, $tableId, $incrementalLoad, $filter);
 	}
 
 	/**
@@ -171,7 +179,7 @@ class CsvHandler
 	public function runDownload($csvFile)
 	{
 		if (!$this->_command) {
-			throw new JobProcessException('You must init the download first');
+			throw new CsvHandlerException('You must init the download first');
 		}
 
 		$this->_command .= ' > ' . escapeshellarg($csvFile);
@@ -180,7 +188,7 @@ class CsvHandler
 		$process->setTimeout(null);
 		$process->run();
 		if (!$process->isSuccessful()) {
-			$e = new JobProcessException("CSV download and preparation failed. " . $process->getErrorOutput());
+			$e = new CsvHandlerException("CSV download and preparation failed. " . $process->getErrorOutput());
 			if (!$process->getErrorOutput()) {
 				$e->setData(array(
 					'priority' => 'alert',
@@ -191,7 +199,7 @@ class CsvHandler
 			throw $e;
 		}
 		if (!file_exists($csvFile)) {
-			$e = new JobProcessException(sprintf("CSV download and preparation failed. Job id is '%s'", basename($this->_tmpDir)));
+			$e = new CsvHandlerException(sprintf("CSV download and preparation failed. Job id is '%s'", basename($this->_tmpDir)));
 			$e->setData(array(
 				'priority' => 'alert',
 				'command' => $this->_command,
@@ -336,7 +344,7 @@ class CsvHandler
 	/**
 	 * Download xml to disk
 	 * @param $xmlFile
-	 * @throws \Keboola\GoodDataWriter\Exception\JobProcessException
+	 * @throws CsvHandlerException
 	 * @return string
 	 */
 	public function downloadXml($xmlFile)
@@ -347,12 +355,13 @@ class CsvHandler
 			$xmlUrl = $this->_s3Client->url($xmlFile);
 		}
 		$xmlFilePath = $this->_tmpDir . '/model.xml';
+
 		$command = 'curl -s -L ' . escapeshellarg($xmlUrl) . ' > ' . escapeshellarg($xmlFilePath);
 		$process = new Process($command);
 		$process->setTimeout(null);
 		$process->run();
 		if (!$process->isSuccessful()) {
-			$e = new JobProcessException('XML download failed.');
+			$e = new CsvHandlerException('XML download failed.');
 			$e->setData(array(
 				'priority' => 'alert',
 				'command' => $command,
@@ -367,7 +376,7 @@ class CsvHandler
 	 * Save and parse definition xml
 	 * @param $xmlFile
 	 * @return \SimpleXMLElement
-	 * @throws \Keboola\GoodDataWriter\Exception\JobProcessException
+	 * @throws CsvHandlerException
 	 */
 	public function getXml($xmlFile)
 	{
@@ -378,7 +387,7 @@ class CsvHandler
 			foreach (libxml_get_errors() as $error) {
 				$errors .= $error->message;
 			}
-			throw new JobProcessException('XML load error: ' . $errors);
+			throw new CsvHandlerException($errors);
 		}
 
 		return $xmlFileObject;

@@ -15,7 +15,6 @@ use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Exception as StorageApiException;
 use Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\GoodData\RestApi,
-	Keboola\GoodDataWriter\GoodData\CLToolApi,
 	Keboola\GoodDataWriter\Exception\ClientException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Monolog\Logger;
@@ -205,10 +204,8 @@ class JobExecutor
 			$mainConfig = $this->_container->getParameter('gooddata_writer');
 			$mainConfig['storageApi.url'] = $this->_container->getParameter('storageApi.url');
 
-			$tmpDir = sprintf('%s/%s-%s', $mainConfig['tmp_path'], $job['id'], uniqid());
-			if (!file_exists($tmpDir)) {
-				mkdir($tmpDir);
-			}
+			$tmpDir = sprintf('%s/%s', $mainConfig['tmp_path'], $job['id']);
+			if (!file_exists($tmpDir)) mkdir($tmpDir);
 
 			$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
 
@@ -219,20 +216,11 @@ class JobExecutor
 
 			$restApi = new RestApi($backendUrl, $this->_log);
 
-			$clToolApi = new CLToolApi($this->_log);
-			$clToolApi->tmpDir = $tmpDir;
-			$clToolApi->clToolPath = $mainConfig['cli_path'];
-			$clToolApi->rootPath = $mainConfig['root_path'];
-			$clToolApi->jobId = $job['id'];
-			$clToolApi->s3client = $s3Client;
-			if ($backendUrl) $clToolApi->setBackendUrl($backendUrl);
-
 			/**
-			 * @var \Keboola\GoodDataWriter\Job\GenericJob $command
+			 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 			 */
-			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $clToolApi, $s3Client);
+			$command = new $commandClass($configuration, $mainConfig, $this->_sharedConfig, $restApi, $s3Client);
 			$command->tmpDir = $tmpDir;
-			$command->rootPath = $mainConfig['root_path'];
 			$command->scriptsPath = $mainConfig['scripts_path'];
 			$command->log = $this->_log;
 			try {

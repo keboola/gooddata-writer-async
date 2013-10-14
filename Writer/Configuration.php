@@ -61,10 +61,6 @@ class Configuration
 	 * @var string
 	 */
 	public $backendUrl;
-	/**
-	 * @var string
-	 */
-	public $tmpDir;
 
 
 	/**
@@ -107,7 +103,7 @@ class Configuration
 	private $_tableDefinitionsCache;
 
 
-	public function __construct($writerId, StorageApiClient $storageApi, $tmpDir)
+	public function __construct($writerId, StorageApiClient $storageApi)
 	{
 		$this->writerId = $writerId;
 		$this->_storageApi = $storageApi;
@@ -129,11 +125,6 @@ class Configuration
 			}
 
 			$this->backendUrl = !empty($this->bucketInfo['gd']['backendUrl']) ? $this->bucketInfo['gd']['backendUrl'] : null;
-
-			$this->tmpDir = $tmpDir . '/' . $this->_storageApi->token . '-' . $this->bucketId . '-' . uniqid();
-			if (!file_exists($this->tmpDir)) {
-				system('mkdir ' . escapeshellarg($this->tmpDir));
-			}
 		}
 
 		$this->_tablesCache = array();
@@ -141,10 +132,6 @@ class Configuration
 		$this->_outputTables = array();
 	}
 
-	public function __destruct()
-	{
-		system('rm -rf ' . escapeshellarg($this->tmpDir));
-	}
 
 
 	/**
@@ -1029,6 +1016,7 @@ class Configuration
 	public function setBucketAttribute($key, $value, $protected = null)
 	{
 		$this->_storageApi->setBucketAttribute($this->bucketId, $key, $value, $protected);
+		$this->bucketInfo[$key] = $value;
 	}
 
 
