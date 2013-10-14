@@ -54,6 +54,7 @@ class CLToolApi
 	 */
 	public $s3client;
 	public $s3Dir;
+	public $jobId;
 
 	/**
 	 * @var

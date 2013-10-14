@@ -5,8 +5,7 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\StorageApi\Table as StorageApiTable;
+use Keboola\Csv\CsvFile;
 
 class DatasetsTest extends AbstractControllerTest
 {
@@ -60,8 +59,13 @@ class DatasetsTest extends AbstractControllerTest
 			}
 		}
 		$this->assertTrue($dateFound, "Date dimension has not been found in GoodData");
+		$this->assertTrue($dateTimeFound, "Time dimension has not been found in GoodData");
 		$this->assertTrue($categoriesFound, "Dataset 'Categories' has not been found in GoodData");
 		$this->assertTrue($productsFound, "Dataset 'Products' has not been found in GoodData");
+
+		$this->assertTrue($dateTimeDataLoad, "Data to time dimension has not been loaded to GoodData");
+		$this->assertTrue($categoriesDataLoad, "Data to dataset 'Categories' has not been loaded to GoodData");
+		$this->assertTrue($productsDataLoad, "Data to dataset 'Products' has not been loaded to GoodData");
 	}
 
 
@@ -69,7 +73,7 @@ class DatasetsTest extends AbstractControllerTest
 	{
 		$this->_prepareData();
 
-		$this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.categories'));
+		$jobId = $this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.categories'));
 
 		// Check existence of datasets in the project
 		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
@@ -78,6 +82,16 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
 		$this->assertCount(1, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with one value.");
 		$this->assertEquals('dataset.categories', $data['dataSetsInfo']['sets'][0]['meta']['identifier'], "GoodData project should contain dataset 'Categories'.");
+
+		// Check csv of main project if contains all rows
+		$csvFile = sprintf('%s/%s/%s/data.csv', self::$mainConfig['tmp_path'], $jobId, self::$configuration->bucketInfo['gd']['pid']);
+		$this->assertTrue(file_exists($csvFile), sprintf("Data csv file '%s' should exist.", $csvFile));
+		$csv = new CsvFile($csvFile);
+		$rowsNumber = 0;
+		foreach ($csv as $row) {
+			$rowsNumber++;
+		}
+		$this->assertEquals(3, $rowsNumber, "Csv of main project should contain two rows with header.");
 	}
 
 

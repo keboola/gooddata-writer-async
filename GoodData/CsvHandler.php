@@ -32,13 +32,15 @@ class CsvHandler
 	 * @param $scriptsPath
 	 * @param $s3Client
 	 * @param $tmpDir
+	 * @param $jobId
 	 */
-	public function __construct($scriptsPath, $s3Client, $tmpDir)
+	public function __construct($scriptsPath, $s3Client, $tmpDir, $jobId)
 	{
 		$this->_scriptPath = $scriptsPath . '/convert_csv.php';
 		$this->_timeDimensionManifestPath = $scriptsPath . '/time-dimension-manifest.json';
 		$this->_s3Client = $s3Client;
 		$this->_tmpDir = $tmpDir;
+		$this->_jobId = $jobId;
 	}
 
 	/**
@@ -55,8 +57,8 @@ class CsvHandler
 		$incrementalLoad = $incrementalLoad ? '&changedSince=-' . $incrementalLoad . '+days' : null;
 		$filter = ($filterColumn && $filterValue) ? '&whereColumn=' . $filterColumn . '&whereValues[]=' . $filterValue : null;
 		$this->_command = sprintf('curl -g -s --header "Accept-encoding: gzip" --header "X-StorageApi-Token: %s"'
-			.' --user-agent "%s" "%s/v2/storage/tables/%s/export?format=escaped%s%s" | gzip -d',
-			$token, $userAgent, $sapiUrl, $tableId, $incrementalLoad, $filter);
+			.' --header "X-KBC-RunId: %d" --user-agent "%s" "%s/v2/storage/tables/%s/export?format=escaped%s%s" | gzip -d',
+			$token, $this->_jobId, $userAgent, $sapiUrl, $tableId, $incrementalLoad, $filter);
 	}
 
 	/**
@@ -185,12 +187,27 @@ class CsvHandler
 		$this->_command .= ' > ' . escapeshellarg($csvFile);
 
 		$process = new Process($this->_command);
+		$process->setTimeout(null);
 		$process->run();
 		if (!$process->isSuccessful()) {
-			throw new CsvHandlerException($process->getErrorOutput());
+			$e = new CsvHandlerException("CSV download and preparation failed. " . $process->getErrorOutput());
+			if (!$process->getErrorOutput()) {
+				$e->setData(array(
+					'priority' => 'alert',
+					'command' => $this->_command,
+					'error' => 'No error output'
+				));
+			}
+			throw $e;
 		}
 		if (!file_exists($csvFile)) {
-			throw new CsvHandlerException('CSV was not downloaded');
+			$e = new CsvHandlerException(sprintf("CSV download and preparation failed. Job id is '%s'", basename($this->_tmpDir)));
+			$e->setData(array(
+				'priority' => 'alert',
+				'command' => $this->_command,
+				'error' => 'Csv not created'
+			));
+			throw $e;
 		}
 		$this->_command = null;
 	}
@@ -343,9 +360,16 @@ class CsvHandler
 
 		$command = 'curl -s -L ' . escapeshellarg($xmlUrl) . ' > ' . escapeshellarg($xmlFilePath);
 		$process = new Process($command);
+		$process->setTimeout(null);
 		$process->run();
 		if (!$process->isSuccessful()) {
-			throw new CsvHandlerException($process->getErrorOutput());
+			$e = new CsvHandlerException('XML download failed.');
+			$e->setData(array(
+				'priority' => 'alert',
+				'command' => $command,
+				'error' => $process->getErrorOutput()
+			));
+			throw $e;
 		}
 		return $xmlFilePath;
 	}

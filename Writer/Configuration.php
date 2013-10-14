@@ -115,7 +115,6 @@ class Configuration extends StorageApiConfiguration
 	public $backendUrl;
 
 
-
 	public function __construct($writerId, StorageApiClient $storageApiClient)
 	{
 		$this->writerId = $writerId;
@@ -266,7 +265,27 @@ class Configuration extends StorageApiConfiguration
 	public function getTableForApi($tableId)
 	{
 		$tableDefinition = array();
+
 		foreach ($this->_fetchTableRows($this->definedTables[$tableId]['definitionId']) as $row) {
+
+			if ($row['type'] != 'ATTRIBUTE' && $row['sortLabel']) {
+				$row['sortLabel'] = null;
+			}
+			if ($row['type'] != 'ATTRIBUTE' && $row['sortOrder']) {
+				$row['sortOrder'] = null;
+			}
+			if ($row['type'] != 'REFERENCE' && $row['schemaReference']) {
+				$row['schemaReference'] = null;
+			}
+			if (!in_array($row['type'], array('REFERENCE', 'HYPERLINK', 'LABEL')) && $row['reference']) {
+				$row['reference'] = null;
+			}
+			if ($row['type'] != 'DATE' && $row['format']) {
+				$row['format'] = null;
+			}
+			if ($row['type'] != 'DATE' && $row['dateDimension']) {
+				$row['dateDimension'] = null;
+			}
 			if (!empty($row['dataTypeSize'])) {
 				$row['dataTypeSize'] = (int)$row['dataTypeSize'];
 			}
@@ -1161,6 +1180,8 @@ class Configuration extends StorageApiConfiguration
 			throw new WrongConfigurationException(sprintf("Table '%s' appears to be wrongly configured. Contains columns: '%s' but should contain columns: '%s'",
 				$tableName, implode(',', $columns), implode(',', self::$_tables[$tableName]['columns'])));
 		}
+
+		return true;
 	}
 
 	/**

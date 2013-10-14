@@ -315,7 +315,29 @@ class JobExecutor
 				->setDuration($duration);
 			$this->_logEvent($sapiEvent);
 
+			$data = $e->getData();
+			if (count($data)) {
+				$data['job'] = $job['id'];
+				$this->_log->alert('Writer Error', $data);
+			}
+
 			return array('status' => 'error', 'error' => $e->getMessage());
+		} catch (\Exception $e) {
+			$duration = $time - time();
+
+			$this->_log->alert('Job execution error', array(
+				'job' => $job,
+				'exception' => $e,
+			));
+
+			$sapiEvent
+				->setMessage("Job $job[id] end")
+				->setType(StorageApiEvent::TYPE_WARN)
+				->setDescription($e->getMessage())
+				->setDuration($duration);
+			$this->_logEvent($sapiEvent);
+
+			return array('status' => 'error', 'error' => 'Application error');
 		}
 	}
 }

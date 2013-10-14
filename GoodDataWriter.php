@@ -574,9 +574,11 @@ class GoodDataWriter extends Component
 		$sso = new SSO($this->configuration, $this->_mainConfig['gd']);
 
 		$gdProjectUrl = '/#s=/gdc/projects/' . $params['pid'];
-		$ssoLink = $sso->url($gdProjectUrl, $params['email']);
+		$validity = (isset($params['validity']))?$params['validity']:86400;
 
-		return array('ssoLink' => $ssoLink);
+		return array(
+			'ssoLink' => $sso->url($gdProjectUrl, $params['email'], $validity)
+		);
 	}
 
 	/***********************
@@ -882,6 +884,9 @@ class GoodDataWriter extends Component
 			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		);
+		if (isset($params['pid'])) {
+			$jobData['parameters']['pid'] = $params['pid'];
+		}
 		if (isset($params['incrementalLoad'])) {
 			$jobData['parameters']['incrementalLoad'] = $params['incrementalLoad'];
 		}
@@ -949,7 +954,7 @@ class GoodDataWriter extends Component
 		$allTableIds = array_keys($tables);
 		foreach ($tables as $tableId => $tableConfig) {
 			$unsortedTables[$tableId] = $tableConfig;
-			foreach ($tableConfig['definition'] as $c) if (!empty($c['schemaReference'])) {
+			foreach ($tableConfig['definition'] as $c) if ($c['type'] == 'REFERENCE' && !empty($c['schemaReference'])) {
 				if (in_array($c['schemaReference'], $allTableIds)) {
 					$references[$tableId][] = $c['schemaReference'];
 				} else {
@@ -992,6 +997,9 @@ class GoodDataWriter extends Component
 				),
 				'queue' => isset($params['queue']) ? $params['queue'] : null
 			);
+			if (isset($params['pid'])) {
+				$jobData['parameters']['pid'] = $params['pid'];
+			}
 			if (isset($params['incrementalLoad'])) {
 				$jobData['parameters']['incrementalLoad'] = $params['incrementalLoad'];
 			}
@@ -1041,52 +1049,101 @@ class GoodDataWriter extends Component
 		}
 
 		// @TODO move the code somewhere else
-		$nodes = array();
-		$dateDimensions = array();
-		$references = array();
-		$datasets = array();
-		if (is_array($this->configuration->definedTables) && count($this->configuration->definedTables))
-			foreach ($this->configuration->definedTables as $tableInfo) if (!empty($tableInfo['export'])) {
-			$datasets[$tableInfo['tableId']] = !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'];
-			$nodes[] = $tableInfo['tableId'];
-			$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
-			foreach ($definition['columns'] as $c) {
-				if ($c['type'] == 'DATE' && $c['dateDimension']) {
-					$dateDimensions[$tableInfo['tableId']] = $c['dateDimension'];
-					if (!in_array($c['dateDimension'], $nodes)) $nodes[] = $c['dateDimension'];
-				}
-				if ($c['type'] == 'REFERENCE' && $c['schemaReference']) {
-					if (!isset($references[$tableInfo['tableId']])) {
-						$references[$tableInfo['tableId']] = array();
+		$result = array();
+		if (isset($params['mode']) && $params['mode'] == 'new') {
+			$result = array(
+				'nodes' => array(),
+				'transitions' => array()
+			);
+			$dimensionsUrl = sprintf('%s/admin/gooddata/dates/project/%s/writer/%s',
+				$this->_container->getParameter('storageApi.url'), $this->configuration->projectId, $this->configuration->writerId);
+			$tableUrl = sprintf('%s/admin/gooddata/columns/project/%s/writer/%s/table/',
+				$this->_container->getParameter('storageApi.url'), $this->configuration->projectId, $this->configuration->writerId);
+			if (is_array($this->configuration->definedTables) && count($this->configuration->definedTables))
+				foreach ($this->configuration->definedTables as $tableInfo) if (!empty($tableInfo['export'])) {
+
+					$result['nodes'][] = array(
+						'node' => $tableInfo['tableId'],
+						'label' => !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'],
+						'type' => 'dataset',
+						'link' => $tableUrl . $tableInfo['tableId']
+					);
+
+					$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
+					foreach ($definition['columns'] as $c) {
+						if ($c['type'] == 'DATE' && $c['dateDimension']) {
+
+							$result['nodes'][] = array(
+								'node' => 'dim.' . $c['dateDimension'],
+								'label' => $c['dateDimension'],
+								'type' => 'dimension',
+								'link' => $dimensionsUrl
+							);
+							$result['transitions'][] = array(
+								'source' => $tableInfo['tableId'],
+								'target' => 'dim.' . $c['dateDimension'],
+								'type' => 'dimension'
+							);
+
+						}
+						if ($c['type'] == 'REFERENCE' && $c['schemaReference']) {
+
+							$result['transitions'][] = array(
+								'source' => $tableInfo['tableId'],
+								'target' => $c['schemaReference'],
+								'type' => 'dataset'
+							);
+						}
 					}
-					$references[$tableInfo['tableId']][] = $c['schemaReference'];
 				}
-			}
-		}
+		} else {
+			$nodes = array();
+			$dateDimensions = array();
+			$references = array();
+			$datasets = array();
+			if (is_array($this->configuration->definedTables) && count($this->configuration->definedTables))
+				foreach ($this->configuration->definedTables as $tableInfo) if (!empty($tableInfo['export'])) {
+				$datasets[$tableInfo['tableId']] = !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'];
+				$nodes[] = $tableInfo['tableId'];
+				$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
+				foreach ($definition['columns'] as $c) {
+					if ($c['type'] == 'DATE' && $c['dateDimension']) {
+						$dateDimensions[$tableInfo['tableId']] = $c['dateDimension'];
+						if (!in_array($c['dateDimension'], $nodes)) $nodes[] = $c['dateDimension'];
+					}
+					if ($c['type'] == 'REFERENCE' && $c['schemaReference']) {
+						if (!isset($references[$tableInfo['tableId']])) {
+							$references[$tableInfo['tableId']] = array();
+						}
+						$references[$tableInfo['tableId']][] = $c['schemaReference'];
+					}
+				}
 
-		$datasetIds = array_keys($datasets);
-		$result = array('nodes' => array(), 'links' => array());
+				$datasetIds = array_keys($datasets);
+				$result = array('nodes' => array(), 'links' => array());
 
-		foreach ($nodes as $name) {
-			$result['nodes'][] = array(
-				'name' => isset($datasets[$name]) ? $datasets[$name] : $name,
-				'group' => in_array($name, $datasetIds) ? 'dataset' : 'dimension'
-			);
-		}
-		foreach ($dateDimensions as $dataset => $date) {
-			$result['links'][] = array(
-				'source' => array_search($dataset, $nodes),
-				'target' => array_search($date, $nodes),
-				'value' => 'dimension'
-			);
-		}
-		foreach ($references as $source => $targets) {
-			foreach ($targets as $target) {
-				$result['links'][] = array(
-					'source' => array_search($source, $nodes),
-					'target' => array_search($target, $nodes),
-					'value' => 'dataset'
-				);
+				foreach ($nodes as $name) {
+					$result['nodes'][] = array(
+						'name' => isset($datasets[$name]) ? $datasets[$name] : $name,
+						'group' => in_array($name, $datasetIds) ? 'dataset' : 'dimension'
+					);
+				}
+				foreach ($dateDimensions as $dataset => $date) {
+					$result['links'][] = array(
+						'source' => array_search($dataset, $nodes),
+						'target' => array_search($date, $nodes),
+						'value' => 'dimension'
+					);
+				}
+				foreach ($references as $source => $targets) {
+					foreach ($targets as $target) {
+						$result['links'][] = array(
+							'source' => array_search($source, $nodes),
+							'target' => array_search($target, $nodes),
+							'value' => 'dataset'
+						);
+					}
+				}
 			}
 		}
 
