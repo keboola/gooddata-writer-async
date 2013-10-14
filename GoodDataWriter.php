@@ -1001,54 +1001,47 @@ class GoodDataWriter extends Component
 		}
 
 		// @TODO move the code somewhere else
-		$nodes = array();
-		$dateDimensions = array();
-		$references = array();
-		$datasets = array();
+		$result = array(
+			'nodes' => array(),
+			'transitions' => array()
+		);
 		if (is_array($this->configuration->definedTables) && count($this->configuration->definedTables))
 			foreach ($this->configuration->definedTables as $tableInfo) if (!empty($tableInfo['export'])) {
-			$datasets[$tableInfo['tableId']] = !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'];
-			$nodes[] = $tableInfo['tableId'];
-			$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
-			foreach ($definition['columns'] as $c) {
-				if ($c['type'] == 'DATE' && $c['dateDimension']) {
-					$dateDimensions[$tableInfo['tableId']] = $c['dateDimension'];
-					if (!in_array($c['dateDimension'], $nodes)) $nodes[] = $c['dateDimension'];
-				}
-				if ($c['type'] == 'REFERENCE' && $c['schemaReference']) {
-					if (!isset($references[$tableInfo['tableId']])) {
-						$references[$tableInfo['tableId']] = array();
-					}
-					$references[$tableInfo['tableId']][] = $c['schemaReference'];
-				}
-			}
-		}
 
-		$datasetIds = array_keys($datasets);
-		$result = array('nodes' => array(), 'links' => array());
-
-		foreach ($nodes as $name) {
-			$result['nodes'][] = array(
-				'name' => isset($datasets[$name]) ? $datasets[$name] : $name,
-				'group' => in_array($name, $datasetIds) ? 'dataset' : 'dimension'
-			);
-		}
-		foreach ($dateDimensions as $dataset => $date) {
-			$result['links'][] = array(
-				'source' => array_search($dataset, $nodes),
-				'target' => array_search($date, $nodes),
-				'value' => 'dimension'
-			);
-		}
-		foreach ($references as $source => $targets) {
-			foreach ($targets as $target) {
-				$result['links'][] = array(
-					'source' => array_search($source, $nodes),
-					'target' => array_search($target, $nodes),
-					'value' => 'dataset'
+				$result['nodes'][] = array(
+					'node' => $tableInfo['tableId'],
+					'label' => !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'],
+					'type' => 'dataset',
+					'link' => ''
 				);
+
+				$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
+				foreach ($definition['columns'] as $c) {
+					if ($c['type'] == 'DATE' && $c['dateDimension']) {
+
+						$result['nodes'][] = array(
+							'node' => 'dim.' . $c['dateDimension'],
+							'label' => $c['dateDimension'],
+							'type' => 'dimension',
+							'link' => ''
+						);
+						$result['transitions'][] = array(
+							'source' => $tableInfo['tableId'],
+							'target' => 'dim.' . $c['dateDimension'],
+							'type' => 'dimension'
+						);
+
+					}
+					if ($c['type'] == 'REFERENCE' && $c['schemaReference']) {
+
+						$result['transitions'][] = array(
+							'source' => $tableInfo['tableId'],
+							'target' => $c['schemaReference'],
+							'type' => 'dataset'
+						);
+					}
+				}
 			}
-		}
 
 		$response = new Response(json_encode($result));
 		$response->headers->set('Content-Type', 'application/json');
