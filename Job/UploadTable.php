@@ -42,20 +42,6 @@ class UploadTable extends AbstractJob
 		$updateModelJobs = array();
 		$loadDataJobs = array();
 
-		if (isset($params['pid'])) {
-			$chosenProject = null;
-			foreach ($projects as $project) {
-				if ($project['pid'] == $params['pid']) {
-					$chosenProject = $project;
-					break;
-				}
-			}
-			if (!$chosenProject) {
-				throw new WrongConfigurationException("Project '" . $params['pid'] . "' was not found in configuration");
-			}
-			$projects = array($chosenProject);
-		}
-
 		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
@@ -152,6 +138,7 @@ class UploadTable extends AbstractJob
 
 		// Enqueue jobs for creation/update of dataset and load data
 		$usedProjects = array();
+		$chosenProject = null;
 		foreach ($projects as $project) if ($project['active']) {
 			if (in_array($project['pid'], $usedProjects)) {
 				throw new WrongConfigurationException("Project '" . $project['pid'] . "' is duplicated in configuration");
@@ -172,12 +159,18 @@ class UploadTable extends AbstractJob
 				);
 			}
 
-			$loadDataJobs[] = array(
-				'command' => 'loadData',
-				'pid' => $project['pid'],
-				'filterColumn' => ($filterColumn && empty($project['main'])) ? $filterColumn : false,
-				'mainProject' => !empty($project['main'])
-			);
+			if (!isset($params['pid'])  || $project['pid'] == $params['pid']) {
+				$chosenProject = $project['pid'];
+				$loadDataJobs[] = array(
+					'command' => 'loadData',
+					'pid' => $project['pid'],
+					'filterColumn' => ($filterColumn && empty($project['main'])) ? $filterColumn : false,
+					'mainProject' => !empty($project['main'])
+				);
+			}
+		}
+		if (isset($params['pid']) && !$chosenProject) {
+			throw new WrongConfigurationException("Project '" . $params['pid'] . "' was not found in configuration");
 		}
 
 		$clToolApi = new CLToolApi($this->log);
