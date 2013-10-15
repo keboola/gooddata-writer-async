@@ -295,8 +295,6 @@ class UploadTable extends AbstractJob
 					throw new RestApiException('ETL load failed: ' . $e->getMessage());
 				}
 			}
-		} catch (CsvHandlerException $e) {
-			throw new JobProcessException('Download of data csv failed', $e);
 		} catch (CLToolApiErrorException $e) {
 			if ($clToolApi->debugLogUrl) {
 				$debug[(count($debug) + 1) . ': CL tool'] = $clToolApi->debugLogUrl;
@@ -305,8 +303,6 @@ class UploadTable extends AbstractJob
 			$error = $e->getMessage();
 		} catch (RestApiException $e) {
 			$error = $e->getMessage();
-		} catch (WebDavException $e) {
-			throw new JobProcessException('Upload to GoodData WebDav failed', $e);
 		} catch (UnauthorizedException $e) {
 			$error = 'Bad GoodData Credentials: ' . $e->getMessage();
 		}
