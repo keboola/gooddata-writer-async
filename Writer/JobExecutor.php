@@ -262,12 +262,7 @@ class JobExecutor
 				$this->_log->alert('Writer Error', $data);
 			}
 
-			$message = $e->getMessage();
-			if ($e instanceof CsvHandlerException) {
-				$message = 'Application error';
-			}
-
-			return array('status' => 'error', 'error' => $message);
+			return array('status' => 'error', 'error' => $e->getMessage());
 		} catch (\Exception $e) {
 			$duration = $time - time();
 
