@@ -7,9 +7,10 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Symfony\Component\Process\Process;
-use Keboola\GoodDataWriter\Exception\JobProcessException;
+use Keboola\GoodDataWriter\Exception\ClientException,
+	Keboola\GoodDataWriter\Exception\JobProcessException;
 
-class CsvHandlerException extends \Exception
+class CsvHandlerException extends ClientException
 {
 
 }

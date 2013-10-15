@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
+use Keboola\GoodDataWriter\GoodData\CsvHandlerException;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 use Keboola\StorageApi\Client as StorageApiClient,
@@ -261,7 +262,12 @@ class JobExecutor
 				$this->_log->alert('Writer Error', $data);
 			}
 
-			return array('status' => 'error', 'error' => $e->getMessage());
+			$message = $e->getMessage();
+			if ($e instanceof CsvHandlerException) {
+				$message = 'Application error';
+			}
+
+			return array('status' => 'error', 'error' => $message);
 		} catch (\Exception $e) {
 			$duration = $time - time();
 
