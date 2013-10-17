@@ -45,17 +45,17 @@ class QueueReceiveCommand extends ContainerAwareCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
+		$params = $this->getContainer()->getParameter('gooddata_writer');
+		$sqsClient = \Aws\Sqs\SqsClient::factory(array(
+			'key' => $params['aws']['access_key'],
+			'secret' => $params['aws']['secret_key'],
+			'region' => $params['aws']['region']
+		));
+		$this->_queue = new Queue($sqsClient, $params['aws']['queue_url']);
+
 		$this->_output = $output;
 		$startTime = time();
 		do {
-			$params = $this->getContainer()->getParameter('gooddata_writer');
-			$sqsClient = \Aws\Sqs\SqsClient::factory(array(
-				'key' => $params['aws']['access_key'],
-				'secret' => $params['aws']['secret_key'],
-				'region' => $params['aws']['region']
-			));
-			$this->_queue = new Queue($sqsClient, $params['aws']['queue_url']);
-
 			foreach ($this->_queue->receive() as $message) {
 				$this->_processMessage($message);
 			}

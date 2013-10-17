@@ -252,7 +252,7 @@ abstract class AbstractControllerTest extends WebTestCase
 				'command' => 'gooddata-writer:execute-batch',
 				'batchId' => $responseJson['job']['batchId']
 			));
-			$resultId = $responseJson['job'];
+			$resultId = $responseJson['job']['id'];
 		} else if (isset($responseJson['batch'])) {
 			self::$commandTester->execute(array(
 				'command' => 'gooddata-writer:execute-batch',
