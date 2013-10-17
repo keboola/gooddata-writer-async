@@ -71,7 +71,7 @@ class Configuration extends StorageApiConfiguration
 		)
 	);
 
-	protected static $_cache = array(
+	protected static $_emptyCache = array(
 		self::PROJECTS_TABLE_NAME => array(),
 		self::USERS_TABLE_NAME => array(),
 		self::PROJECT_USERS_TABLE_NAME => array(),
@@ -83,6 +83,8 @@ class Configuration extends StorageApiConfiguration
 			'usage' => array()
 		)
 	);
+
+	protected static $_cache;
 
 
 	/**
@@ -138,6 +140,9 @@ class Configuration extends StorageApiConfiguration
 
 			$this->backendUrl = !empty($this->bucketInfo['gd']['backendUrl']) ? $this->bucketInfo['gd']['backendUrl'] : null;
 		}
+
+		// Init the cache
+		self::$_cache = self::$_emptyCache;
 	}
 
 
@@ -436,6 +441,7 @@ class Configuration extends StorageApiConfiguration
 			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
 		}
 
+		self::$_cache['tableDefinition'][$tableId][$name] = $value;
 		$this->definedTables[$tableId][$name] = $value;
 		$this->_storageApiClient->setTableAttribute($this->definedTables[$tableId]['definitionId'], $name, $value);
 	}

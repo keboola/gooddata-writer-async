@@ -19,8 +19,6 @@ use Keboola\StorageApi\Client as StorageApiClient,
 use Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\Service\Lock;
-	Keboola\GoodDataWriter\Exception\ClientException,
-	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Monolog\Logger;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -68,7 +66,7 @@ class JobExecutor
 		$this->_container = $container;
 	}
 
-	public function runBatch($batchId)
+	public function runBatch($batchId, $force = false)
 	{
 		$jobs = $this->_sharedConfig->fetchBatch($batchId);
 		if (!count($jobs)) {
@@ -79,7 +77,7 @@ class JobExecutor
 		$gdWriterParams = $this->_container->getParameter('gooddata_writer');
 
 		// Batch already executed?
-		if (SharedConfig::isJobFinished($batch['status'])) {
+		if (!$force && SharedConfig::isJobFinished($batch['status'])) {
 			return;
 		}
 
@@ -106,10 +104,10 @@ class JobExecutor
 	 * Job execution
 	 * Performs execution of job tasks and logging
 	 * @param $jobId
-	 * @throws JobCannotBeExecutedNowException
-	 * @throws JobProcessException
+	 * @param bool $force
+	 * @throws \Keboola\GoodDataWriter\Exception\JobProcessException
 	 */
-	public function runJob($jobId)
+	public function runJob($jobId, $force = false)
 	{
 		$job = $this->_job = $this->_sharedConfig->fetchJob($jobId);
 
@@ -119,7 +117,7 @@ class JobExecutor
 		}
 
 		// Job already executed?
-		if (SharedConfig::isJobFinished($job['status'])) {
+		if (!$force && SharedConfig::isJobFinished($job['status'])) {
 			return;
 		}
 

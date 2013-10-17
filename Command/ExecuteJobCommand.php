@@ -2,28 +2,26 @@
 namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\StorageApi\Client as StorageApiClient;
-use Keboola\GoodDataWriter\Writer\JobExecutor,
-	Keboola\GoodDataWriter\Writer\SharedConfig,
-	Keboola\GoodDataWriter\Service\Queue,
-	Keboola\GoodDataWriter\Service\QueueMessage;
+use Keboola\GoodDataWriter\Writer\JobExecutor;
+use Keboola\GoodDataWriter\Writer\SharedConfig;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class ExecuteBatchCommand extends ContainerAwareCommand
+class ExecuteJobCommand extends ContainerAwareCommand
 {
 
 
 	protected function configure()
 	{
 		$this
-			->setName('gooddata-writer:execute-batch')
-			->setDescription('Execute selected batch from queue')
+			->setName('gooddata-writer:execute-job')
+			->setDescription('Execute selected job')
 			->setDefinition(array(
-				new InputArgument('batchId', InputArgument::REQUIRED, 'Batch id'),
-				new InputOption('force', null, InputArgument::OPTIONAL, 'Force run the batch even if it is already finished')
+				new InputArgument('jobId', InputArgument::REQUIRED, 'Job id'),
+				new InputOption('force', null, InputArgument::OPTIONAL, 'Force run the job even if it is already finished')
 			))
 		;
 	}
@@ -40,14 +38,7 @@ class ExecuteBatchCommand extends ContainerAwareCommand
 		);
 
 		$executor = new JobExecutor($sharedConfig, $this->getContainer());
-		$executor->runBatch($input->getArgument('batchId'), $input->getOption('force'));
-
-		$params = $this->getContainer()->getParameter('gooddata_writer');
-		$sqsClient = \Aws\Sqs\SqsClient::factory(array(
-			'key' => $params['aws']['access_key'],
-			'secret' => $params['aws']['secret_key'],
-			'region' => $params['aws']['region']
-		));
+		$executor->runJob($input->getArgument('jobId'), $input->getOption('force'));
 	}
 
 }
