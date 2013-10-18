@@ -7,9 +7,10 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Symfony\Component\Process\Process;
-use Keboola\GoodDataWriter\Exception\JobProcessException;
+use Keboola\GoodDataWriter\Exception\ClientException,
+	Keboola\GoodDataWriter\Exception\JobProcessException;
 
-class CsvHandlerException extends \Exception
+class CsvHandlerException extends ClientException
 {
 
 }
@@ -190,7 +191,8 @@ class CsvHandler
 		$process->setTimeout(null);
 		$process->run();
 		if (!$process->isSuccessful()) {
-			$e = new CsvHandlerException("CSV download and preparation failed. " . $process->getErrorOutput());
+			$message = $process->getErrorOutput() ? $process->getErrorOutput() : 'CSV download and preparation failed.';
+			$e = new CsvHandlerException($message);
 			if (!$process->getErrorOutput()) {
 				$e->setData(array(
 					'priority' => 'alert',
@@ -201,7 +203,7 @@ class CsvHandler
 			throw $e;
 		}
 		if (!file_exists($csvFile)) {
-			$e = new CsvHandlerException(sprintf("CSV download and preparation failed. Job id is '%s'", basename($this->_tmpDir)));
+			$e = new CsvHandlerException('CSV download and preparation failed');
 			$e->setData(array(
 				'priority' => 'alert',
 				'command' => $this->_command,
