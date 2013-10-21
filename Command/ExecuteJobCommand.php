@@ -21,7 +21,7 @@ class ExecuteJobCommand extends ContainerAwareCommand
 			->setDescription('Execute selected job')
 			->setDefinition(array(
 				new InputArgument('jobId', InputArgument::REQUIRED, 'Job id'),
-				new InputOption('force', null, InputArgument::OPTIONAL, 'Force run the job even if it is already finished')
+				new InputOption('force', 'f', InputOption::VALUE_NONE, 'Force run the job even if it is already finished')
 			))
 		;
 	}

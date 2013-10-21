@@ -105,6 +105,20 @@ class RestApi
 	}
 
 	/**
+	 * @param $pid
+	 * @return array
+	 */
+	public function getDataSets($pid)
+	{
+		$result = array();
+		$call = $this->get(sprintf('/gdc/md/%s/data/sets', $pid));
+		foreach ($call['dataSetsInfo']['sets'] as $r) {
+			$result[$r['meta']['title']] = $r['meta']['identifier'];
+		}
+		return $result;
+	}
+
+	/**
 	 * Get user info
 	 *
 	 * @param $uid
@@ -1192,5 +1206,14 @@ class RestApi
 			define('JSON_PRETTY_PRINT', 0);
 		}
 		return json_encode($this->_callsLog, JSON_PRETTY_PRINT);
+	}
+
+
+	public static function gdName($name)
+	{
+		$string = iconv('utf-8', 'ascii//ignore//translit', $name);
+		$string = preg_replace('/[^\w\d_]/', '', $string);
+		$string = preg_replace('/^[\d_]*/', '', $string);
+		return strtolower($string);
 	}
 }
