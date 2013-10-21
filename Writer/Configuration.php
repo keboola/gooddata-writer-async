@@ -65,7 +65,7 @@ class Configuration extends StorageApiConfiguration
 			'indices' => array()
 		),
 		self::DATE_DIMENSIONS_TABLE_NAME => array(
-			'columns' => array('name', 'includeTime', 'lastExportDate'),
+			'columns' => array('name', 'includeTime'),
 			'primaryKey' => 'name',
 			'indices' => array()
 		)
@@ -495,8 +495,7 @@ class Configuration extends StorageApiConfiguration
 	{
 		$data = array(
 			'name' => $name,
-			'includeTime' => $includeTime,
-			'lastExportDate' => ''
+			'includeTime' => $includeTime
 		);
 		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
 		if (!self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'])

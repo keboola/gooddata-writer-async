@@ -397,14 +397,4 @@ class CsvHandler
 		return $xmlFileObject;
 	}
 
-
-
-	public static function gdName($name)
-	{
-		$string = iconv('utf-8', 'ascii//ignore//translit', $name);
-		$string = preg_replace('/[^\w\d_]/', '', $string);
-		$string = preg_replace('/^[\d_]*/', '', $string);
-		return strtolower($string);
-	}
-
 }
