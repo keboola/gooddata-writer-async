@@ -62,7 +62,7 @@ class RestApi
 		$this->_log = $log;
 
 		if (!$apiUrl) {
-			$apiUrl = 'https://na1.secure.gooddata.com';
+			$apiUrl = 'https://secure.gooddata.com';
 		} else {
 			if (substr($apiUrl, 0, 8) != 'https://') {
 				$apiUrl = 'https://' . $apiUrl;
