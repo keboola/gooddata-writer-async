@@ -16,7 +16,8 @@ class CreateWriter extends AbstractJob
 	/**
 	 * @param $job
 	 * @param $params
-	 * @throws WrongConfigurationException
+	 * @throws \Exception
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
 	 * @return array
 	 */
 	public function run($job, $params)
@@ -36,18 +37,19 @@ class CreateWriter extends AbstractJob
 		$username = sprintf($mainConfig['user_email'], $job['projectId'], $job['writerId'] . '-' . uniqid());
 		$password = md5(uniqid());
 
+		$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
 		try {
-			$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
+			try {
+				$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
+			} catch (RestApiException $e) {
+				throw new WrongConfigurationException('Project creation failed: ' . $e->getMessage());
+			}
+
+			$userId = $this->restApi->createUser($mainConfig['domain'], $username, $password, 'KBC', 'Writer', $mainConfig['sso_provider']);
+			$this->restApi->addUserToProject($userId, $projectPid, RestApi::$userRoles['admin']);
 		} catch (UnauthorizedException $e) {
-			throw new WrongConfigurationException('Project creation failed: ' . $e->getMessage());
+			throw new \Exception('Create writer auth error', 500, $e);
 		}
-		try {
-			$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
-		} catch (RestApiException $e) {
-			throw new WrongConfigurationException('Project creation failed: ' . $e->getMessage());
-		}
-		$userId = $this->restApi->createUser($mainConfig['domain'], $username, $password, 'KBC', 'Writer', $mainConfig['sso_provider']);
-		$this->restApi->addUserToProject($userId, $projectPid, RestApi::$userRoles['admin']);
 
 		// Save data to configuration bucket
 		$this->configuration->setBucketAttribute('gd.pid', $projectPid);
