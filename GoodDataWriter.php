@@ -8,6 +8,8 @@
 
 namespace Keboola\GoodDataWriter;
 
+use Guzzle\Common\Exception\InvalidArgumentException;
+use Guzzle\Http\Url;
 use Keboola\GoodDataWriter\Exception\ClientException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
@@ -559,7 +561,7 @@ class GoodDataWriter extends Component
 
 	/**
 	 * Call GD Api with given query
-	 * 
+	 *
 	 * @param $params
 	 * @return array
 	 * @throws Exception\WrongParametersException
@@ -571,8 +573,21 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		if (empty($params['query'])) {
-			throw new WrongParametersException("Parameter 'query' is missing");
+		// query validation
+		try {
+			if (empty($params['query'])) {
+				throw new WrongParametersException("Parameter 'query' is missing");
+			}
+
+			// clean url - remove domain
+			$query = Url::factory(urldecode($params['query']));
+
+			$url = Url::buildUrl(array(
+				'path' => $query->getPath(),
+				'query' => $query->getQuery(),
+			));
+		} catch (InvalidArgumentException $e) {
+			throw new WrongParametersException("Wrong value for 'query' parameter given");
 		}
 
 		$backendUrl = isset($this->configuration->bucketInfo['gd']['backendUrl']) ? $this->configuration->bucketInfo['gd']['backendUrl'] : null;
@@ -580,9 +595,8 @@ class GoodDataWriter extends Component
 
 		$restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
-
 		try {
-			$return = $restApi->get($params['query']);
+			$return = $restApi->get($url);
 
 			return array(
 				'response' => $return
