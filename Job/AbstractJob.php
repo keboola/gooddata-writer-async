@@ -41,7 +41,10 @@ abstract class AbstractJob
 	 * @var \Monolog\Logger
 	 */
 	public $log;
-
+	/**
+	 * @var AbstractJob
+	 */
+	protected $_parentJob;
 
 	public function __construct($configuration, $mainConfig, $sharedConfig, $restApi, $s3Client)
 	{
@@ -84,5 +87,37 @@ abstract class AbstractJob
 				throw new WrongConfigurationException("Parameter '" . $k . "' is missing");
 			}
 		}
+	}
+
+	/**
+	 * @param $command
+	 * @return mixed
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 */
+	protected function _createChildJob($command)
+	{
+		$commandName = ucfirst($command);
+		$commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
+		if (!class_exists($commandClass)) {
+			throw new WrongConfigurationException(sprintf('Command %s does not exist', $commandName));
+		}
+
+		$command = new $commandClass($this->configuration, $this->mainConfig, $this->sharedConfig, $this->restApi, $this->s3Client);
+		$command->_setParentJob($this);
+
+		return $command;
+	}
+
+	/**
+	 * Parent JOB setter
+	 *
+	 * @param AbstractJob $job
+	 * @return $this
+	 */
+	protected function _setParentJob(AbstractJob $job)
+	{
+		$this->_parentJob = $job;
+
+		return $this;
 	}
 }
