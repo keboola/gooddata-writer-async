@@ -37,7 +37,7 @@ class CLToolApi
 	/**
 	 * @var string GoodData backend url
 	 */
-	private $_backendUrl = 'secure.gooddata.com';
+	private $_backendUrl = 'na1.secure.gooddata.com';
 	/**
 	 * @var Logger
 	 */
