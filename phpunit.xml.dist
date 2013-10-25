@@ -22,6 +22,7 @@
 			<file>Tests/Controller/FiltersTest.php</file>
 			<file>Tests/Controller/DatasetsTest.php</file>
 			<file>Tests/Controller/JobsTest.php</file>
+			<file>Tests/Controller/ProxyTest.php</file>
         </testsuite>
     </testsuites>
 </phpunit>
