@@ -41,26 +41,58 @@ class AddUserToProject extends AbstractJob
 
 		$gdWriteStartTime = date('c');
 		try {
+			$userId = null;
+
 			// Get user uri
 			$user = $this->configuration->getUser($params['email']);
-			if (!$user) {
-				throw new WrongConfigurationException("User is missing from configuration");
-			}
 
-			if ($user['uid']) {
+			if ($user && $user['uid']) {
+				// user created by writer
 				$userId = $user['uid'];
 			} else {
 				$userId = $this->restApi->userId($params['email'], $mainConfig['domain']);
-				$this->configuration->saveUserToConfiguration($params['email'], $userId);
-				if (!$userId) {
-					throw new WrongConfigurationException(sprintf("User '%s' does not exist in domain", $params['email']));
+				if ($userId) {
+					// user in domain
+					$this->configuration->saveUserToConfiguration($params['email'], $userId);
 				}
 			}
 
-			$this->restApi->addUserToProject($userId, $params['pid'], RestApi::$userRoles[$params['role']]);
+			if (!$userId) {
+				$childJob = $this->_createChildJob('createUser');
 
-			$this->configuration->saveProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
+				$childParams = array(
+					'email' => $params['email'],
+					'firstName' => 'KBC',
+					'lastName' => $params['email'],
+					'password' => md5(uniqid() . str_repeat($params['email'], 2)),
+				);
 
+				$result = $childJob->run($job, $childParams);
+				if (empty($result['status'])) $result['status'] = 'success';
+
+				if ($result['status'] == 'success')
+					$userId = $result['uid'];
+			}
+
+			if ($userId) {
+				$this->restApi->addUserToProject($userId, $params['pid'], RestApi::$userRoles[$params['role']]);
+
+				$this->configuration->saveProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
+			} else {
+				$childJob = $this->_createChildJob('inviteUserToProject');
+
+				$childParams = array(
+					'email' => $params['email'],
+					'role' => $params['role'],
+					'pid' => $params['pid'],
+				);
+
+				$result = $childJob->run($job, $childParams);
+				if (empty($result['status'])) $result['status'] = 'success';
+
+				if ($result['status'] != 'success')
+					return $result;
+			}
 
 			return $this->_prepareResult($job['id'], array(
 				'gdWriteStartTime' => $gdWriteStartTime
