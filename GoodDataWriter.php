@@ -8,24 +8,19 @@
 
 namespace Keboola\GoodDataWriter;
 
-use Keboola\GoodDataWriter\GoodData\RestApi;
-use Keboola\GoodDataWriter\GoodData\SSO;
-use Keboola\GoodDataWriter\Service\Lock;
-use Keboola\GoodDataWriter\Writer\SharedConfig;
-use Monolog\Logger;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
-use Symfony\Component\HttpFoundation\StreamedResponse;
-use Syrup\ComponentBundle\Component\Component;
-use Symfony\Component\HttpFoundation\Request,
-	Symfony\Component\HttpFoundation\Response;
-use Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\StorageApi\Table as StorageApiTable,
-	Keboola\StorageApi\Client as StorageApiClient,
-	Keboola\StorageApi\Config\Reader,
-	Keboola\Csv\CsvFile;
+use Keboola\GoodDataWriter\GoodData\RestApi,
+	Keboola\GoodDataWriter\GoodData\SSO,
+	Keboola\GoodDataWriter\Writer\Configuration,
+	Keboola\GoodDataWriter\Writer\SharedConfig,
+	Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\WrongParametersException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Syrup\ComponentBundle\Component\Component;
+use Monolog\Logger;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag,
+	Symfony\Component\HttpFoundation\StreamedResponse,
+	Symfony\Component\HttpFoundation\Response;
 
 class GoodDataWriter extends Component
 {

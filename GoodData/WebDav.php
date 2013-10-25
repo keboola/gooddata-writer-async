@@ -23,7 +23,7 @@ class WebDav
 	 * @var DAV\Client
 	 */
 	protected $_client;
-	protected $_url = 'secure-di.gooddata.com';
+	protected $_url = 'na1-di.gooddata.com';
 	protected $_username;
 	protected $_password;
 	protected $_zipPath;
