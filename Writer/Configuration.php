@@ -837,6 +837,22 @@ class Configuration
 	}
 
 	/**
+	 * Check if user was invited/added to project by writer
+	 * @param $email
+	 * @param $pid
+	 * @return bool
+	 */
+	public function isProjectUser($email, $pid)
+	{
+		foreach ($this->getProjectUsers() AS $projectUser) {
+			if ($projectUser['email'] == $email && $projectUser['pid'] == $pid && empty($projectUser['main']))
+				return true;
+		}
+
+		return false;
+	}
+
+	/**
 	 * @param null $pid
 	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
 	 * @return array
@@ -1008,6 +1024,62 @@ class Configuration
 		$table->save();
 
 		$this->_projectUsers[] = $data;
+	}
+
+	/**
+	 * @param $pid
+	 * @param $email
+	 */
+	public function removeProjectUserAddFromConfiguration($pid, $email)
+	{
+		$data = array();
+		foreach ($this->getProjectUsers() as $projectUser) {
+			if (isset($projectUser['main']))
+				continue;
+
+			if ($projectUser['pid'] == $pid && $projectUser['email'] == $email && $projectUser['action'] == 'add')
+				continue;
+
+			$data[] = $projectUser;
+		}
+
+		//@FIXME do storage api ukladat jen zmenu, ne to same!!
+
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
+		$table->setHeader(array('id', 'pid', 'email', 'role', 'action'));
+		$table->setFromArray($data);
+		$table->setIncremental(false);
+		$table->save();
+
+		$this->_projectUsers = null;
+	}
+
+	/**
+	 * @param $pid
+	 * @param $email
+	 */
+	public function removeProjectUserInviteFromConfiguration($pid, $email)
+	{
+		$data = array();
+		foreach ($this->getProjectUsers() as $projectUser) {
+			if (isset($projectUser['main']))
+				continue;
+
+			if ($projectUser['pid'] == $pid && $projectUser['email'] == $email && $projectUser['action'] == 'invite')
+				continue;
+
+			$data[] = $projectUser;
+		}
+
+		//@FIXME do storage api ukladat jen zmenu, ne to same!!
+
+		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
+		$table->setHeader(array('id', 'pid', 'email', 'role', 'action'));
+		$table->setFromArray($data);
+		$table->setIncremental(false);
+		$table->save();
+
+		$this->_projectUsers = null;
 	}
 
 	/**
