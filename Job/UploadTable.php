@@ -52,7 +52,7 @@ class UploadTable extends AbstractJob
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
 		$sanitize = (isset($params['sanitize'])) ? $params['sanitize'] : !empty($tableDefinition['sanitize']);
-		$filterColumn = $this->_getFilterColumn($params['tableId']);
+		$filterColumn = $this->_getFilterColumn($params['tableId'], $tableDefinition);
 		$zipPath = isset($this->mainConfig['zip_path']) ? $this->mainConfig['zip_path'] : null;
 		$webDavUrl = $this->_getWebDavUrl();
 
@@ -78,6 +78,7 @@ class UploadTable extends AbstractJob
 		}
 
 		$dataSetName = RestApi::gdName($xmlFileObject->name);
+		$dataSetId = RestApi::datasetId($xmlFileObject->name);
 
 
 		// Get manifest
@@ -96,7 +97,7 @@ class UploadTable extends AbstractJob
 			if (!isset($params['pid']) || $project['pid'] == $params['pid']) {
 				$projectsToLoad[$project['pid']] = array(
 					'pid' => $project['pid'],
-					'main' => $project['main'],
+					'main' => !empty($project['main']),
 					'existingDataSets' => $this->restApi->getDataSets($project['pid'])
 				);
 			}
@@ -132,7 +133,7 @@ class UploadTable extends AbstractJob
 		// Enqueue jobs for creation/update of dataset and load data
 		foreach ($projectsToLoad as $project) {
 			foreach ($dateDimensionsToLoad as $dimension) {
-				if (!in_array($dimension['gdName'], $project['existingDataSets'])) {
+				if (!in_array(RestApi::dimensionId($dimension['gdName']), array_keys($project['existingDataSets']))) {
 					$createDateJobs[] = array(
 						'pid' => $project['pid'],
 						'name' => $dimension['name'],
@@ -142,13 +143,12 @@ class UploadTable extends AbstractJob
 				}
 			}
 
-			if (!in_array($dataSetName, $project['existingDataSets'])) {
-				$updateModelJobs[] = array(
-					'command' => 'create',
-					'pid' => $project['pid'],
-					'mainProject' => !empty($project['main'])
-				);
-			} else {
+			$dataSetExists = in_array($dataSetId, array_keys($project['existingDataSets']));
+			if ($dataSetExists) {
+				if (empty($project['existingDataSets'][$dataSetId]['lastChangeDate'])
+					|| strtotime($project['existingDataSets'][$dataSetId]['lastChangeDate']) < strtotime($tableDefinition['lastChangeDate'])) {
+
+				}
 				// Update project (or not?)
 				//@TODO get rid of the table attributes
 				if (empty($tableDefinition['lastChangeDate']) || strtotime($tableDefinition['lastChangeDate']) > strtotime($tableDefinition['lastExportDate'])) {
@@ -158,6 +158,12 @@ class UploadTable extends AbstractJob
 						'mainProject' => !empty($project['main'])
 					);
 				}
+			} else {
+				$updateModelJobs[] = array(
+					'command' => 'create',
+					'pid' => $project['pid'],
+					'mainProject' => !empty($project['main'])
+				);
 			}
 
 			$loadDataJobs[] = array(
@@ -165,7 +171,7 @@ class UploadTable extends AbstractJob
 				'pid' => $project['pid'],
 				'filterColumn' => ($filterColumn && empty($project['main'])) ? $filterColumn : false,
 				'mainProject' => !empty($project['main']),
-				'incrementalLoad' => $incrementalLoad && in_array($dataSetName, $project['existingDataSets'])
+				'incrementalLoad' => $incrementalLoad && $dataSetExists
 			);
 		}
 
@@ -272,7 +278,7 @@ class UploadTable extends AbstractJob
 			$output .= "\n\nRest API:\n" . $callsLog;
 		}
 
-		if (empty($tableDefinition['lastExportDate'])) {
+		if (empty($tableDefinition['isExported'])) {
 			$this->configuration->setTableAttribute($params['tableId'], 'export', 1);
 		}
 		$this->configuration->setTableAttribute($params['tableId'], 'lastExportDate', date('c', $startTime));
@@ -289,7 +295,7 @@ class UploadTable extends AbstractJob
 	}
 
 
-	private function _getFilterColumn($tableId)
+	private function _getFilterColumn($tableId, $tableDefinition)
 	{
 		$filterColumn = null;
 		if (isset($this->configuration->bucketInfo['filterColumn']) && empty($tableDefinition['ignoreFilter'])) {

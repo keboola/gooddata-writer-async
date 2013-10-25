@@ -113,7 +113,11 @@ class RestApi
 		$result = array();
 		$call = $this->get(sprintf('/gdc/md/%s/data/sets', $pid));
 		foreach ($call['dataSetsInfo']['sets'] as $r) {
-			$result[$r['meta']['title']] = $r['meta']['identifier'];
+			$result[$r['meta']['identifier']] = array(
+				'id' => $r['meta']['identifier'],
+				'title' => $r['meta']['title'],
+				'lastChangeDate' => !empty($r['meta']['updated']) ? $r['meta']['updated'] : null
+			);
 		}
 		return $result;
 	}
@@ -1215,5 +1219,15 @@ class RestApi
 		$string = preg_replace('/[^\w\d_]/', '', $string);
 		$string = preg_replace('/^[\d_]*/', '', $string);
 		return strtolower($string);
+	}
+
+	public static function datasetId($name)
+	{
+		return 'dataset.' . self::gdName($name);
+	}
+
+	public static function dimensionId($name)
+	{
+		return self::gdName($name) . '.dataset.dt';
 	}
 }

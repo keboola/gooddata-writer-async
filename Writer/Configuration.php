@@ -1181,6 +1181,16 @@ class Configuration extends StorageApiConfiguration
 	{
 		if (!isset(self::$_tables[$tableName])) return false;
 
+		//@TODO REMOVE - Temporal
+		if ($tableName == 'dateDimensions') {
+			if (count($columns) < 2) {
+				throw new WrongConfigurationException(sprintf("Table '%s' appears to be wrongly configured. Contains columns: '%s' but should contain columns: '%s'",
+					$tableName, implode(',', $columns), implode(',', self::$_tables[$tableName]['columns'])));
+			} else {
+				return true;
+			}
+		}
+
 		if ($columns != self::$_tables[$tableName]['columns']) {
 			throw new WrongConfigurationException(sprintf("Table '%s' appears to be wrongly configured. Contains columns: '%s' but should contain columns: '%s'",
 				$tableName, implode(',', $columns), implode(',', self::$_tables[$tableName]['columns'])));
