@@ -32,6 +32,11 @@ class UsersTest extends AbstractControllerTest
 			}
 		}
 		$this->assertTrue($userFound, "Response for writer call '/users' should return tested user.");
+
+		$responseJson = $this->_getWriterApi('/gooddata-writer/users?writerId=' . $this->writerId . '&userEmail=' . $user['email']);
+		$this->assertArrayHasKey('user', $responseJson, "Response for writer call '/users' with 'userEmail' filter should contain 'user' key.");
+		$this->assertNotNull($responseJson['user'], "Response for writer call '/users' with 'userEmail' filter should return one user data.");
+		$this->assertEquals($user['email'], $responseJson['user']['email'], "Response for writer call '/users' with 'userEmail' filter should return user data of test user.");
 	}
 
 	public function testAddUserToProject()

@@ -578,7 +578,8 @@ class GoodDataWriter extends Component
 		}
 
 		if (isset($params['userEmail'])) {
-			return array('user' => $this->configuration->getUser($params['userEmail']));
+			$user = $this->configuration->getUser($params['userEmail']);
+			return array('user' => $user ? $user : null);
 		} else {
 			return array('users' => $this->configuration->getUsers());
 		}
