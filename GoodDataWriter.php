@@ -361,9 +361,6 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->getProject($params['pid'])) {
 			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
 		}
-		if (!$this->configuration->getUser($params['email'])) {
-			throw new WrongParametersException(sprintf("User '%s' is not configured for the writer", $params['email']));
-		}
 		$this->configuration->checkGoodDataSetup();
 		$this->configuration->checkProjectsTable();
 		$this->configuration->checkUsersTable();
