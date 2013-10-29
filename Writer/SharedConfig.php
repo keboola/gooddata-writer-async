@@ -9,10 +9,17 @@ namespace Keboola\GoodDataWriter\Writer;
 use Keboola\Csv\CsvFile;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
-	Keboola\StorageApi\Table as StorageApiTable,
-	Keboola\GoodDataWriter\Service\S3Client;
+	Keboola\GoodDataWriter\Service\S3Client,
+	Keboola\GoodDataWriter\Service\StorageApiConfiguration;
 
-class SharedConfig
+
+class SharedConfigException extends \Exception
+{
+
+}
+
+
+class SharedConfig extends StorageApiConfiguration
 {
 	const WRITER_NAME = 'gooddata_writer';
 	const JOBS_TABLE_ID = 'in.c-wr-gooddata.jobs';
@@ -21,12 +28,19 @@ class SharedConfig
 	const PROJECTS_TO_DELETE_TABLE_ID = 'in.c-wr-gooddata.projects_to_delete';
 	const USERS_TO_DELETE_TABLE_ID = 'in.c-wr-gooddata.users_to_delete';
 
+	const JOB_STATUS_WAITING = 'waiting';
+	const JOB_STATUS_PROCESSING = 'processing';
+	const JOB_STATUS_SUCCESS = 'success';
+	const JOB_STATUS_ERROR = 'error';
+	const JOB_STATUS_CANCELLED = 'cancelled';
+
+	const PRIMARY_QUEUE = 'primary';
+	const SECONDARY_QUEUE = 'secondary';
+
 
 	/**
-	 * @var StorageApiClient
+	 * @param StorageApiClient $storageApiClient
 	 */
-	private $_storageApiClient;
-
 	public function __construct($storageApiClient)
 	{
 		$this->_storageApiClient = $storageApiClient;
@@ -41,17 +55,9 @@ class SharedConfig
 	 */
 	public function fetchJobs($projectId, $writerId, $days = 7)
 	{
-		$csv = $this->_storageApiClient->exportTable(
-			self::JOBS_TABLE_ID,
-			null,
-			array(
-				'whereColumn' => 'projectIdWriterId',
-				'whereValues' => array($projectId . '.' . $writerId),
-				'changedSince' => '-' . $days . ' days'
-			)
-		);
-
-		return StorageApiClient::parseCsv($csv, true);
+		return $this->_fetchTableRows(self::JOBS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId, array(
+			'changedSince' => '-' . $days . ' days'
+		));
 	}
 
 	/**
@@ -62,16 +68,7 @@ class SharedConfig
 	 */
 	public function fetchJob($jobId, $writerId = null, $projectId = null)
 	{
-		$csv = $this->_storageApiClient->exportTable(
-			self::JOBS_TABLE_ID,
-			null,
-			array(
-				'whereColumn' => 'id',
-				'whereValues' => array($jobId),
-			)
-		);
-
-		$job = StorageApiClient::parseCsv($csv, true);
+		$job = $this->_fetchTableRows(self::JOBS_TABLE_ID, 'id', $jobId);
 		$job = reset($job);
 
 		if ((!$writerId || $job['writerId'] == $writerId) && (!$projectId || $job['projectId'] == $projectId)) {
@@ -87,17 +84,20 @@ class SharedConfig
 	 */
 	public function fetchBatch($batchId)
 	{
-		$csv = $this->_storageApiClient->exportTable(
-			self::JOBS_TABLE_ID,
-			null,
-			array(
-				'whereColumn' => 'batchId',
-				'whereValues' => array($batchId),
-			)
-		);
+		return $this->_fetchTableRows(self::JOBS_TABLE_ID, 'batchId', $batchId);
+	}
 
-		$jobs = StorageApiClient::parseCsv($csv, true);
-		return $jobs;
+	/**
+	 * @param $projectId
+	 * @param $writerId
+	 */
+	public function cancelJobs($projectId, $writerId)
+	{
+		foreach ($this->fetchJobs($projectId, $writerId) as $job) {
+			if ($job['status'] == 'waiting') {
+				$this->saveJob($job['id'], array('status' => 'cancelled'));
+			}
+		}
 	}
 
 	/**
@@ -119,15 +119,23 @@ class SharedConfig
 			}
 		}
 
-		$jobsTable = new StorageApiTable($this->_storageApiClient, self::JOBS_TABLE_ID);
 		if (!isset($fields['id'])) {
 			$fields['id'] = $jobId;
 		}
-		$jobsTable->setHeader(array_keys($fields));
-		$jobsTable->setFromArray(array($fields));
-		$jobsTable->setPartial(true);
-		$jobsTable->setIncremental(true);
-		$jobsTable->save();
+		$this->_updateTableRow(self::JOBS_TABLE_ID, 'pid', $fields);
+	}
+
+	/**
+	 * @param $status
+	 * @return bool
+	 */
+	public static function isJobFinished($status)
+	{
+		return in_array($status, array(
+			self::JOB_STATUS_SUCCESS,
+			self::JOB_STATUS_ERROR,
+			self::JOB_STATUS_CANCELLED
+		));
 	}
 
 	/**
@@ -208,11 +216,88 @@ class SharedConfig
 			'gdWriteBytes' => $job['gdWriteBytes'] ? (int) $job['gdWriteBytes'] : null,
 			'status' => $job['status'],
 			'log' => $job['log'],
+			'queueId' => !empty($job['queueId']) ? $job['queueId'] : sprintf('%s.%s.%s', $job['projectId'], $job['writerId'], self::PRIMARY_QUEUE)
 		);
 	}
 
+	/**
+	 * @param $batchId
+	 * @param null $s3Client
+	 * @return array
+	 * @throws SharedConfigException
+	 */
+	public function batchToApiResponse($batchId, $s3Client = null)
+	{
+		$data = array(
+			'batchId' => (int)$batchId,
+			'projectId' => null,
+			'writerId' => null,
+			'createdTime' => date('c'),
+			'startTime' => date('c'),
+			'endTime' => null,
+			'status' => null,
+			'jobs' => array(),
+			'result' => null,
+			'log' => null,
+			'queueId' => null
+		);
+		$cancelledJobs = 0;
+		$waitingJobs = 0;
+		$processingJobs = 0;
+		$errorJobs = 0;
+		$successJobs = 0;
+		foreach ($this->fetchBatch($batchId) as $job) {
+			$job = $this->jobToApiResponse($job, $s3Client);
+
+			if (!$data['projectId']) {
+				$data['projectId'] = $job['projectId'];
+			} elseif ($data['projectId'] != $job['projectId']) {
+				throw new SharedConfigException(sprintf('ProjectId of job %s: %s does not match projectId %s of previous job.',
+					$job['id'], $job['projectId'], $data['projectId']));
+			}
+			if (!$data['writerId']) {
+				$data['writerId'] = $job['writerId'];
+			} elseif ($data['writerId'] != $job['writerId']) {
+				throw new SharedConfigException(sprintf('WriterId of job %s: %s does not match writerId %s of previous job.',
+					$job['id'], $job['projectId'], $data['projectId']));
+			}
+
+			if ($job['queueId'] && $job['queueId'] != self::PRIMARY_QUEUE) {
+				$data['queueId'] = $job['queueId'];
+			}
+
+			if ($job['createdTime'] < $data['createdTime']) $data['createdTime'] = $job['createdTime'];
+			if ($job['startTime'] < $data['startTime']) $data['startTime'] = $job['startTime'];
+			if ($job['endTime'] > $data['endTime']) $data['endTime'] = $job['endTime'];
+			$data['jobs'][] = (int)$job['id'];
+			if ($job['status'] == self::JOB_STATUS_WAITING) $waitingJobs++;
+			elseif ($job['status'] == self::JOB_STATUS_PROCESSING) $processingJobs++;
+			elseif ($job['status'] == self::JOB_STATUS_CANCELLED) $cancelledJobs++;
+			elseif ($job['status'] == self::JOB_STATUS_ERROR) {
+				$errorJobs++;
+				$data['result'] = $job['result'];
+			}
+			else $successJobs++;
+		}
+
+		if (!$data['queueId']) $data['queueId'] = sprintf('%s.%s.%s', $data['projectId'], $data['writerId'], self::PRIMARY_QUEUE);
+
+		if ($cancelledJobs > 0) $data['status'] = self::JOB_STATUS_CANCELLED;
+		elseif ($processingJobs > 0) $data['status'] = self::JOB_STATUS_PROCESSING;
+		elseif ($waitingJobs > 0) $data['status'] = self::JOB_STATUS_WAITING;
+		elseif ($errorJobs > 0) $data['status'] = self::JOB_STATUS_ERROR;
+		else $data['status'] = self::JOB_STATUS_SUCCESS;
+
+		return $data;
+	}
 
 
+	/**
+	 * @param $pid
+	 * @param $accessToken
+	 * @param $backendUrl
+	 * @param $job
+	 */
 	public function saveProject($pid, $accessToken, $backendUrl, $job)
 	{
 		$data = array(
@@ -224,13 +309,14 @@ class SharedConfig
 			'createdTime' => date('c'),
 			'projectIdWriterId' => $job['projectId'] . '.' . $job['writerId']
 		);
-		$table = new StorageApiTable($this->_storageApiClient, self::PROJECTS_TABLE_ID);
-		$table->setHeader(array_keys($data));
-		$table->setFromArray(array($data));
-		$table->setIncremental(true);
-		$table->save();
+		$this->_updateTableRow(self::PROJECTS_TABLE_ID, 'pid', $data);
 	}
 
+	/**
+	 * @param $uid
+	 * @param $email
+	 * @param $job
+	 */
 	public function saveUser($uid, $email, $job)
 	{
 		$data = array(
@@ -241,11 +327,7 @@ class SharedConfig
 			'createdTime' => date('c'),
 			'projectIdWriterId' => $job['projectId'] . '.' . $job['writerId']
 		);
-		$table = new StorageApiTable($this->_storageApiClient, self::USERS_TABLE_ID);
-		$table->setHeader(array_keys($data));
-		$table->setFromArray(array($data));
-		$table->setIncremental(true);
-		$table->save();
+		$this->_updateTableRow(self::USERS_TABLE_ID, 'uid', $data);
 	}
 
 
@@ -256,28 +338,18 @@ class SharedConfig
 	 */
 	public function getProjects($projectId, $writerId)
 	{
-		$csv = $this->_storageApiClient->exportTable(
-			self::PROJECTS_TABLE_ID,
-			null,
-			array(
-				'whereColumn' => 'projectIdWriterId',
-				'whereValues' => array($projectId . '.' . $writerId)
-			)
-		);
-
-		return StorageApiClient::parseCsv($csv, true);
+		return $this->_fetchTableRows(self::PROJECTS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId);
 	}
 
-
+	/**
+	 * @return array
+	 */
 	public function projectsToDelete()
 	{
 		$now = time();
-		$csv = $this->_storageApiClient->exportTable(self::PROJECTS_TO_DELETE_TABLE_ID, null, array(
-			'whereColumn' => 'deletedTime',
-			'whereValues' => array('')
-		));
 		$result = array();
-		foreach (StorageApiClient::parseCsv($csv) as $project) {
+		$csv = $this->_fetchTableRows(self::PROJECTS_TO_DELETE_TABLE_ID, 'deletedTime', '');
+		foreach ($csv as $project) {
 			if ($now - strtotime($project['createdTime']) >= 60 * 60 * 24 * 30) {
 				$result[] = $project;
 			}
@@ -285,6 +357,9 @@ class SharedConfig
 		return $result;
 	}
 
+	/**
+	 * @param $pids
+	 */
 	public function markProjectsDeleted($pids)
 	{
 		$nowTime = date('c');
@@ -292,13 +367,7 @@ class SharedConfig
 		foreach ($pids as $pid) {
 			$data[] = array($pid, $nowTime);
 		}
-
-		$table = new StorageApiTable($this->_storageApiClient, self::PROJECTS_TO_DELETE_TABLE_ID, null, 'pid');
-		$table->setHeader(array('pid', 'deletedTime'));
-		$table->setFromArray($data);
-		$table->setPartial(true);
-		$table->setIncremental(true);
-		$table->save();
+		$this->_updateTable(self::PROJECTS_TO_DELETE_TABLE_ID, 'pid', array('pid', 'deletedTime'), $data);
 	}
 
 	/**
@@ -306,9 +375,8 @@ class SharedConfig
 	 * @param $writerId
 	 * @param $pid
 	 * @param $backendUrl
-	 * @param int $dev
 	 */
-	public function enqueueProjectToDelete($projectId, $writerId, $pid, $backendUrl = null, $dev = 0)
+	public function enqueueProjectToDelete($projectId, $writerId, $pid, $backendUrl = null)
 	{
 		$data = array(
 			'pid' => $pid,
@@ -316,15 +384,9 @@ class SharedConfig
 			'writerId' => $writerId,
 			'backendUrl' => $backendUrl,
 			'createdTime' => date('c'),
-			'deletedTime' => null,
-			'dev' => $dev
+			'deletedTime' => null
 		);
-		$table = new StorageApiTable($this->_storageApiClient, self::PROJECTS_TO_DELETE_TABLE_ID, null, 'pid');
-		$table->setHeader(array_keys($data));
-		$table->setFromArray(array($data));
-		$table->setPartial(true);
-		$table->setIncremental(true);
-		$table->save();
+		$this->_updateTableRow(self::PROJECTS_TO_DELETE_TABLE_ID, 'pid', $data);
 	}
 
 
@@ -335,27 +397,18 @@ class SharedConfig
 	 */
 	public function getUsers($projectId, $writerId)
 	{
-		$csv = $this->_storageApiClient->exportTable(
-			self::USERS_TABLE_ID,
-			null,
-			array(
-				'whereColumn' => 'projectIdWriterId',
-				'whereValues' => array($projectId . '.' . $writerId)
-			)
-		);
-
-		return StorageApiClient::parseCsv($csv, true);
+		return $this->_fetchTableRows(self::USERS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId);
 	}
 
+	/**
+	 * @return array
+	 */
 	public function usersToDelete()
 	{
 		$now = time();
-		$csv = $this->_storageApiClient->exportTable(self::USERS_TO_DELETE_TABLE_ID, null, array(
-			'whereColumn' => 'deletedTime',
-			'whereValues' => array('')
-		));
 		$result = array();
-		foreach (StorageApiClient::parseCsv($csv) as $user) {
+		$csv = $this->_fetchTableRows(self::USERS_TO_DELETE_TABLE_ID, 'deletedTime', '');
+		foreach ($csv as $user) {
 			if ($now - strtotime($user['createdTime']) >= 60 * 60 * 24 * 30) {
 				$result[] = $user;
 			}
@@ -363,6 +416,9 @@ class SharedConfig
 		return $result;
 	}
 
+	/**
+	 * @param $ids
+	 */
 	public function markUsersDeleted($ids)
 	{
 		$nowTime = date('c');
@@ -371,12 +427,7 @@ class SharedConfig
 			$data[] = array($id, $nowTime);
 		}
 
-		$table = new StorageApiTable($this->_storageApiClient, self::USERS_TO_DELETE_TABLE_ID, null, 'uid');
-		$table->setHeader(array('uid', 'deletedTime'));
-		$table->setFromArray($data);
-		$table->setPartial(true);
-		$table->setIncremental(true);
-		$table->save();
+		$this->_updateTable(self::USERS_TO_DELETE_TABLE_ID, 'uid', array('uid', 'deletedTime'), $data);
 	}
 
 	/**
@@ -384,9 +435,8 @@ class SharedConfig
 	 * @param $writerId
 	 * @param $uid
 	 * @param $email
-	 * @param int $dev
 	 */
-	public function enqueueUserToDelete($projectId, $writerId, $uid, $email, $dev = 0)
+	public function enqueueUserToDelete($projectId, $writerId, $uid, $email)
 	{
 		$data = array(
 			'uid' => $uid,
@@ -394,18 +444,19 @@ class SharedConfig
 			'writerId' => $writerId,
 			'email' => $email,
 			'createdTime' => date('c'),
-			'deletedTime' => null,
-			'dev' => $dev
+			'deletedTime' => null
 		);
-		$table = new StorageApiTable($this->_storageApiClient, self::USERS_TO_DELETE_TABLE_ID, null, 'uid');
-		$table->setHeader(array_keys($data));
-		$table->setFromArray(array($data));
-		$table->setPartial(true);
-		$table->setIncremental(true);
-		$table->save();
+		$this->_updateTableRow(self::USERS_TO_DELETE_TABLE_ID, 'uid', $data);
 	}
 
 
+	/**
+	 * @param $writerId
+	 * @param $runId
+	 * @param $message
+	 * @param array $params
+	 * @param array $results
+	 */
 	public function logEvent($writerId, $runId, $message, $params = array(), $results = array())
 	{
 		$event = new StorageApiEvent();
@@ -418,4 +469,5 @@ class SharedConfig
 			->setMessage($message);
 		$this->_storageApiClient->createEvent($event);
 	}
+
 }

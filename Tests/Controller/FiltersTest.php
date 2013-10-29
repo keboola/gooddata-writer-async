@@ -23,9 +23,11 @@ class FiltersTest extends AbstractControllerTest
 	protected function _assignFilterToUser($pid)
 	{
 		$usersList = self::$configuration->getUsers();
+		$this->assertGreaterThan(0, $usersList, "Writer should have at least one user.");
 		$user = $usersList[0];
 
 		$filters = self::$configuration->getFilters();
+		$this->assertGreaterThan(0, $filters, "Writer should have at least one filter.");
 		$filter = $filters[0];
 
 		// Create and process job

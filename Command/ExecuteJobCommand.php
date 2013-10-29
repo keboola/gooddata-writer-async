@@ -10,17 +10,18 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class RunJobCommand extends ContainerAwareCommand
+class ExecuteJobCommand extends ContainerAwareCommand
 {
 
 
 	protected function configure()
 	{
 		$this
-			->setName('gooddata-writer:run-job')
-			->setDescription('Run selected job from queue')
+			->setName('gooddata-writer:execute-job')
+			->setDescription('Execute selected job')
 			->setDefinition(array(
-				new InputArgument('job', InputArgument::REQUIRED, 'Job id')
+				new InputArgument('jobId', InputArgument::REQUIRED, 'Job id'),
+				new InputOption('force', 'f', InputOption::VALUE_NONE, 'Force run the job even if it is already finished')
 			))
 		;
 	}
@@ -36,16 +37,8 @@ class RunJobCommand extends ContainerAwareCommand
 			)
 		);
 
-		$db = new \Zend_Db_Adapter_Pdo_Mysql(array(
-			'host' => $mainConfig['db']['host'],
-			'username' => $mainConfig['db']['user'],
-			'password' => $mainConfig['db']['password'],
-			'dbname' => $mainConfig['db']['name']
-		));
-		$db->delete('message', array('body=?' => $input->getArgument('job')));
-
 		$executor = new JobExecutor($sharedConfig, $this->getContainer());
-		$executor->runJob($input->getArgument('job'));
+		$executor->runJob($input->getArgument('jobId'), $input->getOption('force'));
 	}
 
 }

@@ -6,20 +6,27 @@
 
 namespace Keboola\GoodDataWriter\Writer;
 
-use Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
-use Keboola\GoodDataWriter\GoodData\CsvHandlerException;
-use Keboola\GoodDataWriter\GoodData\RestApiException;
-use Keboola\GoodDataWriter\GoodData\UnauthorizedException;
+use Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
+	Keboola\GoodDataWriter\GoodData\RestApiException,
+	Keboola\GoodDataWriter\GoodData\UnauthorizedException,
+	Keboola\GoodDataWriter\Exception\ClientException,
+	Keboola\GoodDataWriter\Exception\JobProcessException,
+	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
-	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Exception as StorageApiException;
 use Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\GoodData\RestApi,
-	Keboola\GoodDataWriter\Exception\ClientException,
-	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+	Keboola\GoodDataWriter\Service\Lock;
 use Monolog\Logger;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+
+
+class JobCannotBeExecutedNowException extends \Exception
+{
+
+}
+
 
 class JobExecutor
 {
@@ -58,22 +65,65 @@ class JobExecutor
 		$this->_container = $container;
 	}
 
+	public function runBatch($batchId, $force = false)
+	{
+		$jobs = $this->_sharedConfig->fetchBatch($batchId);
+		if (!count($jobs)) {
+			throw new JobProcessException("Batch {$batchId} not found");
+		}
+
+		$batch = $this->_sharedConfig->batchToApiResponse($batchId);
+		$gdWriterParams = $this->_container->getParameter('gooddata_writer');
+
+		// Batch already executed?
+		if (!$force && SharedConfig::isJobFinished($batch['status'])) {
+			return;
+		}
+
+		$sqsClient = \Aws\Sqs\SqsClient::factory(array(
+			'key' => $gdWriterParams['aws']['access_key'],
+			'secret' => $gdWriterParams['aws']['secret_key'],
+			'region' => $gdWriterParams['aws']['region']
+		));
+		$lock = new Lock(new \PDO(sprintf('mysql:host=%s;dbname=%s', $gdWriterParams['db']['host'], $gdWriterParams['db']['name']),
+			$gdWriterParams['db']['user'], $gdWriterParams['db']['password']), $batch['queueId']);
+
+		if (!$lock->lock()) {
+			throw new JobCannotBeExecutedNowException("Batch {$batchId} cannot be executed now, another job already in progress on same writer.");
+		}
+
+		foreach ($jobs as $job) {
+			$this->runJob($job['id']);
+		}
+
+		$lock->unlock();
+	}
+
 	/**
 	 * Job execution
 	 * Performs execution of job tasks and logging
 	 * @param $jobId
-	 * @throws WrongConfigurationException
+	 * @param bool $force
+	 * @throws \Keboola\GoodDataWriter\Exception\JobProcessException
 	 */
-	public function runJob($jobId)
+	public function runJob($jobId, $force = false)
 	{
 		$job = $this->_job = $this->_sharedConfig->fetchJob($jobId);
 
+		// Job not found?
 		if (!$job) {
-			throw new WrongConfigurationException("Job $jobId not found");
+			throw new JobProcessException("Job $jobId not found");
 		}
 
+		// Job already executed?
+		if (!$force && SharedConfig::isJobFinished($job['status'])) {
+			return;
+		}
+
+		$gdWriterParams = $this->_container->getParameter('gooddata_writer');
+
+
 		try {
-			$gdWriterParams = $this->_container->getParameter('gooddata_writer');
 			$this->_storageApiClient = new StorageApiClient(
 				$job['token'],
 				$this->_container->getParameter('storageApi.url'),
@@ -189,7 +239,7 @@ class JobExecutor
 		try {
 			if ($job['parameters']) {
 				$parameters = json_decode($job['parameters'], true);
-				if (!$parameters) {
+				if ($parameters === false) {
 					throw new WrongConfigurationException("Parameters decoding failed");
 				}
 			} else {
@@ -210,8 +260,14 @@ class JobExecutor
 
 			$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
 
-			$s3Client = new S3Client($mainConfig['s3']['access_key'], $mainConfig['s3']['secret_key'],
-				$mainConfig['s3']['bucket'], $job['projectId'] . '.' . $job['writerId']);
+			$s3Client = new S3Client(
+				\Aws\S3\S3Client::factory(array(
+					'key' => $mainConfig['aws']['access_key'],
+					'secret' => $mainConfig['aws']['secret_key'])
+				),
+				$mainConfig['aws']['s3_bucket'],
+				$job['projectId'] . '.' . $job['writerId']
+			);
 
 			$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
 
