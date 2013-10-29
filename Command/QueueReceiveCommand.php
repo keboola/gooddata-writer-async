@@ -102,7 +102,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 			$message->incrementRetries();
 			if ($message->getRetryCount() > self::MAX_EXECUTION_RETRIES) {
 				$this->_errorMaximumRetriesExceeded($message->getBody()->batchId);
-				$log->err("Queue process error (Maximum retries exceeded)", array_merge($logData, array(
+				$log->alert("Queue process error (Maximum retries exceeded)", array_merge($logData, array(
 					'retryCount' => $message->getRetryCount(),
 					'message' => $message->toArray(),
 					'exception' => $e

@@ -14,7 +14,6 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
-	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Exception as StorageApiException;
 use Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\GoodData\RestApi,
@@ -81,11 +80,6 @@ class JobExecutor
 			return;
 		}
 
-		$sqsClient = \Aws\Sqs\SqsClient::factory(array(
-			'key' => $gdWriterParams['aws']['access_key'],
-			'secret' => $gdWriterParams['aws']['secret_key'],
-			'region' => $gdWriterParams['aws']['region']
-		));
 		$lock = new Lock(new \PDO(sprintf('mysql:host=%s;dbname=%s', $gdWriterParams['db']['host'], $gdWriterParams['db']['name']),
 			$gdWriterParams['db']['user'], $gdWriterParams['db']['password']), $batch['queueId']);
 
@@ -270,9 +264,7 @@ class JobExecutor
 				$job['projectId'] . '.' . $job['writerId']
 			);
 
-			$backendUrl = isset($configuration->bucketInfo['gd']['backendUrl']) ? $configuration->bucketInfo['gd']['backendUrl'] : null;
-
-			$restApi = new RestApi($backendUrl, $this->_log);
+			$restApi = new RestApi($this->_log);
 
 			/**
 			 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command

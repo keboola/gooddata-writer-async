@@ -94,7 +94,7 @@ abstract class StorageApiConfiguration
 		if (count($data)) {
 			$table->setFromArray($data);
 		}
-		if (count($indices)) {
+		if (count($indices) && !$this->_storageApiClient->tableExists($tableId)) {
 			$table->setIndices($indices);
 		}
 		$table->setIncremental($incremental);

@@ -6,8 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\ClientException,
-	Keboola\GoodDataWriter\Exception\WrongConfigurationException,
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
@@ -16,9 +15,7 @@ use Keboola\GoodDataWriter\GoodData\CLToolApi,
 	Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\GoodData\CsvHandler,
 	Keboola\GoodDataWriter\GoodData\CsvHandlerException;
-use Keboola\GoodDataWriter\GoodData\WebDav,
-	Keboola\GoodDataWriter\GoodData\WebDavException;
-use Keboola\StorageApi\Client as StorageApiClient;
+use Keboola\GoodDataWriter\GoodData\WebDav;
 
 class UploadTable extends AbstractJob
 {
@@ -311,8 +308,9 @@ class UploadTable extends AbstractJob
 	private function _getWebDavUrl()
 	{
 		$webDavUrl = null;
-		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
+		if (isset($this->configuration->bucketInfo['gd']['backendUrl']) && $this->configuration->bucketInfo['gd']['backendUrl'] != RestApi::DEFAULT_BACKEND_URL) {
 			// Get WebDav url for non-default backend
+			$this->restApi->setBaseUrl($this->configuration->bucketInfo['gd']['backendUrl']);
 			$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 			$gdc = $this->restApi->get('/gdc');
 			if (isset($gdc['about']['links'])) foreach ($gdc['about']['links'] as $link) {
