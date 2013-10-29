@@ -19,8 +19,6 @@ class DropWriter extends AbstractJob
 	 */
 	public function run($job, $params)
 	{
-		$env = empty($params['dev']) ? 'prod' :'dev';
-		$mainConfig = $this->mainConfig['gd'][$env];
 		$dropImmediately = !empty($params['immediately']);
 
 		if (!$this->configuration->bucketId) {
@@ -28,20 +26,20 @@ class DropWriter extends AbstractJob
 		}
 
 		if ($dropImmediately) {
-			$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
+			$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 			//@TODO
 		}
 
 		$pids = array();
 		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) {
-			$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid'], $project['backendUrl'], empty($params['dev']));
+			$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid'], $project['backendUrl']);
 
 			if ($dropImmediately) {
 				try {
 					$this->restApi->dropProject($project['pid']);
 					$pids[] = $project['pid'];
 				} catch (RestApiException $e) {
-					$this->log->alert('Could nor delete project', array(
+					$this->log->alert('Could not delete project', array(
 						'project' => $project,
 						'exception' => $e
 					));
@@ -54,14 +52,14 @@ class DropWriter extends AbstractJob
 
 		$uids = array();
 		foreach ($this->sharedConfig->getUsers($job['projectId'], $job['writerId']) as $user) {
-			$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid'], $user['email'], empty($params['dev']));
+			$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid'], $user['email']);
 
 			if ($dropImmediately) {
 				try {
 					$this->restApi->dropUser($user['uid']);
 					$uids[] = $user['uid'];
 				} catch (RestApiException $e) {
-					$this->log->alert('Could nor delete user', array(
+					$this->log->alert('Could not delete user', array(
 						'user' => $user,
 						'exception' => $e
 					));

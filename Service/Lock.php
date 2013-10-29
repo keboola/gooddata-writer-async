@@ -5,9 +5,9 @@
  *  - http://www.mysqlperformanceblog.com/2009/10/14/watch-out-for-your-cron-jobs/
  *  - http://www.phpdeveloper.org.uk/mysql-named-locks/
  *
- * User: Martin Halamíček
- * Date: 27.12.11
- * Time: 9:45
+ * @author Martin Halamicek <martin.halamicek@kebola.com>
+ * @author Jakub Matejka <jakub@keboola.com>
+ * @date 2011-12-27
  */
 
 namespace Keboola\GoodDataWriter\Service;
@@ -16,17 +16,17 @@ class Lock
 {
 
 	/**
-	 * @var \Zend_Db_Adapter_Abstract
+	 * @var \PDO
 	 */
 	protected $_db;
 	protected $_lockName;
 
 
 	/**
-	 * @param \Zend_Db_Adapter_Abstract $db
+	 * @param \PDO $db
 	 * @param string $lockName Lock name is server wide - should be prefixed by db name
 	 */
-	public function __construct(\Zend_Db_Adapter_Abstract $db, $lockName = '')
+	public function __construct(\PDO $db, $lockName = '')
 	{
 		$this->_db = $db;
 		$this->setLockName($lockName);
@@ -38,20 +38,25 @@ class Lock
 	 */
 	public function lock($timeout = 0)
 	{
-		return (bool) $this->_db->fetchOne("SELECT GET_LOCK(?, ?)", array(
-			$this->_prefixedLockName(),
-			$timeout,
-		));
+		$sql = 'SELECT GET_LOCK(:name, :timeout)';
+		$sth = $this->_db->prepare($sql, array(\PDO::ATTR_CURSOR => \PDO::CURSOR_FWDONLY));
+		$sth->execute(array(':name' => $this->_prefixedLockName(), ':timeout' => $timeout));
+		return $sth->fetchColumn();
 	}
 
 	public function isFree()
 	{
-		return (bool) $this->_db->fetchOne("SELECT IS_FREE_LOCK(?)", array($this->_prefixedLockName()));
+		$sql = 'SELECT IS_FREE_LOCK(:name)';
+		$sth = $this->_db->prepare($sql, array(\PDO::ATTR_CURSOR => \PDO::CURSOR_FWDONLY));
+		$sth->execute(array(':name' => $this->_prefixedLockName()));
+		return $sth->fetchColumn();
 	}
 
 	public function unlock()
 	{
-		$this->_db->query("DO RELEASE_LOCK(?)", array($this->_prefixedLockName()));
+		$sql = 'DO RELEASE_LOCK(:name)';
+		$sth = $this->_db->prepare($sql, array(\PDO::ATTR_CURSOR => \PDO::CURSOR_FWDONLY));
+		$sth->execute(array(':name' => $this->_prefixedLockName()));
 	}
 
 	protected function _prefixedLockName()
@@ -61,7 +66,8 @@ class Lock
 
 	protected function _dbName()
 	{
-		return $this->_db->fetchOne("SELECT DATABASE()");
+		$result = $this->_db->query('SELECT DATABASE()');
+		return (string)$result->fetchColumn();
 	}
 
 	public function getLockName()

@@ -33,17 +33,14 @@ class CreateUser extends AbstractJob
 			throw new WrongConfigurationException("Parameter 'lastName' is missing");
 		}
 
-		$env = empty($params['dev']) ? 'prod' :'dev';
-		$mainConfig = $this->mainConfig['gd'][$env];
-
 
 		$gdWriteStartTime = date('c');
 		try {
-			$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
-			$userId = $this->restApi->createUser($mainConfig['domain'], $params['email'], $params['password'],
-				$params['firstName'], $params['lastName'], $mainConfig['sso_provider']);
+			$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+			$userId = $this->restApi->createUser($this->mainConfig['gd']['domain'], $params['email'], $params['password'],
+				$params['firstName'], $params['lastName'], $this->mainConfig['gd']['sso_provider']);
 
-			$this->configuration->saveUserToConfiguration($params['email'], $userId);
+			$this->configuration->saveUser($params['email'], $userId);
 			$this->sharedConfig->saveUser($userId, $params['email'], $job);
 
 

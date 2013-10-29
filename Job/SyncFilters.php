@@ -16,16 +16,13 @@ class SyncFilters extends AbstractJob {
 
 	function run($job, $params)
 	{
-		$env = empty($params['dev']) ? 'prod' :'dev';
-		$mainConfig = $this->mainConfig['gd'][$env];
-
 		$gdWriteStartTime = date('c');
 
 		try {
 			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
 			$projects = $this->configuration->getProjects();
-			if (isset($params['pid'])) {
+			if (!empty($params['pid'])) {
 				$projects = array($this->configuration->getProject($params['pid']));
 			}
 

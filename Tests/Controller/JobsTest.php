@@ -86,8 +86,7 @@ class JobsTest extends AbstractControllerTest
 
 		// Upload project
 		$responseJson = $this->_postWriterApi('/gooddata-writer/upload-project', array(
-			'writerId' => $this->writerId,
-			'dev' => 1
+			'writerId' => $this->writerId
 		));
 
 		$this->assertArrayHasKey('batch', $responseJson, "Response for writer call '/upload-project' should contain 'batch' key.");
@@ -103,8 +102,7 @@ class JobsTest extends AbstractControllerTest
 
 		// Cancel jobs in queue
 		$this->_postWriterApi('/gooddata-writer/cancel-jobs', array(
-			'writerId' => $this->writerId,
-			'dev' => 1
+			'writerId' => $this->writerId
 		));
 
 
