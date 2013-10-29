@@ -145,13 +145,10 @@ class UploadTable extends AbstractJob
 
 			$dataSetExists = in_array($dataSetId, array_keys($project['existingDataSets']));
 			if ($dataSetExists) {
-				if (empty($project['existingDataSets'][$dataSetId]['lastChangeDate'])
-					|| strtotime($project['existingDataSets'][$dataSetId]['lastChangeDate']) < strtotime($tableDefinition['lastChangeDate'])) {
+				if (!empty($tableDefinition['lastChangeDate'])
+					&& (empty($project['existingDataSets'][$dataSetId]['lastChangeDate'])
+					|| strtotime($project['existingDataSets'][$dataSetId]['lastChangeDate']) < strtotime($tableDefinition['lastChangeDate']))) {
 
-				}
-				// Update project (or not?)
-				//@TODO get rid of the table attributes
-				if (empty($tableDefinition['lastChangeDate']) || strtotime($tableDefinition['lastChangeDate']) > strtotime($tableDefinition['lastExportDate'])) {
 					$updateModelJobs[] = array(
 						'command' => 'update',
 						'pid' => $project['pid'],
