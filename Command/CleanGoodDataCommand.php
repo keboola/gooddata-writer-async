@@ -39,7 +39,7 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 
 		$pids = array();
 		foreach ($sharedConfig->projectsToDelete() as $project) {
-			$restApi = new RestApi($project['backendUrl'], $log);
+			$restApi = new RestApi($log);
 			$restApi->setCredentials($mainConfig['gd']['username'], $mainConfig['gd']['password']);
 			try {
 				$restApi->dropProject($project['pid']);
@@ -54,8 +54,7 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		}
 		$sharedConfig->markProjectsDeleted($pids);
 
-		//@TODO delete users from other backends
-		$restApi = new RestApi(null, $log);
+		$restApi = new RestApi($log);
 		$restApi->setCredentials($mainConfig['gd']['username'], $mainConfig['gd']['password']);
 		$uids = array();
 		foreach ($sharedConfig->usersToDelete() as $user) {
