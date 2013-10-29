@@ -8,6 +8,9 @@
 
 namespace Keboola\GoodDataWriter;
 
+use Guzzle\Common\Exception\InvalidArgumentException;
+use Guzzle\Http\Url;
+use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\GoodData\SSO,
 	Keboola\GoodDataWriter\Writer\Configuration,
@@ -574,6 +577,52 @@ class GoodDataWriter extends Component
 		return array(
 			'ssoLink' => $sso->url($gdProjectUrl, $params['email'], $validity)
 		);
+	}
+
+	/**
+	 * Call GD Api with given query
+	 *
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
+	public function getProxy($params)
+	{
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		// query validation
+		try {
+			if (empty($params['query'])) {
+				throw new WrongParametersException("Parameter 'query' is missing");
+			}
+
+			// clean url - remove domain
+			$query = Url::factory(urldecode($params['query']));
+
+			$url = Url::buildUrl(array(
+				'path' => $query->getPath(),
+				'query' => $query->getQuery(),
+			));
+		} catch (InvalidArgumentException $e) {
+			throw new WrongParametersException("Wrong value for 'query' parameter given");
+		}
+
+		$restApi = new RestApi($this->_log);
+
+		$restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+
+		try {
+			$return = $restApi->get($url);
+
+			return array(
+				'response' => $return
+			);
+		} catch (RestApiException $e) {
+			throw new WrongParametersException($e->getMessage(), $e);
+		}
 	}
 
 	/***********************
