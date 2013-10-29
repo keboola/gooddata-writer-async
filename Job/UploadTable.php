@@ -6,8 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\ClientException,
-	Keboola\GoodDataWriter\Exception\WrongConfigurationException,
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
@@ -15,9 +14,8 @@ use Keboola\GoodDataWriter\Exception\ClientException,
 use Keboola\GoodDataWriter\GoodData\CLToolApi,
 	Keboola\GoodDataWriter\GoodData\CsvHandler,
 	Keboola\GoodDataWriter\GoodData\CsvHandlerException;
-use Keboola\GoodDataWriter\GoodData\WebDav,
-	Keboola\GoodDataWriter\GoodData\WebDavException;
-use Keboola\StorageApi\Client as StorageApiClient;
+use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\GoodData\WebDav;
 
 class UploadTable extends AbstractJob
 {
@@ -63,18 +61,19 @@ class UploadTable extends AbstractJob
 		}
 
 		$zipPath = isset($this->mainConfig['zip_path']) ? $this->mainConfig['zip_path'] : null;
-		$webdavUrl = null;
-		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
+		$webDavUrl = null;
+		if (isset($this->configuration->bucketInfo['gd']['backendUrl']) && $this->configuration->bucketInfo['gd']['backendUrl'] != RestApi::DEFAULT_BACKEND_URL) {
 			// Get WebDav url for non-default backend
+			$this->restApi->setBaseUrl($this->configuration->bucketInfo['gd']['backendUrl']);
 			$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 			$gdc = $this->restApi->get('/gdc');
 			if (isset($gdc['about']['links'])) foreach ($gdc['about']['links'] as $link) {
 				if ($link['category'] == 'uploads') {
-					$webdavUrl = $link['link'];
+					$webDavUrl = $link['link'];
 					break;
 				}
 			}
-			if (!$webdavUrl) {
+			if (!$webDavUrl) {
 				throw new JobProcessException(sprintf("Getting of WebDav url for backend '%s' failed.", $this->configuration->bucketInfo['gd']['backendUrl']));
 			}
 		}
@@ -181,7 +180,7 @@ class UploadTable extends AbstractJob
 		// Start GoodData transfer
 		$gdWriteStartTime = date('c');
 		try {
-			$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password'], $webdavUrl, $zipPath);
+			$webDav = new WebDav($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password'], $webDavUrl, $zipPath);
 
 			$uploadedDimensions = array();
 			foreach ($createDateJobs as $gdJob) {
