@@ -10,27 +10,24 @@ namespace Keboola\GoodDataWriter;
 
 use Guzzle\Common\Exception\InvalidArgumentException;
 use Guzzle\Http\Url;
-use Keboola\GoodDataWriter\Exception\ClientException;
-use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
-use Keboola\GoodDataWriter\GoodData\SSO;
-use Monolog\Logger;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
-use Symfony\Component\HttpFoundation\StreamedResponse;
-use Syrup\ComponentBundle\Component\Component;
-use Symfony\Component\HttpFoundation\Request,
-	Symfony\Component\HttpFoundation\Response;
-use Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\StorageApi\Table as StorageApiTable,
-	Keboola\StorageApi\Client as StorageApiClient,
-	Keboola\StorageApi\Config\Reader,
-	Keboola\Csv\CsvFile;
+use Keboola\GoodDataWriter\GoodData\RestApi,
+	Keboola\GoodDataWriter\GoodData\SSO,
+	Keboola\GoodDataWriter\Writer\Configuration,
+	Keboola\GoodDataWriter\Writer\SharedConfig,
+	Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\WrongParametersException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Syrup\ComponentBundle\Component\Component;
+use Monolog\Logger;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag,
+	Symfony\Component\HttpFoundation\StreamedResponse,
+	Symfony\Component\HttpFoundation\Response;
 
 class GoodDataWriter extends Component
 {
+
 	protected $_name = 'gooddata';
 	protected $_prefix = 'wr';
 
@@ -53,7 +50,7 @@ class GoodDataWriter extends Component
 	 */
 	private $_s3Client;
 	/**
-	 * @var Writer\Queue
+	 * @var Service\Queue
 	 */
 	private $_queue;
 
@@ -70,6 +67,10 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException('Missing parameter \'writerId\'');
 		}
 
+		if (isset($params['queue']) && !in_array($params['queue'], array(SharedConfig::PRIMARY_QUEUE, SharedConfig::SECONDARY_QUEUE))) {
+			throw new WrongParametersException('Wrong parameter \'queue\'. Must be one of: primary, secondary');
+		}
+
 		// Init main temp directory
 		$this->_mainConfig = $this->_container->getParameter('gooddata_writer');
 		$tmpDir = $this->_mainConfig['tmp_path'];
@@ -77,15 +78,21 @@ class GoodDataWriter extends Component
 
 		$this->configuration = new Configuration($params['writerId'], $this->_storageApi, $tmpDir);
 
-		$this->_s3Client = new Service\S3Client($this->_mainConfig['s3']['access_key'], $this->_mainConfig['s3']['secret_key'],
-			$this->_mainConfig['s3']['bucket'], $this->configuration->projectId . '.' . $this->configuration->writerId);
+		$this->_s3Client = new Service\S3Client(
+			\Aws\S3\S3Client::factory(array(
+				'key' => $this->_mainConfig['aws']['access_key'],
+				'secret' => $this->_mainConfig['aws']['secret_key'])
+			),
+			$this->_mainConfig['aws']['s3_bucket'],
+			$this->configuration->projectId . '.' . $this->configuration->writerId
+		);
 
-		$this->_queue = new Writer\Queue(new \Zend_Db_Adapter_Pdo_Mysql(array(
-			'host' => $this->_mainConfig['db']['host'],
-			'username' => $this->_mainConfig['db']['user'],
-			'password' => $this->_mainConfig['db']['password'],
-			'dbname' => $this->_mainConfig['db']['name']
-		)));
+		$sqsClient = \Aws\Sqs\SqsClient::factory(array(
+			'key' => $this->_mainConfig['aws']['access_key'],
+			'secret' => $this->_mainConfig['aws']['secret_key'],
+			'region' => $this->_mainConfig['aws']['region']
+		));
+		$this->_queue = new Service\Queue($sqsClient, $this->_mainConfig['aws']['queue_url']);
 
 		$sharedStorageApi = new StorageApiClient(
 			$this->_mainConfig['shared_sapi']['token'],
@@ -141,9 +148,8 @@ class GoodDataWriter extends Component
 
 		$this->configuration->createWriter($params['writerId'], isset($params['backendUrl']) ? $params['backendUrl'] : null);
 
-		$mainConfig = empty($params['dev']) ? $this->_mainConfig['gd']['prod'] : $this->_mainConfig['gd']['dev'];
-		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $mainConfig['access_token'];
-		$projectName = sprintf($mainConfig['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
+		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->_mainConfig['gd']['access_token'];
+		$projectName = sprintf($this->_mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 
 
 		$batchId = $this->_storageApi->generateId();
@@ -153,13 +159,13 @@ class GoodDataWriter extends Component
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
 				'accessToken' => $accessToken,
-				'projectName' => $projectName,
-				'dev' => empty($params['dev']) ? 0 : 1
+				'projectName' => $projectName
 			)
 		));
-		$this->_queue->enqueueJob($jobInfo);
 
 		if(empty($params['users'])) {
+			$this->_enqueue($batchId);
+
 			if (empty($params['wait'])) {
 				return array('job' => (int)$jobInfo['id']);
 			} else {
@@ -176,7 +182,7 @@ class GoodDataWriter extends Component
 
 			$users = explode(',', $params['users']);
 			foreach ($users as $user) {
-				$job = $this->_createJob(array(
+				$this->_createJob(array(
 					'batchId' => $batchId,
 					'command' => 'inviteUserToProject',
 					'createdTime' => date('c', $createdTime),
@@ -185,8 +191,9 @@ class GoodDataWriter extends Component
 						'role' => 'admin'
 					)
 				));
-				$this->_queue->enqueueJob($job);
 			}
+
+			$this->_enqueue($batchId);
 
 			return array('batch' => (int)$batchId);
 		}
@@ -214,20 +221,20 @@ class GoodDataWriter extends Component
 
 		$this->configuration->setBucketAttribute('toDelete', '1');
 
+		$this->sharedConfig->cancelJobs($this->configuration->projectId, $this->configuration->writerId);
+
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'dev' => empty($params['dev']) ? 0 : 1
-			)
+			'parameters' => array()
 		));
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_enqueue($jobInfo['batchId']);
 
 
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$this->_waitForJob($jobInfo['id'], $params['writerId']);
+			return $this->_waitForJob($jobInfo['id'], $params['writerId']);
 		}
 	}
 
@@ -271,10 +278,9 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		$mainConfig = empty($params['dev']) ? $this->_mainConfig['gd']['prod'] : $this->_mainConfig['gd']['dev'];
-		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $mainConfig['access_token'];
+		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->_mainConfig['gd']['access_token'];
 		$projectName = !empty($params['name']) ? $params['name']
-			: sprintf($mainConfig['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
+			: sprintf($this->_mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 		$this->configuration->checkGoodDataSetup();
 		$this->configuration->checkProjectsTable();
 
@@ -287,11 +293,11 @@ class GoodDataWriter extends Component
 				'projectName' => $projectName,
 				'includeData' => empty($params['includeData']) ? 0 : 1,
 				'includeUsers' => empty($params['includeUsers']) ? 0 : 1,
-				'pidSource' => $this->configuration->bucketInfo['gd']['pid'],
-				'dev' => empty($params['dev']) ? 0 : 1
-			)
+				'pidSource' => $this->configuration->bucketInfo['gd']['pid']
+			),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_enqueue($jobInfo['batchId']);
 
 
 		if (empty($params['wait'])) {
@@ -377,15 +383,20 @@ class GoodDataWriter extends Component
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => $params
+			'parameters' => array(
+				'email' => $params['email'],
+				'pid' => $params['pid'],
+				'role' => $params['role']
+			),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_enqueue($jobInfo['batchId']);
 
 
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$this->_waitForJob($jobInfo['id'], $params['writerId']);
+			return $this->_waitForJob($jobInfo['id'], $params['writerId']);
 		}
 	}
 
@@ -426,15 +437,20 @@ class GoodDataWriter extends Component
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => $params
+			'parameters' => array(
+				'email' => $params['email'],
+				'pid' => $params['pid'],
+				'role' => $params['role']
+			),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_enqueue($jobInfo['batchId']);
 
 
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$this->_waitForJob($jobInfo['id'], $params['writerId']);
+			return $this->_waitForJob($jobInfo['id'], $params['writerId']);
 		}
 	}
 
@@ -500,10 +516,15 @@ class GoodDataWriter extends Component
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => $params
+			'parameters' => array(
+				'firstName' => $params['firstName'],
+				'lastName' => $params['lastName'],
+				'email' => $params['email'],
+				'password' => $params['password']
+			),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
-
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_enqueue($jobInfo['batchId']);
 
 
 		if (empty($params['wait'])) {
@@ -548,8 +569,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("User " . $user . " doesn't exist in writer");
 		}
 
-		$mainConfig = empty($params['dev']) ? $this->_mainConfig['gd']['prod'] : $this->_mainConfig['gd']['dev'];
-		$sso = new SSO($this->configuration, $mainConfig, $this->_mainConfig['tmp_path']);
+		$sso = new SSO($this->configuration, $this->_mainConfig['gd'], $this->_mainConfig['tmp_path']);
 
 		$gdProjectUrl = '/#s=/gdc/projects/' . $params['pid'];
 		$validity = (isset($params['validity']))?$params['validity']:86400;
@@ -590,8 +610,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Wrong value for 'query' parameter given");
 		}
 
-		$backendUrl = isset($this->configuration->bucketInfo['gd']['backendUrl']) ? $this->configuration->bucketInfo['gd']['backendUrl'] : null;
-		$restApi = new RestApi($backendUrl, $this->_log);
+		$restApi = new RestApi($this->_log);
 
 		$restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
@@ -677,10 +696,17 @@ class GoodDataWriter extends Component
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => $params
+			'parameters' => array(
+				'name' => $params['name'],
+				'attribute' => $params['attribute'],
+				'element' => $params['element'],
+				'pid' => $params['pid'],
+				'operator' => $params['operator']
+			),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
+		$this->_enqueue($jobInfo['batchId']);
 
-		$this->_queue->enqueueJob($jobInfo);
 
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
@@ -715,10 +741,12 @@ class GoodDataWriter extends Component
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => $params
+			'parameters' => array(
+				'uri' => $params['uri']
+			),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
-
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_enqueue($jobInfo['batchId']);
 
 
 		if (empty($params['wait'])) {
@@ -754,6 +782,9 @@ class GoodDataWriter extends Component
 		if (empty($params['userEmail'])) {
 			throw new WrongParametersException("Parameter 'userEmail' is missing");
 		}
+		if (empty($params['pid'])) {
+			throw new WrongParametersException("Parameter 'pid' is missing");
+		}
 
 		$this->_init($params);
 		if (!$this->configuration->bucketId) {
@@ -763,10 +794,15 @@ class GoodDataWriter extends Component
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => $params
+			'parameters' => array(
+				'filters' => $params['filters'],
+				'userEmail' => $params['userEmail'],
+				'pid' => $params['pid']
+			),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
+		$this->_enqueue($jobInfo['batchId']);
 
-		$this->_queue->enqueueJob($jobInfo);
 
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
@@ -803,10 +839,13 @@ class GoodDataWriter extends Component
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => $params
+			'parameters' => array(
+				'pid' => isset($params['pid']) ? $params['pid'] : null
+			),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
+		$this->_enqueue($jobInfo['batchId']);
 
-		$this->_queue->enqueueJob($jobInfo);
 
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
@@ -887,7 +926,8 @@ class GoodDataWriter extends Component
 			'xmlFile' => $xmlUrl,
 			'parameters' => array(
 				'tableId' => $params['tableId']
-			)
+			),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
 		);
 		if (isset($params['pid'])) {
 			$jobData['parameters']['pid'] = $params['pid'];
@@ -899,13 +939,13 @@ class GoodDataWriter extends Component
 			$jobData['parameters']['sanitize'] = $params['sanitize'];
 		}
 		$jobInfo = $this->_createJob($jobData);
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_enqueue($jobInfo['batchId']);
 
 
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			$this->_waitForJob($jobInfo['id'], $params['writerId']);
+			return $this->_waitForJob($jobInfo['id'], $params['writerId']);
 		}
 	}
 
@@ -999,7 +1039,8 @@ class GoodDataWriter extends Component
 				'xmlFile' => $table['xml'],
 				'parameters' => array(
 					'tableId' => $table['tableId']
-				)
+				),
+				'queue' => isset($params['queue']) ? $params['queue'] : null
 			);
 			if (isset($params['pid'])) {
 				$jobData['parameters']['pid'] = $params['pid'];
@@ -1010,8 +1051,7 @@ class GoodDataWriter extends Component
 			if (isset($params['sanitize'])) {
 				$jobData['parameters']['sanitize'] = $params['sanitize'];
 			}
-			$jobInfo = $this->_createJob($jobData);
-			$this->_queue->enqueueJob($jobInfo);
+			$this->_createJob($jobData);
 		}
 
 		// Execute reports
@@ -1019,17 +1059,18 @@ class GoodDataWriter extends Component
 			'batchId' => $batchId,
 			'runId' => $runId,
 			'command' => 'executeReports',
-			'createdTime' => date('c', $createdTime)
+			'createdTime' => date('c', $createdTime),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
 		);
-		$jobInfo = $this->_createJob($jobData);
-		$this->_queue->enqueueJob($jobInfo);
+		$this->_createJob($jobData);
 
+		$this->_enqueue($batchId);
 
 
 		if (empty($params['wait'])) {
 			return array('batch' => (int)$batchId);
 		} else {
-			$this->_waitForBatch($batchId, $params['writerId']);
+			return $this->_waitForBatch($batchId, $params['writerId']);
 		}
 	}
 
@@ -1397,6 +1438,7 @@ class GoodDataWriter extends Component
 							$linesCount--;
 						}
 						fclose($handle);
+						return true;
 					});
 					$response->headers->set('Content-Disposition', $response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $params['jobId'] . '.csv'));
 					$response->headers->set('Content-Length', filesize($result['csvFile']));
@@ -1428,14 +1470,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException('Missing parameter \'writerId\'');
 		}
 
-		$jobs = $this->_queue->clearQueue($this->configuration->projectId . "-" . $this->configuration->writerId);
-
-		// Cancel only waiting (to skip processing jobs)
-		foreach ($this->sharedConfig->fetchJobs($this->configuration->projectId, $this->configuration->writerId) as $job) {
-			if (in_array($job['id'], $jobs) && $job['status'] == 'waiting') {
-				$this->sharedConfig->saveJob($job['id'], array('status' => 'cancelled'));
-			}
-		}
+		$this->sharedConfig->cancelJobs($this->configuration->projectId, $this->configuration->writerId);
 		return array();
 	}
 
@@ -1455,49 +1490,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'batchId' is missing");
 		}
 
-		$data = array(
-			'batchId' => (int)$params['batchId'],
-			'createdTime' => date('c'),
-			'startTime' => date('c'),
-			'endTime' => null,
-			'status' => null,
-			'jobs' => array(),
-			'result' => null,
-			'log' => null
-		);
-		$cancelledJobs = 0;
-		$waitingJobs = 0;
-		$processingJobs = 0;
-		$errorJobs = 0;
-		$successJobs = 0;
-		foreach ($this->sharedConfig->fetchBatch($params['batchId']) as $job) {
-			$job = $this->sharedConfig->jobToApiResponse($job, $this->_s3Client);
-
-			if ($job['projectId'] != $this->configuration->projectId || $job['writerId'] != $this->configuration->writerId) {
-				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['batchId'], $this->configuration->writerId));
-			}
-
-			if ($job['createdTime'] < $data['createdTime']) $data['createdTime'] = $job['createdTime'];
-			if ($job['startTime'] < $data['startTime']) $data['startTime'] = $job['startTime'];
-			if ($job['endTime'] > $data['endTime']) $data['endTime'] = $job['endTime'];
-			$data['jobs'][] = (int)$job['id'];
-			if ($job['status'] == 'waiting') $waitingJobs++;
-			elseif ($job['status'] == 'processing') $processingJobs++;
-			elseif ($job['status'] == 'cancelled') $cancelledJobs++;
-			elseif ($job['status'] == 'error') {
-				$errorJobs++;
-				$data['result'] = $job['result'];
-			}
-			else $successJobs++;
-		}
-
-		if ($cancelledJobs > 0) $data['status'] = 'cancelled';
-		elseif ($processingJobs > 0) $data['status'] = 'processing';
-		elseif ($waitingJobs > 0) $data['status'] = 'waiting';
-		elseif ($errorJobs > 0) $data['status'] = 'error';
-		else $data['status'] = 'success';
-
-		return array('batch' => $data);
+		return array('batch' => $this->sharedConfig->batchToApiResponse($params['batchId'], $this->_s3Client));
 	}
 
 
@@ -1509,6 +1502,10 @@ class GoodDataWriter extends Component
 		if (!isset($params['batchId'])) {
 			$params['batchId'] = $jobId;
 		}
+
+		$params['queueId'] = sprintf('%s.%s.%s', $this->configuration->projectId, $this->configuration->writerId,
+			isset($params['queue']) ? $params['queue'] : SharedConfig::PRIMARY_QUEUE);
+		unset($params['queue']);
 
 		$jobInfo = array(
 			'id' => $jobId,
@@ -1535,9 +1532,10 @@ class GoodDataWriter extends Component
 			'gdWriteBytes' => null,
 			'status' => 'waiting',
 			'log' => null,
-			'projectIdWriterId' => $this->configuration->projectId . '.' . $this->configuration->writerId
+			'projectIdWriterId' => sprintf('%s.%s', $this->configuration->projectId, $this->configuration->writerId)
 		);
 		$jobInfo = array_merge($jobInfo, $params);
+
 		$this->sharedConfig->saveJob($jobId, $jobInfo);
 
 		$message = "Writer job $jobId created manually";
@@ -1553,6 +1551,18 @@ class GoodDataWriter extends Component
 		));
 
 		return $jobInfo;
+	}
+
+	/**
+	 * @param $batchId
+	 */
+	protected function _enqueue($batchId)
+	{
+		$this->_queue->enqueue(array(
+			'projectId' => $this->configuration->projectId,
+			'writerId' => $this->configuration->writerId,
+			'batchId' => $batchId
+		));
 	}
 
 

@@ -21,9 +21,6 @@ class createFilter extends AbstractJob
 	 */
 	public function run($job, $params)
 	{
-		$env = empty($params['dev']) ? 'prod' :'dev';
-		$mainConfig = $this->mainConfig['gd'][$env];
-
 		$gdWriteStartTime = date('c');
 
 		$this->_checkParams($params, array(
@@ -47,7 +44,7 @@ class createFilter extends AbstractJob
 				$params['pid']
 			);
 
-			$this->configuration->saveFilterToConfiguration(
+			$this->configuration->saveFilter(
 				$params['name'],
 				$params['attribute'],
 				$params['element'],
@@ -55,7 +52,7 @@ class createFilter extends AbstractJob
 				$filterUri
 			);
 
-			$this->configuration->saveFiltersProjectsToConfiguration($params['name'], $params['pid']);
+			$this->configuration->saveFiltersProjects($params['name'], $params['pid']);
 
 			return $this->_prepareResult($job['id'], array(
 				'uri' => $filterUri,

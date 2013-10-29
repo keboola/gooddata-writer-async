@@ -20,9 +20,6 @@ class assignFiltersToUser extends AbstractJob
 	 */
 	public function run($job, $params)
 	{
-		$env = empty($params['dev']) ? 'prod' :'dev';
-		$mainConfig = $this->mainConfig['gd'][$env];
-
 		$gdWriteStartTime = date('c');
 
 		$this->_checkParams($params, array(
@@ -46,7 +43,7 @@ class assignFiltersToUser extends AbstractJob
 			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 			$this->restApi->assignFiltersToUser($filterUris, $user['uid'], $params['pid']);
 
-			$this->configuration->saveFilterUserToConfiguration($filterUris, $params['userEmail']);
+			$this->configuration->saveFilterUser($filterUris, $params['userEmail']);
 
 			return $this->_prepareResult($job['id'], array(
 				'gdWriteStartTime' => $gdWriteStartTime

@@ -35,9 +35,7 @@ class AddUserToProject extends AbstractJob
 			throw new WrongConfigurationException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
 		}
 
-		$env = empty($params['dev']) ? 'prod' :'dev';
-		$mainConfig = $this->mainConfig['gd'][$env];
-		$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
+		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 
 		$gdWriteStartTime = date('c');
 		try {
@@ -50,8 +48,8 @@ class AddUserToProject extends AbstractJob
 			if ($user['uid']) {
 				$userId = $user['uid'];
 			} else {
-				$userId = $this->restApi->userId($params['email'], $mainConfig['domain']);
-				$this->configuration->saveUserToConfiguration($params['email'], $userId);
+				$userId = $this->restApi->userId($params['email'], $this->mainConfig['gd']['domain']);
+				$this->configuration->saveUser($params['email'], $userId);
 				if (!$userId) {
 					throw new WrongConfigurationException(sprintf("User '%s' does not exist in domain", $params['email']));
 				}
@@ -59,7 +57,7 @@ class AddUserToProject extends AbstractJob
 
 			$this->restApi->addUserToProject($userId, $params['pid'], RestApi::$userRoles[$params['role']]);
 
-			$this->configuration->saveProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
+			$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role']);
 
 
 			return $this->_prepareResult($job['id'], array(
