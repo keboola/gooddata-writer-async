@@ -70,7 +70,7 @@ abstract class AbstractControllerTest extends WebTestCase
 		self::$mainConfig = $container->getParameter('gooddata_writer');
 		self::$storageApi = new \Keboola\StorageApi\Client($container->getParameter('storageApi.test.token'),
 			self::$client->getContainer()->getParameter('storageApi.url'));
-		self::$restApi = new RestApi(null, $container->get('logger'));
+		self::$restApi = new RestApi($container->get('logger'));
 		self::$configuration = new Configuration($this->writerId, self::$storageApi, self::$mainConfig['tmp_path']);
 
 
