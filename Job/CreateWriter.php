@@ -29,12 +29,9 @@ class CreateWriter extends AbstractJob
 			throw new WrongConfigurationException("Parameter projectName is missing");
 		}
 
-		$env = empty($params['dev']) ? 'prod' :'dev';
-		$mainConfig = $this->mainConfig['gd'][$env];
-
 
 		$gdWriteStartTime = date('c');
-		$username = sprintf($mainConfig['user_email'], $job['projectId'], $job['writerId'] . '-' . uniqid());
+		$username = sprintf($this->mainConfig['gd']['user_email'], $job['projectId'], $job['writerId'] . '-' . uniqid());
 		$password = md5(uniqid());
 
 		$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
