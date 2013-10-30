@@ -13,6 +13,9 @@ use Guzzle\Http\Client,
 	Guzzle\Http\Exception\ClientErrorResponseException,
 	Guzzle\Common\Exception\RuntimeException,
 	Guzzle\Http\Message\Header;
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Keboola\GoodDataWriter\GoodData\RestApiException,
+	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
 class RestApi
 {
@@ -28,6 +31,7 @@ class RestApi
 	const WAIT_INTERVAL = 10;
 
 	const API_URL = 'https://secure.gooddata.com';
+	const DEFAULT_BACKEND_URL = 'na1.secure.gooddata.com';
 
 	public $apiUrl;
 
@@ -72,6 +76,11 @@ class RestApi
 
 		$this->_callsLog = array();
 		$this->_clearFromLog = array();
+	}
+
+	public function setBaseUrl($baseUrl)
+	{
+		$this->_client->setBaseUrl($baseUrl);
 	}
 
 	public function setCredentials($username, $password)
