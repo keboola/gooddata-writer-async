@@ -382,7 +382,6 @@ class SharedConfig extends StorageApiConfiguration
 			'pid' => $pid,
 			'projectId' => $projectId,
 			'writerId' => $writerId,
-			'backendUrl' => $backendUrl,
 			'createdTime' => date('c'),
 			'deletedTime' => null
 		);

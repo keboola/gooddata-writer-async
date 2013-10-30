@@ -11,10 +11,7 @@ namespace Keboola\GoodDataWriter\Writer;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Service\StorageApiConfiguration, 
 	Keboola\StorageApi\Client as StorageApiClient,
-	Keboola\StorageApi\Exception as StorageApiException,
 	Keboola\StorageApi\Config\Reader,
-	Keboola\Csv\CsvFile,
-	Keboola\Csv\Exception as CsvFileException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 
 class Configuration extends StorageApiConfiguration
