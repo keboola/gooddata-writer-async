@@ -9,8 +9,12 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Monolog\Logger;
-use Keboola\GoodDataWriter\Service\S3Client,
-	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
+use Keboola\GoodDataWriter\Service\S3Client;
+
+class CLToolApiErrorException extends \Exception
+{
+
+}
 
 class CLToolApi
 {
@@ -99,9 +103,6 @@ class CLToolApi
 	 */
 	public function call($args)
 	{
-		// Prepare directory for logs
-		$prevCwd = getcwd();
-
 		if (!chdir($this->tmpDir)) {
 			throw new \Exception('GoodDataExport: cannot change dir: ' . $this->tmpDir);
 		}
@@ -116,7 +117,7 @@ class CLToolApi
 		$outputFile = $this->tmpDir . '/cl-output.txt';
 		file_put_contents($outputFile . '.1', $args . "\n\n");
 
-		$backoffInterval = self::BACKOFF_INTERVAL;
+		$backOffInterval = 10 * 60;
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
 			exec($command . ' 2>&1 > ' . escapeshellarg($outputFile . '.2'));
 			exec('cat ' . escapeshellarg($outputFile . '.1') . ' ' . escapeshellarg($outputFile . '.2') .' > ' . escapeshellarg($outputFile));
@@ -147,10 +148,9 @@ class CLToolApi
 			} else {
 				// Wait indefinitely
 				$i--;
-				$backoffInterval = 10 * 60;
 			}
 
-			sleep($backoffInterval * ($i + 1));
+			sleep($backOffInterval * ($i + 1));
 		}
 
 		throw new \Exception('GoodData Service Unavailable', 400);

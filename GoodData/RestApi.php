@@ -13,9 +13,11 @@ use Guzzle\Http\Client,
 	Guzzle\Http\Exception\ClientErrorResponseException,
 	Guzzle\Common\Exception\RuntimeException,
 	Guzzle\Http\Message\Header;
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\GoodData\RestApiException,
-	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
+
+class RestApiException extends \Exception
+{
+
+}
 
 class RestApi
 {
@@ -142,7 +144,7 @@ class RestApi
 	public function get($uri)
 	{
 		try {
-			$result = $this->_jsonRequest($uri, 'GET', array(), array(), false);
+			$result = $this->jsonRequest($uri, 'GET', array(), array(), false);
 			return $result;
 		} catch (RestApiException $e) {
 			$errorJson = json_decode($e->getMessage(), true);
@@ -188,7 +190,7 @@ class RestApi
 				)
 			)
 		);
-		$result = $this->_jsonRequest($uri, 'POST', $params);
+		$result = $this->jsonRequest($uri, 'POST', $params);
 
 		if (empty($result['uri']) || strpos($result['uri'], '/gdc/projects/') === false) {
 			$this->_log->alert('createProject() failed', array(
@@ -208,7 +210,7 @@ class RestApi
 		do {
 			sleep(self::WAIT_INTERVAL * ($i + 1));
 
-			$result = $this->_jsonRequest($projectUri);
+			$result = $this->jsonRequest($projectUri);
 			if (isset($result['project']['content']['state'])) {
 				if ($result['project']['content']['state'] == 'ENABLED') {
 					$repeat = false;
@@ -235,7 +237,7 @@ class RestApi
 	public function dropProject($pid)
 	{
 		$uri = '/gdc/projects/' . $pid;
-		return $this->_jsonRequest($uri, 'DELETE');
+		return $this->jsonRequest($uri, 'DELETE');
 	}
 
 
@@ -257,7 +259,7 @@ class RestApi
 				'exportData' => $includeData
 			)
 		);
-		$result = $this->_jsonRequest($uri, 'POST', $params);
+		$result = $this->jsonRequest($uri, 'POST', $params);
 		if (empty($result['exportArtifact']['token']) || empty($result['exportArtifact']['status']['uri'])) {
 			$this->_log->alert('cloneProject() export failed', array(
 				'uri' => $uri,
@@ -269,7 +271,7 @@ class RestApi
 
 		$this->waitForTask($result['exportArtifact']['status']['uri']);
 
-		$result = $this->_jsonRequest(sprintf('/gdc/md/%s/maintenance/import', $pidTarget), 'POST', array(
+		$result = $this->jsonRequest(sprintf('/gdc/md/%s/maintenance/import', $pidTarget), 'POST', array(
 			'importProject' => array(
 				'token' => $result['exportArtifact']['token']
 			)
@@ -317,7 +319,7 @@ class RestApi
 		);
 
 		try {
-			$result = $this->_jsonRequest($uri, 'POST', $params);
+			$result = $this->jsonRequest($uri, 'POST', $params);
 		} catch (RestApiException $e) {
 			// User exists?
 			$userId = $this->userId($login, $domain);
@@ -362,7 +364,7 @@ class RestApi
 	 */
 	public function dropUser($uid)
 	{
-		return $this->_jsonRequest('/gdc/account/profile/' . $uid, 'DELETE');
+		return $this->jsonRequest('/gdc/account/profile/' . $uid, 'DELETE');
 	}
 
 	/**
@@ -399,7 +401,7 @@ class RestApi
 	 */
 	public function usersInDomain($domain)
 	{
-		$result = $this->_jsonRequest(sprintf('/gdc/account/domains/%s/users', $domain), 'GET', array(), array(), false);
+		$result = $this->jsonRequest(sprintf('/gdc/account/domains/%s/users', $domain), 'GET', array(), array(), false);
 		return isset($result['accountSettings']['items']) ? $result['accountSettings']['items'] : array();
 	}
 
@@ -411,7 +413,7 @@ class RestApi
 	 */
 	public function usersInProject($pid)
 	{
-		$result = $this->_jsonRequest(sprintf('/gdc/account/projects/%s/users', $pid));
+		$result = $this->jsonRequest(sprintf('/gdc/account/projects/%s/users', $pid));
 		return isset($result['accountSettings']['items']) ? $result['accountSettings']['items'] : array();
 	}
 
@@ -428,11 +430,11 @@ class RestApi
 	public function addUserToProject($userId, $pid, $role = 'adminRole')
 	{
 		$rolesUri = sprintf('/gdc/projects/%s/roles', $pid);
-		$rolesResult = $this->_jsonRequest($rolesUri);
+		$rolesResult = $this->jsonRequest($rolesUri);
 		$projectRoleUri = '';
 		if (isset($rolesResult['projectRoles']['roles'])) {
 			foreach($rolesResult['projectRoles']['roles'] as $roleUri) {
-				$roleResult = $this->_jsonRequest($roleUri);
+				$roleResult = $this->jsonRequest($roleUri);
 				if (isset($roleResult['projectRole']['meta']['identifier']) && $roleResult['projectRole']['meta']['identifier'] == $role) {
 					$projectRoleUri = $roleUri;
 					break;
@@ -453,7 +455,7 @@ class RestApi
 						)
 					)
 				);
-				$result = $this->_jsonRequest($uri, 'POST', $params);
+				$result = $this->jsonRequest($uri, 'POST', $params);
 
 				if ((isset($result['projectUsersUpdateResult']['successful']) && count($result['projectUsersUpdateResult']['successful']))
 					|| (isset($result['projectUsersUpdateResult']['failed']) && !count($result['projectUsersUpdateResult']['failed']))) {
@@ -496,11 +498,11 @@ class RestApi
 	public function inviteUserToProject($email, $pid, $role = 'adminRole')
 	{
 		$rolesUri = sprintf('/gdc/projects/%s/roles', $pid);
-		$rolesResult = $this->_jsonRequest($rolesUri);
+		$rolesResult = $this->jsonRequest($rolesUri);
 		$projectRoleUri = '';
 		if (isset($rolesResult['projectRoles']['roles'])) {
 			foreach($rolesResult['projectRoles']['roles'] as $roleUri) {
-				$roleResult = $this->_jsonRequest($roleUri);
+				$roleResult = $this->jsonRequest($roleUri);
 				if (isset($roleResult['projectRole']['meta']['identifier']) && $roleResult['projectRole']['meta']['identifier'] == $role) {
 					$projectRoleUri = $roleUri;
 					break;
@@ -522,7 +524,7 @@ class RestApi
 						)
 					)
 				);
-				$result = $this->_jsonRequest($uri, 'POST', $params);
+				$result = $this->jsonRequest($uri, 'POST', $params);
 
 				if (isset($result['createdInvitations']['uri']) && count($result['createdInvitations']['uri'])) {
 					// SUCCESS
@@ -565,14 +567,14 @@ class RestApi
 	public function loadData($pid, $dirName)
 	{
 		$uri = sprintf('/gdc/md/%s/etl/pull', $pid);
-		$result = $this->_jsonRequest($uri, 'POST', array('pullIntegration' => $dirName));
+		$result = $this->jsonRequest($uri, 'POST', array('pullIntegration' => $dirName));
 
 		if (isset($result['pullTask']['uri'])) {
 
 			$try = 1;
 			do {
 				sleep(10 * $try);
-				$taskResponse = $this->_jsonRequest($result['pullTask']['uri']);
+				$taskResponse = $this->jsonRequest($result['pullTask']['uri']);
 
 				if (!isset($taskResponse['taskStatus'])) {
 					$this->_log->alert('loadData() has bad response', array(
@@ -617,7 +619,7 @@ class RestApi
 
 	public function executeReport($uri)
 	{
-		$this->_requestWithLogin('/gdc/xtab2/executor3', 'POST', array(
+		$this->requestWithLogin('/gdc/xtab2/executor3', 'POST', array(
 			'report_req' => array(
 				'report' => $uri
 			)
@@ -639,7 +641,7 @@ class RestApi
 	public function createDateDimension($pid, $name, $includeTime = false)
 	{
 		$identifier = str_replace(' ', '', strtolower($name));
-		$maql = sprintf('INCLUDE TEMPLATE "URN:GOODDATA:DATE" MODIFY (IDENTIFIER "%s", TITLE "%s");', $identifier, $name);
+		$maql = sprintf('INCLUDE TEMPLATE "URN:KEBOOLA:DATE" MODIFY (IDENTIFIER "%s", TITLE "%s");', $identifier, $name);
 
 		if ($includeTime) {
 			$maql .= 'CREATE DATASET {dataset.time.%ID%} VISUAL(TITLE "Time (%NAME%)");';
@@ -692,7 +694,7 @@ class RestApi
 			$maql = str_replace('%NAME%', $name, $maql);
 		}
 
-		$this->_requestWithLogin(sprintf('/gdc/md/%s/ldm/manage', $pid), 'POST', array(
+		$this->requestWithLogin(sprintf('/gdc/md/%s/ldm/manage', $pid), 'POST', array(
 			'manage' => array(
 				'maql' => $maql
 			)
@@ -716,7 +718,7 @@ class RestApi
 				'maql' => $maql
 			)
 		);
-		return $this->_jsonRequest($uri, 'POST', $params);
+		return $this->jsonRequest($uri, 'POST', $params);
 	}
 
 
@@ -756,7 +758,7 @@ class RestApi
 		}
 
 		$filterUri = sprintf('/gdc/md/%s/obj', $pid);
-		$result = $this->_jsonRequest($filterUri, 'POST', array(
+		$result = $this->jsonRequest($filterUri, 'POST', array(
 			'userFilter' => array(
 				'content' => array(
 					'expression' => $expression
@@ -783,7 +785,7 @@ class RestApi
 	{
 		$uri = sprintf('/gdc/md/%s/userfilters', $pid);
 
-		$result = $this->_jsonRequest($uri, 'POST', array(
+		$result = $this->jsonRequest($uri, 'POST', array(
 			'userFilters' => array(
 				'items' => array(
 					array(
@@ -807,13 +809,13 @@ class RestApi
 
 	public function deleteFilter($filterUri)
 	{
-		$this->_jsonRequest($filterUri, 'DELETE');
+		$this->jsonRequest($filterUri, 'DELETE');
 	}
 
 	public function getFilters($pid)
 	{
 		$uri = sprintf('/gdc/md/%s/query/userfilters', $pid);
-		$result = $this->_jsonRequest($uri);
+		$result = $this->jsonRequest($uri);
 
 		if (isset($result['query']['entries'])) {
 			return $result['query']['entries'];
@@ -829,7 +831,7 @@ class RestApi
 	public function getAttributes($pid)
 	{
 		$uri = sprintf('/gdc/md/%s/query/attributes', $pid);
-		$result = $this->_jsonRequest($uri);
+		$result = $this->jsonRequest($uri);
 
 		if (isset($result['query']['entries'])) {
 			return $result['query']['entries'];
@@ -847,7 +849,7 @@ class RestApi
 		$attributes = $this->getAttributes($pid);
 
 		foreach ($attributes as $attr) {
-			$object = $this->_jsonRequest($attr['link']);
+			$object = $this->jsonRequest($attr['link']);
 			if (isset($object['attribute']['meta']['identifier'])) {
 				if ($object['attribute']['meta']['identifier'] == $id) {
 					return $object['attribute'];
@@ -882,7 +884,7 @@ class RestApi
 			));
 			throw new RestApiException('Attribute ' . $title . ' not found in project');
 		} else {
-			$result = $this->_jsonRequest($attrUri);
+			$result = $this->jsonRequest($attrUri);
 			if (isset($result['attribute'])) {
 				return $result['attribute'];
 			} else {
@@ -897,7 +899,7 @@ class RestApi
 
 	public function getElements($uri)
 	{
-		$result = $this->_jsonRequest($uri);
+		$result = $this->jsonRequest($uri);
 		if (isset($result['attributeElements']['elements'])) {
 			return $result['attributeElements']['elements'];
 		} else {
@@ -942,7 +944,7 @@ class RestApi
 		do {
 			sleep(self::WAIT_INTERVAL * ($i + 1));
 
-			$result = $this->_jsonRequest($uri);
+			$result = $this->jsonRequest($uri);
 			if (isset($result['taskState']['status'])) {
 				if (in_array($result['taskState']['status'], array('OK', 'ERROR', 'WARNING'))) {
 					$repeat = false;
@@ -978,10 +980,10 @@ class RestApi
 	 * @throws RestApiException
 	 * @return array|bool|float|int|string
 	 */
-	private function _jsonRequest($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true)
+	public function jsonRequest($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true)
 	{
 		try {
-			return $this->_requestWithLogin($uri, $method, $params, $headers, $logCall)->json();
+			return $this->requestWithLogin($uri, $method, $params, $headers, $logCall)->json();
 		} catch (RuntimeException $e) {
 			$this->_log->alert('API error - bad response', array(
 				'uri' => $uri,
@@ -995,7 +997,7 @@ class RestApi
 	}
 
 
-	public function _requestWithLogin($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true)
+	public function requestWithLogin($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true)
 	{
 		$this->login();
 		return $this->_request($uri, $method, $params, $headers, $logCall);
