@@ -25,14 +25,19 @@ class DropWriter extends AbstractJob
 			throw new WrongConfigurationException('Writer has been already deleted.');
 		}
 
-		if ($dropImmediately) {
-			$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
-			//@TODO
-		}
+		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 
 		$pids = array();
 		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) {
-			$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid'], $project['backendUrl']);
+
+			$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid']);
+			$projectUsers = $this->restApi->get(sprintf('/gdc/projects/%s/users', $project['pid']));
+			foreach ($projectUsers['users'] as $user) {
+				if ($user['user']['content']['email'] != $this->mainConfig['gd']['username']) {
+					echo $user['user']['links']['self'] . PHP_EOL;
+					$this->restApi->disableUserInProject($user['user']['links']['self'], $project['pid']);
+				}
+			}
 
 			if ($dropImmediately) {
 				try {

@@ -429,60 +429,33 @@ class RestApi
 	 */
 	public function addUserToProject($userId, $pid, $role = 'adminRole')
 	{
-		$rolesUri = sprintf('/gdc/projects/%s/roles', $pid);
-		$rolesResult = $this->jsonRequest($rolesUri);
-		$projectRoleUri = '';
-		if (isset($rolesResult['projectRoles']['roles'])) {
-			foreach($rolesResult['projectRoles']['roles'] as $roleUri) {
-				$roleResult = $this->jsonRequest($roleUri);
-				if (isset($roleResult['projectRole']['meta']['identifier']) && $roleResult['projectRole']['meta']['identifier'] == $role) {
-					$projectRoleUri = $roleUri;
-					break;
-				}
-			}
+		$projectRoleUri = $this->getRoleId($role, $pid);
 
-			if ($projectRoleUri) {
+		$uri = sprintf('/gdc/projects/%s/users', $pid);
+		$params = array(
+			'user' => array(
+				'content' => array(
+					'status' => 'ENABLED',
+					'userRoles' => array($projectRoleUri)
+				),
+				'links' => array(
+					'self' => '/gdc/account/profile/' . $userId
+				)
+			)
+		);
+		$result = $this->jsonRequest($uri, 'POST', $params);
 
-				$uri = sprintf('/gdc/projects/%s/users', $pid);
-				$params = array(
-					'user' => array(
-						'content' => array(
-							'status' => 'ENABLED',
-							'userRoles' => array($projectRoleUri)
-						),
-						'links' => array(
-							'self' => '/gdc/account/profile/' . $userId
-						)
-					)
-				);
-				$result = $this->jsonRequest($uri, 'POST', $params);
-
-				if ((isset($result['projectUsersUpdateResult']['successful']) && count($result['projectUsersUpdateResult']['successful']))
-					|| (isset($result['projectUsersUpdateResult']['failed']) && !count($result['projectUsersUpdateResult']['failed']))) {
-					// SUCCESS
-					// Sometimes API does not return
-				} else {
-					$this->_log->alert('addUserToProject() has not added user to project', array(
-						'uri' => $uri,
-						'params' => $params,
-						'result' => $result
-					));
-					throw new RestApiException('Error in addition to project');
-				}
-
-			} else {
-				$this->_log->alert('addUserToProject() has not found role in project', array(
-					'role' => $role,
-					'result' => $rolesResult
-				));
-				throw new RestApiException('Role in project not found');
-			}
+		if ((isset($result['projectUsersUpdateResult']['successful']) && count($result['projectUsersUpdateResult']['successful']))
+			|| (isset($result['projectUsersUpdateResult']['failed']) && !count($result['projectUsersUpdateResult']['failed']))) {
+			// SUCCESS
+			// Sometimes API does not return
 		} else {
-			$this->_log->alert('addUserToProject() has bad response', array(
-				'uri' => $rolesUri,
-				'result' => $rolesResult
+			$this->_log->alert('addUserToProject() has not added user to project', array(
+				'uri' => $uri,
+				'params' => $params,
+				'result' => $result
 			));
-			throw new RestApiException('Roles in project could not be fetched');
+			throw new RestApiException('Error in addition to project');
 		}
 	}
 
@@ -497,6 +470,56 @@ class RestApi
 	 */
 	public function inviteUserToProject($email, $pid, $role = 'adminRole')
 	{
+		$projectRoleUri = $this->getRoleId($role, $pid);
+
+		$uri = sprintf('/gdc/projects/%s/invitations', $pid);
+		$params = array(
+			'invitations' => array(
+				array(
+					'invitation' => array(
+						'content' => array(
+							'email' => $email,
+							'role' => $projectRoleUri
+						)
+					)
+				)
+			)
+		);
+		$result = $this->jsonRequest($uri, 'POST', $params);
+
+		if (isset($result['createdInvitations']['uri']) && count($result['createdInvitations']['uri'])) {
+			// SUCCESS
+		} else {
+			$this->_log->alert('inviteUserToProject() has not invited user to project', array(
+				'uri' => $uri,
+				'params' => $params,
+				'result' => $result
+			));
+			throw new RestApiException('Error in invitation to project');
+		}
+	}
+
+	public function disableUserInProject($userUri, $pid)
+	{
+		$projectRoleUri = $this->getRoleId('editorRole', $pid);
+
+		$uri = sprintf('/gdc/projects/%s/users', $pid);
+		$params = array(
+			'user' => array(
+				'content' => array(
+					'status' => 'DISABLED',
+					'userRoles' => array($projectRoleUri)
+				),
+				'links' => array(
+					'self' => $userUri
+				)
+			)
+		);
+		$result = $this->jsonRequest($uri, 'POST', $params);
+	}
+
+	public function getRoleId($role, $pid)
+	{
 		$rolesUri = sprintf('/gdc/projects/%s/roles', $pid);
 		$rolesResult = $this->jsonRequest($rolesUri);
 		$projectRoleUri = '';
@@ -504,45 +527,8 @@ class RestApi
 			foreach($rolesResult['projectRoles']['roles'] as $roleUri) {
 				$roleResult = $this->jsonRequest($roleUri);
 				if (isset($roleResult['projectRole']['meta']['identifier']) && $roleResult['projectRole']['meta']['identifier'] == $role) {
-					$projectRoleUri = $roleUri;
-					break;
+					return $roleUri;
 				}
-			}
-
-			if ($projectRoleUri) {
-
-				$uri = sprintf('/gdc/projects/%s/invitations', $pid);
-				$params = array(
-					'invitations' => array(
-						array(
-							'invitation' => array(
-								'content' => array(
-									'email' => $email,
-									'role' => $projectRoleUri
-								)
-							)
-						)
-					)
-				);
-				$result = $this->jsonRequest($uri, 'POST', $params);
-
-				if (isset($result['createdInvitations']['uri']) && count($result['createdInvitations']['uri'])) {
-					// SUCCESS
-				} else {
-					$this->_log->alert('inviteUserToProject() has not invited user to project', array(
-						'uri' => $uri,
-						'params' => $params,
-						'result' => $result
-					));
-					throw new RestApiException('Error in invitation to project');
-				}
-
-			} else {
-				$this->_log->alert('inviteUserToProject() has not found role in project', array(
-					'role' => $role,
-					'result' => $rolesResult
-				));
-				throw new RestApiException('Role in project not found');
 			}
 		} else {
 			$this->_log->alert('inviteUserToProject() has bad response', array(
@@ -551,6 +537,12 @@ class RestApi
 			));
 			throw new RestApiException('Roles in project could not be fetched');
 		}
+
+		$this->_log->alert('inviteUserToProject() has not found role in project', array(
+			'role' => $role,
+			'result' => $rolesResult
+		));
+		throw new RestApiException('Role in project not found');
 	}
 
 
