@@ -970,7 +970,7 @@ class RestApi
 				'method' => $method,
 				'params' => $params,
 				'headers' => $headers,
-				'exception' => array($e->getMessage())
+				'exception' => $e
 			));
 			throw new RestApiException('Rest API: ' . $e->getMessage());
 		}
