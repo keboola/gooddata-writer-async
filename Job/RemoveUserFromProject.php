@@ -36,7 +36,7 @@ class RemoveUserFromProject extends AbstractJob
 		$gdWriteStartTime = date('c');
 		try {
 			// Get user uri
-			$this->restApi->login($mainConfig['username'], $mainConfig['password']);
+			$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
 
 			if (!$this->configuration->isProjectUser($params['email'], $params['pid'])) {
 				throw new WrongParametersException(sprintf("Project user '%s' is not configured for the writer", $params['email']));
