@@ -29,8 +29,7 @@ class DebugCommand extends ContainerAwareCommand
 		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
 
 		$restApi = new \Keboola\GoodDataWriter\GoodData\RestApi(null, $this->getContainer()->get('logger'));
-		//$restApi->login($mainConfig['gd']['prod']['username'], $mainConfig['gd']['prod']['password']);
-		$restApi->setCredentials($mainConfig['gd']['dev']['username'], $mainConfig['gd']['dev']['password']);
+		$restApi->setCredentials($mainConfig['gd']['username'], $mainConfig['gd']['password']);
 
 
 		/*$users = $restApi->get('/gdc/account/domains/keboola-devel/users');

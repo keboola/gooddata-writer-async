@@ -29,15 +29,12 @@ class CreateWriter extends AbstractJob
 			throw new WrongConfigurationException("Parameter projectName is missing");
 		}
 
-		$env = empty($params['dev']) ? 'prod' :'dev';
-		$mainConfig = $this->mainConfig['gd'][$env];
-
 
 		$gdWriteStartTime = date('c');
-		$username = sprintf($mainConfig['user_email'], $job['projectId'], $job['writerId'] . '-' . uniqid());
+		$username = sprintf($this->mainConfig['gd']['user_email'], $job['projectId'], $job['writerId'] . '-' . uniqid());
 		$password = md5(uniqid());
 
-		$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
+		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 		try {
 			try {
 				$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
@@ -45,7 +42,7 @@ class CreateWriter extends AbstractJob
 				throw new WrongConfigurationException('Project creation failed: ' . $e->getMessage());
 			}
 
-			$userId = $this->restApi->createUser($mainConfig['domain'], $username, $password, 'KBC', 'Writer', $mainConfig['sso_provider']);
+			$userId = $this->restApi->createUser($this->mainConfig['gd']['domain'], $username, $password, 'KBC', 'Writer', $this->mainConfig['gd']['sso_provider']);
 			$this->restApi->addUserToProject($userId, $projectPid, RestApi::$userRoles['admin']);
 		} catch (UnauthorizedException $e) {
 			throw new \Exception('Create writer auth error', 500, $e);

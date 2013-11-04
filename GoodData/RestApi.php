@@ -30,6 +30,8 @@ class RestApi
 	const BACKOFF_INTERVAL = 60;
 	const WAIT_INTERVAL = 10;
 
+	const API_URL = 'https://secure.gooddata.com';
+	const DEFAULT_BACKEND_URL = 'na1.secure.gooddata.com';
 
 	public $apiUrl;
 
@@ -57,20 +59,11 @@ class RestApi
 	private $_callsLog;
 	private $_clearFromLog;
 
-	public function __construct($apiUrl = null, $log)
+	public function __construct($log)
 	{
 		$this->_log = $log;
 
-		if (!$apiUrl) {
-			$apiUrl = 'https://secure.gooddata.com';
-		} else {
-			if (substr($apiUrl, 0, 8) != 'https://') {
-				$apiUrl = 'https://' . $apiUrl;
-			}
-		}
-		$this->apiUrl = $apiUrl;
-
-		$this->_client = new Client($apiUrl, array(
+		$this->_client = new Client(self::API_URL, array(
 			'curl.options' => array(
 				CURLOPT_CONNECTTIMEOUT => 10000
 			)
@@ -83,6 +76,11 @@ class RestApi
 
 		$this->_callsLog = array();
 		$this->_clearFromLog = array();
+	}
+
+	public function setBaseUrl($baseUrl)
+	{
+		$this->_client->setBaseUrl($baseUrl);
 	}
 
 	public function setCredentials($username, $password)
@@ -1062,7 +1060,7 @@ class RestApi
 				'method' => $method,
 				'params' => $params,
 				'headers' => $headers,
-				'exception' => array($e->getMessage())
+				'exception' => $e
 			));
 			throw new RestApiException('Rest API: ' . $e->getMessage());
 		}

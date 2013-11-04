@@ -16,9 +16,6 @@ class DeleteFilter extends AbstractJob {
 
 	function run($job, $params)
 	{
-		$env = empty($params['dev']) ? 'prod' :'dev';
-		$mainConfig = $this->mainConfig['gd'][$env];
-
 		$gdWriteStartTime = date('c');
 
 		$this->_checkParams($params, array(
@@ -39,7 +36,7 @@ class DeleteFilter extends AbstractJob {
 				}
 			}
 
-			$this->configuration->deleteFilterFromConfiguration($params['uri']);
+			$this->configuration->deleteFilter($params['uri']);
 
 			return $this->_prepareResult($job['id'], array(
 				'gdWriteStartTime' => $gdWriteStartTime
