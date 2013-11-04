@@ -13,6 +13,7 @@ use Guzzle\Http\Client,
 	Guzzle\Http\Exception\ClientErrorResponseException,
 	Guzzle\Common\Exception\RuntimeException,
 	Guzzle\Http\Message\Header;
+use Guzzle\Http\Curl\CurlHandle;
 
 class RestApiException extends \Exception
 {
