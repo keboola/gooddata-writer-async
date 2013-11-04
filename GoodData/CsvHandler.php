@@ -7,8 +7,7 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Symfony\Component\Process\Process;
-use Keboola\GoodDataWriter\Exception\ClientException,
-	Keboola\GoodDataWriter\Exception\JobProcessException;
+use Keboola\GoodDataWriter\Exception\ClientException;
 
 class CsvHandlerException extends ClientException
 {
@@ -124,7 +123,6 @@ class CsvHandler
 		$timeColumnsIndices = array();
 		$i = 1;
 		foreach ($xmlFileObject->columns->column as $column) {
-			$columnName = self::gdName($column->name);
 			$gdName = null;
 			switch ((string)$column->ldmType) {
 				case 'CONNECTION_POINT':

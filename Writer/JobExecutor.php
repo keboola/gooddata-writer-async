@@ -6,12 +6,12 @@
 
 namespace Keboola\GoodDataWriter\Writer;
 
-use Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
-	Keboola\GoodDataWriter\GoodData\RestApiException,
-	Keboola\GoodDataWriter\GoodData\UnauthorizedException,
+use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\ClientException,
-	Keboola\GoodDataWriter\Exception\JobProcessException,
-	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+	Keboola\GoodDataWriter\Exception\WrongConfigurationException,
+	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
+	Keboola\GoodDataWriter\GoodData\RestApiException,
+	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Exception as StorageApiException;
