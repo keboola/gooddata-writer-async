@@ -66,6 +66,14 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertTrue($dateTimeDataLoad, "Data to time dimension has not been loaded to GoodData");
 		$this->assertTrue($categoriesDataLoad, "Data to dataset 'Categories' has not been loaded to GoodData");
 		$this->assertTrue($productsDataLoad, "Data to dataset 'Products' has not been loaded to GoodData");
+
+
+		// Run once again
+		$batchId = $this->_processJob('/gooddata-writer/upload-project');
+		$response = $this->_getWriterApi('/gooddata-writer/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
+		$this->assertArrayHasKey('batch', $response, "Response for writer call '/batch?batchId=' should contain key 'batch'.");
+		$this->assertArrayHasKey('status', $response['batch'], "Response for writer call '/jobs?jobId=' should contain key 'batch.status'.");
+		$this->assertEquals('success', $response['batch']['status'], "Result of second /upload-project should be 'success'.");
 	}
 
 
@@ -269,20 +277,6 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertArrayHasKey('usedIn', $responseJson['dimensions']['ProductDate'], "Response for writer call '/date-dimensions' should contain key 'usedIn' for dimension 'ProductDate'.");
 		$this->assertCount(1, $responseJson['dimensions']['ProductDate']['usedIn'], "Response for writer call '/date-dimensions' should contain usage of dimension 'ProductDate'.");
 		$this->assertEquals($this->dataBucketId . '.products', $responseJson['dimensions']['ProductDate']['usedIn'][0], "Response for writer call '/date-dimensions' should contain usage of dimension 'ProductDate' in dataset 'Products'.");
-
-
-		// Update dimension
-		$date = date('c');
-		$this->_postWriterApi('/gooddata-writer/date-dimensions', array(
-			'writerId' => $this->writerId,
-			'name' => 'ProductDate',
-			'lastExportDate' => $date
-		));
-
-		$responseJson = $this->_getWriterApi('/gooddata-writer/date-dimensions?writerId=' . $this->writerId);
-		$this->assertArrayHasKey('lastExportDate', $responseJson['dimensions']['ProductDate'], "Response for writer call '/date-dimensions' should contain key 'lastExportDate' for dimension 'ProductDate'.");
-		$this->assertEquals($date, $responseJson['dimensions']['ProductDate']['lastExportDate'], "Response for writer call '/date-dimensions' should contain key 'lastExportDate' for dimension 'ProductDate' with proper value.");
-
 
 		// Drop dimension
 		$this->_callWriterApi('/gooddata-writer/date-dimensions?writerId=' . $this->writerId . '&name=TestDate', 'DELETE');

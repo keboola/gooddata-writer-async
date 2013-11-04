@@ -112,6 +112,7 @@ class ProjectsTest extends AbstractControllerTest
 
 		// Now add the attribute and try if it succeeds
 		self::$configuration->setTableAttribute($this->dataBucketId . '.' . $notFilteredTableName, 'ignoreFilter', 1);
+
 		$jobId = $this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.' . $notFilteredTableName));
 		$response = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
 		$this->assertArrayHasKey('job', $response, "Response for writer call '/jobs?jobId=' should contain key 'job'.");
@@ -202,9 +203,7 @@ class ProjectsTest extends AbstractControllerTest
 		$data = self::$restApi->get('/gdc/md/' . $mainPid . '/data/sets');
 		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
 		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
-		$this->assertCount(1, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with one value.");
-		$this->assertArrayHasKey('lastUpload', $data['dataSetsInfo']['sets'][0], "Response for GoodData API call '/data/sets' for main project should contain key 'dataSetsInfo.sets..lastUpload'.");
-		$this->assertEmpty($data['dataSetsInfo']['sets'][0]['lastUpload'], "Response for GoodData API call '/data/sets' for main project should contain empty key 'dataSetsInfo.sets..lastUpload'.");
+		$this->assertCount(0, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with no values.");
 
 		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
 		$data = self::$restApi->get('/gdc/md/' . $clonedPid . '/data/sets');
@@ -214,8 +213,8 @@ class ProjectsTest extends AbstractControllerTest
 		$this->assertArrayHasKey('lastUpload', $data['dataSetsInfo']['sets'][0], "Response for GoodData API call '/data/sets' for main project should contain key 'dataSetsInfo.sets..lastUpload'.");
 		$this->assertNotEmpty($data['dataSetsInfo']['sets'][0]['lastUpload'], "Response for GoodData API call '/data/sets' for main project should contain non-empty key 'dataSetsInfo.sets..lastUpload'.");
 		$this->assertArrayHasKey('dataUploadShort', $data['dataSetsInfo']['sets'][0]['lastUpload'], "Response for GoodData API call '/data/sets' for main project should contain key 'dataSetsInfo.sets..lastUpload.dataUploadShort'.");
-		$this->assertArrayHasKey('status', $data['dataSetsInfo']['sets'][0]['lastUpload']['dataUploadShort'], "Response for GoodData API call '/data/sets' for main project should contain key 'dataSetsInfo.sets..lastUpload.dataUploadShort.status'.");
-		$this->assertEquals('OK', $data['dataSetsInfo']['sets'][0]['lastUpload']['dataUploadShort']['status'], "Response for GoodData API call '/data/sets' for main project should contain key 'dataSetsInfo.sets..lastUpload.status' with value 'OK'.");
+		$this->assertArrayHasKey('status', $data['dataSetsInfo']['sets'][0]['lastUpload']['dataUploadShort'], "Response for GoodData API call '/data/sets' for clone project should contain key 'dataSetsInfo.sets..lastUpload.dataUploadShort.status'.");
+		$this->assertEquals('OK', $data['dataSetsInfo']['sets'][0]['lastUpload']['dataUploadShort']['status'], "Response for GoodData API call '/data/sets' for clone project should contain key 'dataSetsInfo.sets..lastUpload.status' with value 'OK'.");
 	}
 
 }

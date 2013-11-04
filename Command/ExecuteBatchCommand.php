@@ -23,7 +23,7 @@ class ExecuteBatchCommand extends ContainerAwareCommand
 			->setDescription('Execute selected batch from queue')
 			->setDefinition(array(
 				new InputArgument('batchId', InputArgument::REQUIRED, 'Batch id'),
-				new InputOption('force', null, InputArgument::OPTIONAL, 'Force run the batch even if it is already finished')
+				new InputOption('force', 'f', InputOption::VALUE_NONE, 'Force run the batch even if it is already finished')
 			))
 		;
 	}
