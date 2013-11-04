@@ -48,7 +48,7 @@ class AddUserToProject extends AbstractJob
 				// user created by writer
 				$userId = $user['uid'];
 			} else {
-				$userId = $this->restApi->userId($params['email'], $mainConfig['domain']);
+				$userId = $this->restApi->userId($params['email'], $this->mainConfig['gd']['domain']);
 				if ($userId) {
 					// user in domain
 					$this->configuration->saveUser($params['email'], $userId);
@@ -72,14 +72,10 @@ class AddUserToProject extends AbstractJob
 					$userId = $result['uid'];
 			}
 
-<<<<<<< HEAD
 			if ($userId) {
 				$this->restApi->addUserToProject($userId, $params['pid'], RestApi::$userRoles[$params['role']]);
-=======
-			$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role']);
->>>>>>> origin/master
 
-				$this->configuration->saveProjectUserToConfiguration($params['pid'], $params['email'], $params['role']);
+				$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role']);
 			} else {
 				$childJob = $this->_createChildJob('inviteUserToProject');
 
