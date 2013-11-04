@@ -515,14 +515,13 @@ class RestApi
 				)
 			)
 		);
-		$result = $this->jsonRequest($uri, 'POST', $params);
+		$this->jsonRequest($uri, 'POST', $params);
 	}
 
 	public function getRoleId($role, $pid)
 	{
 		$rolesUri = sprintf('/gdc/projects/%s/roles', $pid);
 		$rolesResult = $this->jsonRequest($rolesUri);
-		$projectRoleUri = '';
 		if (isset($rolesResult['projectRoles']['roles'])) {
 			foreach($rolesResult['projectRoles']['roles'] as $roleUri) {
 				$roleResult = $this->jsonRequest($roleUri);
@@ -633,7 +632,7 @@ class RestApi
 	public function createDateDimension($pid, $name, $includeTime = false)
 	{
 		$identifier = str_replace(' ', '', strtolower($name));
-		$maql = sprintf('INCLUDE TEMPLATE "URN:KEBOOLA:DATE" MODIFY (IDENTIFIER "%s", TITLE "%s");', $identifier, $name);
+		$maql = sprintf('INCLUDE TEMPLATE "URN:GOODDATA:DATE" MODIFY (IDENTIFIER "%s", TITLE "%s");', $identifier, $name);
 
 		if ($includeTime) {
 			$maql .= 'CREATE DATASET {dataset.time.%ID%} VISUAL(TITLE "Time (%NAME%)");';
@@ -982,7 +981,7 @@ class RestApi
 				'method' => $method,
 				'params' => $params,
 				'headers' => $headers,
-				'exception' => array($e->getMessage())
+				'exception' => $e
 			));
 			throw new RestApiException('Rest API: ' . $e->getMessage());
 		}

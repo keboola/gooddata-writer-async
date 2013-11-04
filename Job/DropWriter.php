@@ -19,18 +19,17 @@ class DropWriter extends AbstractJob
 	 */
 	public function run($job, $params)
 	{
-		$dropImmediately = !empty($params['immediately']);
-
 		if (!$this->configuration->bucketId) {
 			throw new WrongConfigurationException('Writer has been already deleted.');
 		}
 
 		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 
-		$pids = array();
 		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) {
 
 			$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid']);
+
+			// Disable users in project
 			$projectUsers = $this->restApi->get(sprintf('/gdc/projects/%s/users', $project['pid']));
 			foreach ($projectUsers['users'] as $user) {
 				if ($user['user']['content']['email'] != $this->mainConfig['gd']['username']) {
@@ -38,41 +37,14 @@ class DropWriter extends AbstractJob
 					$this->restApi->disableUserInProject($user['user']['links']['self'], $project['pid']);
 				}
 			}
-
-			if ($dropImmediately) {
-				try {
-					$this->restApi->dropProject($project['pid']);
-					$pids[] = $project['pid'];
-				} catch (RestApiException $e) {
-					$this->log->alert('Could not delete project', array(
-						'project' => $project,
-						'exception' => $e
-					));
-				}
-			}
-		}
-		if (count($pids)) {
-			$this->sharedConfig->markProjectsDeleted($pids);
 		}
 
-		$uids = array();
+		// Remove only users created by Writer
+		$writerDomain = substr($this->mainConfig['gd']['user_email'], strpos($this->mainConfig['gd']['user_email'], '@'));
 		foreach ($this->sharedConfig->getUsers($job['projectId'], $job['writerId']) as $user) {
-			$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid'], $user['email']);
-
-			if ($dropImmediately) {
-				try {
-					$this->restApi->dropUser($user['uid']);
-					$uids[] = $user['uid'];
-				} catch (RestApiException $e) {
-					$this->log->alert('Could not delete user', array(
-						'user' => $user,
-						'exception' => $e
-					));
-				}
+			if (strpos($user['email'], $writerDomain) !== false) {
+				$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid'], $user['email']);
 			}
-		}
-		if (count($uids)) {
-			$this->sharedConfig->markUsersDeleted($uids);
 		}
 
 		$this->configuration->dropBucket();

@@ -16,6 +16,7 @@ use Keboola\GoodDataWriter\GoodData\CLToolApi,
 	Keboola\GoodDataWriter\GoodData\CsvHandler,
 	Keboola\GoodDataWriter\GoodData\CsvHandlerException,
 	Keboola\GoodDataWriter\GoodData\WebDav;
+use Symfony\Component\DependencyInjection\Tests\DefinitionDecoratorTest;
 
 class UploadTable extends AbstractJob
 {
@@ -168,8 +169,6 @@ class UploadTable extends AbstractJob
 				'incrementalLoad' => $incrementalLoad && $dataSetExists
 			);
 		}
-
-
 
 		$clToolApi = new CLToolApi($this->log);
 		$clToolApi->s3client = $this->s3Client;
