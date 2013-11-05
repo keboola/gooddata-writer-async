@@ -251,7 +251,8 @@ class JobExecutor
 			$mainConfig['storageApi.url'] = $this->_container->getParameter('storageApi.url');
 
 			$tmpDir = sprintf('%s/%s', $mainConfig['tmp_path'], $job['id']);
-			if (!file_exists($tmpDir)) mkdir($tmpDir);
+            if (!file_exists($mainConfig['tmp_path'])) mkdir($mainConfig['tmp_path']);
+            if (!file_exists($tmpDir)) mkdir($tmpDir);
 
 			$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
 
