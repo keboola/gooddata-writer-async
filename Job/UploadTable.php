@@ -171,8 +171,8 @@ class UploadTable extends AbstractJob
 		}
 
         $clPath = null;
-        if (!empty($this->mainConfig['gd']['cl_path'])) {
-            $clPath = $this->mainConfig['gd']['cl_path'];
+        if (!empty($this->mainConfig['cl_path'])) {
+            $clPath = $this->mainConfig['cl_path'];
         }
 		$clToolApi = new CLToolApi($this->log, $clPath);
 		$clToolApi->s3client = $this->s3Client;
