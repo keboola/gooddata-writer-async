@@ -170,7 +170,11 @@ class UploadTable extends AbstractJob
 			);
 		}
 
-		$clToolApi = new CLToolApi($this->log);
+        $clPath = null;
+        if (!empty($this->mainConfig['gd']['cl_path'])) {
+            $clPath = $this->mainConfig['gd']['cl_path'];
+        }
+		$clToolApi = new CLToolApi($this->log, $clPath);
 		$clToolApi->s3client = $this->s3Client;
 		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
 			$clToolApi->setBackendUrl($this->configuration->bucketInfo['gd']['backendUrl']);
