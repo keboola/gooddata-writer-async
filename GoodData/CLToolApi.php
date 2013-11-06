@@ -46,7 +46,7 @@ class CLToolApi
 	 * @var Logger
 	 */
 	private $_log;
-
+    private $_clPath;
 
 
 	/**
@@ -67,13 +67,16 @@ class CLToolApi
 	public $output;
 
 
-
-	/**
-	 * @param Logger $log
-	 */
-	public function __construct(Logger $log)
+    /**
+     * @param $clPath
+     * @param Logger $log
+     */
+	public function __construct(Logger $log, $clPath = null)
 	{
-		$this->_log = $log;
+        $this->_log = $log;
+        if ($clPath) {
+            $this->_clPath = $clPath;
+        }
 	}
 
 	public function setCredentials($username, $password)
@@ -107,8 +110,9 @@ class CLToolApi
 			throw new \Exception('GoodDataExport: cannot change dir: ' . $this->tmpDir);
 		}
 
+        $clPath = $this->_clPath ? $this->_clPath : '/opt/ebs-disk/GD/cli/bin/gdi.sh';
 		// Assemble CL tool command
-		$command = escapeshellarg('/opt/ebs-disk/GD/cli/bin/gdi.sh')
+		$command = escapeshellarg($clPath)
 			. ' -u ' . escapeshellarg($this->_username)
 			. ' -p ' . escapeshellarg($this->_password)
 			. ' -h ' . escapeshellarg($this->_backendUrl)
