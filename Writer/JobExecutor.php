@@ -6,12 +6,12 @@
 
 namespace Keboola\GoodDataWriter\Writer;
 
-use Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
-	Keboola\GoodDataWriter\GoodData\RestApiException,
-	Keboola\GoodDataWriter\GoodData\UnauthorizedException,
+use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\ClientException,
-	Keboola\GoodDataWriter\Exception\JobProcessException,
-	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+	Keboola\GoodDataWriter\Exception\WrongConfigurationException,
+	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
+	Keboola\GoodDataWriter\GoodData\RestApiException,
+	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Exception as StorageApiException;
@@ -251,7 +251,8 @@ class JobExecutor
 			$mainConfig['storageApi.url'] = $this->_container->getParameter('storageApi.url');
 
 			$tmpDir = sprintf('%s/%s', $mainConfig['tmp_path'], $job['id']);
-			if (!file_exists($tmpDir)) mkdir($tmpDir);
+            if (!file_exists($mainConfig['tmp_path'])) mkdir($mainConfig['tmp_path']);
+            if (!file_exists($tmpDir)) mkdir($tmpDir);
 
 			$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
 

@@ -9,8 +9,13 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Monolog\Logger;
-use Keboola\GoodDataWriter\Service\S3Client,
-	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException;
+use Keboola\GoodDataWriter\Service\S3Client;
+use Symfony\Component\Process\Process;
+
+class CLToolApiErrorException extends \Exception
+{
+
+}
 
 class CLToolApi
 {
@@ -42,7 +47,7 @@ class CLToolApi
 	 * @var Logger
 	 */
 	private $_log;
-
+    private $_clPath;
 
 
 	/**
@@ -63,13 +68,16 @@ class CLToolApi
 	public $output;
 
 
-
-	/**
-	 * @param Logger $log
-	 */
-	public function __construct(Logger $log)
+    /**
+     * @param $clPath
+     * @param Logger $log
+     */
+	public function __construct(Logger $log, $clPath = null)
 	{
-		$this->_log = $log;
+        $this->_log = $log;
+        if ($clPath) {
+            $this->_clPath = $clPath;
+        }
 	}
 
 	public function setCredentials($username, $password)
@@ -99,15 +107,13 @@ class CLToolApi
 	 */
 	public function call($args)
 	{
-		// Prepare directory for logs
-		$prevCwd = getcwd();
-
 		if (!chdir($this->tmpDir)) {
 			throw new \Exception('GoodDataExport: cannot change dir: ' . $this->tmpDir);
 		}
 
+        $clPath = $this->_clPath ? $this->_clPath : '/opt/ebs-disk/GD/cli/bin/gdi.sh';
 		// Assemble CL tool command
-		$command = escapeshellarg('/opt/ebs-disk/GD/cli/bin/gdi.sh')
+		$command = escapeshellarg($clPath)
 			. ' -u ' . escapeshellarg($this->_username)
 			. ' -p ' . escapeshellarg($this->_password)
 			. ' -h ' . escapeshellarg($this->_backendUrl)
@@ -116,30 +122,48 @@ class CLToolApi
 		$outputFile = $this->tmpDir . '/cl-output.txt';
 		file_put_contents($outputFile . '.1', $args . "\n\n");
 
-		$backoffInterval = self::BACKOFF_INTERVAL;
+		$backOffInterval = 10 * 60;
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
-			exec($command . ' 2>&1 > ' . escapeshellarg($outputFile . '.2'));
-			exec('cat ' . escapeshellarg($outputFile . '.1') . ' ' . escapeshellarg($outputFile . '.2') .' > ' . escapeshellarg($outputFile));
-			exec('rm ' . escapeshellarg($outputFile . '.1'));
-			exec('rm ' . escapeshellarg($outputFile . '.2'));
+            $escapedFile = escapeshellarg($outputFile);
+            $escapedFile1 = escapeshellarg($outputFile . '.1');
+            $escapedFile2 = escapeshellarg($outputFile . '.2');
+
+            $runCommand  = sprintf('%s 2>&1 > %s;', $command, $escapedFile2);
+            $runCommand .= sprintf('cat %s %s > %s;', $escapedFile1, $escapedFile2, $escapedFile);
+            $runCommand .= sprintf('rm %s;', $escapedFile1);
+            $runCommand .= sprintf('rm %s;', $escapedFile2);
+            $process = new Process($runCommand);
+            $process->setTimeout(null);
+            $process->run();
+            if (!$process->isSuccessful()) {
+                $message = $process->getErrorOutput() ? $process->getErrorOutput() : 'No output';
+                throw new \Exception('CL tool Error: ' . $message);
+            }
 
 			// Test output for server error
-			$apiErrorTest = "egrep '503 Service Unavailable' " . escapeshellarg($outputFile);
-
-			if (!shell_exec($apiErrorTest)) {
+			if (!shell_exec("egrep '503 Service Unavailable' " . $escapedFile)) {
 
 				if (file_exists($this->tmpDir . '/debug.log')) {
-					exec(sprintf('cat %s %s > %s ', escapeshellarg($outputFile), escapeshellarg($this->tmpDir . '/debug.log'), escapeshellarg($outputFile . '.D')));
-					exec(sprintf('rm %s', escapeshellarg($outputFile)));
-					exec(sprintf('mv %s %s ', escapeshellarg($outputFile . '.D'), escapeshellarg($outputFile)));
+
+                    $escapedFileD = escapeshellarg($outputFile . '.D');
+                    $runCommand  = sprintf('cat %s %s > %s;', $escapedFile, escapeshellarg($this->tmpDir . '/debug.log'), $escapedFileD);
+                    $runCommand .= sprintf('rm %s;', $escapedFile);
+                    $runCommand .= sprintf('mv %s %s;', $escapedFileD, $escapedFile);
+                    $process = new Process($runCommand);
+                    $process->setTimeout(null);
+                    $process->run();
+                    if (!$process->isSuccessful()) {
+                        $message = $process->getErrorOutput() ? $process->getErrorOutput() : 'No output';
+                        throw new \Exception('CL tool Error: ' . $message);
+                    }
 				}
 
 				$this->debugLogUrl = $this->s3client->uploadFile($outputFile, 'text/plain', $this->s3Dir . '/cl-output.txt');
 
 				// Test output for runtime error
-				if (shell_exec("egrep 'com.gooddata.exception.HttpMethodException: 401 Unauthorized' " . escapeshellarg($outputFile))) {
+				if (shell_exec("egrep 'com.gooddata.exception.HttpMethodException: 401 Unauthorized' " . $escapedFile)) {
 					// Backoff and try again
-				} elseif (shell_exec(sprintf("cat %s | grep -v 'SocketException' | egrep 'ERROR|Exception'", escapeshellarg($outputFile)))) {
+				} elseif (shell_exec(sprintf("cat %s | grep -v 'SocketException' | egrep 'ERROR|Exception'", $escapedFile))) {
 					throw new CLToolApiErrorException('CL Tool Error, see debug log for details');
 				}
 
@@ -147,10 +171,9 @@ class CLToolApi
 			} else {
 				// Wait indefinitely
 				$i--;
-				$backoffInterval = 10 * 60;
 			}
 
-			sleep($backoffInterval * ($i + 1));
+			sleep($backOffInterval * ($i + 1));
 		}
 
 		throw new \Exception('GoodData Service Unavailable', 400);

@@ -12,10 +12,7 @@ use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Service\StorageApiConfiguration, 
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable,
-	Keboola\StorageApi\Exception as StorageApiException,
 	Keboola\StorageApi\Config\Reader,
-	Keboola\Csv\CsvFile,
-	Keboola\Csv\Exception as CsvFileException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 
 class Configuration extends StorageApiConfiguration
@@ -66,7 +63,7 @@ class Configuration extends StorageApiConfiguration
 			'indices' => array()
 		),
 		self::DATE_DIMENSIONS_TABLE_NAME => array(
-			'columns' => array('name', 'includeTime', 'lastExportDate'),
+			'columns' => array('name', 'includeTime'),
 			'primaryKey' => 'name',
 			'indices' => array()
 		)
@@ -496,8 +493,7 @@ class Configuration extends StorageApiConfiguration
 	{
 		$data = array(
 			'name' => $name,
-			'includeTime' => $includeTime,
-			'lastExportDate' => ''
+			'includeTime' => $includeTime
 		);
 		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
 		if (!self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'])
@@ -1283,6 +1279,16 @@ class Configuration extends StorageApiConfiguration
 	protected static function _checkConfigTable($tableName, $columns)
 	{
 		if (!isset(self::$_tables[$tableName])) return false;
+
+		//@TODO REMOVE - Temporal
+		if ($tableName == 'dateDimensions') {
+			if (count($columns) < 2) {
+				throw new WrongConfigurationException(sprintf("Table '%s' appears to be wrongly configured. Contains columns: '%s' but should contain columns: '%s'",
+					$tableName, implode(',', $columns), implode(',', self::$_tables[$tableName]['columns'])));
+			} else {
+				return true;
+			}
+		}
 
 		if ($columns != self::$_tables[$tableName]['columns']) {
 			throw new WrongConfigurationException(sprintf("Table '%s' appears to be wrongly configured. Contains columns: '%s' but should contain columns: '%s'",
