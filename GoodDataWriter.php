@@ -430,14 +430,13 @@ class GoodDataWriter extends Component
 		$this->configuration->checkProjectsTable();
 		$this->configuration->checkProjectUsersTable();
 
-
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => $params
 		));
-		$this->_queue->enqueueJob($jobInfo);
 
+		$this->_enqueue($jobInfo['batchId']);
 
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
