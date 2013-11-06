@@ -10,6 +10,7 @@ namespace Keboola\GoodDataWriter\GoodData;
 
 use Monolog\Logger;
 use Keboola\GoodDataWriter\Service\S3Client;
+use Symfony\Component\Process\Process;
 
 class CLToolApiErrorException extends \Exception
 {
@@ -123,28 +124,46 @@ class CLToolApi
 
 		$backOffInterval = 10 * 60;
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
-			exec($command . ' 2>&1 > ' . escapeshellarg($outputFile . '.2'));
-			exec('cat ' . escapeshellarg($outputFile . '.1') . ' ' . escapeshellarg($outputFile . '.2') .' > ' . escapeshellarg($outputFile));
-			exec('rm ' . escapeshellarg($outputFile . '.1'));
-			exec('rm ' . escapeshellarg($outputFile . '.2'));
+            $escapedFile = escapeshellarg($outputFile);
+            $escapedFile1 = escapeshellarg($outputFile . '.1');
+            $escapedFile2 = escapeshellarg($outputFile . '.2');
+
+            $runCommand  = sprintf('%s 2>&1 > %s;', $command, $escapedFile2);
+            $runCommand .= sprintf('cat %s %s > %s;', $escapedFile1, $escapedFile2, $escapedFile);
+            $runCommand .= sprintf('rm %s;', $escapedFile1);
+            $runCommand .= sprintf('rm %s;', $escapedFile2);
+            $process = new Process($runCommand);
+            $process->setTimeout(null);
+            $process->run();
+            if (!$process->isSuccessful()) {
+                $message = $process->getErrorOutput() ? $process->getErrorOutput() : 'No output';
+                throw new \Exception('CL tool Error: ' . $message);
+            }
 
 			// Test output for server error
-			$apiErrorTest = "egrep '503 Service Unavailable' " . escapeshellarg($outputFile);
-
-			if (!shell_exec($apiErrorTest)) {
+			if (!shell_exec("egrep '503 Service Unavailable' " . $escapedFile)) {
 
 				if (file_exists($this->tmpDir . '/debug.log')) {
-					exec(sprintf('cat %s %s > %s ', escapeshellarg($outputFile), escapeshellarg($this->tmpDir . '/debug.log'), escapeshellarg($outputFile . '.D')));
-					exec(sprintf('rm %s', escapeshellarg($outputFile)));
-					exec(sprintf('mv %s %s ', escapeshellarg($outputFile . '.D'), escapeshellarg($outputFile)));
+
+                    $escapedFileD = escapeshellarg($outputFile . '.D');
+                    $runCommand  = sprintf('cat %s %s > %s;', $escapedFile, escapeshellarg($this->tmpDir . '/debug.log'), $escapedFileD);
+                    $runCommand .= sprintf('rm %s;', $escapedFile);
+                    $runCommand .= sprintf('mv %s %s;', $escapedFileD, $escapedFile);
+                    $process = new Process($runCommand);
+                    $process->setTimeout(null);
+                    $process->run();
+                    if (!$process->isSuccessful()) {
+                        $message = $process->getErrorOutput() ? $process->getErrorOutput() : 'No output';
+                        throw new \Exception('CL tool Error: ' . $message);
+                    }
 				}
 
 				$this->debugLogUrl = $this->s3client->uploadFile($outputFile, 'text/plain', $this->s3Dir . '/cl-output.txt');
 
 				// Test output for runtime error
-				if (shell_exec("egrep 'com.gooddata.exception.HttpMethodException: 401 Unauthorized' " . escapeshellarg($outputFile))) {
+				if (shell_exec("egrep 'com.gooddata.exception.HttpMethodException: 401 Unauthorized' " . $escapedFile)) {
 					// Backoff and try again
-				} elseif (shell_exec(sprintf("cat %s | grep -v 'SocketException' | egrep 'ERROR|Exception'", escapeshellarg($outputFile)))) {
+				} elseif (shell_exec(sprintf("cat %s | grep -v 'SocketException' | egrep 'ERROR|Exception'", $escapedFile))) {
 					throw new CLToolApiErrorException('CL Tool Error, see debug log for details');
 				}
 
