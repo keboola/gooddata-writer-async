@@ -31,7 +31,7 @@ class RemoveUserFromProject extends AbstractJob
 		}
 
 		$env = empty($params['dev']) ? 'prod' :'dev';
-		$mainConfig = $this->mainConfig['gd'][$env];
+		$mainConfig = $this->mainConfig['gd'];
 
 		$gdWriteStartTime = date('c');
 		try {
