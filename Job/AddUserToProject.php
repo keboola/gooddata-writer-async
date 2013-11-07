@@ -35,6 +35,15 @@ class AddUserToProject extends AbstractJob
 			throw new WrongConfigurationException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
 		}
 
+		$this->configuration->checkGoodDataSetup();
+
+//		if (empty($params['pid'])) {
+//			if (empty($this->configuration->bucketInfo['gd']['pid'])) {
+//				throw new WrongConfigurationException("Parameter 'pid' is missing and writer does not have primary project");
+//			}
+//			$params['pid'] = $this->configuration->bucketInfo['gd']['pid'];
+//		}
+
 		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 
 		$gdWriteStartTime = date('c');
@@ -56,6 +65,7 @@ class AddUserToProject extends AbstractJob
 			}
 
 			if (!$userId) {
+				//@FIXME remove child job, add new param. If param exist, It will create new user. Or throw Exc
 				$childJob = $this->_createChildJob('createUser');
 
 				$childParams = array(
@@ -77,19 +87,10 @@ class AddUserToProject extends AbstractJob
 
 				$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role']);
 			} else {
-				$childJob = $this->_createChildJob('inviteUserToProject');
+				$this->restApi->inviteUserToProject($params['email'], $params['pid'], RestApi::$userRoles[$params['role']]);
 
-				$childParams = array(
-					'email' => $params['email'],
-					'role' => $params['role'],
-					'pid' => $params['pid'],
-				);
-
-				$result = $childJob->run($job, $childParams);
-				if (empty($result['status'])) $result['status'] = 'success';
-
-				if ($result['status'] != 'success')
-					return $result;
+				$this->configuration->saveProjectInviteToConfiguration($params['pid'], $params['email'], $params['role']);
+				//@FIXME todo status validation?
 			}
 
 			return $this->_prepareResult($job['id'], array(
