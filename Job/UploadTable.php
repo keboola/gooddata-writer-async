@@ -175,9 +175,11 @@ class UploadTable extends AbstractJob
         }
 		$clToolApi = new CLToolApi($this->log, $clPath);
 		$clToolApi->s3client = $this->s3Client;
-		$urlParts = parse_url($this->configuration->bucketInfo['gd']['backendUrl']);
-		if ($urlParts && !empty($urlParts['host'])) {
-			$clToolApi->setBackendUrl($urlParts['host']);
+		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
+			$urlParts = parse_url($this->configuration->bucketInfo['gd']['backendUrl']);
+			if ($urlParts && !empty($urlParts['host'])) {
+				$clToolApi->setBackendUrl($urlParts['host']);
+			}
 		}
 		$clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
