@@ -397,6 +397,7 @@ class GoodDataWriter extends Component
 		}
 	}
 
+
 	/**
 	 * Remove User from Project
 	 * @param $params
@@ -460,123 +461,6 @@ class GoodDataWriter extends Component
 			}
 		}
 	}
-
-	/**
-	 * Invite User to Project
-	 * @param $params
-	 * @throws Exception\JobProcessException
-	 * @throws Exception\WrongParametersException
-	 * @return array
-	 */
-	public function postProjectInvitations($params)
-	{
-		$command = 'inviteUserToProject';
-		$createdTime = time();
-
-
-		// Init parameters
-		if (empty($params['email'])) {
-			throw new WrongParametersException("Parameter 'email' is missing");
-		}
-		if (empty($params['role'])) {
-			throw new WrongParametersException("Parameter 'role' is missing");
-		}
-		$allowedRoles = array_keys(RestApi::$userRoles);
-		if (!in_array($params['role'], $allowedRoles)) {
-			throw new WrongParametersException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
-		}
-		$this->_init($params);
-		if (!$this->configuration->bucketId) {
-			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
-		}
-		if (!empty($params['pid']) && !$this->configuration->getProject($params['pid'])) {
-			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
-		}
-		$this->configuration->checkProjectUsersTable();
-
-
-		$jobInfo = $this->_createJob(array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'email' => $params['email'],
-				'pid' => $params['pid'],
-				'role' => $params['role']
-			),
-			'queue' => isset($params['queue']) ? $params['queue'] : null
-		));
-		$this->_enqueue($jobInfo['batchId']);
-
-
-		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
-		} else {
-			return $this->_waitForJob($jobInfo['id'], $params['writerId']);
-		}
-	}
-
-	/**
-	 * Cancel User Invitation to Project
-	 * @param $params
-	 * @throws Exception\JobProcessException
-	 * @throws Exception\WrongParametersException
-	 * @return array
-	 */
-	public function deleteProjectInvitations($params)
-	{
-		$command = 'cancelUserInvitationToProject';
-		$createdTime = time();
-
-
-		// Init parameters
-		if (empty($params['email'])) {
-			throw new WrongParametersException("Parameter 'email' is missing");
-		}
-		$this->_init($params);
-		if (!$this->configuration->bucketId) {
-			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
-		}
-		if (!empty($params['pid']) && !$this->configuration->getProject($params['pid'])) {
-			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
-		}
-		if (!$this->configuration->isProjectUser($params['email'], $params['pid'])) {
-			throw new WrongParametersException(sprintf("Project user '%s' is not configured for the writer", $params['email']));
-		}
-		$this->configuration->checkGoodDataSetup();
-		$this->configuration->checkProjectsTable();
-		$this->configuration->checkProjectUsersTable();
-
-		$jobInfo = $this->_createJob(array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => $params
-		));
-		$this->_queue->enqueueJob($jobInfo);
-
-
-		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
-		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
-				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['job']['status'] == 'success') {
-				return array();
-			} else {
-				$e = new JobProcessException('Cancel User Invitation job failed');
-				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
-				throw $e;
-			}
-		}
-	}
-
 
 
 	/***********************
