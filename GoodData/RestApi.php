@@ -1022,11 +1022,11 @@ class RestApi
 					break;
 				case 'POST':
 					$request = $this->_client->post($uri, $headers, $jsonParams);
-                    $request->getCurlOptions()->set(CurlHandle::BODY_AS_STRING, true);
+					$request->getCurlOptions()->set(CurlHandle::BODY_AS_STRING, true);
 					break;
 				case 'PUT':
 					$request = $this->_client->put($uri, $headers, $jsonParams);
-                    $request->getCurlOptions()->set(CurlHandle::BODY_AS_STRING, true);
+					$request->getCurlOptions()->set(CurlHandle::BODY_AS_STRING, true);
 					break;
 				case 'DELETE':
 					$request = $this->_client->delete($uri, $headers);
