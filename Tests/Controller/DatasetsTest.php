@@ -141,7 +141,7 @@ class DatasetsTest extends AbstractControllerTest
 		}
 	}
 
-	public function testGetReferenceableTables()
+	public function testGetDataSetsWithConnectionPoint()
 	{
 		$this->_prepareData();
 

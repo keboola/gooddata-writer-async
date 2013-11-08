@@ -29,7 +29,7 @@ class CloneProject extends AbstractJob
 		if (empty($params['pidSource'])) {
 			throw new WrongConfigurationException("Parameter pidSource is missing");
 		}
-		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkBucketAttributes();
 
 		$gdWriteStartTime = date('c');
 		try {
@@ -41,7 +41,7 @@ class CloneProject extends AbstractJob
 			// Get user uri if not set
 			if (empty($this->configuration->bucketInfo['gd']['uid'])) {
 				$userId = $this->restApi->userId($this->configuration->bucketInfo['gd']['username'], $this->mainConfig['gd']['domain']);
-				$this->configuration->setBucketAttribute('gd.uid', $userId);
+				$this->configuration->updateWriter('gd.uid', $userId);
 				$this->configuration->bucketInfo['gd']['uid'] = $userId;
 			}
 			$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);

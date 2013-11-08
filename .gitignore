@@ -1,12 +1,9 @@
 parameters.yml.dist
-scripts/debug.php
 *.log
 .idea
-application/configs/config.ini
-cache.properties
 composer.lock
 composer.phar
-tmp
+console
 
 # osx noise
 .DS_Store

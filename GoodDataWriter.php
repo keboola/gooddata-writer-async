@@ -219,7 +219,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		$this->configuration->setBucketAttribute('toDelete', '1');
+		$this->configuration->updateWriter('toDelete', '1');
 
 		$this->sharedConfig->cancelJobs($this->configuration->projectId, $this->configuration->writerId);
 
@@ -281,7 +281,7 @@ class GoodDataWriter extends Component
 		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->_mainConfig['gd']['access_token'];
 		$projectName = !empty($params['name']) ? $params['name']
 			: sprintf($this->_mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
-		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkBucketAttributes();
 		$this->configuration->checkProjectsTable();
 
 
@@ -374,7 +374,7 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->getUser($params['email'])) {
 			throw new WrongParametersException(sprintf("User '%s' is not configured for the writer", $params['email']));
 		}
-		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkBucketAttributes();
 		$this->configuration->checkProjectsTable();
 		$this->configuration->checkUsersTable();
 		$this->configuration->checkProjectUsersTable();
@@ -509,7 +509,7 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkBucketAttributes();
 		$this->configuration->checkUsersTable();
 
 
@@ -883,6 +883,8 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'tableId' is missing");
 		}
 
+		$this->configuration->updateDataSetsFromSapi();
+
 		$response = new Response($this->configuration->getXml($params['tableId']));
 		$response->headers->set('Content-Type', 'application/xml');
 		$response->headers->set('Access-Control-Allow-Origin', '*');
@@ -909,7 +911,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkBucketAttributes();
 		$this->configuration->getDateDimensions();
 
 		$batchId = $this->_storageApi->generateId();
@@ -917,7 +919,7 @@ class GoodDataWriter extends Component
 		$xml = $this->configuration->getXml($params['tableId']);
 		$xmlUrl = $this->_s3Client->uploadString(sprintf('batch-%s/%s.xml', $batchId, $params['tableId']), $xml, 'text/xml');
 
-		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
+		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
 		$jobData = array(
 			'batchId' => $batchId,
 			'command' => 'uploadTable',
@@ -966,7 +968,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkBucketAttributes();
 		$this->configuration->getDateDimensions();
 		$runId = $this->_storageApi->getRunId();
 		$batchId = $this->_storageApi->generateId();
@@ -980,7 +982,7 @@ class GoodDataWriter extends Component
 				throw new WrongConfigurationException(sprintf('Wrong configuration of table \'%s\': %s', $tableInfo['tableId'], $e->getMessage()));
 			}
 			$xmlUrl = $this->_s3Client->uploadString(sprintf('batch-%s/%s.xml', $batchId, $tableInfo['tableId']), $xml, 'text/xml');
-			$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
+			$definition = $this->configuration->getDataSet($tableInfo['tableId']);
 
 			$tables[$tableInfo['tableId']] = array(
 				'dataset' => !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'],
@@ -1114,7 +1116,7 @@ class GoodDataWriter extends Component
 						'link' => $tableUrl . $tableInfo['tableId']
 					);
 
-					$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
+					$definition = $this->configuration->getDataSet($tableInfo['tableId']);
 					foreach ($definition['columns'] as $c) {
 						if ($c['type'] == 'DATE' && $c['dateDimension']) {
 
@@ -1150,7 +1152,7 @@ class GoodDataWriter extends Component
 				foreach ($this->configuration->definedTables as $tableInfo) if (!empty($tableInfo['export'])) {
 				$datasets[$tableInfo['tableId']] = !empty($tableInfo['gdName']) ? $tableInfo['gdName'] : $tableInfo['tableId'];
 				$nodes[] = $tableInfo['tableId'];
-				$definition = $this->configuration->getTableDefinition($tableInfo['tableId']);
+				$definition = $this->configuration->getDataSet($tableInfo['tableId']);
 				foreach ($definition['columns'] as $c) {
 					if ($c['type'] == 'DATE' && $c['dateDimension']) {
 						$dateDimensions[$tableInfo['tableId']] = $c['dateDimension'];
@@ -1215,18 +1217,15 @@ class GoodDataWriter extends Component
 
 		if (isset($params['tableId'])) {
 			// Table detail
-			if (!in_array($params['tableId'], $this->configuration->getOutputTables())) {
+			if (!in_array($params['tableId'], $this->configuration->getOutputSapiTables())) {
 				throw new WrongParametersException(sprintf("Table '%s' does not exist", $params['tableId']));
 			}
-			if (!isset($this->configuration->definedTables[$params['tableId']])) {
-				$this->configuration->createTableDefinition($params['tableId']);
-			}
 
-			return array('table' => $this->configuration->getTableForApi($params['tableId']));
+			return array('table' => $this->configuration->getDataSetForApi($params['tableId']));
 		} elseif (isset($params['referenceable'])) {
-			return array('tables' => $this->configuration->getReferenceableTables());
+			return array('tables' => $this->configuration->getDataSetsWithConnectionPoint());
 		} else {
-			return array('tables' => $this->configuration->getTables());
+			return array('tables' => $this->configuration->getDataSets());
 		}
 	}
 
@@ -1245,37 +1244,35 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		if (!in_array($params['tableId'], $this->configuration->getOutputTables())) {
+		if (!in_array($params['tableId'], $this->configuration->getOutputSapiTables())) {
 			throw new WrongParametersException(sprintf("Table '%s' does not exist", $params['tableId']));
 		}
 
-		if (!isset($this->configuration->definedTables[$params['tableId']])) {
-			$this->configuration->createTableDefinition($params['tableId']);
-		}
+		$this->configuration->updateDataSetsFromSapi();
 
 		if (isset($params['column'])) {
 			$params['column'] = trim($params['column']);
 
 			// Column detail
-			$sourceTableInfo = $this->configuration->getTable($params['tableId']);
+			$sourceTableInfo = $this->configuration->getSapiTable($params['tableId']);
 			if (!in_array($params['column'], $sourceTableInfo['columns'])) {
 				throw new WrongParametersException(sprintf("Table '%s' does not exist", $params['tableId']));
 			}
 
-			$values = array('name' => $params['column']);
+			$values = array();
 			foreach ($params as $key => $value) if (in_array($key, array('gdName', 'type', 'dataType', 'dataTypeSize',
 				'schemaReference', 'reference', 'format', 'dateDimension', 'sortLabel', 'sortOrder'))) {
 				$values[$key] = $value;
 							}
 			if (count($values) > 1) {
-				$this->configuration->saveColumnDefinition($params['tableId'], $values);
-				$this->configuration->setTableAttribute($params['tableId'], 'lastChangeDate', date('c'));
+				$this->configuration->updateColumnDefinition($params['tableId'], $params['column'], $values);
+				$this->configuration->updateDataSetDefinition($params['tableId'], 'lastChangeDate', date('c'));
 			}
 		} else {
 			// Table detail
-			$this->configuration->setTableAttribute($params['tableId'], 'lastChangeDate', date('c'));
+			$this->configuration->updateDataSetDefinition($params['tableId'], 'lastChangeDate', date('c'));
 			foreach ($params as $key => $value) if (in_array($key, array('gdName', 'export', 'lastChangeDate', 'lastExportDate', 'sanitize', 'incrementalLoad'))) {
-				$this->configuration->setTableAttribute($params['tableId'], $key, $value);
+				$this->configuration->updateDataSetDefinition($params['tableId'], $key, $value);
 			}
 		}
 
@@ -1297,7 +1294,7 @@ class GoodDataWriter extends Component
 		}
 
 		foreach ($this->configuration->definedTables as $table) if (!empty($table['lastExportDate'])) {
-			$this->configuration->setTableAttribute($table['tableId'], 'lastExportDate', '');
+			$this->configuration->updateDataSetDefinition($table['tableId'], 'lastExportDate', '');
 		}
 		foreach ($this->configuration->getDateDimensions() as $dimension) if (!empty($dimension['lastExportDate'])) {
 			$this->configuration->setDateDimensionAttribute($dimension['name'], 'lastExportDate', '');
@@ -1369,17 +1366,8 @@ class GoodDataWriter extends Component
 		$params['name'] = trim($params['name']);
 
 		$dimensions = $this->configuration->getDateDimensions();
-		if (isset($dimensions[$params['name']])) {
-			// Update
-			if (isset($params['includeTime'])) {
-				$this->configuration->setDateDimensionAttribute($params['name'], 'includeTime', $params['includeTime']);
-			}
-			if (isset($params['lastExportDate'])) {
-				$this->configuration->setDateDimensionAttribute($params['name'], 'lastExportDate', $params['lastExportDate']);
-			}
-		} else {
-			// Create
-			$this->configuration->addDateDimension($params['name'], !empty($params['includeTime']));
+		if (!isset($dimensions[$params['name']])) {
+			$this->configuration->saveDateDimension($params['name'], !empty($params['includeTime']));
 		}
 
 		return array();

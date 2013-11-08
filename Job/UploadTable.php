@@ -30,7 +30,8 @@ class UploadTable extends AbstractJob
 		if (empty($job['xmlFile'])) {
 			throw new WrongConfigurationException("Parameter 'xmlFile' is missing");
 		}
-		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkBucketAttributes();
+		$this->configuration->updateDataSetsFromSapi();
 
 		// Init
 		$startTime = time();
@@ -46,7 +47,7 @@ class UploadTable extends AbstractJob
 		$updateModelJobs = array();
 		$loadDataJobs = array();
 
-		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
+		$tableDefinition = $this->configuration->getTableConfiguration($params['tableId']);
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
 		$sanitize = (isset($params['sanitize'])) ? $params['sanitize'] : !empty($tableDefinition['sanitize']);
@@ -272,9 +273,9 @@ class UploadTable extends AbstractJob
 		}
 
 		if (empty($tableDefinition['isExported'])) {
-			$this->configuration->setTableAttribute($params['tableId'], 'export', 1);
+			$this->configuration->updateDataSetDefinition($params['tableId'], 'export', 1);
 		}
-		$this->configuration->setTableAttribute($params['tableId'], 'lastExportDate', date('c', $startTime));
+		$this->configuration->updateDataSetDefinition($params['tableId'], 'lastExportDate', date('c', $startTime));
 		$result = array(
 			'status' => $error ? 'error' : 'success',
 			'debug' => json_encode($debug),
@@ -293,7 +294,7 @@ class UploadTable extends AbstractJob
 		$filterColumn = null;
 		if (isset($this->configuration->bucketInfo['filterColumn']) && empty($tableDefinition['ignoreFilter'])) {
 			$filterColumn = $this->configuration->bucketInfo['filterColumn'];
-			$tableInfo = $this->configuration->getTable($tableId);
+			$tableInfo = $this->configuration->getSapiTable($tableId);
 			if (!in_array($filterColumn, $tableInfo['columns'])) {
 				throw new WrongConfigurationException("Filter column does not exist in the table");
 			}

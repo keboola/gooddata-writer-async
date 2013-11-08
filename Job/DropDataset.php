@@ -26,7 +26,7 @@ class DropDataset extends AbstractJob
 		if (empty($params['tableId'])) {
 			throw new WrongConfigurationException("Parameter 'tableId' is missing");
 		}
-		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkBucketAttributes();
 
 		$projects = $this->configuration->getProjects();
 		$gdWriteStartTime = date('c');
@@ -39,7 +39,7 @@ class DropDataset extends AbstractJob
 				$this->restApi->dropDataset($project['pid'], $job['dataset']);
 			}
 
-			$this->configuration->setTableAttribute($params['tableId'], 'lastExportDate', '');
+			$this->configuration->updateDataSetDefinition($params['tableId'], 'lastExportDate', '');
 			return $this->_prepareResult($job['id'], array(
 				'gdWriteStartTime' => $gdWriteStartTime
 			), $this->restApi->callsLog());

@@ -46,7 +46,7 @@ class DropWriter extends AbstractJob
 			}
 		}
 
-		$this->configuration->dropBucket();
+		$this->configuration->deleteWriter();
 
 		return $this->_prepareResult($job['id'], array(), null);
 	}

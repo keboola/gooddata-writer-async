@@ -24,7 +24,8 @@ class Configuration extends StorageApiConfiguration
 	const FILTERS_TABLE_NAME = 'filters';
 	const FILTERS_USERS_TABLE_NAME = 'filters_users';
 	const FILTERS_PROJECTS_TABLE_NAME = 'filters_projects';
-	const DATE_DIMENSIONS_TABLE_NAME = 'dateDimensions';
+    const DATE_DIMENSIONS_TABLE_NAME = 'dateDimensions';
+    const DATA_SETS_TABLE_NAME = 'dataSets';
 
 	/**
 	 * Definition serves for automatic configuration of Storage API tables
@@ -61,41 +62,23 @@ class Configuration extends StorageApiConfiguration
 			'primaryKey' => 'filterName',
 			'indices' => array()
 		),
-		self::DATE_DIMENSIONS_TABLE_NAME => array(
-			'columns' => array('name', 'includeTime'),
-			'primaryKey' => 'name',
-			'indices' => array()
-		)
+        self::DATE_DIMENSIONS_TABLE_NAME => array(
+            'columns' => array('name', 'includeTime'),
+            'primaryKey' => 'name',
+            'indices' => array()
+        ),
+        self::DATA_SETS_TABLE_NAME => array(
+            'columns' => array('id', 'name', 'export', 'isExported', 'lastChangeDate', 'incrementalLoad', 'ignoreFilter', 'definition'),
+            'primaryKey' => 'id',
+            'indices' => array()
+        )
 	);
 
-	protected static $_emptyCache = array(
-		self::PROJECTS_TABLE_NAME => array(),
-		self::USERS_TABLE_NAME => array(),
-		self::PROJECT_USERS_TABLE_NAME => array(),
-		self::FILTERS_TABLE_NAME => array(),
-		self::FILTERS_USERS_TABLE_NAME => array(),
-		self::FILTERS_PROJECTS_TABLE_NAME => array(),
-		self::DATE_DIMENSIONS_TABLE_NAME => array(
-			'dimensions' => array(),
-			'usage' => array()
-		)
-	);
 
-	protected static $_cache;
-
-
-	/**
-	 * @var string
-	 */
-	public $bucketId;
 	/**
 	 * @var array|string
 	 */
 	public $bucketInfo;
-	/**
-	 * @var array
-	 */
-	public $definedTables;
 	/**
 	 * @var array
 	 */
@@ -114,6 +97,12 @@ class Configuration extends StorageApiConfiguration
 	public $backendUrl;
 
 
+	/**
+	 * Prepare configuration
+	 * Get bucket attributes and backendUrl for Rest API calls
+	 * @param $writerId
+	 * @param StorageApiClient $storageApiClient
+	 */
 	public function __construct($writerId, StorageApiClient $storageApiClient)
 	{
 		$this->writerId = $writerId;
@@ -123,25 +112,20 @@ class Configuration extends StorageApiConfiguration
 		$this->tokenInfo = $this->_storageApiClient->verifyToken();
 		$this->projectId = $this->tokenInfo['owner']['id'];
 
-		$this->definedTables = array();
 		if ($this->bucketId && $this->_storageApiClient->bucketExists($this->bucketId)) {
 			Reader::$client = $this->_storageApiClient;
 			$this->bucketInfo = Reader::read($this->bucketId, null, false);
 
-			if (isset($this->bucketInfo['items'])) {
-				foreach ($this->bucketInfo['items'] as $tableName => $table ) if (isset($table['tableId'])) {
-					$this->definedTables[$table['tableId']] = array_merge($table, array('definitionId' => $this->bucketId . '.' . $tableName));
-				}
-				unset($this->bucketInfo['items']);
-			}
-
 			$this->backendUrl = !empty($this->bucketInfo['gd']['backendUrl']) ? $this->bucketInfo['gd']['backendUrl'] : null;
 		}
-
-		// Init the cache
-		self::$_cache = self::$_emptyCache;
 	}
 
+
+
+	/********************
+	 ********************
+	 * @section Writer and it's bucket
+	 ********************/
 
 
 	/**
@@ -191,6 +175,13 @@ class Configuration extends StorageApiConfiguration
 		return $writers;
 	}
 
+
+	/**
+	 * Create configuration bucket for writer
+	 * @param $writerId
+	 * @param null $backendUrl
+	 * @throws WrongParametersException
+	 */
 	public function createWriter($writerId, $backendUrl = null)
 	{
 		if ($this->configurationBucket($writerId)) {
@@ -207,26 +198,16 @@ class Configuration extends StorageApiConfiguration
 	}
 
 
-	/*
-	 * @TODO remove userUri check
+	/**
+	 * Check if writer's bucket have all required attributes
+	 * @throws WrongConfigurationException
 	 */
-	public function checkGoodDataSetup()
+	public function checkBucketAttributes()
 	{
 		$valid = !empty($this->bucketInfo['gd']['pid'])
 			&& !empty($this->bucketInfo['gd']['username'])
-			&& (!empty($this->bucketInfo['gd']['userUri']) || !empty($this->bucketInfo['gd']['uid']))
+			&& !empty($this->bucketInfo['gd']['uid'])
 			&& !empty($this->bucketInfo['gd']['password']);
-
-		if (empty($this->bucketInfo['gd']['uid']) && !empty($this->bucketInfo['gd']['userUri'])) {
-			if (substr($this->bucketInfo['gd']['userUri'], 0, 21) == '/gdc/account/profile/') {
-				$this->bucketInfo['gd']['uid'] = substr($this->bucketInfo['gd']['userUri'], 21);
-				$this->_storageApiClient->setBucketAttribute($this->bucketId, 'gd.uid', $this->bucketInfo['gd']['uid']);
-				$this->_storageApiClient->deleteBucketAttribute($this->bucketId, 'gd.userUri');
-				unset($this->bucketInfo['gd']['userUri']);
-			} else {
-				$valid = false;
-			}
-		}
 
 		if (!$valid) {
 			throw new WrongConfigurationException('Writer is missing GoodData configuration');
@@ -234,75 +215,157 @@ class Configuration extends StorageApiConfiguration
 	}
 
 
-	public function getOutputTables()
+	/**
+	 * Update writer's configuration
+	 * @param string $key
+	 * @param string $value
+	 * @param null $protected
+	 */
+	public function updateWriter($key, $value, $protected = null)
 	{
-		if (empty(self::$_cache['outputTablesList'])) {
-			self::$_cache['outputTablesList'] = array();
-			foreach ($this->_storageApiClient->listBuckets() as $bucket) {
-				if (substr($bucket['id'], 0, 3) == 'out') {
-					foreach ($this->_storageApiClient->listTables($bucket['id']) as $table) {
-						self::$_cache['outputTablesList'][] = $table['id'];
-					}
+		$this->_storageApiClient->setBucketAttribute($this->bucketId, $key, $value, $protected);
+		$this->bucketInfo[$key] = $value;
+	}
+
+
+	/**
+	 * Delete writer configuration from SAPI
+	 */
+	public function deleteWriter()
+	{
+		foreach ($this->_storageApiClient->listTables($this->bucketId) as $table) {
+			$this->_storageApiClient->dropTable($table['id']);
+		}
+		$this->_storageApiClient->dropBucket($this->bucketId);
+	}
+
+
+
+	/********************
+	 ********************
+	 * @section SAPI tables
+	 ********************/
+
+
+	/**
+	 * Get output tables from SAPI
+	 * @return array
+	 */
+	public function getOutputSapiTables()
+	{
+		$result = array();
+		foreach ($this->_storageApiClient->listBuckets() as $bucket) {
+			if (substr($bucket['id'], 0, 3) == 'out') {
+				foreach ($this->_storageApiClient->listTables($bucket['id']) as $table) {
+					$result[] = $table['id'];
 				}
 			}
 		}
-		return self::$_cache['outputTablesList'];
+		return $result;
 	}
 
-	public function getTable($tableId)
+
+	/**
+	 * Get info about table in SAPI
+	 * @param $tableId
+	 * @return mixed
+	 * @throws WrongConfigurationException
+	 */
+	public function getSapiTable($tableId)
 	{
-		if (!isset(self::$_cache['getTable'])) self::$_cache['getTable'] = array();
-
-		if (!isset(self::$_cache['getTable'][$tableId])) {
-			if (!$this->_storageApiClient->tableExists($tableId)) {
-				throw new WrongConfigurationException("Table '$tableId' does not exist");
-			}
-
-			self::$_cache['getTable'][$tableId] = $this->_storageApiClient->getTable($tableId);
+		if (!$this->_storageApiClient->tableExists($tableId)) {
+			throw new WrongConfigurationException("Table '$tableId' does not exist");
 		}
 
-		return self::$_cache['getTable'][$tableId];
+		return $this->_storageApiClient->getTable($tableId);
 	}
 
-	public function getTableForApi($tableId)
+
+
+	/********************
+	 ********************
+	 * @section Data sets
+	 ********************/
+
+
+	/**
+	 * Check output tables and update configuration according to them
+	 * Remove config of deleted tables and add newly added tables
+	 */
+	public function updateDataSetsFromSapi()
 	{
+		$tableId = $this->bucketId . '.' . self::DATA_SETS_TABLE_NAME;
+		if (!$this->_storageApiClient->tableExists($tableId)) {
+			$this->_createConfigTable(self::DATA_SETS_TABLE_NAME);
+		}
+
+		$outputTables = $this->getOutputSapiTables();
+		$configuredTables = array();
+		// Remove tables that does not exist from configuration
+		foreach ($this->_fetchTableRows($tableId) as $row) {
+			if (!in_array($row['id'], $outputTables)) {
+				$this->_deleteTableRow($tableId, 'id', $row['id']);
+			}
+			if (!in_array($row['id'], $configuredTables)) {
+				$configuredTables[] = $row['id'];
+			}
+		}
+
+		// Add tables without configuration
+		foreach ($outputTables as $tableId) {
+			if (!in_array($tableId, $configuredTables)) {
+				$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, array(
+					'id' => $tableId
+				));
+			}
+		}
+	}
+
+
+	/**
+	 * Get complete data set definition
+	 * @param $tableId
+	 * @return mixed
+	 */
+	public function getDataSetForApi($tableId)
+	{
+		$this->updateDataSetsFromSapi();
+
 		$tableDefinition = array();
 
-		foreach ($this->_fetchTableRows($this->definedTables[$tableId]['definitionId']) as $row) {
+		$dataSet = $this->getDataSet($tableId);
+		foreach ($dataSet['columns'] as $column) {
+			if ($column['type'] != 'ATTRIBUTE' && $column['sortLabel']) {
+				$column['sortLabel'] = null;
+			}
+			if ($column['type'] != 'ATTRIBUTE' && $column['sortOrder']) {
+				$column['sortOrder'] = null;
+			}
+			if ($column['type'] != 'REFERENCE' && $column['schemaReference']) {
+				$column['schemaReference'] = null;
+			}
+			if (!in_array($column['type'], array('REFERENCE', 'HYPERLINK', 'LABEL')) && $column['reference']) {
+				$column['reference'] = null;
+			}
+			if ($column['type'] != 'DATE' && $column['format']) {
+				$column['format'] = null;
+			}
+			if ($column['type'] != 'DATE' && $column['dateDimension']) {
+				$column['dateDimension'] = null;
+			}
+			if (!empty($column['dataTypeSize'])) {
+				$column['dataTypeSize'] = (int)$column['dataTypeSize'];
+			}
 
-			if ($row['type'] != 'ATTRIBUTE' && $row['sortLabel']) {
-				$row['sortLabel'] = null;
-			}
-			if ($row['type'] != 'ATTRIBUTE' && $row['sortOrder']) {
-				$row['sortOrder'] = null;
-			}
-			if ($row['type'] != 'REFERENCE' && $row['schemaReference']) {
-				$row['schemaReference'] = null;
-			}
-			if (!in_array($row['type'], array('REFERENCE', 'HYPERLINK', 'LABEL')) && $row['reference']) {
-				$row['reference'] = null;
-			}
-			if ($row['type'] != 'DATE' && $row['format']) {
-				$row['format'] = null;
-			}
-			if ($row['type'] != 'DATE' && $row['dateDimension']) {
-				$row['dateDimension'] = null;
-			}
-			if (!empty($row['dataTypeSize'])) {
-				$row['dataTypeSize'] = (int)$row['dataTypeSize'];
-			}
-
-			$tableDefinition[$row['name']] = $row;
+			$tableDefinition[$column['name']] = $column;
 		}
 
-		$sourceTableInfo = $this->getTable($tableId);
-		$this->checkMissingColumns($tableId, array('columns' => $tableDefinition), $sourceTableInfo['columns']);
+		$sapiTable = $this->getSapiTable($tableId);
+		$this->checkMissingColumns($tableId, array('columns' => $tableDefinition), $sapiTable['columns']);
 
 
-		$data = $this->definedTables[$tableId];
-		$data['tableId'] = $tableId;
-		unset($data['definitionId']);
-		$data['columns'] = array();
+		$dataSet['tableId'] = $tableId;
+		$dataSet['columns'] = array();
 
 		$previews = array();
 		if ($this->_storageApiClient->tableExists($tableId)) {
@@ -313,235 +376,168 @@ class Configuration extends StorageApiConfiguration
 			}
 		}
 
-		foreach ($sourceTableInfo['columns'] as $columnName) {
+		foreach ($sapiTable['columns'] as $columnName) {
 			$column = isset($tableDefinition[$columnName]) ? $tableDefinition[$columnName]
 				: array('name' => $columnName, 'gdName' => $columnName, 'type' => 'IGNORE');
 			$column['preview'] = isset($previews[$columnName]) ? $previews[$columnName] : array();
 			if (!$column['gdName'])
 				$column['gdName'] = $column['name'];
-			$data['columns'][] = $column;
+			$dataSet['columns'][] = $column;
 		}
 
-		return $data;
+		return $dataSet;
 	}
 
-	public function getTables()
-	{
-		$tables = array();
-		foreach ($this->_storageApiClient->listTables() as $table) {
-			if (substr($table['id'], 0, 4) == 'out.') {
-				$t = array(
-					'id' => $table['id'],
-					'bucket' => $table['bucket']['id']
-				);
-				if (isset($this->definedTables[$table['id']])) {
-					$tableDef = $this->definedTables[$table['id']];
-					$t['gdName'] = isset($tableDef['gdName']) ? $tableDef['gdName'] : null;
-					$t['export'] = isset($tableDef['export']) ? (Boolean)$tableDef['export'] : false;
-					$t['lastChangeDate'] = isset($tableDef['lastChangeDate']) ? $tableDef['lastChangeDate'] : null;
-					$t['lastExportDate'] = isset($tableDef['lastExportDate']) ? $tableDef['lastExportDate'] : null;
-				}
-				$tables[] = $t;
-			}
-		}
-		return $tables;
-	}
 
-	public function getReferenceableTables()
+	/**
+	 * Get list of defined data sets
+	 * @return array
+	 */
+	public function getDataSets()
 	{
+		$this->updateDataSetsFromSapi();
+
 		$tables = array();
-		foreach ($this->definedTables as $table) {
-			$tables[$table['tableId']] = array(
-				'name' => isset($table['gdName']) ? $table['gdName'] : $table['tableId'],
-				'referenceable' => $this->tableIsReferenceable($table['tableId'])
+		foreach ($this->getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
+			$tables[] = array(
+				'id' => $table['id'],
+				'bucket' => substr($table['id'], 0, strrpos($table['id'], '.')),
+				'gdName' => $table['name'],
+				'export' => $table['export'],
+				'isExported' => $table['isExported'],
+				'lastChangeDate' => $table['lastChangeDate'],
+				'lastExportDate' => $table['isExported'] ? date('U') : null //@TODO backwards compatibility with UI, remove soon!!
 			);
 		}
 		return $tables;
 	}
 
-	public function getTableDefinition($tableId)
+
+	/**
+	 * Get list of defined data sets with connection point
+	 * @return array
+	 */
+	public function getDataSetsWithConnectionPoint()
 	{
-		if (!isset(self::$_cache['tableDefinition'])) self::$_cache['tableDefinition'] = array();
+		$this->updateDataSetsFromSapi();
 
-		if (!isset(self::$_cache['tableDefinition'][$tableId])) {
-			if (!isset($this->definedTables[$tableId])) {
-				throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
-			}
-
-			$data = array('columns' => array());
-
-			$tableInfo = $this->getTable($this->definedTables[$tableId]['definitionId']);
-			if (isset($tableInfo['attributes'])) foreach ($tableInfo['attributes'] as $attr) {
-				$data[$attr['name']] = $attr['value'];
-			}
-
-			foreach ($this->_fetchTableRows($this->definedTables[$tableId]['definitionId']) as $row) {
-				$data['columns'][$row['name']] = $row;
-			}
-			self::$_cache['tableDefinition'][$tableId] = $data;
+		$tables = array();
+		foreach ($this->getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
+			$tables[$table['id']] = array(
+				'name' => $table['name'] ? $table['name'] : $table['id'],
+				'referenceable' => $this->dataSetHasConnectionPoint($table['id'])
+			);
 		}
-
-		return self::$_cache['tableDefinition'][$tableId];
+		return $tables;
 	}
 
-	public function tableIsReferenceable($tableId)
+
+	/**
+	 * Get definition of data set
+	 * @param $tableId
+	 * @return bool|mixed
+	 * @throws WrongConfigurationException
+	 */
+	public function getDataSet($tableId)
 	{
-		foreach ($this->_fetchTableRows($this->definedTables[$tableId]['definitionId']) as $row) {
-			if ($row['type'] == 'CONNECTION_POINT') {
+		$tableConfig = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
+		if (!$tableConfig) {
+			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
+		}
+
+		$tableConfig['columns'] = json_decode($tableConfig['configuration']);
+		if (!$tableConfig['columns']) {
+			throw new WrongConfigurationException("Definition of columns is not valid json");
+		}
+
+		return $tableConfig;
+	}
+
+
+	/**
+	 * Check if data set has connection point
+	 * @param $tableId
+	 * @return bool
+	 */
+	public function dataSetHasConnectionPoint($tableId)
+	{
+		$tableConfig = $this->getDataSet($tableId);
+
+		foreach ($tableConfig['columns'] as $column) {
+			if ($column['type'] == 'CONNECTION_POINT') {
 				return true;
 			}
 		}
 		return false;
 	}
 
-	public function createTableDefinition($tableId)
+	/**
+	 * Check if data set has connection point
+	 * @param $tableId
+	 * @return array
+	 */
+	public function getDimensionsOfDataSet($tableId)
 	{
-		if (!isset(self::$_cache['tableDefinition'][$tableId])) {
-			if (!isset($this->definedTables[$tableId])) {
+		$tableConfig = $this->getDataSet($tableId);
 
-				$tId = mb_substr($tableId, mb_strlen(StorageApiClient::STAGE_OUT) + 1);
-				$bucket = mb_substr($tId, 0, mb_strpos($tId, '.'));
-				$tableName = mb_substr($tId, mb_strpos($tId, '.')+1);
-				$tableDefinitionId = $this->bucketId . '.' . $bucket . '_' . $tableName;
-
-				$this->_createTable($tableDefinitionId, 'name', array('name', 'gdName', 'type', 'dataType',
-					'dataTypeSize', 'schemaReference', 'reference', 'format', 'dateDimension', 'sortLabel', 'sortOrder'));
-				$this->_storageApiClient->setTableAttribute($tableDefinitionId, 'tableId', $tableId);
-				$this->_storageApiClient->setTableAttribute($tableDefinitionId, 'lastChangeDate', null);
-				$this->_storageApiClient->setTableAttribute($tableDefinitionId, 'lastExportDate', null);
-
-
-				$this->definedTables[$tableId] = array(
-					'tableId' => $tableId,
-					'gdName' => null,
-					'lastChangeDate' => null,
-					'lastExportDate' => null,
-					'definitionId' => $tableDefinitionId
-				);
-
+		$dimensions = array();
+		foreach ($tableConfig['columns'] as $column) {
+			if ($column['type'] == 'DATE' && !empty($column['dimension'])) {
+				$dimensions[] = $column['dimension'];
 			}
 		}
+		return $dimensions;
 	}
 
-	public function saveColumnDefinition($tableId, $data)
+
+	/**
+	 * Update definition of column of a data set
+	 * @param $tableId
+	 * @param $column
+	 * @param $data
+	 * @throws WrongConfigurationException
+	 */
+	public function updateColumnDefinition($tableId, $column, $data)
 	{
-		if (!isset($this->definedTables[$tableId])) {
+		$this->updateDataSetsFromSapi();
+
+		$tableRow = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
+		if (!$tableRow) {
 			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
 		}
 
-		$this->_updateTableRow($this->definedTables[$tableId]['definitionId'], 'name', $data);
+		$definition = json_decode($tableRow['definition'], true);
+		if (!$definition) {
+			throw new WrongConfigurationException("Definition of columns for table '$tableId' is not valid json");
+		}
+		$definition[$column] = array_merge($definition[$column], $data);
+		$tableRow['definition'] = json_encode($definition);
+
+		$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableRow);
 	}
 
-	public function setTableAttribute($tableId, $name, $value)
+
+	/**
+	 * Update definition of data set
+	 * @param $tableId
+	 * @param $name
+	 * @param $value
+	 * @throws WrongConfigurationException
+	 */
+	public function updateDataSetDefinition($tableId, $name, $value)
 	{
-		if (!isset($this->definedTables[$tableId])) {
+		$this->updateDataSetsFromSapi();
+
+		$tableRow = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
+		if (!$tableRow) {
 			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
 		}
-
-		self::$_cache['tableDefinition'][$tableId][$name] = $value;
-		$this->definedTables[$tableId][$name] = $value;
-		$this->_storageApiClient->setTableAttribute($this->definedTables[$tableId]['definitionId'], $name, $value);
-	}
-
-	public function getDateDimensions($usage = false)
-	{
-		if ($usage) return $this->getDateDimensionsWithUsage();
-
-		if (!count(self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'])) {
-			$tableId = $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME;
-			if ($this->_storageApiClient->tableExists($tableId)) {
-				$data = array();
-				foreach ($this->_fetchTableRows($tableId) as $row) {
-					$row['includeTime'] = (bool)$row['includeTime'];
-					$data[$row['name']] = $row;
-				}
-				self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'] = $data;
-
-				if (count(self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'])) {
-					self::_checkConfigTable(self::DATE_DIMENSIONS_TABLE_NAME,
-						array_keys(current(self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'])));
-				}
-			} else {
-				$this->_createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
-			}
-		}
-		return self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'];
-	}
-
-	public function getDateDimensionsWithUsage()
-	{
-		$dimensions = $this->getDateDimensions();
-
-		if (!count(self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['usage'])) {
-			$usage = array();
-			foreach (array_keys($this->definedTables) as $tId) {
-				foreach ($this->tableDateDimensions($tId) as $dim) {
-					if (!isset($usage[$dim])) {
-						$usage[$dim]['usedIn'] = array();
-					}
-					$usage[$dim]['usedIn'][] = $tId;
-				}
-			}
-			self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['usage'] = $usage;
+		if (!isset($tableRow[$name])) {
+			throw new WrongConfigurationException("DataSet does not have '$name' definition parameter");
 		}
 
-		return array_merge_recursive($dimensions, self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['usage']);
-	}
-
-	public function addDateDimension($name, $includeTime)
-	{
-		$data = array(
-			'name' => $name,
-			'includeTime' => $includeTime
-		);
-		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
-		if (!self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'])
-			$this->getDateDimensions();
-		self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'][$name] = $data;
-	}
-
-	public function deleteDateDimension($name)
-	{
-		$this->_storageApiClient->deleteTableRows($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME, array(
-			'whereColumn' => 'name',
-			'whereValues' => array($name)
-		));
-		if (!self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'])
-			$this->getDateDimensions();
-		unset(self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'][$name]);
-	}
-
-	public function tableHasDateDimension($tableId, $dimension)
-	{
-		foreach ($this->_fetchTableRows($this->definedTables[$tableId]['definitionId']) as $row) {
-			if ($row['type'] == 'DATE' && $row['dateDimension'] == $dimension) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	public function tableDateDimensions($tableId)
-	{
-		$result = array();
-		foreach ($this->_fetchTableRows($this->definedTables[$tableId]['definitionId']) as $row) {
-			if ($row['type'] == 'DATE' && $row['dateDimension']) {
-				$result[] = $row['dateDimension'];
-			}
-		}
-		return $result;
-	}
-
-	public function setDateDimensionAttribute($dimension, $name, $value)
-	{
-		$data = array(
-			'name' => $dimension,
-			$name => $value
-		);
-		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
-		if (!self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'])
-			$this->getDateDimensions();
-		self::$_cache[self::DATE_DIMENSIONS_TABLE_NAME]['dimensions'][$dimension][$name] = $value;
+		$tableRow[$name] = $value;
+		$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableRow);
 	}
 
 
@@ -575,7 +571,7 @@ class Configuration extends StorageApiConfiguration
 		if ($saveChanges) {
 			$this->_updateTable($this->definedTables[$tableId]['definitionId'], 'name', $headers, $data);
 
-			$this->setTableAttribute($tableId, 'lastChangeDate', date('c'));
+			$this->updateDataSetDefinition($tableId, 'lastChangeDate', date('c'));
 		}
 	}
 
@@ -584,8 +580,8 @@ class Configuration extends StorageApiConfiguration
 	{
 		$this->getDateDimensions();
 
-		$dataTableConfig = $this->getTable($tableId);
-		$gdDefinition = $this->getTableDefinition($tableId);
+		$dataTableConfig = $this->getSapiTable($tableId);
+		$gdDefinition = $this->getTableConfiguration($tableId);
 		$this->checkMissingColumns($tableId, $gdDefinition, $dataTableConfig['columns']);
 		$dateDimensions = null; // fetch only when needed
 
@@ -602,7 +598,7 @@ class Configuration extends StorageApiConfiguration
 
 		$columns = $xml->createElement('columns');
 
-		$sourceTableInfo = $this->getTable($tableId);
+		$sourceTableInfo = $this->getSapiTable($tableId);
 		foreach ($sourceTableInfo['columns'] as $columnName) {
 
 			if (!isset($gdDefinition['columns'][$columnName])) {
@@ -619,7 +615,7 @@ class Configuration extends StorageApiConfiguration
 			$column = $xml->createElement('column');
 			$column->appendChild($xml->createElement('name', $columnDefinition['name']));
 			$column->appendChild($xml->createElement('title', (!empty($columnDefinition['gdName']) ? $columnDefinition['gdName']
-				: $columnDefinition['name']) . ' (' . $datasetName . ')'));
+					: $columnDefinition['name']) . ' (' . $datasetName . ')'));
 			$column->appendChild($xml->createElement('ldmType', !empty($columnDefinition['type']) ? $columnDefinition['type'] : 'IGNORE'));
 			if ($columnDefinition['type'] != 'FACT') {
 				$column->appendChild($xml->createElement('folder', $datasetName));
@@ -661,7 +657,7 @@ class Configuration extends StorageApiConfiguration
 				case 'REFERENCE':
 					if ($columnDefinition['schemaReference']) {
 						try {
-							$refTableDefinition = $this->getTableDefinition($columnDefinition['schemaReference']);
+							$refTableDefinition = $this->getDataSet($columnDefinition['schemaReference']);
 						} catch (WrongConfigurationException $e) {
 							throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}'"
 								. " of column '{$columnDefinition['name']}' does not exist");
@@ -703,9 +699,100 @@ class Configuration extends StorageApiConfiguration
 	}
 
 
+
+	/********************
+	 ********************
+	 * @section Date dimensions
+	 ********************/
+
+
 	/**
+	 * Get defined date dimensions
+	 * @param bool $usage
 	 * @return array
-	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 */
+	public function getDateDimensions($usage = false)
+	{
+		if ($usage) return $this->getDateDimensionsWithUsage();
+
+		$tableId = $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME;
+		if (!$this->_storageApiClient->tableExists($tableId)) {
+			$this->_createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
+			return array();
+		} else {
+			$data = array();
+			foreach ($this->getConfigTable(self::DATE_DIMENSIONS_TABLE_NAME) as $row) {
+				$row['includeTime'] = (bool)$row['includeTime'];
+				$data[$row['name']] = $row;
+			}
+
+			if (count($data)) {
+				self::_checkConfigTable(self::DATE_DIMENSIONS_TABLE_NAME, array_keys(current($data)));
+			}
+			return $data;
+		}
+	}
+
+
+	/**
+	 * Get defined date dimensions with usage in data sets
+	 * @return array
+	 */
+	public function getDateDimensionsWithUsage()
+	{
+		$dimensions = $this->getDateDimensions();
+
+		$usage = array();
+		foreach ($this->getDataSets() as $dataSet) {
+			foreach ($this->getDimensionsOfDataSet($dataSet['id']) as $dimension) {
+				if (!isset($usage[$dimension])) {
+					$usage[$dimension]['usedIn'] = array();
+				}
+				$usage[$dimension]['usedIn'][] = $dataSet['id'];
+			}
+		}
+
+		return array_merge_recursive($dimensions, $usage);
+	}
+
+
+	/**
+	 * Add date dimension
+	 * @param $name
+	 * @param $includeTime
+	 */
+	public function saveDateDimension($name, $includeTime)
+	{
+		$data = array(
+			'name' => $name,
+			'includeTime' => $includeTime
+		);
+		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
+	}
+
+
+	/**
+	 * Delete date dimension
+	 * @param $name
+	 */
+	public function deleteDateDimension($name)
+	{
+		$this->_deleteTableRow($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME, 'name', $name);
+	}
+
+
+
+
+	/********************
+	 ********************
+	 * @section Project clones
+	 ********************/
+
+
+	/**
+	 * Get list of all projects
+	 * @return array
+	 * @throws WrongConfigurationException
 	 */
 	public function getProjects()
 	{
@@ -716,6 +803,21 @@ class Configuration extends StorageApiConfiguration
 		return $projects;
 	}
 
+
+	/**
+	 * Get project if exists
+	 * @param $pid
+	 * @return bool|array
+	 */
+	public function getProject($pid)
+	{
+		foreach ($this->getProjects() as $project) {
+			if ($project['pid'] == $pid) return $project;
+		}
+		return false;
+	}
+
+
 	/**
 	 * Check configuration table of projects
 	 * @throws WrongConfigurationException
@@ -724,16 +826,36 @@ class Configuration extends StorageApiConfiguration
 	{
 		$tableId = $this->bucketId . '.' . self::PROJECTS_TABLE_NAME;
 		if ($this->_storageApiClient->tableExists($tableId)) {
-			$table = $this->_storageApiClient->getTable($tableId);
+			$table = $this->getSapiTable($tableId);
 			self::_checkConfigTable(self::PROJECTS_TABLE_NAME, $table['columns']);
 		}
 	}
 
 
+	/**
+	 * @param $pid
+	 */
+	public function saveProject($pid)
+	{
+		$data = array(
+			'pid' => $pid,
+			'active' => 1
+		);
+		$this->_updateConfigTableRow(self::PROJECTS_TABLE_NAME, $data);
+	}
+
+
+
+	/********************
+	 ********************
+	 * @section Project users
+	 ********************/
+
 
 	/**
+	 * Get list of all users
 	 * @return array
-	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 * @throws WrongConfigurationException
 	 */
 	public function getUsers()
 	{
@@ -748,6 +870,20 @@ class Configuration extends StorageApiConfiguration
 		return $users;
 	}
 
+
+	/**
+	 * Get user if exists
+	 * @param $email
+	 * @return bool|array
+	 */
+	public function getUser($email)
+	{
+		foreach ($this->getUsers() as $user) {
+			if ($user['email'] == $email) return $user;
+		}
+		return false;
+	}
+
 	/**
 	 * Check configuration table of users
 	 * @throws WrongConfigurationException
@@ -756,14 +892,15 @@ class Configuration extends StorageApiConfiguration
 	{
 		$tableId = $this->bucketId . '.' . self::USERS_TABLE_NAME;
 		if ($this->_storageApiClient->tableExists($tableId)) {
-			$table = $this->_storageApiClient->getTable($tableId);
+			$table = $this->getSapiTable($tableId);
 			self::_checkConfigTable(self::USERS_TABLE_NAME, $table['columns']);
 		}
 	}
 
 	/**
+	 * Get users of specified project
 	 * @param null $pid
-	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 * @throws WrongConfigurationException
 	 * @return array
 	 */
 	public function getProjectUsers($pid = null)
@@ -804,26 +941,14 @@ class Configuration extends StorageApiConfiguration
 	{
 		$tableId = $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME;
 		if ($this->_storageApiClient->tableExists($tableId)) {
-			$table = $this->_storageApiClient->getTable($tableId);
+			$table = $this->getSapiTable($tableId);
 			self::_checkConfigTable(self::PROJECT_USERS_TABLE_NAME, $table['columns']);
 		}
 	}
 
 
 	/**
-	 * @param $pid
-	 */
-	public function saveProject($pid)
-	{
-		$data = array(
-			'pid' => $pid,
-			'active' => 1
-		);
-		$this->_updateConfigTableRow(self::PROJECTS_TABLE_NAME, $data);
-		self::$_cache[self::PROJECTS_TABLE_NAME][] = $data;
-	}
-
-	/**
+	 * Save user to configuration
 	 * @param $email
 	 * @param $uid
 	 */
@@ -834,11 +959,11 @@ class Configuration extends StorageApiConfiguration
 			'uid' => $uid
 		);
 		$this->_updateConfigTableRow(self::USERS_TABLE_NAME, $data);
-		self::$_cache[self::USERS_TABLE_NAME][] = $data;
 	}
 
 
 	/**
+	 * Save project user to configuration
 	 * @param $pid
 	 * @param $email
 	 * @param $role
@@ -854,58 +979,16 @@ class Configuration extends StorageApiConfiguration
 			'action' => $action
 		);
 		$this->_updateConfigTableRow(self::PROJECT_USERS_TABLE_NAME, $data);
-		self::$_cache[self::PROJECT_USERS_TABLE_NAME][] = $data;
-	}
-
-	/**
-	 * Check if pid exists in configuration table of projects
-	 * @param $pid
-	 * @return bool|array
-	 */
-	public function getProject($pid)
-	{
-		foreach ($this->getProjects() as $project) {
-			if ($project['pid'] == $pid) return $project;
-		}
-		return false;
-	}
-
-	/**
-	 * Check if email exists in configuration table of users
-	 * @param $email
-	 * @return bool|array
-	 */
-	public function getUser($email)
-	{
-		foreach ($this->getUsers() as $user) {
-			if ($user['email'] == $email) return $user;
-		}
-		return false;
 	}
 
 
-	/**
-	 * @param string $key
-	 * @param string $value
-	 * @param null $protected
-	 */
-	public function setBucketAttribute($key, $value, $protected = null)
-	{
-		$this->_storageApiClient->setBucketAttribute($this->bucketId, $key, $value, $protected);
-		$this->bucketInfo[$key] = $value;
-	}
 
 
-	/**
-	 * Drop writer configuration from SAPI
-	 */
-	public function dropBucket()
-	{
-		foreach ($this->_storageApiClient->listTables($this->bucketId) as $table) {
-			$this->_storageApiClient->dropTable($table['id']);
-		}
-		$this->_storageApiClient->dropBucket($this->bucketId);
-	}
+	/********************
+	 ********************
+	 * @section Filters
+	 ********************/
+
 
 	/**
 	 * @param $name
@@ -995,7 +1078,6 @@ class Configuration extends StorageApiConfiguration
 			'uri' => $uri
 		);
 		$this->_updateConfigTableRow(self::FILTERS_TABLE_NAME, $data);
-		self::$_cache[self::FILTERS_TABLE_NAME] = $data;
 	}
 
 	public function saveFiltersProjects($filterName, $pid)
@@ -1011,7 +1093,6 @@ class Configuration extends StorageApiConfiguration
 			'pid' => $pid
 		);
 		$this->_updateConfigTableRow(self::FILTERS_PROJECTS_TABLE_NAME, $data);
-		self::$_cache[self::FILTERS_PROJECTS_TABLE_NAME][] = $data;
 	}
 
 	/**
@@ -1025,7 +1106,6 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function updateFilters($name, $attribute, $element, $operator, $uri)
 	{
-		self::$_cache[self::FILTERS_TABLE_NAME] = array();
 		$data = $this->getFilters();
 
 		foreach ($data as $k => $v) {
@@ -1036,7 +1116,6 @@ class Configuration extends StorageApiConfiguration
 		}
 
 		$this->_updateConfigTable(self::FILTERS_TABLE_NAME, $data, false);
-		self::$_cache[self::FILTERS_TABLE_NAME] = $data;
 	}
 
 	/**
@@ -1111,10 +1190,10 @@ class Configuration extends StorageApiConfiguration
 	}
 
 	/**
+	 * @TODO should be moved to RestApi class
 	 * Translates attribute name from SAPI form to GD form
 	 * Example: out.c-main.users.id -> attr.outcmainusers.id
 	 * If GdName is set on SAPI table (GdName = users): out.c-main.users.id -> attr.users.id
-	 *
 	 * @param $attribute
 	 * @return string
 	 */
@@ -1124,61 +1203,28 @@ class Configuration extends StorageApiConfiguration
 		$tableId = $idArr[0] . '.' . $idArr[1] . '.' . $idArr[2];
 		$attrName = $idArr[3];
 
-		$tableDef = $this->getTableDefinition($tableId);
+		$tableDef = $this->getDataSet($tableId);
 
 		$tableName = $tableId;
-		if (isset($tableDef['gdName'])) {
-			$tableName = $tableDef['gdName'];
+		if (isset($tableDef['name'])) {
+			$tableName = $tableDef['name'];
 		}
 
 		return strtolower('attr.' . preg_replace('/[^a-z\d ]/i', '', $tableName) . '.' . $attrName);
 	}
 
 
-
-	protected function _createConfigTable($tableName)
-	{
-		if (!isset(self::$_tables[$tableName])) return false;
-
-		return $this->_createTable(
-			$this->bucketId . '.' . $tableName,
-			self::$_tables[$tableName]['primaryKey'],
-			self::$_tables[$tableName]['columns'],
-			self::$_tables[$tableName]['indices']);
-	}
-
-	protected function _updateConfigTable($tableName, $data, $incremental = true)
-	{
-		if (!isset(self::$_tables[$tableName])) return false;
-
-		return $this->_saveTable(
-			$this->bucketId . '.' . $tableName,
-			self::$_tables[$tableName]['primaryKey'],
-			self::$_tables[$tableName]['columns'],
-			$data,
-			$incremental,
-			true,
-			self::$_tables[$tableName]['indices']
-		);
-	}
-
-	protected function _updateConfigTableRow($tableName, $data)
-	{
-		if (!isset(self::$_tables[$tableName])) return false;
-
-		return $this->_updateTableRow(
-			$this->bucketId . '.' . $tableName,
-			self::$_tables[$tableName]['primaryKey'],
-			$data,
-			self::$_tables[$tableName]['indices']
-		);
-	}
-
+	/**
+	 * @TODO REMOVE - Temporal because of possible existence of lastExportDate column in config
+	 * @param $tableName
+	 * @param $columns
+	 * @return bool
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 */
 	protected static function _checkConfigTable($tableName, $columns)
 	{
 		if (!isset(self::$_tables[$tableName])) return false;
 
-		//@TODO REMOVE - Temporal
 		if ($tableName == 'dateDimensions') {
 			if (count($columns) < 2) {
 				throw new WrongConfigurationException(sprintf("Table '%s' appears to be wrongly configured. Contains columns: '%s' but should contain columns: '%s'",
@@ -1196,26 +1242,4 @@ class Configuration extends StorageApiConfiguration
 		return true;
 	}
 
-	/**
-	 * @param $tableName
-	 * @return array|bool
-	 */
-	public function getConfigTable($tableName)
-	{
-		if (!isset(self::$_tables[$tableName])) return false;
-
-		$tableId = $this->bucketId . '.' . $tableName;
-		if ($this->_storageApiClient->tableExists($tableId)) {
-			self::$_cache[$tableName] = $this->_fetchTableRows($tableId);
-
-			if (count(self::$_cache[$tableName])) {
-				self::_checkConfigTable($tableName, array_keys(current(self::$_cache[$tableName])));
-			}
-		} else {
-			$this->_createConfigTable($tableName);
-			self::$_cache[$tableName] = array();
-		}
-
-		return self::$_cache[$tableName];
-	}
 }

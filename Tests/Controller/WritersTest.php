@@ -18,7 +18,7 @@ class WritersTest extends AbstractControllerTest
 		// Check writer configuration
 		$validConfiguration = true;
 		try {
-			self::$configuration->checkGoodDataSetup();
+			self::$configuration->checkBucketAttributes();
 		} catch (WrongConfigurationException $e) {
 			$validConfiguration = false;
 		}

@@ -31,7 +31,7 @@ class InviteUserToProject extends AbstractJob
 		if (!in_array($params['role'], $allowedRoles)) {
 			throw new WrongConfigurationException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
 		}
-		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkBucketAttributes();
 
 		if (empty($params['pid'])) {
 			if (empty($this->configuration->bucketInfo['gd']['pid'])) {

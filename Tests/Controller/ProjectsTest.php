@@ -85,21 +85,20 @@ class ProjectsTest extends AbstractControllerTest
 
 
 		// Prepare configuration
-		self::$configuration->setBucketAttribute('filterColumn', 'pid');
+		self::$configuration->updateWriter('filterColumn', 'pid');
+		self::$configuration->updateDataSetsFromSapi();
 
-		self::$configuration->createTableDefinition($this->dataBucketId . '.' . $filteredTableName);
-		self::$configuration->saveColumnDefinition($this->dataBucketId . '.' . $filteredTableName,
-			array('name' => 'id', 'gdName' => 'Id', 'type' => 'CONNECTION_POINT'));
-		self::$configuration->saveColumnDefinition($this->dataBucketId . '.' . $filteredTableName,
-			array('name' => 'name', 'gdName' => 'Name', 'type' => 'ATTRIBUTE'));
-		self::$configuration->saveColumnDefinition($this->dataBucketId . '.' . $filteredTableName,
-			array('name' => 'pid', 'gdName' => '', 'type' => 'IGNORE'));
+		self::$configuration->updateColumnDefinition($this->dataBucketId . '.' . $filteredTableName, 'id',
+			array('gdName' => 'Id', 'type' => 'CONNECTION_POINT'));
+		self::$configuration->updateColumnDefinition($this->dataBucketId . '.' . $filteredTableName, 'name',
+			array('gdName' => 'Name', 'type' => 'ATTRIBUTE'));
+		self::$configuration->updateColumnDefinition($this->dataBucketId . '.' . $filteredTableName, 'pid',
+			array('gdName' => '', 'type' => 'IGNORE'));
 
-		self::$configuration->createTableDefinition($this->dataBucketId . '.' . $notFilteredTableName);
-		self::$configuration->saveColumnDefinition($this->dataBucketId . '.' . $notFilteredTableName,
-			array('name' => 'id', 'gdName' => 'Id', 'type' => 'CONNECTION_POINT'));
-		self::$configuration->saveColumnDefinition($this->dataBucketId . '.' . $notFilteredTableName,
-			array('name' => 'name', 'gdName' => 'Name', 'type' => 'ATTRIBUTE'));
+		self::$configuration->updateColumnDefinition($this->dataBucketId . '.' . $notFilteredTableName, 'id',
+			array('gdName' => 'Id', 'type' => 'CONNECTION_POINT'));
+		self::$configuration->updateColumnDefinition($this->dataBucketId . '.' . $notFilteredTableName, 'name',
+			array('gdName' => 'Name', 'type' => 'ATTRIBUTE'));
 
 
 		// Test if upload of not-filtered table without 'ignoreFilter' attribute fails
@@ -111,7 +110,7 @@ class ProjectsTest extends AbstractControllerTest
 		$this->assertEquals('error', $response['job']['result']['status'], "Response for writer call '/jobs?jobId=' should contain key 'job.result.status' with value 'error'.");
 
 		// Now add the attribute and try if it succeeds
-		self::$configuration->setTableAttribute($this->dataBucketId . '.' . $notFilteredTableName, 'ignoreFilter', 1);
+		self::$configuration->updateDataSetDefinition($this->dataBucketId . '.' . $notFilteredTableName, 'ignoreFilter', 1);
 
 		$jobId = $this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.' . $notFilteredTableName));
 		$response = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
@@ -178,17 +177,18 @@ class ProjectsTest extends AbstractControllerTest
 		));
 		$table->save();
 
+		self::$configuration->updateDataSetsFromSapi();
+
 
 		// Prepare configuration
-		self::$configuration->setBucketAttribute('filterColumn', 'pid');
+		self::$configuration->updateWriter('filterColumn', 'pid');
 
-		self::$configuration->createTableDefinition($this->dataBucketId . '.' . $tableName);
-		self::$configuration->saveColumnDefinition($this->dataBucketId . '.' . $tableName,
-			array('name' => 'id', 'gdName' => 'Id', 'type' => 'CONNECTION_POINT'));
-		self::$configuration->saveColumnDefinition($this->dataBucketId . '.' . $tableName,
-			array('name' => 'name', 'gdName' => 'Name', 'type' => 'ATTRIBUTE'));
-		self::$configuration->saveColumnDefinition($this->dataBucketId . '.' . $tableName,
-			array('name' => 'pid', 'gdName' => '', 'type' => 'IGNORE'));
+		self::$configuration->updateColumnDefinition($this->dataBucketId . '.' . $tableName, 'id',
+			array('gdName' => 'Id', 'type' => 'CONNECTION_POINT'));
+		self::$configuration->updateColumnDefinition($this->dataBucketId . '.' . $tableName, 'name',
+			array('gdName' => 'Name', 'type' => 'ATTRIBUTE'));
+		self::$configuration->updateColumnDefinition($this->dataBucketId . '.' . $tableName, 'pid',
+			array('gdName' => '', 'type' => 'IGNORE'));
 
 
 		// Test if upload went only to clone

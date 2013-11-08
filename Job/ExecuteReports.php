@@ -20,7 +20,7 @@ class ExecuteReports extends AbstractJob
 	 */
 	public function run($job, $params)
 	{
-		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkBucketAttributes();
 
 		$pids = array();
 		if (empty($job['pid'])) {
