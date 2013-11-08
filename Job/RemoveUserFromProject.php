@@ -29,15 +29,20 @@ class RemoveUserFromProject extends AbstractJob
 		if (empty($params['email'])) {
 			throw new WrongConfigurationException("Parameter 'email' is missing");
 		}
+//
+//		$this->configuration->checkGoodDataSetup();
+//
+//		if (empty($params['pid'])) {
+//			if (empty($this->configuration->bucketInfo['gd']['pid'])) {
+//				throw new WrongConfigurationException("Parameter 'pid' is missing and writer does not have primary project");
+//			}
+//			$params['pid'] = $this->configuration->bucketInfo['gd']['pid'];
+//		}
 
-		$env = empty($params['dev']) ? 'prod' :'dev';
-		$mainConfig = $this->mainConfig['gd'];
+		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 
 		$gdWriteStartTime = date('c');
 		try {
-			// Get user uri
-			$this->restApi->setCredentials($mainConfig['username'], $mainConfig['password']);
-
 			if (!$this->configuration->isProjectUser($params['email'], $params['pid'])) {
 				throw new WrongParametersException(sprintf("Project user '%s' is not configured for the writer", $params['email']));
 			}
@@ -51,10 +56,11 @@ class RemoveUserFromProject extends AbstractJob
 
 			// find user in domain
 			if (!$userId) {
-				$userId = $this->restApi->userId($params['email'], $mainConfig['domain']);
+				$userId = $this->restApi->userId($params['email'], $this->mainConfig['domain']);
 
 				if ($userId)
 					$this->configuration->saveUserToConfiguration($params['email'], $userId);
+				//@FIXME save user invite to configuration
 			}
 
 			// find user in project (maybe invited)
@@ -62,28 +68,15 @@ class RemoveUserFromProject extends AbstractJob
 				$userId = $this->restApi->userIdByProject($params['email'], $params['pid']);
 			}
 
-			if (!$userId && !$this->_parentJob)
-				throw new WrongConfigurationException("User is missing from configuration");
-
 			if ($userId) {
 				$this->restApi->removeUserFromProject($userId, $params['pid']);
 			}
 
 			// cancel possible invitations
-			if (!$this->_parentJob) {
-				$childJob = $this->_createChildJob('cancelUserInvitationToProject');
+			$this->restApi->cancelInviteUserToProject($params['email'], $params['pid']);
+			//@FIXME todo status validation?
 
-				$childParams = array(
-					'email' => $params['email'],
-					'pid' => $params['pid'],
-				);
-
-				$result = $childJob->run($job, $childParams);
-				if (empty($result['status'])) $result['status'] = 'success';
-
-				if ($result['status'] != 'success')
-					return $result;
-			}
+			$this->configuration->removeProjectUserInviteFromConfiguration($params['pid'], $params['email']);
 
 			$this->configuration->removeProjectUserAddFromConfiguration($params['pid'], $params['email']);
 
