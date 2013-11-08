@@ -55,7 +55,14 @@ class UploadTable extends AbstractJob
 		$webDavUrl = $this->_getWebDavUrl();
 
 		$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-
+		$backendUrl = null;
+		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
+			$urlParts = parse_url($this->configuration->bucketInfo['gd']['backendUrl']);
+			if ($urlParts && !empty($urlParts['host'])) {
+				$backendUrl = $urlParts['host'];
+				$this->restApi->setBaseUrl('https://' . $backendUrl);
+			}
+		}
 
 
 		// Get xml
@@ -176,8 +183,8 @@ class UploadTable extends AbstractJob
         }
 		$clToolApi = new CLToolApi($this->log, $clPath);
 		$clToolApi->s3client = $this->s3Client;
-		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
-			$clToolApi->setBackendUrl($this->configuration->bucketInfo['gd']['backendUrl']);
+		if ($backendUrl) {
+			$clToolApi->setBackendUrl($backendUrl);
 		}
 		$clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
