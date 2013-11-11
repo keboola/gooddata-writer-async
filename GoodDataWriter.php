@@ -32,7 +32,6 @@ class GoodDataWriter extends Component
 	protected $_name = 'gooddata';
 	protected $_prefix = 'wr';
 
-
 	/**
 	 * @var Configuration
 	 */
@@ -54,7 +53,6 @@ class GoodDataWriter extends Component
 	 * @var Service\Queue
 	 */
 	private $_queue;
-
 
 	/**
 	 * Init Writer
@@ -573,17 +571,17 @@ class GoodDataWriter extends Component
 		$sso = new SSO($this->configuration, $this->_mainConfig['gd'], $this->_mainConfig['tmp_path']);
 
 		$targetUrl = '/#s=/gdc/projects/' . $params['pid'];
-        if (isset($params['targetUrl'])) {
-            $targetUrl = $params['targetUrl'];
-        }
+		if (isset($params['targetUrl'])) {
+		    $targetUrl = $params['targetUrl'];
+		}
 
 		$validity = (isset($params['validity']))?$params['validity']:86400;
 
-        $ssoLink = $sso->url($targetUrl, $params['email'], $validity);
+		$ssoLink = $sso->url($targetUrl, $params['email'], $validity);
 
-        if (null == $ssoLink) {
-            throw new SyrupComponentException(500, "Can't generate SSO link. Something is broken.");
-        }
+		if (null == $ssoLink) {
+		    throw new SyrupComponentException(500, "Can't generate SSO link. Something is broken.");
+		}
 
 		return array(
 			'ssoLink' => $ssoLink
