@@ -108,5 +108,32 @@ class UsersTest extends AbstractControllerTest
 		$this->assertTrue($userInvited, "Response for GoodData API project invitations call should return tested user.");
 	}
 
+    public function testSso()
+    {
+        $email = 'test' . time() . uniqid() . '@test.keboola.com';
+	    $password = md5(uniqid());
+	    $firstName = 'Test';
+		$lastName = 'KBC';
+        $role = 'editor';
+
+        $projectsList = self::$configuration->getProjects();
+        $project = $projectsList[count($projectsList)-1];
+
+        $responseJson = $this->_getWriterApi(
+            '/gooddata-writer/sso'
+            . '?writerId=' . $this->writerId
+            . '&pid=' . $project['pid']
+            . '&email=' . $email
+            . '&role=' . $role
+            . '&firstName=' . $firstName
+            . '&lastName=' . $lastName
+            . '&password=' . $password
+            . '&createUser=1'
+        );
+
+        $this->assertArrayHasKey('ssoLink', $responseJson, "No ssoLink in response");
+        $this->assertNotNull($responseJson['ssoLink'], "SSO Link is NULL");
+    }
+
 
 }
