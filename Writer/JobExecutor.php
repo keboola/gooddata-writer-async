@@ -265,13 +265,14 @@ class JobExecutor
 				$job['projectId'] . '.' . $job['writerId']
 			);
 
-			$restApi = new RestApi($this->_log);
+			$apiUrl = null;
 			if (isset($configuration->bucketInfo['gd']['backendUrl'])) {
-				$urlParts = parse_url($configuration->bucketInfo['gd']['backendUrl']);
+				$urlParts = parse_url($configuration->bucketInfo['gd']['backendUrl']);var_dump($urlParts);
 				if ($urlParts && !empty($urlParts['host'])) {
-					$restApi->setBaseUrl('https://' . $urlParts['host']);
+					$apiUrl = 'https://' . $urlParts['host'];
 				}
 			}
+			$restApi = new RestApi($this->_log, $apiUrl);
 
 			/**
 			 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
