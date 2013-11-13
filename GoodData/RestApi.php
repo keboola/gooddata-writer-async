@@ -62,11 +62,11 @@ class RestApi
 	private $_callsLog;
 	private $_clearFromLog;
 
-	public function __construct($log, $apiUrl=null)
+	public function __construct($log)
 	{
 		$this->_log = $log;
 
-		$this->_client = new Client($apiUrl ? $apiUrl : self::API_URL, array(
+		$this->_client = new Client(self::API_URL, array(
 			'curl.options' => array(
                 CURLOPT_CONNECTTIMEOUT => 600,
                 CURLOPT_TIMEOUT => 600
@@ -82,8 +82,15 @@ class RestApi
 		$this->_clearFromLog = array();
 	}
 
-	public function setBaseUrl($baseUrl)
+	public function setBaseUrl($url)
 	{
+		if (substr($url, 0, 7) == 'http://') {
+			$baseUrl = 'https://' . substr($url, 7);
+		} elseif (substr($url, 0, 8) == 'https://') {
+			$baseUrl = $url;
+		} else {
+			$baseUrl = 'https://' . $url;
+		}
 		$this->_client->setBaseUrl($baseUrl);
 	}
 
