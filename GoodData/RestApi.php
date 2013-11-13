@@ -82,8 +82,15 @@ class RestApi
 		$this->_clearFromLog = array();
 	}
 
-	public function setBaseUrl($baseUrl)
+	public function setBaseUrl($url)
 	{
+		if (substr($url, 0, 7) == 'http://') {
+			$baseUrl = 'https://' . substr($url, 7);
+		} elseif (substr($url, 0, 8) == 'https://') {
+			$baseUrl = $url;
+		} else {
+			$baseUrl = 'https://' . $url;
+		}
 		$this->_client->setBaseUrl($baseUrl);
 	}
 
