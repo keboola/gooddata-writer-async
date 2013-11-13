@@ -62,11 +62,11 @@ class RestApi
 	private $_callsLog;
 	private $_clearFromLog;
 
-	public function __construct($log)
+	public function __construct($log, $apiUrl=null)
 	{
 		$this->_log = $log;
 
-		$this->_client = new Client(self::API_URL, array(
+		$this->_client = new Client($apiUrl ? $apiUrl : self::API_URL, array(
 			'curl.options' => array(
                 CURLOPT_CONNECTTIMEOUT => 600,
                 CURLOPT_TIMEOUT => 600
