@@ -335,11 +335,6 @@ class RestApi
 			if ($userId) {
 				return $userId;
 			} else {
-				$this->_log->alert('createUser() failed', array(
-					'uri' => $uri,
-					'params' => $params,
-					'exception' => $e
-				));
 				throw $e;
 			}
 		}
