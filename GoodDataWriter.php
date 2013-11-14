@@ -1074,6 +1074,49 @@ class GoodDataWriter extends Component
 		}
 	}
 
+	/**
+	 * @param $params
+	 * @return array
+	 * @throws Exception\JobProcessException
+	 * @throws Exception\WrongParametersException
+	 */
+	public function postExecuteReports($params)
+	{
+		$command = 'executeReports';
+		$createdTime = time();
+
+		// Init parameters
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$this->configuration->checkGoodDataSetup();
+		$this->configuration->getDateDimensions();
+
+		$jobInfo = $this->_createJob(array(
+			'command' => $command,
+			'createdTime' => date('c', $createdTime),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
+		));
+
+		$this->_enqueue($jobInfo['batchId']);
+
+		if (empty($params['wait'])) {
+			return array('job' => (int)$jobInfo['id']);
+		} else {
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
+			if (isset($result['job']['result']['uid'])) {
+				return array('uid' => $result['job']['result']['uid']);
+			} else {
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
+				throw $e;
+			}
+		}
+
+	}
+
 
 
 	/***********************
