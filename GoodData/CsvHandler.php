@@ -62,55 +62,6 @@ class CsvHandler
 	}
 
 	/**
-	 * Sanitize csv - normalize dates and set proper values for empty facts and attributes
-	 * @param $xmlFileObject
-	 * @return void
-	 */
-	public function prepareSanitization($xmlFileObject)
-	{
-		$nullReplace = 'sed \'s/\"NULL\"/\"\"/g\' | awk -v OFS="\",\"" -F"\",\"" \'{';
-
-		$i = 1;
-		$columnsCount = $xmlFileObject->columns->column->count();
-		foreach ($xmlFileObject->columns->column as $column) {
-			$type = (string)$column->ldmType;
-			$value = NULL;
-			switch ($type) {
-				case 'ATTRIBUTE':
-					$value = '-- empty --';
-					break;
-				case 'LABEL':
-				case 'FACT':
-					$value = '0';
-					break;
-				case 'DATE':
-					$format = (string)$column->format;
-					$value = str_replace(
-						array('yyyy', 'MM', 'dd', 'hh', 'HH', 'mm', 'ss', 'kk'),
-						array('1900', '01', '01', '00', '00', '00', '00', '00'),
-						$format);
-					break;
-			}
-			if (!is_null($value)) {
-				$testValue = '""';
-				if ($i == 1) {
-					$testValue = '"\""';
-					$value = '\"' . $value;
-				}
-				if ($i == $columnsCount) {
-					$testValue = '"\""';
-					$value .= '\"';
-				}
-				$nullReplace .= 'if ($' . $i . ' == ' . $testValue . ') {$' . $i . ' = "' . $value . '"} ';
-			}
-			$i++;
-		}
-		$nullReplace .= '; print }\'';
-
-		$this->_command .= ' | ' . $nullReplace;
-	}
-
-	/**
 	 * Parse csv and prepare for data load
 	 * @param $xmlFileObject
 	 * @throws \Keboola\GoodDataWriter\Exception\JobProcessException
