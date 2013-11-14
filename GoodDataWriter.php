@@ -24,13 +24,13 @@ use Monolog\Logger;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag,
 	Symfony\Component\HttpFoundation\StreamedResponse,
 	Symfony\Component\HttpFoundation\Response;
+use Syrup\ComponentBundle\Exception\SyrupComponentException;
 
 class GoodDataWriter extends Component
 {
 
 	protected $_name = 'gooddata';
 	protected $_prefix = 'wr';
-
 
 	/**
 	 * @var Configuration
@@ -53,7 +53,6 @@ class GoodDataWriter extends Component
 	 * @var Service\Queue
 	 */
 	private $_queue;
-
 
 	/**
 	 * Init Writer
@@ -583,11 +582,21 @@ class GoodDataWriter extends Component
 
 		$sso = new SSO($this->configuration, $this->_mainConfig['gd'], $this->_mainConfig['tmp_path']);
 
-		$gdProjectUrl = '/#s=/gdc/projects/' . $params['pid'];
+		$targetUrl = '/#s=/gdc/projects/' . $params['pid'];
+		if (isset($params['targetUrl'])) {
+		    $targetUrl = $params['targetUrl'];
+		}
+
 		$validity = (isset($params['validity']))?$params['validity']:86400;
 
+		$ssoLink = $sso->url($targetUrl, $params['email'], $validity);
+
+		if (null == $ssoLink) {
+		    throw new SyrupComponentException(500, "Can't generate SSO link. Something is broken.");
+		}
+
 		return array(
-			'ssoLink' => $sso->url($gdProjectUrl, $params['email'], $validity)
+			'ssoLink' => $ssoLink
 		);
 	}
 
@@ -1084,6 +1093,49 @@ class GoodDataWriter extends Component
 		} else {
 			return $this->_waitForBatch($batchId, $params['writerId']);
 		}
+	}
+
+	/**
+	 * @param $params
+	 * @return array
+	 * @throws Exception\JobProcessException
+	 * @throws Exception\WrongParametersException
+	 */
+	public function postExecuteReports($params)
+	{
+		$command = 'executeReports';
+		$createdTime = time();
+
+		// Init parameters
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$this->configuration->checkGoodDataSetup();
+		$this->configuration->getDateDimensions();
+
+		$jobInfo = $this->_createJob(array(
+			'command' => $command,
+			'createdTime' => date('c', $createdTime),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
+		));
+
+		$this->_enqueue($jobInfo['batchId']);
+
+		if (empty($params['wait'])) {
+			return array('job' => (int)$jobInfo['id']);
+		} else {
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
+			if (isset($result['job']['result']['uid'])) {
+				return array('uid' => $result['job']['result']['uid']);
+			} else {
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
+				throw $e;
+			}
+		}
+
 	}
 
 

@@ -82,8 +82,15 @@ class RestApi
 		$this->_clearFromLog = array();
 	}
 
-	public function setBaseUrl($baseUrl)
+	public function setBaseUrl($url)
 	{
+		if (substr($url, 0, 7) == 'http://') {
+			$baseUrl = 'https://' . substr($url, 7);
+		} elseif (substr($url, 0, 8) == 'https://') {
+			$baseUrl = $url;
+		} else {
+			$baseUrl = 'https://' . $url;
+		}
 		$this->_client->setBaseUrl($baseUrl);
 	}
 
@@ -328,11 +335,6 @@ class RestApi
 			if ($userId) {
 				return $userId;
 			} else {
-				$this->_log->alert('createUser() failed', array(
-					'uri' => $uri,
-					'params' => $params,
-					'exception' => $e
-				));
 				throw $e;
 			}
 		}
@@ -1112,11 +1114,11 @@ class RestApi
 					break;
 				case 'POST':
 					$request = $this->_client->post($uri, $headers, $jsonParams);
-                    $request->getCurlOptions()->set(CurlHandle::BODY_AS_STRING, true);
+					$request->getCurlOptions()->set(CurlHandle::BODY_AS_STRING, true);
 					break;
 				case 'PUT':
 					$request = $this->_client->put($uri, $headers, $jsonParams);
-                    $request->getCurlOptions()->set(CurlHandle::BODY_AS_STRING, true);
+					$request->getCurlOptions()->set(CurlHandle::BODY_AS_STRING, true);
 					break;
 				case 'DELETE':
 					$request = $this->_client->delete($uri, $headers);
