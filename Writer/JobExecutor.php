@@ -266,6 +266,9 @@ class JobExecutor
 			);
 
 			$restApi = new RestApi($this->_log);
+			if (isset($configuration->bucketInfo['gd']['backendUrl'])) {
+				$restApi->setBaseUrl($configuration->bucketInfo['gd']['backendUrl']);
+			}
 
 			/**
 			 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command

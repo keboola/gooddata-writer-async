@@ -66,6 +66,7 @@ class S3Client
 	public function uploadString($name, $content, $contentType = 'text/plain')
 	{
 		$s3FileName = date('Y/m/d/') . $this->_pathPrefix . '/' . $name;
+		$this->_client->getConfig()->set('curl.options', array('body_as_string' => true));
 		$this->_client->putObject(array(
 			'Bucket' => $this->_bucket,
 			'Key'    => $s3FileName,

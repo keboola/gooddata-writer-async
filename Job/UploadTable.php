@@ -49,13 +49,11 @@ class UploadTable extends AbstractJob
 		$tableDefinition = $this->configuration->getTableDefinition($params['tableId']);
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
-		$sanitize = (isset($params['sanitize'])) ? $params['sanitize'] : !empty($tableDefinition['sanitize']);
 		$filterColumn = $this->_getFilterColumn($params['tableId'], $tableDefinition);
 		$zipPath = isset($this->mainConfig['zip_path']) ? $this->mainConfig['zip_path'] : null;
 		$webDavUrl = $this->_getWebDavUrl();
 
 		$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-
 
 
 		// Get xml
@@ -177,7 +175,10 @@ class UploadTable extends AbstractJob
 		$clToolApi = new CLToolApi($this->log, $clPath);
 		$clToolApi->s3client = $this->s3Client;
 		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
-			$clToolApi->setBackendUrl($this->configuration->bucketInfo['gd']['backendUrl']);
+			$urlParts = parse_url($this->configuration->bucketInfo['gd']['backendUrl']);
+			if ($urlParts && !empty($urlParts['host'])) {
+				$clToolApi->setBackendUrl($urlParts['host']);
+			}
 		}
 		$clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
@@ -240,9 +241,6 @@ class UploadTable extends AbstractJob
 
 				$this->_csvHandler->initDownload($params['tableId'], $job['token'], $this->mainConfig['storageApi.url'],
 					$this->mainConfig['user_agent'], $gdJob['incrementalLoad'], $gdJob['filterColumn'], $gdJob['pid']);
-				if ($sanitize) {
-					$this->_csvHandler->prepareSanitization($xmlFileObject);
-				}
 				$this->_csvHandler->prepareTransformation($xmlFileObject);
 				$this->_csvHandler->runDownload($dataTmpDir . '/data.csv');
 				$csvFileSize += filesize($dataTmpDir . '/data.csv');
@@ -312,13 +310,6 @@ class UploadTable extends AbstractJob
 	{
 		$webDavUrl = null;
 		if (isset($this->configuration->bucketInfo['gd']['backendUrl']) && $this->configuration->bucketInfo['gd']['backendUrl'] != RestApi::DEFAULT_BACKEND_URL) {
-
-			//@TODO Temporal log
-			$this->log->alert('Non-default backend', array(
-				'projectId' => $this->configuration->projectId,
-				'writerId' => $this->configuration->writerId,
-				'backendUrl' => $this->configuration->bucketInfo['gd']['backendUrl']
-			));
 
 			// Get WebDav url for non-default backend
 			$backendUrl = (substr($this->configuration->bucketInfo['gd']['backendUrl'], 0, 8) != 'https://'
