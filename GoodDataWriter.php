@@ -24,13 +24,13 @@ use Monolog\Logger;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag,
 	Symfony\Component\HttpFoundation\StreamedResponse,
 	Symfony\Component\HttpFoundation\Response;
+use Syrup\ComponentBundle\Exception\SyrupComponentException;
 
 class GoodDataWriter extends Component
 {
 
 	protected $_name = 'gooddata';
 	protected $_prefix = 'wr';
-
 
 	/**
 	 * @var Configuration
@@ -53,7 +53,6 @@ class GoodDataWriter extends Component
 	 * @var Service\Queue
 	 */
 	private $_queue;
-
 
 	/**
 	 * Init Writer
@@ -571,11 +570,21 @@ class GoodDataWriter extends Component
 
 		$sso = new SSO($this->configuration, $this->_mainConfig['gd'], $this->_mainConfig['tmp_path']);
 
-		$gdProjectUrl = '/#s=/gdc/projects/' . $params['pid'];
+		$targetUrl = '/#s=/gdc/projects/' . $params['pid'];
+		if (isset($params['targetUrl'])) {
+		    $targetUrl = $params['targetUrl'];
+		}
+
 		$validity = (isset($params['validity']))?$params['validity']:86400;
 
+		$ssoLink = $sso->url($targetUrl, $params['email'], $validity);
+
+		if (null == $ssoLink) {
+		    throw new SyrupComponentException(500, "Can't generate SSO link. Something is broken.");
+		}
+
 		return array(
-			'ssoLink' => $sso->url($gdProjectUrl, $params['email'], $validity)
+			'ssoLink' => $ssoLink
 		);
 	}
 
