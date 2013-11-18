@@ -382,7 +382,8 @@ class GoodDataWriter extends Component
 			'parameters' => array(
 				'email' => $params['email'],
 				'pid' => $params['pid'],
-				'role' => $params['role']
+				'role' => $params['role'],
+				'createUser' => isset($params['createUser']) ? 1 : null
 			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));

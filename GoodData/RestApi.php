@@ -417,7 +417,7 @@ class RestApi
 	 */
 	public function usersInProject($pid)
 	{
-		$result = $this->_jsonRequest(sprintf('/gdc/projects/%s/users', $pid));
+		$result = $this->jsonRequest(sprintf('/gdc/projects/%s/users', $pid));
 		return isset($result['users']) ? $result['users'] : array();
 	}
 
@@ -509,7 +509,7 @@ class RestApi
 				)
 			)
 		);
-		$result = $this->_jsonRequest($uri, 'POST', $params);
+		$result = $this->jsonRequest($uri, 'POST', $params);
 
 		if ((isset($result['projectUsersUpdateResult']['successful']) && count($result['projectUsersUpdateResult']['successful']))
 			|| (isset($result['projectUsersUpdateResult']['failed']) && !count($result['projectUsersUpdateResult']['failed']))) {
@@ -621,7 +621,7 @@ class RestApi
 	{
 		$invitationsUri = sprintf('/gdc/projects/%s/invitations', $pid);
 
-		$invitationsResult = $this->_jsonRequest($invitationsUri, 'GET');
+		$invitationsResult = $this->jsonRequest($invitationsUri, 'GET');
 
 		if (isset($invitationsResult['invitations'])) {
 			foreach ($invitationsResult['invitations'] AS $invitationData) {
@@ -635,7 +635,7 @@ class RestApi
 				if ($invitationStatus == 'CANCELED')
 					continue;
 
-				$this->_jsonRequest($invitationUri, 'DELETE');
+				$this->jsonRequest($invitationUri, 'DELETE');
 			}
 		}
 	}

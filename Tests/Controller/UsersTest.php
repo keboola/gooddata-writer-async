@@ -47,7 +47,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertGreaterThanOrEqual(1, $projectsList, "Response for writer call '/projects' should return at least one GoodData project.");
 		$project = $projectsList[count($projectsList)-1];
 
-
+		// Case 1  - User exists
 		$this->_processJob('/gooddata-writer/project-users', array(
 			'email' => $user['email'],
 			'pid' => $project['pid'],
@@ -81,36 +81,88 @@ class UsersTest extends AbstractControllerTest
 			}
 		}
 		$this->assertTrue($userInProject, "Response for writer call '/project-users' should return tested user.");
-	}
 
-	public function testInviteUserToProject()
-	{
-		$user = $this->_createUser();
+		// Case 2 - User exists in other domain
+		self::$restApi->setCredentials(self::$mainConfig['gd']['username'], self::$mainConfig['gd']['password']);
 
-		$projectsList = self::$configuration->getProjects();
-		$this->assertGreaterThanOrEqual(1, $projectsList, "Response for writer call '/projects' should return at least one GoodData project.");
-		$project = $projectsList[count($projectsList)-1];
+		$otherUser = 'erik.zigo@keboola.com';
+		$otherUserId = self::$restApi->userId($otherUser, self::$mainConfig['gd']['domain']);
 
+		$this->assertFalse($otherUserId, "Invited user for writer call '/project-users' should not exist in same domain.");
 
-		$this->_processJob('/gooddata-writer/project-invitations', array(
-			'email' => $user['email'],
+		$this->_processJob('/gooddata-writer/project-users', array(
+			'email' => $otherUser,
 			'pid' => $project['pid'],
 			'role' => 'editor'
 		));
 
-		// Check GoodData
 		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
-		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/invitations');
-		$this->assertArrayHasKey('invitations', $userProjectsInfo, "Response for GoodData API project invitations call should contain 'invitations' key.");
-		$this->assertGreaterThanOrEqual(1, $userProjectsInfo['invitations'], "Response for GoodData API project invitations call should return at least one invitation.");
+
+		// Check Writer API
+		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
+		$this->assertArrayHasKey('users', $responseJson, "Response for writer call '/project-users' should contain 'users' key.");
+		$this->greaterThanOrEqual(2, $responseJson['users'], "Response for writer call '/project-users' should return at least one result.");
 		$userInvited = false;
-		foreach ($userProjectsInfo['invitations'] as $p) {
-			if (isset($p['invitation']['content']['email']) && $p['invitation']['content']['email'] == $user['email']) {
+		foreach ($responseJson['users'] as $u) {
+			if (isset($u['email']) == $otherUser) {
 				$userInvited = true;
 				break;
 			}
 		}
-		$this->assertTrue($userInvited, "Response for GoodData API project invitations call should return tested user.");
+		$this->assertTrue($userInvited, "Response for writer call '/project-users' should return invited user.");
+
+		// Check GoodData
+		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		$userInvitationsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/invitations');
+		$this->assertArrayHasKey('invitations', $userInvitationsInfo, "Response for GoodData API project invitations call should contain 'invitations' key.");
+		$this->assertCount(1, $userInvitationsInfo['invitations'], "Response for GoodData API project users call should return three users.");
+		$userInvited = false;
+		foreach ($userInvitationsInfo['invitations'] as $p) {
+			if (isset($p['invitation']['content']['email']) && $p['invitation']['content']['email'] == $otherUser) {
+				if (isset($p['invitation']['content']['status']) && $p['invitation']['content']['status'] == 'WAITING') {
+					$userInvited = true;
+					break;
+				}
+			}
+		}
+		$this->assertTrue($userInvited, "Response for GoodData API project users call should return invitation for user.");
+
+		// Case 3  - User does not exists
+		$otherUser = 'testcreate' . $user['email'];
+		$this->_processJob('/gooddata-writer/project-users', array(
+			'email' => $otherUser,
+			'pid' => $project['pid'],
+			'role' => 'editor',
+			'createUser' => 1,
+		));
+
+		// Check GoodData
+		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/users');
+		$this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");
+		$this->assertCount(4, $userProjectsInfo['users'], "Response for GoodData API project users call should return three users.");
+		$userInProject = false;
+		foreach ($userProjectsInfo['users'] as $p) {
+			if (isset($p['user']['content']['email']) && $p['user']['content']['email'] == $otherUser) {
+				$userInProject = true;
+				break;
+			}
+		}
+		$this->assertTrue($userInProject, "Response for GoodData API project users call should return tested user.");
+
+
+		// Check Writer API
+		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
+		$this->assertArrayHasKey('users', $responseJson, "Response for writer call '/project-users' should contain 'users' key.");
+		$this->greaterThanOrEqual(3, $responseJson['users'], "Response for writer call '/project-users' should return at least one result.");
+		$userInProject = false;
+		foreach ($responseJson['users'] as $u) {
+			if (isset($u['email']) == $otherUser) {
+				$userInProject = true;
+				break;
+			}
+		}
+		$this->assertTrue($userInProject, "Response for writer call '/project-users' should return tested user.");
 	}
 
 	public function testRemoveUserFromProject()
@@ -174,7 +226,7 @@ class UsersTest extends AbstractControllerTest
 		foreach ($userProjectsInfo['users'] as $p) {
 			if (isset($p['user']['content']['email']) && $p['user']['content']['email'] == $user['email']) {
 				$userInProject = true;
-print_r($p);
+
 				if (isset($p['user']['content']['status']) && $p['user']['content']['status'] == 'DISABLED') {
 					$userInProject = false;
 				}
