@@ -65,21 +65,23 @@ class AddUserToProject extends AbstractJob
 			}
 
 			if (!$userId) {
-				//@FIXME remove child job, add new param. If param exist, It will create new user. Or throw Exc
-				$childJob = $this->_createChildJob('createUser');
+				if (!empty($params['createUser'])) {
+					// try create new user in domain
+					$childJob = new CreateUser($this->configuration, $this->mainConfig, $this->sharedConfig, $this->restApi, $this->s3Client);
 
-				$childParams = array(
-					'email' => $params['email'],
-					'firstName' => 'KBC',
-					'lastName' => $params['email'],
-					'password' => md5(uniqid() . str_repeat($params['email'], 2)),
-				);
+					$childParams = array(
+						'email' => $params['email'],
+						'firstName' => 'KBC',
+						'lastName' => $params['email'],
+						'password' => md5(uniqid() . str_repeat($params['email'], 2)),
+					);
 
-				$result = $childJob->run($job, $childParams);
-				if (empty($result['status'])) $result['status'] = 'success';
+					$result = $childJob->run($job, $childParams);
+					if (empty($result['status'])) $result['status'] = 'success';
 
-				if ($result['status'] == 'success')
-					$userId = $result['uid'];
+					if ($result['status'] == 'success')
+						$userId = $result['uid'];
+				}
 			}
 
 			if ($userId) {
@@ -89,8 +91,7 @@ class AddUserToProject extends AbstractJob
 			} else {
 				$this->restApi->inviteUserToProject($params['email'], $params['pid'], RestApi::$userRoles[$params['role']]);
 
-				$this->configuration->saveProjectInviteToConfiguration($params['pid'], $params['email'], $params['role']);
-				//@FIXME todo status validation?
+				$this->configuration->saveProjectInvite($params['pid'], $params['email'], $params['role']);
 			}
 
 			return $this->_prepareResult($job['id'], array(

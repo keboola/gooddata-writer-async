@@ -879,7 +879,7 @@ class Configuration extends StorageApiConfiguration
 	 * @param $email
 	 * @param $role
 	 */
-	public function saveProjectInviteToConfiguration($pid, $email, $role)
+	public function saveProjectInvite($pid, $email, $role)
 	{
 		$action = 'invite';
 		$data = array(
@@ -889,12 +889,12 @@ class Configuration extends StorageApiConfiguration
 			'role' => $role,
 			'action' => $action
 		);
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
+		$table = new StorageApiTable($this->_storageApiClient, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
 		$table->setHeader(array_keys($data));
 		$table->setFromArray(array($data));
 		$table->setPartial(true);
 		$table->setIncremental(true);
-		if (!$this->_storageApi->tableExists($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME)) {
+		if (!$this->_storageApiClient->tableExists($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME)) {
 			$table->addIndex('pid');
 			$table->addIndex('email');
 		}
@@ -907,7 +907,7 @@ class Configuration extends StorageApiConfiguration
 	 * @param $pid
 	 * @param $email
 	 */
-	public function removeProjectUserAddFromConfiguration($pid, $email)
+	public function removeProjectUserAdd($pid, $email)
 	{
 		$data = array();
 		foreach ($this->getProjectUsers() as $projectUser) {
@@ -922,7 +922,7 @@ class Configuration extends StorageApiConfiguration
 
 		//@FIXME do storage api ukladat jen zmenu, ne to same!!
 
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
+		$table = new StorageApiTable($this->_storageApiClient, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
 		$table->setHeader(array('id', 'pid', 'email', 'role', 'action'));
 		$table->setFromArray($data);
 		$table->setIncremental(false);
@@ -935,7 +935,7 @@ class Configuration extends StorageApiConfiguration
 	 * @param $pid
 	 * @param $email
 	 */
-	public function removeProjectUserInviteFromConfiguration($pid, $email)
+	public function removeProjectUserInvite($pid, $email)
 	{
 		$data = array();
 		foreach ($this->getProjectUsers() as $projectUser) {
@@ -950,7 +950,7 @@ class Configuration extends StorageApiConfiguration
 
 		//@FIXME do storage api ukladat jen zmenu, ne to same!!
 
-		$table = new StorageApiTable($this->_storageApi, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
+		$table = new StorageApiTable($this->_storageApiClient, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
 		$table->setHeader(array('id', 'pid', 'email', 'role', 'action'));
 		$table->setFromArray($data);
 		$table->setIncremental(false);
