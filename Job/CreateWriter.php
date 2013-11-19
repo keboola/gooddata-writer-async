@@ -29,7 +29,7 @@ class CreateWriter extends AbstractJob
 			throw new WrongConfigurationException("Parameter projectName is missing");
 		}
 
-        $this->configuration->updateTablesConfiguration();
+        $this->configuration->updateDataSetsFromSapi();
 
 
 		$gdWriteStartTime = date('c');

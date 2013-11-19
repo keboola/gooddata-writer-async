@@ -5,6 +5,7 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
+use Aws\Common\Facade\ElasticBeanstalk;
 use Keboola\Csv\CsvFile;
 
 class DatasetsTest extends AbstractControllerTest
@@ -164,7 +165,7 @@ class DatasetsTest extends AbstractControllerTest
 
 		$this->assertArrayHasKey('table', $responseJson, "Response for writer call '/tables?tableId=' should contain 'table' key.");
 		$this->assertArrayHasKey('tableId', $responseJson['table'], "Response for writer call '/tables?tableId=' should contain 'table.tableId' key.");
-		$this->assertArrayHasKey('gdName', $responseJson['table'], "Response for writer call '/tables?tableId=' should contain 'table.gdName' key.");
+		$this->assertArrayHasKey('name', $responseJson['table'], "Response for writer call '/tables?tableId=' should contain 'table.name' key.");
 		$this->assertArrayHasKey('columns', $responseJson['table'], "Response for writer call '/tables?tableId=' should contain 'table.columns' key.");
 		$this->assertEquals($this->dataBucketId . '.products', $responseJson['table']['tableId'], "Response for writer call '/tables?tableId=' should contain 'table.tableId' key with value of data bucket Products.");
 		$this->assertCount(5, $responseJson['table']['columns'], "Response for writer call '/tables?tableId=' should contain 'table.columns' key with five columns.");
@@ -182,7 +183,7 @@ class DatasetsTest extends AbstractControllerTest
 		$this->_postWriterApi('/gooddata-writer/tables', array(
 			'writerId' => $this->writerId,
 			'tableId' => $tableId,
-			'gdName' => $testName
+			'name' => $testName
 		));
 
 		// Check if GD name was changed
@@ -193,22 +194,22 @@ class DatasetsTest extends AbstractControllerTest
 		$lastChangeDate = null;
 		foreach ($responseJson['tables'] as $t) {
 			if ($t['id'] == $tableId) {
-				$this->assertArrayHasKey('gdName', $t);
-				if ($t['gdName'] == $testName) {
+				$this->assertArrayHasKey('name', $t);
+				if ($t['name'] == $testName) {
 					$testResult = true;
 				}
 				$lastChangeDate = $t['lastChangeDate'];
 			}
 		}
-		$this->assertTrue($testResult, "Changed gdName was not found in configuration.");
-		$this->assertNotEmpty($lastChangeDate, "Change of gdName did not set 'lastChangeDate' attribute");
+		$this->assertTrue($testResult, "Changed name was not found in configuration.");
+		$this->assertNotEmpty($lastChangeDate, "Change of name did not set 'lastChangeDate' attribute");
 
 
 		// Change gdName again and check if lastChangeDate changed
 		$this->_postWriterApi('/gooddata-writer/tables', array(
 			'writerId' => $this->writerId,
 			'tableId' => $tableId,
-			'gdName' => $testName . '2'
+			'name' => $testName . '2'
 		));
 
 		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId);
@@ -237,7 +238,7 @@ class DatasetsTest extends AbstractControllerTest
 		$this->_postWriterApi('/gooddata-writer/reset-export', array('writerId' => $this->writerId));
 
 		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $tableId);
-		$this->assertEquals('', $responseJson['table']['lastExportDate'], "Reset table should contain empty 'lastExportDate' attribute.");
+		$this->assertEquals(0, $responseJson['table']['lastExportDate'], "Reset table should contain empty 'lastExportDate' attribute.");
 	}
 
 

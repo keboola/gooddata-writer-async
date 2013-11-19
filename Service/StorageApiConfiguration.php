@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Service;
 
+use Aws\Common\Facade\ElasticBeanstalk;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable;
@@ -30,7 +31,9 @@ abstract class StorageApiConfiguration
 	 * )
 	 * @var array
 	 */
-	protected static $_tables = array();
+	protected static $_tablesConfiguration;
+	protected static $_tables;
+
 
 	/**
 	 * @var string
@@ -209,7 +212,9 @@ abstract class StorageApiConfiguration
 			$this->_createConfigTable($tableName);
 		}
 		$table = $this->_fetchTableRows($tableId);
-		self::_checkConfigTable($tableName, array_keys(current($table)));
+		if (count($table)) {
+			self::_checkConfigTable($tableName, array_keys(current($table)));
+		}
 
 		return $table;
 	}

@@ -13,6 +13,7 @@ use Keboola\GoodDataWriter\Service\StorageApiConfiguration,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Config\Reader,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Keboola\StorageApi\ClientException;
 
 class Configuration extends StorageApiConfiguration
 {
@@ -24,14 +25,14 @@ class Configuration extends StorageApiConfiguration
 	const FILTERS_TABLE_NAME = 'filters';
 	const FILTERS_USERS_TABLE_NAME = 'filters_users';
 	const FILTERS_PROJECTS_TABLE_NAME = 'filters_projects';
-    const DATE_DIMENSIONS_TABLE_NAME = 'dateDimensions';
-    const DATA_SETS_TABLE_NAME = 'dataSets';
+    const DATE_DIMENSIONS_TABLE_NAME = 'date_dimensions';
+    const DATA_SETS_TABLE_NAME = 'data_sets';
 
 	/**
 	 * Definition serves for automatic configuration of Storage API tables
 	 * @var array
 	 */
-	protected static $_tables = array(
+	protected static $_tablesConfiguration = array(
 		self::PROJECTS_TABLE_NAME => array(
 			'columns' => array('pid', 'active'),
 			'primaryKey' => 'pid',
@@ -118,6 +119,8 @@ class Configuration extends StorageApiConfiguration
 
 			$this->backendUrl = !empty($this->bucketInfo['gd']['backendUrl']) ? $this->bucketInfo['gd']['backendUrl'] : null;
 		}
+
+		self::$_tables = self::$_tablesConfiguration;
 	}
 
 
@@ -273,11 +276,11 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getSapiTable($tableId)
 	{
-		if (!$this->_storageApiClient->tableExists($tableId)) {
-			throw new WrongConfigurationException("Table '$tableId' does not exist");
+		try {
+			return $this->_storageApiClient->getTable($tableId);
+		} catch (ClientException $e) {
+			throw new WrongConfigurationException("Table '$tableId' does not exist or is not accessible with the SAPI token");
 		}
-
-		return $this->_storageApiClient->getTable($tableId);
 	}
 
 
@@ -334,58 +337,63 @@ class Configuration extends StorageApiConfiguration
 		$tableDefinition = array();
 
 		$dataSet = $this->getDataSet($tableId);
-		foreach ($dataSet['columns'] as $column) {
-			if ($column['type'] != 'ATTRIBUTE' && $column['sortLabel']) {
-				$column['sortLabel'] = null;
-			}
-			if ($column['type'] != 'ATTRIBUTE' && $column['sortOrder']) {
-				$column['sortOrder'] = null;
-			}
-			if ($column['type'] != 'REFERENCE' && $column['schemaReference']) {
-				$column['schemaReference'] = null;
-			}
-			if (!in_array($column['type'], array('REFERENCE', 'HYPERLINK', 'LABEL')) && $column['reference']) {
-				$column['reference'] = null;
-			}
-			if ($column['type'] != 'DATE' && $column['format']) {
-				$column['format'] = null;
-			}
-			if ($column['type'] != 'DATE' && $column['dateDimension']) {
-				$column['dateDimension'] = null;
-			}
-			if (!empty($column['dataTypeSize'])) {
-				$column['dataTypeSize'] = (int)$column['dataTypeSize'];
-			}
-
-			$tableDefinition[$column['name']] = $column;
-		}
-
-		$sapiTable = $this->getSapiTable($tableId);
-		$this->checkMissingColumns($tableId, array('columns' => $tableDefinition), $sapiTable['columns']);
-
-
-		$dataSet['tableId'] = $tableId;
-		$dataSet['columns'] = array();
-
-		$previews = array();
-		if ($this->_storageApiClient->tableExists($tableId)) {
-			foreach($this->_fetchTableRows($tableId, null, null, array('limit' => 10)) as $row) {
-				foreach ($row as $key => $value) {
-					$previews[$key][] = $value;
+		foreach ($dataSet['columns'] as $columnName => $column) {//@TODO IS IT NECESSARY?
+			if (!empty($column['type'])) {
+				if ($column['type'] != 'ATTRIBUTE' && !empty($column['sortLabel'])) {
+					$column['sortLabel'] = null;
+				}
+				if ($column['type'] != 'ATTRIBUTE' && !empty($column['sortOrder'])) {
+					$column['sortOrder'] = null;
+				}
+				if ($column['type'] != 'REFERENCE' && !empty($column['schemaReference'])) {
+					$column['schemaReference'] = null;
+				}
+				if (!in_array($column['type'], array('REFERENCE', 'HYPERLINK', 'LABEL')) && !empty($column['reference'])) {
+					$column['reference'] = null;
+				}
+				if ($column['type'] != 'DATE' && !empty($column['format'])) {
+					$column['format'] = null;
+				}
+				if ($column['type'] != 'DATE' && !empty($column['dateDimension'])) {
+					$column['dateDimension'] = null;
+				}
+				if (!empty($column['dataTypeSize'])) {
+					$column['dataTypeSize'] = (int)$column['dataTypeSize'];
 				}
 			}
+
+			$tableDefinition[$columnName] = $column;
 		}
 
-		foreach ($sapiTable['columns'] as $columnName) {
-			$column = isset($tableDefinition[$columnName]) ? $tableDefinition[$columnName]
-				: array('name' => $columnName, 'gdName' => $columnName, 'type' => 'IGNORE');
+
+		$previews = array();
+		foreach($this->_fetchTableRows($tableId, null, null, array('limit' => 10)) as $row) {
+			foreach ($row as $key => $value) {
+				$previews[$key][] = $value;
+			}
+		}
+
+		foreach ($dataSet['columns'] as $columnName => &$column) {
+			$column['name'] = $columnName;
+			if (!isset($column['gdName']))
+				$column['gdName'] = $columnName;
 			$column['preview'] = isset($previews[$columnName]) ? $previews[$columnName] : array();
-			if (!$column['gdName'])
-				$column['gdName'] = $column['name'];
-			$dataSet['columns'][] = $column;
 		}
 
-		return $dataSet;
+		return array(
+			'id' => $tableId,
+			'name' => $dataSet['name'],
+			'export' => (bool)$dataSet['export'],
+			'isExported' => (bool)$dataSet['isExported'],
+			'lastChangeDate' => $dataSet['lastChangeDate'] ? $dataSet['lastChangeDate'] : null,
+			'incrementalLoad' => $dataSet['incrementalLoad'] ? (int)$dataSet['incrementalLoad'] : false,
+			'ignoreFilter' => (bool)$dataSet['ignoreFilter'],
+			'columns' => array_values($dataSet['columns']),
+
+			//@TODO deprecated
+			'tableId' => $tableId,
+			'lastExportDate' => $dataSet['isExported'] ? date('c') : null
+		);
 	}
 
 
@@ -402,11 +410,12 @@ class Configuration extends StorageApiConfiguration
 			$tables[] = array(
 				'id' => $table['id'],
 				'bucket' => substr($table['id'], 0, strrpos($table['id'], '.')),
-				'gdName' => $table['name'],
-				'export' => $table['export'],
-				'isExported' => $table['isExported'],
+				'name' => $table['name'],
+				'export' => (bool)$table['export'],
+				'isExported' => (bool)$table['isExported'],
 				'lastChangeDate' => $table['lastChangeDate'],
-				'lastExportDate' => $table['isExported'] ? date('U') : null //@TODO backwards compatibility with UI, remove soon!!
+				'gdName' => $table['name'], //@TODO backwards compatibility with UI, remove soon!!
+				'lastExportDate' => $table['isExported'] ? date('c') : null //@TODO backwards compatibility with UI, remove soon!!
 			);
 		}
 		return $tables;
@@ -440,14 +449,20 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getDataSet($tableId)
 	{
+		$this->updateDataSetFromSapi($tableId);
+
 		$tableConfig = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
 		if (!$tableConfig) {
 			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
 		}
 
-		$tableConfig['columns'] = json_decode($tableConfig['configuration']);
-		if (!$tableConfig['columns']) {
-			throw new WrongConfigurationException("Definition of columns is not valid json");
+		if ($tableConfig['definition']) {
+			$tableConfig['columns'] = json_decode($tableConfig['definition'], true);
+			if (!$tableConfig['columns']) {
+				throw new WrongConfigurationException("Definition of columns is not valid json");
+			}
+		} else {
+			$tableConfig['columns'] = array();
 		}
 
 		return $tableConfig;
@@ -478,12 +493,12 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getDimensionsOfDataSet($tableId)
 	{
-		$tableConfig = $this->getDataSet($tableId);
+		$dataSet = $this->getDataSet($tableId);
 
 		$dimensions = array();
-		foreach ($tableConfig['columns'] as $column) {
-			if ($column['type'] == 'DATE' && !empty($column['dimension'])) {
-				$dimensions[] = $column['dimension'];
+		foreach ($dataSet['columns'] as $column) {
+			if ($column['type'] == 'DATE' && !empty($column['dateDimension'])) {
+				$dimensions[] = $column['dateDimension'];
 			}
 		}
 		return $dimensions;
@@ -500,18 +515,25 @@ class Configuration extends StorageApiConfiguration
 	public function updateColumnDefinition($tableId, $column, $data)
 	{
 		$this->updateDataSetsFromSapi();
+		$this->updateDataSetFromSapi($tableId);
 
 		$tableRow = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
 		if (!$tableRow) {
 			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
 		}
 
-		$definition = json_decode($tableRow['definition'], true);
-		if (!$definition) {
-			throw new WrongConfigurationException("Definition of columns for table '$tableId' is not valid json");
+		if ($tableRow['definition']) {
+			$definition = json_decode($tableRow['definition'], true);
+			if (!$definition) {
+				throw new WrongConfigurationException("Definition of columns for table '$tableId' is not valid json");
+			}
+			$definition[$column] = isset($definition[$column]) ? array_merge($definition[$column], $data) : $data;
+			$tableRow['definition'] = json_encode($definition);
+
+			//@TODO UPDATE DEFINITION VALUES (REMOVE NON-SENSE DEFINITIONS WHEN CHANGING TYPE, ETC)
+		} else {
+			$tableRow['definition'] = json_encode(array($column => $data));
 		}
-		$definition[$column] = array_merge($definition[$column], $data);
-		$tableRow['definition'] = json_encode($definition);
 
 		$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableRow);
 	}
@@ -527,6 +549,7 @@ class Configuration extends StorageApiConfiguration
 	public function updateDataSetDefinition($tableId, $name, $value)
 	{
 		$this->updateDataSetsFromSapi();
+		$this->updateDataSetFromSapi($tableId);
 
 		$tableRow = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
 		if (!$tableRow) {
@@ -544,32 +567,48 @@ class Configuration extends StorageApiConfiguration
 	/**
 	 * Delete definition for columns removed from data table
 	 * @param $tableId
-	 * @param $definition
-	 * @param $columns
-	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
+	 * @throws WrongConfigurationException
 	 */
-	public function checkMissingColumns($tableId, $definition, $columns)
+	public function updateDataSetFromSapi($tableId)
 	{
-		if (!isset($this->definedTables[$tableId])) {
+		if (!$this->_storageApiClient->tableExists($tableId)) {
+			throw new WrongConfigurationException("Table '$tableId' does not exist");
+		}
+
+		$anythingChanged = false;
+		$table = $this->getSapiTable($tableId);
+		$dataSet = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
+		if (!$dataSet) {
 			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
 		}
-
-		$data = array();
-		$headers = null;
-		$saveChanges = false;
-		foreach ($definition['columns'] as $columnName => $column) {
-			if (in_array($columnName, $columns)) {
-				$data[] = $column;
-			} else {
-				$saveChanges = true;
+		if ($dataSet['definition']) {
+			$definition = json_decode($dataSet['definition'], true);
+			if (!$definition) {
+				throw new WrongConfigurationException("Definition of columns for table '$tableId' is not valid json");
 			}
-			if (!$headers) {
-				$headers = array_keys($column);
+
+			// Remove definitions of non-existing columns
+			foreach (array_keys($definition) as $definedColumn) {
+				if (!in_array($definedColumn, $table['columns'])) {
+					unset($definition[$definedColumn]);
+					$anythingChanged = true;
+				}
+			}
+		} else {
+			$definition = array();
+		}
+
+		// Added definitions for new columns
+		foreach ($table['columns'] as $column) {
+			if (!in_array($column, array_keys($definition))) {
+				$definition[$column] = array('type' => 'IGNORE');
+				$anythingChanged = true;
 			}
 		}
 
-		if ($saveChanges) {
-			$this->_updateTable($this->definedTables[$tableId]['definitionId'], 'name', $headers, $data);
+		if ($anythingChanged) {
+			$dataSet['definition'] = json_encode($definition);
+			$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $dataSet);
 
 			$this->updateDataSetDefinition($tableId, 'lastChangeDate', date('c'));
 		}
@@ -578,18 +617,20 @@ class Configuration extends StorageApiConfiguration
 
 	public function getXml($tableId)
 	{
+		$this->updateDataSetsFromSapi();
+		$this->updateDataSetFromSapi($tableId);
+
 		$this->getDateDimensions();
 
 		$dataTableConfig = $this->getSapiTable($tableId);
-		$gdDefinition = $this->getTableConfiguration($tableId);
-		$this->checkMissingColumns($tableId, $gdDefinition, $dataTableConfig['columns']);
+		$gdDefinition = $this->getDataSet($tableId);
 		$dateDimensions = null; // fetch only when needed
 
 		$xml = new \DOMDocument();
 		$schema = $xml->createElement('schema');
 
-		$datasetName = !empty($gdDefinition['gdName']) ? $gdDefinition['gdName'] : $gdDefinition['tableId'];
-		$name = $xml->createElement('name', $datasetName);
+		$dataSetName = !empty($gdDefinition['name']) ? $gdDefinition['name'] : $gdDefinition['id'];
+		$name = $xml->createElement('name', $dataSetName);
 		$schema->appendChild($name);
 
 		if (!isset($dataTableConfig['columns']) || !count($dataTableConfig['columns'])) {
@@ -613,15 +654,15 @@ class Configuration extends StorageApiConfiguration
 			}
 
 			$column = $xml->createElement('column');
-			$column->appendChild($xml->createElement('name', $columnDefinition['name']));
+			$column->appendChild($xml->createElement('name', $columnName));
 			$column->appendChild($xml->createElement('title', (!empty($columnDefinition['gdName']) ? $columnDefinition['gdName']
-					: $columnDefinition['name']) . ' (' . $datasetName . ')'));
+					: $columnName) . ' (' . $dataSetName . ')'));
 			$column->appendChild($xml->createElement('ldmType', !empty($columnDefinition['type']) ? $columnDefinition['type'] : 'IGNORE'));
 			if ($columnDefinition['type'] != 'FACT') {
-				$column->appendChild($xml->createElement('folder', $datasetName));
+				$column->appendChild($xml->createElement('folder', $dataSetName));
 			}
 
-			if ($columnDefinition['dataType']) {
+			if (!empty($columnDefinition['dataType'])) {
 				$dataType = $columnDefinition['dataType'];
 				if ($columnDefinition['dataTypeSize']) {
 					$dataType .= '(' . $columnDefinition['dataTypeSize'] . ')';
@@ -663,12 +704,12 @@ class Configuration extends StorageApiConfiguration
 								. " of column '{$columnDefinition['name']}' does not exist");
 						}
 						if ($refTableDefinition) {
-							$refTableName = isset($refTableDefinition['gdName']) ? $refTableDefinition['gdName'] : $refTableDefinition['tableId'];
+							$refTableName = isset($refTableDefinition['name']) ? $refTableDefinition['name'] : $refTableDefinition['id'];
 							$column->appendChild($xml->createElement('schemaReference', $refTableName));
 							$reference = NULL;
 							foreach ($refTableDefinition['columns'] as $c) {
 								if ($c['type'] == 'CONNECTION_POINT') {
-									$reference = $c['name'];
+									$reference = $c['gdName'];
 									break;
 								}
 							}
@@ -1193,7 +1234,7 @@ class Configuration extends StorageApiConfiguration
 	 * @TODO should be moved to RestApi class
 	 * Translates attribute name from SAPI form to GD form
 	 * Example: out.c-main.users.id -> attr.outcmainusers.id
-	 * If GdName is set on SAPI table (GdName = users): out.c-main.users.id -> attr.users.id
+	 * If name is set on SAPI table (name = users): out.c-main.users.id -> attr.users.id
 	 * @param $attribute
 	 * @return string
 	 */

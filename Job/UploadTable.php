@@ -47,10 +47,9 @@ class UploadTable extends AbstractJob
 		$updateModelJobs = array();
 		$loadDataJobs = array();
 
-		$tableDefinition = $this->configuration->getTableConfiguration($params['tableId']);
+		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
-		$sanitize = (isset($params['sanitize'])) ? $params['sanitize'] : !empty($tableDefinition['sanitize']);
 		$filterColumn = $this->_getFilterColumn($params['tableId'], $tableDefinition);
 		$zipPath = isset($this->mainConfig['zip_path']) ? $this->mainConfig['zip_path'] : null;
 		$webDavUrl = $this->_getWebDavUrl();
@@ -237,9 +236,6 @@ class UploadTable extends AbstractJob
 
 				$this->_csvHandler->initDownload($params['tableId'], $job['token'], $this->mainConfig['storageApi.url'],
 					$this->mainConfig['user_agent'], $gdJob['incrementalLoad'], $gdJob['filterColumn'], $gdJob['pid']);
-				if ($sanitize) {
-					$this->_csvHandler->prepareSanitization($xmlFileObject);
-				}
 				$this->_csvHandler->prepareTransformation($xmlFileObject);
 				$this->_csvHandler->runDownload($dataTmpDir . '/data.csv');
 				$csvFileSize += filesize($dataTmpDir . '/data.csv');
@@ -274,8 +270,9 @@ class UploadTable extends AbstractJob
 
 		if (empty($tableDefinition['isExported'])) {
 			$this->configuration->updateDataSetDefinition($params['tableId'], 'export', 1);
+			$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
 		}
-		$this->configuration->updateDataSetDefinition($params['tableId'], 'lastExportDate', date('c', $startTime));
+
 		$result = array(
 			'status' => $error ? 'error' : 'success',
 			'debug' => json_encode($debug),
@@ -309,13 +306,6 @@ class UploadTable extends AbstractJob
 	{
 		$webDavUrl = null;
 		if (isset($this->configuration->bucketInfo['gd']['backendUrl']) && $this->configuration->bucketInfo['gd']['backendUrl'] != RestApi::DEFAULT_BACKEND_URL) {
-
-			//@TODO Temporal log
-			$this->log->alert('Non-default backend', array(
-				'projectId' => $this->configuration->projectId,
-				'writerId' => $this->configuration->writerId,
-				'backendUrl' => $this->configuration->bucketInfo['gd']['backendUrl']
-			));
 
 			// Get WebDav url for non-default backend
 			$backendUrl = (substr($this->configuration->bucketInfo['gd']['backendUrl'], 0, 8) != 'https://'
