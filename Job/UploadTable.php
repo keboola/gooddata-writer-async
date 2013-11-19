@@ -57,7 +57,6 @@ class UploadTable extends AbstractJob
 		$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
 
-
 		// Get xml
 		$xmlFile = $job['xmlFile'];
 		try {
@@ -170,10 +169,17 @@ class UploadTable extends AbstractJob
 			);
 		}
 
-		$clToolApi = new CLToolApi($this->log);
+        $clPath = null;
+        if (!empty($this->mainConfig['cl_path'])) {
+            $clPath = $this->mainConfig['cl_path'];
+        }
+		$clToolApi = new CLToolApi($this->log, $clPath);
 		$clToolApi->s3client = $this->s3Client;
 		if (isset($this->configuration->bucketInfo['gd']['backendUrl'])) {
-			$clToolApi->setBackendUrl($this->configuration->bucketInfo['gd']['backendUrl']);
+			$urlParts = parse_url($this->configuration->bucketInfo['gd']['backendUrl']);
+			if ($urlParts && !empty($urlParts['host'])) {
+				$clToolApi->setBackendUrl($urlParts['host']);
+			}
 		}
 		$clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 

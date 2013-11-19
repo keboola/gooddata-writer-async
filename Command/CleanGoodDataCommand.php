@@ -8,14 +8,12 @@ namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand,
-	Symfony\Component\Console\Input\InputArgument,
 	Symfony\Component\Console\Input\InputInterface,
-	Symfony\Component\Console\Input\InputOption,
 	Symfony\Component\Console\Output\OutputInterface;
 use Keboola\GoodDataWriter\GoodData\RestApi,
-	Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\GoodDataWriter\Writer\SharedConfig;
+use Keboola\GoodDataWriter\Service\Lock;
 
 class CleanGoodDataCommand extends ContainerAwareCommand
 {
@@ -30,6 +28,13 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
+		$gdWriterParams = $this->getContainer()->getParameter('gooddata_writer');
+		$lock = new Lock(new \PDO(sprintf('mysql:host=%s;dbname=%s', $gdWriterParams['db']['host'], $gdWriterParams['db']['name']),
+			$gdWriterParams['db']['user'], $gdWriterParams['db']['password']), 'CleanGoodDataCommand');
+		if (!$lock->lock()) {
+			return;
+		}
+
 		$log = $this->getContainer()->get('logger');
 		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
 
@@ -70,6 +75,8 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 			}
 		}
 		$sharedConfig->markUsersDeleted($uids);
+
+		$lock->unlock();
 	}
 
 }
