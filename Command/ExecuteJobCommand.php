@@ -28,6 +28,8 @@ class ExecuteJobCommand extends ContainerAwareCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
+		$this->getContainer()->get('syrup.monolog.json_formatter')->setComponentName('gooddata-writer');
+
 		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
 		$sharedConfig = new SharedConfig(
 			new StorageApiClient(

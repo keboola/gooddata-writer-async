@@ -25,6 +25,8 @@ class DebugCommand extends ContainerAwareCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
+		$this->getContainer()->get('syrup.monolog.json_formatter')->setComponentName('gooddata-writer');
+
 		$log = $this->getContainer()->get('logger');
 		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
 

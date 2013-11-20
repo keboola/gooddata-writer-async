@@ -45,6 +45,8 @@ class QueueReceiveCommand extends ContainerAwareCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
+		$this->getContainer()->get('syrup.monolog.json_formatter')->setComponentName('gooddata-writer');
+
 		$params = $this->getContainer()->getParameter('gooddata_writer');
 		$sqsClient = \Aws\Sqs\SqsClient::factory(array(
 			'key' => $params['aws']['access_key'],

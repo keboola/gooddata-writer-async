@@ -33,7 +33,7 @@ class RestApi
 	const BACKOFF_INTERVAL = 60;
 	const WAIT_INTERVAL = 10;
 
-	const API_URL = 'https://secure.gooddata.com';
+	const API_URL = 'https://na1.secure.gooddata.com';
 	const DEFAULT_BACKEND_URL = 'na1.secure.gooddata.com';
 
 	public $apiUrl;
@@ -59,7 +59,7 @@ class RestApi
 	protected $_authSst;
 	protected $_authTt;
 
-	private $_callsLog;
+	public  $callsLog;
 	private $_clearFromLog;
 
 	public function __construct($log)
@@ -78,7 +78,7 @@ class RestApi
 			'content-type' => 'application/json; charset=utf-8'
 		));
 
-		$this->_callsLog = array();
+		$this->callsLog = array();
 		$this->_clearFromLog = array();
 	}
 
@@ -335,11 +335,6 @@ class RestApi
 			if ($userId) {
 				return $userId;
 			} else {
-				$this->_log->alert('createUser() failed', array(
-					'uri' => $uri,
-					'params' => $params,
-					'exception' => $e
-				));
 				throw $e;
 			}
 		}
@@ -1015,6 +1010,7 @@ class RestApi
 	 */
 	private function _request($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true)
 	{
+		$startTime = microtime();
 		$jsonParams = is_array($params) ? json_encode($params) : $params;
 
 		$backoffInterval = self::BACKOFF_INTERVAL;
@@ -1050,7 +1046,7 @@ class RestApi
 
 			try {
 				$response = $request->send();
-				if ($logCall) $this->_logCall($uri, $method, $params, $response->getBody(true));
+				if ($logCall) $this->_logCall($uri, $method, $params, $response->getBody(true), abs(microtime() - $startTime) * 1000);
 
 				if ($response->isSuccessful()) {
 					return $response;
@@ -1058,7 +1054,7 @@ class RestApi
 
 			} catch (ClientErrorResponseException $e) {
 				$response = $request->getResponse()->getBody(true);
-				if ($logCall) $this->_logCall($uri, $method, $params, $response);
+				if ($logCall) $this->_logCall($uri, $method, $params, $response, abs(microtime() - $startTime) * 1000);
 				if ($request->getResponse()->getStatusCode() == 401) {
 					$error401 = true;
 				} else {
@@ -1179,7 +1175,7 @@ class RestApi
 		}
 	}
 
-	protected function _logCall($uri, $method, $params, $response)
+	protected function _logCall($uri, $method, $params, $response, $duration)
 	{
 		$decodedResponse = json_decode($response, true);
 		if (!$decodedResponse) {
@@ -1195,10 +1191,10 @@ class RestApi
 		array_walk_recursive($params, $sanitize);
 		array_walk_recursive($decodedResponse, $sanitize);
 
-		$this->_callsLog[] = array(
-			'timestamp' => date('c'),
-			'backendUrl' => $this->_client->getBaseUrl(),
-			'uri' => $uri,
+		$this->callsLog[] = array(
+			'duration' => $duration,
+			'time' => date('c'),
+			'uri' => $this->_client->getBaseUrl() . $uri,
 			'method' => $method,
 			'params' => $params,
 			'response' => $decodedResponse
@@ -1207,11 +1203,7 @@ class RestApi
 
 	public function callsLog()
 	{
-		if (!defined('JSON_PRETTY_PRINT')) {
-			// fallback for PHP <= 5.3
-			define('JSON_PRETTY_PRINT', 0);
-		}
-		return json_encode($this->_callsLog, JSON_PRETTY_PRINT);
+		return $this->callsLog;
 	}
 
 
