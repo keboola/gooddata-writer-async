@@ -1100,8 +1100,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		$this->configuration->checkGoodDataSetup();
-		$this->configuration->getDateDimensions();
+		$this->configuration->checkBucketAttributes();
 
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
