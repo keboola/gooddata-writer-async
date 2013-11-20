@@ -334,37 +334,7 @@ class Configuration extends StorageApiConfiguration
 	{
 		$this->updateDataSetsFromSapi();
 
-		$tableDefinition = array();
-
 		$dataSet = $this->getDataSet($tableId);
-		foreach ($dataSet['columns'] as $columnName => $column) {//@TODO IS IT NECESSARY?
-			if (!empty($column['type'])) {
-				if ($column['type'] != 'ATTRIBUTE' && !empty($column['sortLabel'])) {
-					$column['sortLabel'] = null;
-				}
-				if ($column['type'] != 'ATTRIBUTE' && !empty($column['sortOrder'])) {
-					$column['sortOrder'] = null;
-				}
-				if ($column['type'] != 'REFERENCE' && !empty($column['schemaReference'])) {
-					$column['schemaReference'] = null;
-				}
-				if (!in_array($column['type'], array('REFERENCE', 'HYPERLINK', 'LABEL')) && !empty($column['reference'])) {
-					$column['reference'] = null;
-				}
-				if ($column['type'] != 'DATE' && !empty($column['format'])) {
-					$column['format'] = null;
-				}
-				if ($column['type'] != 'DATE' && !empty($column['dateDimension'])) {
-					$column['dateDimension'] = null;
-				}
-				if (!empty($column['dataTypeSize'])) {
-					$column['dataTypeSize'] = (int)$column['dataTypeSize'];
-				}
-			}
-
-			$tableDefinition[$columnName] = $column;
-		}
-
 
 		$previews = array();
 		foreach($this->_fetchTableRows($tableId, null, null, array('limit' => 10)) as $row) {
@@ -378,6 +348,7 @@ class Configuration extends StorageApiConfiguration
 			if (!isset($column['gdName']))
 				$column['gdName'] = $columnName;
 			$column['preview'] = isset($previews[$columnName]) ? $previews[$columnName] : array();
+			$column = $this->_cleanColumnDefinition($column);
 		}
 
 		return array(
@@ -528,14 +499,50 @@ class Configuration extends StorageApiConfiguration
 				throw new WrongConfigurationException("Definition of columns for table '$tableId' is not valid json");
 			}
 			$definition[$column] = isset($definition[$column]) ? array_merge($definition[$column], $data) : $data;
+			$definition[$column] = $this->_cleanColumnDefinition($definition[$column]);
+
 			$tableRow['definition'] = json_encode($definition);
 
-			//@TODO UPDATE DEFINITION VALUES (REMOVE NON-SENSE DEFINITIONS WHEN CHANGING TYPE, ETC)
 		} else {
 			$tableRow['definition'] = json_encode(array($column => $data));
 		}
 
 		$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableRow);
+	}
+
+
+	/**
+	 * Remove non-sense definitions
+	 * @param $data
+	 * @return mixed
+	 */
+	private function _cleanColumnDefinition($data)
+	{
+		if (empty($data['type'])) {
+			$data['type'] = 'IGNORE';
+		}
+		if ($data['type'] != 'ATTRIBUTE' && isset($data['sortLabel'])) {
+			unset($data['sortLabel']);
+		}
+		if ($data['type'] != 'ATTRIBUTE' && isset($data['sortOrder'])) {
+			unset($data['sortOrder']);
+		}
+		if ($data['type'] != 'REFERENCE' && isset($data['schemaReference'])) {
+			unset($data['schemaReference']);
+		}
+		if (!in_array($data['type'], array('REFERENCE', 'HYPERLINK', 'LABEL')) && isset($data['reference'])) {
+			unset($data['reference']);
+		}
+		if ($data['type'] != 'DATE' && isset($data['format'])) {
+			unset($data['format']);
+		}
+		if ($data['type'] != 'DATE' && isset($data['dateDimension'])) {
+			unset($data['dateDimension']);
+		}
+		if (!empty($data['dataTypeSize'])) {
+			$data['dataTypeSize'] = (int)$data['dataTypeSize'];
+		}
+		return $data;
 	}
 
 
