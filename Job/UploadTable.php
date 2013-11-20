@@ -16,7 +16,7 @@ use Keboola\GoodDataWriter\GoodData\CLToolApi,
 	Keboola\GoodDataWriter\GoodData\CsvHandler,
 	Keboola\GoodDataWriter\GoodData\CsvHandlerException,
 	Keboola\GoodDataWriter\GoodData\WebDav;
-use Symfony\Component\DependencyInjection\Tests\DefinitionDecoratorTest;
+use Symfony\Component\Stopwatch\Stopwatch;
 
 class UploadTable extends AbstractJob
 {
@@ -27,6 +27,12 @@ class UploadTable extends AbstractJob
 	
 	public function run($job, $params)
 	{
+		$eventsLog = array();
+		$eventsLog['start'] = array('duration' => 0, 'time' => date('c'));
+		$stopWatch = new Stopwatch();
+		$stopWatchId = 'prepareJob';
+		$stopWatch->start($stopWatchId);
+
 		if (empty($job['xmlFile'])) {
 			throw new WrongConfigurationException("Parameter 'xmlFile' is missing");
 		}
@@ -39,7 +45,6 @@ class UploadTable extends AbstractJob
 		$this->_csvHandler = new CsvHandler($this->scriptsPath, $this->s3Client, $this->tmpDir, $job['id']);
 		$projects = $this->configuration->getProjects();
 		$csvFileSize = 0;
-		$output = null;
 		$error = false;
 		$debug = array();
 
@@ -56,8 +61,12 @@ class UploadTable extends AbstractJob
 
 		$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 
+		$e = $stopWatch->stop($stopWatchId);
+		$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));
 
 		// Get xml
+		$stopWatchId = 'getXml';
+		$stopWatch->start($stopWatchId);
 		$xmlFile = $job['xmlFile'];
 		try {
 			if (!is_file($xmlFile)) {
@@ -65,25 +74,33 @@ class UploadTable extends AbstractJob
 			}
 			$xmlFileObject = $this->_csvHandler->getXml($xmlFile);
 		} catch (CsvHandlerException $e) {
-			$this->log->warn('Download of dataset xml failed', array(
+			$this->log->warn('Download of data set xml failed', array(
 				'exception' => $e->getMessage(),
 				'trace' => $e->getTraceAsString(),
 				'job' => $job,
 				'params' => $params
 			));
-			throw new JobProcessException('Download of dataset xml failed');
+			throw new JobProcessException('Download of data set xml failed');
 		}
+		$e = $stopWatch->stop($stopWatchId);
+		$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));
 
 		$dataSetName = RestApi::gdName($xmlFileObject->name);
 		$dataSetId = RestApi::datasetId($xmlFileObject->name);
 
 
 		// Get manifest
+		$stopWatchId = 'getManifest';
+		$stopWatch->start($stopWatchId);
 		$manifest = $this->_csvHandler->getManifest($xmlFileObject, $incrementalLoad);
 		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
 		$manifestUrl = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
+		$e = $stopWatch->stop($stopWatchId);
+		$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));
 
 
+		$stopWatchId = 'prepareLoads';
+		$stopWatch->start($stopWatchId);
 		// Choose projects to load
 		$projectsToLoad = array();
 		foreach ($projects as $project) if ($project['active']) {
@@ -126,8 +143,7 @@ class UploadTable extends AbstractJob
 			}
 		}
 
-
-		// Enqueue jobs for creation/update of dataset and load data
+		// Enqueue jobs for creation/update of dataSet and load data
 		foreach ($projectsToLoad as $project) {
 			foreach ($dateDimensionsToLoad as $dimension) {
 				if (!in_array(RestApi::dimensionId($dimension['gdName']), array_keys($project['existingDataSets']))) {
@@ -169,7 +185,7 @@ class UploadTable extends AbstractJob
 			);
 		}
 
-        $clPath = null;
+		$clPath = null;
         if (!empty($this->mainConfig['cl_path'])) {
             $clPath = $this->mainConfig['cl_path'];
         }
@@ -182,6 +198,8 @@ class UploadTable extends AbstractJob
 			}
 		}
 		$clToolApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+		$e = $stopWatch->stop($stopWatchId);
+		$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));
 
 		// Start GoodData transfer
 		$gdWriteStartTime = date('c');
@@ -190,6 +208,9 @@ class UploadTable extends AbstractJob
 
 			$uploadedDimensions = array();
 			foreach ($createDateJobs as $gdJob) {
+				$stopWatchId = 'createDimension-' . $gdJob['name'] . '-' . $gdJob['pid'];
+				$stopWatch->start($stopWatchId);
+				$this->restApi->callsLog = array();
 				$this->restApi->createDateDimension($gdJob['pid'], $gdJob['name'], $gdJob['includeTime']);
 				if ($gdJob['includeTime']) {
 					$dimensionName = RestApi::gdName($gdJob['name']);
@@ -212,17 +233,25 @@ class UploadTable extends AbstractJob
 					$this->_checkEtlError($result, $webDav, $gdJob, 'time.' . $dimensionName, $debugFile,
 						$tmpFolderDimension, $tmpFolderName, 'Dimension ' . $gdJob['name']);
 				}
+				$e = $stopWatch->stop($stopWatchId);
+				$eventsLog[$stopWatchId] = array(
+					'duration' => $e->getDuration(),
+					'time' => date('c'),
+					'restApi' => $this->restApi->callsLog
+				);
 			}
 
 			foreach ($updateModelJobs as $gdJob) {
+				$stopWatchId = $gdJob['command'] . 'DataSet'.'-'.$gdJob['pid'];
+				$stopWatch->start($stopWatchId);
 				$clToolApi->debugLogUrl = null;
 				$clToolApi->s3Dir = $tmpFolderName . '/' . $gdJob['pid'];
 				$clToolApi->tmpDir = $this->tmpDir . '/' . $gdJob['pid'];
 				if (!file_exists($clToolApi->tmpDir)) mkdir($clToolApi->tmpDir);
 				if ($gdJob['command'] == 'create') {
-					$clToolApi->createDataset($gdJob['pid'], $xmlFile);
+					$clToolApi->createDataSet($gdJob['pid'], $xmlFile);
 				} else {
-					$clToolApi->updateDataset($gdJob['pid'], $xmlFile, 1);
+					$clToolApi->updateDataSet($gdJob['pid'], $xmlFile, 1);
 				}
 				if ($clToolApi->debugLogUrl) {
 					if ($gdJob['mainProject']) {
@@ -232,11 +261,19 @@ class UploadTable extends AbstractJob
 					}
 					$clToolApi->debugLogUrl = null;
 				}
-				$output .= $clToolApi->output;
+				$e = $stopWatch->stop($stopWatchId);
+				$eventsLog[$stopWatchId] = array(
+					'duration' => $e->getDuration(),
+					'time' => date('c'),
+					'clTool' => $clToolApi->output
+				);
 			}
 
 			$debug['manifest'] = $manifestUrl;
 			foreach ($loadDataJobs as $gdJob) {
+				$stopWatchId = 'downloadCsv-' . $gdJob['pid'];
+				$stopWatch->start($stopWatchId);
+				$this->restApi->callsLog = array();
 				$dataTmpDir = $this->tmpDir . '/' . $gdJob['pid'];
 				if (!file_exists($dataTmpDir)) mkdir($dataTmpDir);
 
@@ -245,17 +282,31 @@ class UploadTable extends AbstractJob
 				$this->_csvHandler->prepareTransformation($xmlFileObject);
 				$this->_csvHandler->runDownload($dataTmpDir . '/data.csv');
 				$csvFileSize += filesize($dataTmpDir . '/data.csv');
+				$e = $stopWatch->stop($stopWatchId);
+				$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'), 'size' => filesize($dataTmpDir . '/data.csv'));
 
+				$stopWatchId = 'uploadCsv-' . $gdJob['pid'];
+				$stopWatch->start($stopWatchId);
 				$webDavFolder = $tmpFolderName . '-' . $gdJob['pid'];
 				$webDav->upload($dataTmpDir, $webDavFolder, $this->tmpDir . '/upload_info.json', $dataTmpDir . '/data.csv');
+				$e = $stopWatch->stop($stopWatchId);
+				$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'), 'size' => filesize($dataTmpDir . '/upload.zip'));
 
 				// Run load task
+				$stopWatchId = 'runEtl-' . $gdJob['pid'];
+				$stopWatch->start($stopWatchId);
 				try {
 					$result = $this->restApi->loadData($gdJob['pid'], $webDavFolder);
 					$this->_checkEtlError($result, $webDav, $gdJob, $dataSetName, $dataTmpDir . '/etl.log', $webDavFolder, $tmpFolderName, 'Data Load');
 				} catch (RestApiException $e) {
 					throw new RestApiException('ETL load failed: ' . $e->getMessage());
 				}
+				$e = $stopWatch->stop($stopWatchId);
+				$eventsLog[$stopWatchId] = array(
+					'duration' => $e->getDuration(),
+					'time' => date('c'),
+					'restApi' => $this->restApi->callsLog
+				);
 			}
 		} catch (CLToolApiErrorException $e) {
 			if ($clToolApi->debugLogUrl) {
@@ -263,15 +314,29 @@ class UploadTable extends AbstractJob
 				$clToolApi->debugLogUrl = null;
 			}
 			$error = $e->getMessage();
+			$event = $stopWatch->stop($stopWatchId);
+			$eventsLog[$stopWatchId] = array(
+				'duration' => $event->getDuration(),
+				'time' => date('c'),
+				'clTool' => $clToolApi->output
+			);
 		} catch (RestApiException $e) {
 			$error = $e->getMessage();
+			$event = $stopWatch->stop($stopWatchId);
+			$eventsLog[$stopWatchId] = array(
+				'duration' => $event->getDuration(),
+				'time' => date('c'),
+				'restApi' => $this->restApi->callsLog
+			);
 		} catch (UnauthorizedException $e) {
 			$error = 'Bad GoodData Credentials: ' . $e->getMessage();
-		}
-
-		$callsLog = $this->restApi->callsLog();
-		if ($callsLog) {
-			$output .= "\n\nRest API:\n" . $callsLog;
+			$event = $stopWatch->stop($stopWatchId);
+			$eventsLog[$stopWatchId] = array(
+				'duration' => $event->getDuration(),
+				'time' => date('c'),
+				'restApi' => $this->restApi->callsLog,
+				'clTool' => $clToolApi->output
+			);
 		}
 
 		if (empty($tableDefinition['isExported'])) {
@@ -288,7 +353,8 @@ class UploadTable extends AbstractJob
 		if ($error) {
 			$result['error'] = $error;
 		}
-		return $this->_prepareResult($job['id'], $result, $output, $tmpFolderName);
+
+		return $this->_prepareResult($job['id'], $result, $eventsLog, $tmpFolderName);
 	}
 
 

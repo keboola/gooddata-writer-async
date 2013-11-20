@@ -57,12 +57,16 @@ abstract class AbstractJob
 	abstract function run($job, $params);
 
 
-	protected function _prepareResult($jobId, $data = array(), $callsLog = null, $folderName = null)
+	protected function _prepareResult($jobId, $data = array(), $log = null, $folderName = null)
 	{
 		$logUrl = null;
-		if ($callsLog) {
-			$fileName = ($folderName ? $folderName : $jobId) . '/' . 'api-calls.log';
-			$logUrl = $this->s3Client->uploadString($fileName, $callsLog);
+		if ($log) {
+			if (!defined('JSON_PRETTY_PRINT')) {
+				// fallback for PHP <= 5.3
+				define('JSON_PRETTY_PRINT', 0);
+			}
+			$fileName = ($folderName ? $folderName : $jobId) . '/' . 'log.json';
+			$logUrl = $this->s3Client->uploadString($fileName, json_encode($log, JSON_PRETTY_PRINT));
 		}
 
 		if ($logUrl) {

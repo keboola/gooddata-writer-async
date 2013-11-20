@@ -184,44 +184,41 @@ class CLToolApi
 	 * Set of commands which create a dataset
 	 * @param string $pid
 	 * @param string $xmlFile
+	 * @return array
 	 * @throws CLToolApiErrorException
 	 * @throws \Exception
 	 */
-	public function createDataset($pid, $xmlFile)
+	public function createDataSet($pid, $xmlFile)
 	{
+		$this->output = array();
 		if (file_exists($xmlFile)) {
 
 			libxml_use_internal_errors(TRUE);
-			$sxml = simplexml_load_file($xmlFile);
-			if ($sxml) {
-				$datasetName = (string)$sxml->name;
+			$sXml = simplexml_load_file($xmlFile);
+			if ($sXml) {
+				$dataSetName = (string)$sXml->name;
 
-				$maqlFile = $this->tmpDir . '/createDataset-' . $datasetName . '.maql';
+				$maqlFile = $this->tmpDir . '/createDataset-' . $dataSetName . '.maql';
 
 				$csvFile = $this->tmpDir . '/dummy.csv';
 				if (!file_exists($csvFile)) touch($csvFile);
 
-				$command  = 'OpenProject(id="' . $pid . '");';
-				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '");';
-				$command .= 'GenerateMaql(maqlFile="' . $maqlFile . '");';
-				$command .= 'ExecuteMaql(maqlFile="' . $maqlFile . '");';
+				$command  = 'OpenProject(id="' . $pid . '"); ';
+				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '"); ';
+				$command .= 'GenerateMaql(maqlFile="' . $maqlFile . '"); ';
+				$command .= 'ExecuteMaql(maqlFile="' . $maqlFile . '"); ';
 
-				$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
-
+				$this->output['command'] = $command;
 				$this->call($command);
 
 				if (file_exists($maqlFile)) {
-					$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
+					$this->output['maql'] = file_get_contents($maqlFile);
 					unlink($maqlFile);
 				} else {
 					throw new CLToolApiErrorException();
 				}
 			} else {
-				$errors = '';
-				foreach (libxml_get_errors() as $error) {
-					$errors .= $error->message;
-				}
-				$this->output = '*** Error in XML ***' . PHP_EOL . $errors;
+				$this->output['errors'] = libxml_get_errors();
 				throw new CLToolApiErrorException();
 			}
 		} else {
@@ -238,80 +235,44 @@ class CLToolApi
 	 * @throws \Exception
 	 * @return string|bool
 	 */
-	public function updateDataset($pid, $xmlFile, $updateAll=FALSE)
+	public function updateDataSet($pid, $xmlFile, $updateAll=FALSE)
 	{
+		$this->output = array();
 		if (file_exists($xmlFile)) {
 
 			libxml_use_internal_errors(TRUE);
-			$sxml = simplexml_load_file($xmlFile);
-			if ($sxml) {
-				$datasetName = (string)$sxml->name;
-				$maqlFile = $this->tmpDir . '/updateDataset-' . $datasetName . '.maql';
+			$sXml = simplexml_load_file($xmlFile);
+			if ($sXml) {
+				$dataSetName = (string)$sXml->name;
+				$maqlFile = $this->tmpDir . '/updateDataset-' . $dataSetName . '.maql';
 				$csvFile = $this->tmpDir . '/dummy.csv';
 				if (!file_exists($csvFile)) touch($csvFile);
 
-				$command  = 'OpenProject(id="' . $pid . '");';
-				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '");';
+				$command  = 'OpenProject(id="' . $pid . '"); ';
+				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '"); ';
 				$command .= 'GenerateUpdateMaql(maqlFile="' . $maqlFile . '"';
 				if ($updateAll) {
 					$command .= ' updateAll="true"';
 				}
-				$command .= ');';
+				$command .= '); ';
 
 
-				$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
-
+				$this->output['command'] = $command;
 				$this->call($command);
 
 				if (file_exists($maqlFile)) {
-					$this->output .= '*** Generated MAQL ***' . PHP_EOL . file_get_contents($maqlFile) . PHP_EOL . PHP_EOL;
+					$this->output['maql'] = file_get_contents($maqlFile);
 
 					$command = 'OpenProject(id="' . $pid . '"); ExecuteMaql(maqlFile="' . $maqlFile . '");';
 
-					$this->output .= '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
-
+					$this->output['command2'] = $command;
 					$this->call($command);
 
 					unlink($maqlFile);
 				}
 			} else {
-				$errors = '';
-				foreach (libxml_get_errors() as $error) {
-					$errors .= $error->message;
-				}
-				$this->output = '*** Error in XML ***' . PHP_EOL . $errors;
+				$this->output['errors'] = libxml_get_errors();
 				throw new CLToolApiErrorException();
-			}
-		} else {
-			throw new \Exception('XML file does not exist: ' . $xmlFile);
-		}
-	}
-
-	/**
-	 * Set of commands which loads data to data set
-	 * @param string $pid
-	 * @param string $xmlFile
-	 * @param string $csvFile
-	 * @param bool $incremental
-	 * @throws CLToolApiErrorException
-	 * @throws \Exception
-	 * @return string|bool
-	 */
-	public function loadData($pid, $xmlFile, $csvFile, $incremental = FALSE)
-	{
-		if (file_exists($xmlFile)) {
-			if (file_exists($csvFile)) {
-				$command  = 'OpenProject(id="' . $pid . '");';
-				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '");';
-				$command .= 'TransferData(incremental="' . ($incremental ? 'true' : 'false') . '", waitForFinish="true");';
-
-				$this->output  = '*** CL Tool Command ***' . PHP_EOL . $command . PHP_EOL . PHP_EOL;
-
-				$this->call($command);
-
-				return array('gdWriteBytes' => filesize($csvFile));
-			} else {
-				throw new \Exception('CSV file does not exist: ' . $csvFile);
 			}
 		} else {
 			throw new \Exception('XML file does not exist: ' . $xmlFile);
