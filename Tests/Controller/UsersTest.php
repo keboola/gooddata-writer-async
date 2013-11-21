@@ -447,11 +447,7 @@ class UsersTest extends AbstractControllerTest
 
 	public function testSso()
 	{
-		$email = 'test' . time() . uniqid() . '@test.keboola.com';
-		$password = md5(uniqid());
-		$firstName = 'Test';
-		$lastName = 'KBC';
-		$role = 'editor';
+		$user = $this->_createUser();
 
 		$projectsList = self::$configuration->getProjects();
 		$project = $projectsList[count($projectsList)-1];
@@ -460,12 +456,7 @@ class UsersTest extends AbstractControllerTest
 			'/gooddata-writer/sso'
 			. '?writerId=' . $this->writerId
 			. '&pid=' . $project['pid']
-			. '&email=' . $email
-			. '&role=' . $role
-			. '&firstName=' . $firstName
-			. '&lastName=' . $lastName
-			. '&password=' . $password
-			. '&createUser=1'
+			. '&email=' . $user['email']
 		);
 
 		$this->assertArrayHasKey('ssoLink', $responseJson, "No ssoLink in response");

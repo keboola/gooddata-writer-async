@@ -1128,8 +1128,8 @@ class GoodDataWriter extends Component
 			return array('job' => (int)$jobInfo['id']);
 		} else {
 			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
-			if (isset($result['job']['result']['uid'])) {
-				return array('uid' => $result['job']['result']['uid']);
+			if (isset($result['job']['status']) && $result['job']['status'] == 'success') {
+				return array('message' => 'Reports executed');
 			} else {
 				$e = new JobProcessException('Job failed');
 				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));

@@ -9,6 +9,7 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Sabre\DAV;
+use Sabre\DAV\Exception\MethodNotAllowed;
 use Symfony\Component\Process\Process;
 
 class WebDavException extends \Exception
@@ -72,7 +73,13 @@ class WebDav
 		shell_exec($zipPath . ' -j ' . escapeshellarg($zipFolder . '/upload.zip') . ' ' . escapeshellarg($jsonFile) . ' ' . escapeshellarg($csvFile));
 		if (!file_exists($zipFolder . '/upload.zip')) throw new WebDavException(sprintf("Zip file '%s/upload.zip' for WebDav upload was not created", $zipFolder));
 
-		$this->_client->request('MKCOL', '/uploads/' . $davFolder);
+		try {
+			$this->_client->request('MKCOL', '/uploads/' . $davFolder);
+		} catch (MethodNotAllowed $e) {
+			// Folder already exists, delete and create again
+			$this->_client->request('DELETE', '/uploads/' . $davFolder);
+			$this->_client->request('MKCOL', '/uploads/' . $davFolder);
+		}
 
 		$command = sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@%s/uploads/%s/upload.zip 2>&1',
 			escapeshellarg($zipFolder . '/upload.zip'), urlencode($this->_username), urlencode($this->_password), $this->_url, $davFolder);
