@@ -28,6 +28,8 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
+		$this->getContainer()->get('syrup.monolog.json_formatter')->setComponentName('gooddata-writer');
+
 		$gdWriterParams = $this->getContainer()->getParameter('gooddata_writer');
 		$lock = new Lock(new \PDO(sprintf('mysql:host=%s;dbname=%s', $gdWriterParams['db']['host'], $gdWriterParams['db']['name']),
 			$gdWriterParams['db']['user'], $gdWriterParams['db']['password']), 'CleanGoodDataCommand');
