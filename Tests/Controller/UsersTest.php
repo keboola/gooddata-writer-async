@@ -82,7 +82,12 @@ class UsersTest extends AbstractControllerTest
 		// Case 2 - User exists in other domain
 		self::$restApi->setCredentials(self::$mainConfig['gd']['username'], self::$mainConfig['gd']['password']);
 
-		$otherUser = 'erik.zigo@keboola.com';
+		$otherUser = null;
+		if (defined('WRITER_TEST_OTHER_DOMAIN_USER'))
+			$otherUser = WRITER_TEST_OTHER_DOMAIN_USER;
+
+		$this->assertNotEmpty($otherUser, "User from other domain should be configured in tests config file.");
+
 		$otherUserId = self::$restApi->userId($otherUser, self::$mainConfig['gd']['domain']);
 
 		$this->assertFalse($otherUserId, "Invited user for writer call '/project-users' should not exist in same domain.");
@@ -247,7 +252,12 @@ class UsersTest extends AbstractControllerTest
 		// Case 2 - User exists in other domain
 		self::$restApi->setCredentials(self::$mainConfig['gd']['username'], self::$mainConfig['gd']['password']);
 
-		$otherUser = 'erik.zigo@keboola.com';
+		$otherUser = null;
+		if (defined('WRITER_TEST_OTHER_DOMAIN_USER'))
+			$otherUser = WRITER_TEST_OTHER_DOMAIN_USER;
+
+		$this->assertNotEmpty($otherUser, "User from other domain should be configured in tests config file.");
+
 		$otherUserId = self::$restApi->userId($otherUser, self::$mainConfig['gd']['domain']);
 
 		$this->assertFalse($otherUserId, "Invited user for writer call '/project-users' should not exist in same domain.");
