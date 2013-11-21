@@ -48,7 +48,6 @@ class RemoveUserFromProject extends AbstractJob
 			}
 
 			$userId = false;
-
 			$user = $this->configuration->getUser($params['email']);
 			if ($user && $user['uid']) {
 				$userId = $user['uid'];
@@ -56,11 +55,11 @@ class RemoveUserFromProject extends AbstractJob
 
 			// find user in domain
 			if (!$userId) {
-				$userId = $this->restApi->userId($params['email'], $this->mainConfig['domain']);
+				$userId = $this->restApi->userId($params['email'], $this->mainConfig['gd']['domain']);
 
 				if ($userId)
-					$this->configuration->saveUserToConfiguration($params['email'], $userId);
-				//@FIXME save user invite to configuration
+					$this->configuration->saveUser($params['email'], $userId);
+				//@TODO save user invite to configuration if user came from invitation
 			}
 
 			// find user in project (maybe invited)
@@ -74,11 +73,9 @@ class RemoveUserFromProject extends AbstractJob
 
 			// cancel possible invitations
 			$this->restApi->cancelInviteUserToProject($params['email'], $params['pid']);
-			//@FIXME todo status validation?
 
-			$this->configuration->removeProjectUserInviteFromConfiguration($params['pid'], $params['email']);
-
-			$this->configuration->removeProjectUserAddFromConfiguration($params['pid'], $params['email']);
+			$this->configuration->removeProjectUserInvite($params['pid'], $params['email']);
+			$this->configuration->removeProjectUserAdd($params['pid'], $params['email']);
 
 			return $this->_prepareResult($job['id'], array(
 				'gdWriteStartTime' => $gdWriteStartTime
