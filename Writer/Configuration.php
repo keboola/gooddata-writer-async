@@ -122,7 +122,9 @@ class Configuration extends StorageApiConfiguration
 		self::$_tables = self::$_tablesConfiguration;
 
 		//@TODO remove
-		$this->migrateConfiguration();
+		if ($this->bucketId && $this->_storageApiClient->bucketExists($this->bucketId)) {
+			$this->migrateConfiguration();
+		}
 	}
 
 
@@ -345,12 +347,15 @@ class Configuration extends StorageApiConfiguration
 			}
 		}
 
-		foreach ($dataSet['columns'] as $columnName => &$column) {
+		$columns = array();
+		$sourceTable = $this->getSapiTable($tableId);
+		foreach ($sourceTable['columns'] as $columnName) {
+			$column = $dataSet['columns'][$columnName];
 			$column['name'] = $columnName;
 			if (!isset($column['gdName']))
 				$column['gdName'] = $columnName;
 			$column['preview'] = isset($previews[$columnName]) ? $previews[$columnName] : array();
-			$column = $this->_cleanColumnDefinition($column);
+			$columns[] = $this->_cleanColumnDefinition($column);
 		}
 
 		return array(
@@ -361,7 +366,7 @@ class Configuration extends StorageApiConfiguration
 			'lastChangeDate' => $dataSet['lastChangeDate'] ? $dataSet['lastChangeDate'] : null,
 			'incrementalLoad' => $dataSet['incrementalLoad'] ? (int)$dataSet['incrementalLoad'] : false,
 			'ignoreFilter' => (bool)$dataSet['ignoreFilter'],
-			'columns' => array_values($dataSet['columns']),
+			'columns' => $columns,
 
 			//@TODO deprecated
 			'tableId' => $tableId,
@@ -640,27 +645,18 @@ class Configuration extends StorageApiConfiguration
 		$this->updateDataSetsFromSapi();
 		$this->updateDataSetFromSapi($tableId);
 
-		$this->getDateDimensions();
-
-		$dataTableConfig = $this->getSapiTable($tableId);
 		$gdDefinition = $this->getDataSet($tableId);
 		$dateDimensions = null; // fetch only when needed
+		$dataSetName = !empty($gdDefinition['name']) ? $gdDefinition['name'] : $gdDefinition['id'];
+		$sourceTable = $this->getSapiTable($tableId);
 
 		$xml = new \DOMDocument();
 		$schema = $xml->createElement('schema');
-
-		$dataSetName = !empty($gdDefinition['name']) ? $gdDefinition['name'] : $gdDefinition['id'];
 		$name = $xml->createElement('name', $dataSetName);
 		$schema->appendChild($name);
-
-		if (!isset($dataTableConfig['columns']) || !count($dataTableConfig['columns'])) {
-			throw new WrongConfigurationException("Table '$tableId' does not have valid GoodData definition");
-		}
-
 		$columns = $xml->createElement('columns');
 
-		$sourceTableInfo = $this->getSapiTable($tableId);
-		foreach ($sourceTableInfo['columns'] as $columnName) {
+		foreach ($sourceTable['columns'] as $columnName) {
 
 			if (!isset($gdDefinition['columns'][$columnName])) {
 				$columnDefinition = array(
@@ -724,12 +720,12 @@ class Configuration extends StorageApiConfiguration
 								. " of column '{$columnDefinition['name']}' does not exist");
 						}
 						if ($refTableDefinition) {
-							$refTableName = isset($refTableDefinition['name']) ? $refTableDefinition['name'] : $refTableDefinition['id'];
+							$refTableName = !empty($refTableDefinition['name']) ? $refTableDefinition['name'] : $refTableDefinition['id'];
 							$column->appendChild($xml->createElement('schemaReference', $refTableName));
 							$reference = NULL;
-							foreach ($refTableDefinition['columns'] as $c) {
+							foreach ($refTableDefinition['columns'] as $cName => $c) {
 								if ($c['type'] == 'CONNECTION_POINT') {
-									$reference = $c['gdName'];
+									$reference = !empty($c['gdName']) ? $c['gdName'] : $cName;
 									break;
 								}
 							}
@@ -737,14 +733,14 @@ class Configuration extends StorageApiConfiguration
 								$column->appendChild($xml->createElement('reference', $reference));
 							} else {
 								throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}' "
-									. "of column '{$columnDefinition['name']}' does not have connection point");
+									. "of column '{$columnName}' does not have connection point");
 							}
 						} else {
 							throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}' "
-								. " of column '{$columnDefinition['name']}' does not exist");
+								. " of column '{$columnName}' does not exist");
 						}
 					} else {
-						throw new WrongConfigurationException("Schema reference of column '{$columnDefinition['name']}' is empty");
+						throw new WrongConfigurationException("Schema reference of column '{$columnName}' is empty");
 					}
 
 					break;
@@ -1301,62 +1297,64 @@ class Configuration extends StorageApiConfiguration
 	{
 		if (!$this->_storageApiClient->tableExists($this->bucketId . '.' . self::DATA_SETS_TABLE_NAME)) {
 			$this->_createConfigTable(self::DATA_SETS_TABLE_NAME);
-		}
 
-		foreach ($this->_storageApiClient->listTables($this->bucketId) as $table) {
-			if ($table['name'] == 'dateDimensions') {
-				if (!$this->_storageApiClient->tableExists($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME)) {
-					$this->_createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
-					$data = array();
-					foreach ($this->_fetchTableRows($table['id']) as $row) {
-						$data[] = array('name' => $row['name'], 'includeTime' => $row['includeTime']);
-					}
-					$this->_updateConfigTable(self::DATE_DIMENSIONS_TABLE_NAME, $data, false);
-					$this->_storageApiClient->dropTable($table['id']);
-				}
-			}
-			if (!in_array($table['name'], array_keys(self::$_tables))) {
-				$configTable = $this->_storageApiClient->getTable($table['id']);
-				$dataSetRow = array(
-					'id' => null,
-					'name' => null,
-					'export' => null,
-					'isExported' => null,
-					'lastChangeDate' => null,
-					'incrementalLoad' => null,
-					'ignoreFilter' => null,
-					'definition' => null
-				);
-				if (count($configTable['attributes'])) foreach ($configTable['attributes'] as $attribute) {
-					if ($attribute['name'] == 'tableId') {
-						$dataSetRow['id'] = $attribute['value'];
-					}
-					if ($attribute['name'] == 'gdName') {
-						$dataSetRow['name'] = $attribute['value'];
-					}
-					if ($attribute['name'] == 'export') {
-						$dataSetRow['export'] = empty($attribute['value']) ? 0 : 1;
-					}
-					if ($attribute['name'] == 'lastExportDate') {
-						$dataSetRow['isExported'] = empty($attribute['value']) ? 0 : 1;
-					}
-					if ($attribute['name'] == 'lastChangeDate') {
-						$dataSetRow['lastChangeDate'] = $attribute['value'];
-					}
-					if ($attribute['name'] == 'incrementalLoad') {
-						$dataSetRow['incrementalLoad'] = (int)$attribute['value'];
-					}
-					if ($attribute['name'] == 'ignoreFilter') {
-						$dataSetRow['ignoreFilter'] = empty($attribute['value']) ? 0 : 1;
+			foreach ($this->_storageApiClient->listTables($this->bucketId) as $table) {
+				if ($table['name'] == 'dateDimensions') {
+					if (!$this->_storageApiClient->tableExists($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME)) {
+						$this->_createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
+						$data = array();
+						foreach ($this->_fetchTableRows($table['id']) as $row) {
+							$data[] = array('name' => $row['name'], 'includeTime' => $row['includeTime']);
+						}
+						$this->_updateConfigTable(self::DATE_DIMENSIONS_TABLE_NAME, $data, false);
+						//@TODO $this->_storageApiClient->dropTable($table['id']);
 					}
 				}
-				$columns = array();
-				foreach ($this->_fetchTableRows($table['id']) as $colDef) {
-					$columns[] = $this->_cleanColumnDefinition($colDef);
+				if (!in_array($table['name'], array_keys(self::$_tables)) && $table['name'] != 'dateDimensions') {
+					$configTable = $this->_storageApiClient->getTable($table['id']);
+					$dataSetRow = array(
+						'id' => null,
+						'name' => null,
+						'export' => null,
+						'isExported' => null,
+						'lastChangeDate' => null,
+						'incrementalLoad' => null,
+						'ignoreFilter' => null,
+						'definition' => null
+					);
+					if (count($configTable['attributes'])) foreach ($configTable['attributes'] as $attribute) {
+						if ($attribute['name'] == 'tableId') {
+							$dataSetRow['id'] = $attribute['value'];
+						}
+						if ($attribute['name'] == 'gdName') {
+							$dataSetRow['name'] = $attribute['value'];
+						}
+						if ($attribute['name'] == 'export') {
+							$dataSetRow['export'] = empty($attribute['value']) ? 0 : 1;
+						}
+						if ($attribute['name'] == 'lastExportDate') {
+							$dataSetRow['isExported'] = empty($attribute['value']) ? 0 : 1;
+						}
+						if ($attribute['name'] == 'lastChangeDate') {
+							$dataSetRow['lastChangeDate'] = $attribute['value'];
+						}
+						if ($attribute['name'] == 'incrementalLoad') {
+							$dataSetRow['incrementalLoad'] = (int)$attribute['value'];
+						}
+						if ($attribute['name'] == 'ignoreFilter') {
+							$dataSetRow['ignoreFilter'] = empty($attribute['value']) ? 0 : 1;
+						}
+					}
+					$columns = array();
+					foreach ($this->_fetchTableRows($table['id']) as $colDef) {
+						$colName = $colDef['name'];
+						unset($colDef['name']);
+						$columns[$colName] = $this->_cleanColumnDefinition($colDef);
+					}
+					$dataSetRow['definition'] = json_encode($columns);
+					$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $dataSetRow);
+					//@TODO $this->_storageApiClient->dropTable($table['id']);
 				}
-				$dataSetRow['definition'] = json_encode($columns);
-				$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $dataSetRow);
-				$this->_storageApiClient->dropTable($table['id']);
 			}
 		}
 	}
