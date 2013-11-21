@@ -140,10 +140,20 @@ class Configuration extends StorageApiConfiguration
 		}
 
 		// Init the cache
-		self::$_cache = self::$_emptyCache;
+		$this->initCache();
 	}
 
+	/**
+	 * Init and empty cache
+	 *
+	 * @return bool
+	 */
+	private function initCache()
+	{
+		self::$_cache = self::$_emptyCache;
 
+		return $this;
+	}
 
 	/**
 	 * Find configuration bucket for writerId
@@ -909,26 +919,29 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function removeProjectUserAdd($pid, $email)
 	{
-		$data = array();
+		$this->initCache();
+		$filter = array();
 		foreach ($this->getProjectUsers() as $projectUser) {
 			if (isset($projectUser['main']))
 				continue;
 
 			if ($projectUser['pid'] == $pid && $projectUser['email'] == $email && $projectUser['action'] == 'add')
-				continue;
-
-			$data[] = $projectUser;
+				$filter[] = $projectUser['id'];
 		}
 
-		//@FIXME do storage api ukladat jen zmenu, ne to same!!
+		if (!$filter)
+			return;
 
-		$table = new StorageApiTable($this->_storageApiClient, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
-		$table->setHeader(array('id', 'pid', 'email', 'role', 'action'));
-		$table->setFromArray($data);
-		$table->setIncremental(false);
-		$table->save();
+		$this->_storageApiClient->deleteTableRows(
+			$this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME,
+			array(
+				'whereColumn' => 'id',
+				'whereValues' => $filter,
+			)
+		);
 
 		$this->_projectUsers = null;
+		$this->initCache();
 	}
 
 	/**
@@ -937,26 +950,29 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function removeProjectUserInvite($pid, $email)
 	{
-		$data = array();
+		$this->initCache();
+		$filter = array();
 		foreach ($this->getProjectUsers() as $projectUser) {
 			if (isset($projectUser['main']))
 				continue;
 
 			if ($projectUser['pid'] == $pid && $projectUser['email'] == $email && $projectUser['action'] == 'invite')
-				continue;
-
-			$data[] = $projectUser;
+				$filter[] = $projectUser['id'];
 		}
 
-		//@FIXME do storage api ukladat jen zmenu, ne to same!!
+		if (!$filter)
+			return;
 
-		$table = new StorageApiTable($this->_storageApiClient, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
-		$table->setHeader(array('id', 'pid', 'email', 'role', 'action'));
-		$table->setFromArray($data);
-		$table->setIncremental(false);
-		$table->save();
+		$this->_storageApiClient->deleteTableRows(
+			$this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME,
+			array(
+				'whereColumn' => 'id',
+				'whereValues' => $filter,
+			)
+		);
 
 		$this->_projectUsers = null;
+		$this->initCache();
 	}
 
 	/**
