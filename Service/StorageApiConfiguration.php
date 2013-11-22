@@ -33,6 +33,7 @@ abstract class StorageApiConfiguration
 	 */
 	protected static $_tablesConfiguration;
 	protected static $_tables;
+	protected static $_sapiCache = array();
 
 
 	/**
@@ -59,8 +60,7 @@ abstract class StorageApiConfiguration
 		if (count($options)) {
 			$exportOptions = array_merge($exportOptions, $options);
 		}
-		$csv = $this->_storageApiClient->exportTable($tableId, null, $exportOptions);
-		return StorageApiClient::parseCsv($csv, true);
+		return $this->sapi_exportTable($tableId, $exportOptions);
 	}
 
 	/**
@@ -203,7 +203,7 @@ abstract class StorageApiConfiguration
 	 * @param $tableName
 	 * @return array|bool
 	 */
-	public function getConfigTable($tableName)
+	protected function _getConfigTable($tableName)
 	{
 		if (!isset(self::$_tables[$tableName])) return false;
 
@@ -217,5 +217,59 @@ abstract class StorageApiConfiguration
 		}
 
 		return $table;
+	}
+
+
+
+	/********************
+	 ********************
+	 * @section SAPI cache
+	 * @TODO move somewhere else (maybe create subclass of SAPI client)
+	 ********************/
+
+	public static function sapi_listBuckets($storageApi)
+	{
+		$cacheKey = 'listBuckets';
+		if (!isset(self::$_sapiCache[$cacheKey])) {
+			self::$_sapiCache[$cacheKey] = $storageApi->listBuckets();
+		}
+		return self::$_sapiCache[$cacheKey];
+	}
+
+	public function sapi_listTables($bucketId)
+	{
+		$cacheKey = 'listTables.' . $bucketId;
+		if (!isset(self::$_sapiCache[$cacheKey])) {
+			self::$_sapiCache[$cacheKey] = $this->_storageApiClient->listTables($bucketId);
+		}
+		return self::$_sapiCache[$cacheKey];
+	}
+
+	public function sapi_getTable($tableId)
+	{
+		$cacheKey = 'getTable.' . $tableId;
+		if (!isset(self::$_sapiCache[$cacheKey])) {
+			self::$_sapiCache[$cacheKey] = $this->_storageApiClient->getTable($tableId);
+		}
+		return self::$_sapiCache[$cacheKey];
+	}
+
+	public function sapi_tableExists($tableId)
+	{
+		$cacheKey = 'tableExists.' . $tableId;
+		if (!isset(self::$_sapiCache[$cacheKey])) {
+			self::$_sapiCache[$cacheKey] = $this->_storageApiClient->tableExists($tableId);
+		}
+		return self::$_sapiCache[$cacheKey];
+	}
+
+	public function sapi_exportTable($tableId, $options)
+	{
+		$cacheKey = 'exportTable.' . $tableId . '.' . implode('.', $options);
+		if (!isset(self::$_sapiCache[$cacheKey])) {
+			$csv = $this->_storageApiClient->exportTable($tableId, null, $options);
+			self::$_sapiCache[$cacheKey] = StorageApiClient::parseCsv($csv, true);
+		}
+		return self::$_sapiCache[$cacheKey];
 	}
 }

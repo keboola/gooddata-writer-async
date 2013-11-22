@@ -76,6 +76,7 @@ class Configuration extends StorageApiConfiguration
 	);
 
 
+
 	/**
 	 * @var array|string
 	 */
@@ -120,6 +121,7 @@ class Configuration extends StorageApiConfiguration
 		}
 
 		self::$_tables = self::$_tablesConfiguration;
+		self::$_sapiCache = array();
 
 		//@TODO remove
 		if ($this->bucketId && $this->_storageApiClient->bucketExists($this->bucketId)) {
@@ -158,7 +160,7 @@ class Configuration extends StorageApiConfiguration
 	public static function getWriters($storageApi)
 	{
 		$writers = array();
-		foreach ($storageApi->listBuckets() as $bucket) {
+		foreach (self::sapi_listBuckets($storageApi) as $bucket) {
 			$writerId = false;
 			$foundWriterType = false;
 			if (isset($bucket['attributes']) && is_array($bucket['attributes'])) foreach($bucket['attributes'] as $attribute) {
@@ -240,7 +242,7 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function deleteWriter()
 	{
-		foreach ($this->_storageApiClient->listTables($this->bucketId) as $table) {
+		foreach ($this->sapi_listTables($this->bucketId) as $table) {
 			$this->_storageApiClient->dropTable($table['id']);
 		}
 		$this->_storageApiClient->dropBucket($this->bucketId);
@@ -261,9 +263,9 @@ class Configuration extends StorageApiConfiguration
 	public function getOutputSapiTables()
 	{
 		$result = array();
-		foreach ($this->_storageApiClient->listBuckets() as $bucket) {
+		foreach (self::sapi_listBuckets($this->_storageApiClient) as $bucket) {
 			if (substr($bucket['id'], 0, 3) == 'out') {
-				foreach ($this->_storageApiClient->listTables($bucket['id']) as $table) {
+				foreach ($this->sapi_listTables($bucket['id']) as $table) {
 					$result[] = $table['id'];
 				}
 			}
@@ -281,7 +283,7 @@ class Configuration extends StorageApiConfiguration
 	public function getSapiTable($tableId)
 	{
 		try {
-			return $this->_storageApiClient->getTable($tableId);
+			return $this->sapi_getTable($tableId);
 		} catch (ClientException $e) {
 			throw new WrongConfigurationException("Table '$tableId' does not exist or is not accessible with the SAPI token");
 		}
@@ -302,7 +304,7 @@ class Configuration extends StorageApiConfiguration
 	public function updateDataSetsFromSapi()
 	{
 		$tableId = $this->bucketId . '.' . self::DATA_SETS_TABLE_NAME;
-		if (!$this->_storageApiClient->tableExists($tableId)) {
+		if (!$this->sapi_tableExists($tableId)) {
 			$this->_createConfigTable(self::DATA_SETS_TABLE_NAME);
 		}
 
@@ -382,9 +384,8 @@ class Configuration extends StorageApiConfiguration
 	public function getDataSets()
 	{
 		$this->updateDataSetsFromSapi();
-
 		$tables = array();
-		foreach ($this->getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
+		foreach ($this->_getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
 			$tables[] = array(
 				'id' => $table['id'],
 				'bucket' => substr($table['id'], 0, strrpos($table['id'], '.')),
@@ -409,7 +410,7 @@ class Configuration extends StorageApiConfiguration
 		$this->updateDataSetsFromSapi();
 
 		$tables = array();
-		foreach ($this->getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
+		foreach ($this->_getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
 			$tables[$table['id']] = array(
 				'name' => $table['name'] ? $table['name'] : $table['id'],
 				'referenceable' => $this->dataSetHasConnectionPoint($table['id'])
@@ -596,7 +597,7 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function updateDataSetFromSapi($tableId)
 	{
-		if (!$this->_storageApiClient->tableExists($tableId)) {
+		if (!$this->sapi_tableExists($tableId)) {
 			throw new WrongConfigurationException("Table '$tableId' does not exist");
 		}
 
@@ -773,12 +774,12 @@ class Configuration extends StorageApiConfiguration
 		if ($usage) return $this->getDateDimensionsWithUsage();
 
 		$tableId = $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME;
-		if (!$this->_storageApiClient->tableExists($tableId)) {
+		if (!$this->sapi_tableExists($tableId)) {
 			$this->_createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
 			return array();
 		} else {
 			$data = array();
-			foreach ($this->getConfigTable(self::DATE_DIMENSIONS_TABLE_NAME) as $row) {
+			foreach ($this->_getConfigTable(self::DATE_DIMENSIONS_TABLE_NAME) as $row) {
 				$row['includeTime'] = (bool)$row['includeTime'];
 				$data[$row['name']] = $row;
 			}
@@ -882,7 +883,7 @@ class Configuration extends StorageApiConfiguration
 	public function checkProjectsTable()
 	{
 		$tableId = $this->bucketId . '.' . self::PROJECTS_TABLE_NAME;
-		if ($this->_storageApiClient->tableExists($tableId)) {
+		if ($this->sapi_tableExists($tableId)) {
 			$table = $this->getSapiTable($tableId);
 			self::_checkConfigTable(self::PROJECTS_TABLE_NAME, $table['columns']);
 		}
@@ -948,7 +949,7 @@ class Configuration extends StorageApiConfiguration
 	public function checkUsersTable()
 	{
 		$tableId = $this->bucketId . '.' . self::USERS_TABLE_NAME;
-		if ($this->_storageApiClient->tableExists($tableId)) {
+		if ($this->sapi_tableExists($tableId)) {
 			$table = $this->getSapiTable($tableId);
 			self::_checkConfigTable(self::USERS_TABLE_NAME, $table['columns']);
 		}
@@ -997,7 +998,7 @@ class Configuration extends StorageApiConfiguration
 	public function checkProjectUsersTable()
 	{
 		$tableId = $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME;
-		if ($this->_storageApiClient->tableExists($tableId)) {
+		if ($this->sapi_tableExists($tableId)) {
 			$table = $this->getSapiTable($tableId);
 			self::_checkConfigTable(self::PROJECT_USERS_TABLE_NAME, $table['columns']);
 		}
@@ -1295,12 +1296,12 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function migrateConfiguration()
 	{
-		if (!$this->_storageApiClient->tableExists($this->bucketId . '.' . self::DATA_SETS_TABLE_NAME)) {
+		if (!$this->sapi_tableExists($this->bucketId . '.' . self::DATA_SETS_TABLE_NAME)) {
 			$this->_createConfigTable(self::DATA_SETS_TABLE_NAME);
 
-			foreach ($this->_storageApiClient->listTables($this->bucketId) as $table) {
+			foreach ($this->sapi_listTables($this->bucketId) as $table) {
 				if ($table['name'] == 'dateDimensions') {
-					if (!$this->_storageApiClient->tableExists($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME)) {
+					if (!$this->sapi_tableExists($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME)) {
 						$this->_createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
 						$data = array();
 						foreach ($this->_fetchTableRows($table['id']) as $row) {
@@ -1311,7 +1312,7 @@ class Configuration extends StorageApiConfiguration
 					}
 				}
 				if (!in_array($table['name'], array_keys(self::$_tables)) && $table['name'] != 'dateDimensions') {
-					$configTable = $this->_storageApiClient->getTable($table['id']);
+					$configTable = $this->getSapiTable($table['id']);
 					$dataSetRow = array(
 						'id' => null,
 						'name' => null,
