@@ -311,22 +311,28 @@ class Configuration extends StorageApiConfiguration
 		$outputTables = $this->getOutputSapiTables();
 		$configuredTables = array();
 		// Remove tables that does not exist from configuration
+		$delete = array();
 		foreach ($this->_fetchTableRows($tableId) as $row) {
 			if (!in_array($row['id'], $outputTables)) {
-				$this->_deleteTableRow($tableId, 'id', $row['id']);
+				$delete[] = $row['id'];
 			}
 			if (!in_array($row['id'], $configuredTables)) {
 				$configuredTables[] = $row['id'];
 			}
 		}
+		if (count($delete)) {
+			$this->_deleteTableRows($tableId, 'id', $delete);
+		}
 
 		// Add tables without configuration
+		$add = array();
 		foreach ($outputTables as $tableId) {
 			if (!in_array($tableId, $configuredTables)) {
-				$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, array(
-					'id' => $tableId
-				));
+				$add[] = array('id' => $tableId);
 			}
+		}
+		if (count($add)) {
+			$this->_updateConfigTable(self::DATA_SETS_TABLE_NAME, $add);
 		}
 	}
 
@@ -854,7 +860,7 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getProjects()
 	{
-		$projects = self::getConfigTable(self::PROJECTS_TABLE_NAME);
+		$projects = self::_getConfigTable(self::PROJECTS_TABLE_NAME);
 		if (isset($this->bucketInfo['gd']['pid'])) {
 			array_unshift($projects, array('pid' => $this->bucketInfo['gd']['pid'], 'active' => true, 'main' => true));
 		}
@@ -917,7 +923,7 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getUsers()
 	{
-		$users = self::getConfigTable(self::USERS_TABLE_NAME);
+		$users = self::_getConfigTable(self::USERS_TABLE_NAME);
 		if (isset($this->bucketInfo['gd']['username']) && isset($this->bucketInfo['gd']['uid'])) {
 			array_unshift($users, array(
 				'email' => $this->bucketInfo['gd']['username'],
@@ -963,7 +969,7 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getProjectUsers($pid = null)
 	{
-		$projectUsers = self::getConfigTable(self::PROJECT_USERS_TABLE_NAME);
+		$projectUsers = self::_getConfigTable(self::PROJECT_USERS_TABLE_NAME);
 		if (!count($projectUsers) && isset($this->bucketInfo['gd']['pid']) && isset($this->bucketInfo['gd']['username'])) {
 			array_unshift($projectUsers, array(
 				'id' => 0,
@@ -1090,7 +1096,7 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getFilters()
 	{
-		return self::getConfigTable(self::FILTERS_TABLE_NAME);
+		return self::_getConfigTable(self::FILTERS_TABLE_NAME);
 	}
 
 
@@ -1099,7 +1105,7 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getFiltersUsers()
 	{
-		return self::getConfigTable(self::FILTERS_USERS_TABLE_NAME);
+		return self::_getConfigTable(self::FILTERS_USERS_TABLE_NAME);
 	}
 
 	/**
@@ -1107,7 +1113,7 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getFiltersProjects()
 	{
-		return self::getConfigTable(self::FILTERS_PROJECTS_TABLE_NAME);
+		return self::_getConfigTable(self::FILTERS_PROJECTS_TABLE_NAME);
 	}
 
 	/**

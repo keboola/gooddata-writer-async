@@ -70,9 +70,19 @@ abstract class StorageApiConfiguration
 	 */
 	protected function _deleteTableRow($tableId, $whereColumn, $whereValue)
 	{
+		$this->_deleteTableRows($tableId, $whereColumn, array($whereValue));
+	}
+
+	/**
+	 * @param $tableId
+	 * @param $whereColumn
+	 * @param array $whereValues
+	 */
+	protected function _deleteTableRows($tableId, $whereColumn, $whereValues)
+	{
 		$options = array(
 			'whereColumn' => $whereColumn,
-			'whereValues' => array($whereValue)
+			'whereValues' => $whereValues
 		);
 		$this->_storageApiClient->deleteTableRows($tableId, $options);
 	}
@@ -263,9 +273,16 @@ abstract class StorageApiConfiguration
 		return self::$_sapiCache[$cacheKey];
 	}
 
-	public function sapi_exportTable($tableId, $options)
+	public function sapi_exportTable($tableId, $options = array())
 	{
-		$cacheKey = 'exportTable.' . $tableId . '.' . implode('.', $options);
+		$cacheKey = 'exportTable.' . $tableId;
+		if (count($options)) {
+			$keyOptions = $options;
+			if (isset($keyOptions['whereValues']) && count($keyOptions['whereValues'])) {
+				$keyOptions['whereValues'] = implode('.', $keyOptions['whereValues']);
+			}
+			$cacheKey .=  '.' . implode(':', array_keys($keyOptions)) . '.' . implode(':', array_values($keyOptions));
+		}
 		if (!isset(self::$_sapiCache[$cacheKey])) {
 			$csv = $this->_storageApiClient->exportTable($tableId, null, $options);
 			self::$_sapiCache[$cacheKey] = StorageApiClient::parseCsv($csv, true);
