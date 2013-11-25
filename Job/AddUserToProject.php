@@ -21,9 +21,9 @@ class AddUserToProject extends AbstractJob
 	 */
 	public function run($job, $params)
 	{
-		if (empty($params['pid'])) {
-			throw new WrongConfigurationException("Parameter 'pid' is missing");
-		}
+//		if (empty($params['pid'])) {
+//			throw new WrongConfigurationException("Parameter 'pid' is missing");
+//		}
 		if (empty($params['email'])) {
 			throw new WrongConfigurationException("Parameter 'email' is missing");
 		}
@@ -35,30 +35,64 @@ class AddUserToProject extends AbstractJob
 			throw new WrongConfigurationException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
 		}
 
+		$this->configuration->checkGoodDataSetup();
+
+		if (empty($params['pid'])) {
+			if (empty($this->configuration->bucketInfo['gd']['pid'])) {
+				throw new WrongConfigurationException("Parameter 'pid' is missing and writer does not have primary project");
+			}
+			$params['pid'] = $this->configuration->bucketInfo['gd']['pid'];
+		}
+
 		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 
 		$gdWriteStartTime = date('c');
 		try {
+			$userId = null;
+
 			// Get user uri
 			$user = $this->configuration->getUser($params['email']);
-			if (!$user) {
-				throw new WrongConfigurationException("User is missing from configuration");
-			}
 
-			if ($user['uid']) {
+			if ($user && $user['uid']) {
+				// user created by writer
 				$userId = $user['uid'];
 			} else {
 				$userId = $this->restApi->userId($params['email'], $this->mainConfig['gd']['domain']);
-				$this->configuration->saveUser($params['email'], $userId);
-				if (!$userId) {
-					throw new WrongConfigurationException(sprintf("User '%s' does not exist in domain", $params['email']));
+				if ($userId) {
+					// user in domain
+					$this->configuration->saveUser($params['email'], $userId);
 				}
 			}
 
-			$this->restApi->addUserToProject($userId, $params['pid'], RestApi::$userRoles[$params['role']]);
+			if (!$userId) {
+				if (!empty($params['createUser'])) {
+					// try create new user in domain
+					$childJob = new CreateUser($this->configuration, $this->mainConfig, $this->sharedConfig, $this->restApi, $this->s3Client);
 
-			$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role']);
+					$childParams = array(
+						'email' => $params['email'],
+						'firstName' => 'KBC',
+						'lastName' => $params['email'],
+						'password' => md5(uniqid() . str_repeat($params['email'], 2)),
+					);
 
+					$result = $childJob->run($job, $childParams);
+					if (empty($result['status'])) $result['status'] = 'success';
+
+					if ($result['status'] == 'success')
+						$userId = $result['uid'];
+				}
+			}
+
+			if ($userId) {
+				$this->restApi->addUserToProject($userId, $params['pid'], RestApi::$userRoles[$params['role']]);
+
+				$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role']);
+			} else {
+				$this->restApi->inviteUserToProject($params['email'], $params['pid'], RestApi::$userRoles[$params['role']]);
+
+				$this->configuration->saveProjectInvite($params['pid'], $params['email'], $params['role']);
+			}
 
 			return $this->_prepareResult($job['id'], array(
 				'gdWriteStartTime' => $gdWriteStartTime

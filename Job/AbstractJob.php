@@ -42,7 +42,6 @@ abstract class AbstractJob
 	 */
 	public $log;
 
-
 	public function __construct($configuration, $mainConfig, $sharedConfig, $restApi, $s3Client)
 	{
 		$this->configuration = $configuration;
