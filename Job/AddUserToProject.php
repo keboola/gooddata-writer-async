@@ -21,9 +21,9 @@ class AddUserToProject extends AbstractJob
 	 */
 	public function run($job, $params)
 	{
-		if (empty($params['pid'])) {
-			throw new WrongConfigurationException("Parameter 'pid' is missing");
-		}
+//		if (empty($params['pid'])) {
+//			throw new WrongConfigurationException("Parameter 'pid' is missing");
+//		}
 		if (empty($params['email'])) {
 			throw new WrongConfigurationException("Parameter 'email' is missing");
 		}
@@ -37,12 +37,12 @@ class AddUserToProject extends AbstractJob
 
 		$this->configuration->checkGoodDataSetup();
 
-//		if (empty($params['pid'])) {
-//			if (empty($this->configuration->bucketInfo['gd']['pid'])) {
-//				throw new WrongConfigurationException("Parameter 'pid' is missing and writer does not have primary project");
-//			}
-//			$params['pid'] = $this->configuration->bucketInfo['gd']['pid'];
-//		}
+		if (empty($params['pid'])) {
+			if (empty($this->configuration->bucketInfo['gd']['pid'])) {
+				throw new WrongConfigurationException("Parameter 'pid' is missing and writer does not have primary project");
+			}
+			$params['pid'] = $this->configuration->bucketInfo['gd']['pid'];
+		}
 
 		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 

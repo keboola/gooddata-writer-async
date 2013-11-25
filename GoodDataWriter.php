@@ -183,7 +183,7 @@ class GoodDataWriter extends Component
 			foreach ($users as $user) {
 				$this->_createJob(array(
 					'batchId' => $batchId,
-					'command' => 'inviteUserToProject',
+					'command' => 'addUserToProject',
 					'createdTime' => date('c', $createdTime),
 					'parameters' => array(
 						'email' => $user,
