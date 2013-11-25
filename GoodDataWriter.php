@@ -67,7 +67,7 @@ class GoodDataWriter extends Component
 		}
 
 		if (isset($params['queue']) && !in_array($params['queue'], array(SharedConfig::PRIMARY_QUEUE, SharedConfig::SECONDARY_QUEUE))) {
-			throw new WrongParametersException('Wrong parameter \'queue\'. Must be one of: primary, secondary');
+			throw new WrongParametersException('Wrong parameter \'queue\'. Must be one of: ' . SharedConfig::PRIMARY_QUEUE . ', ' . SharedConfig::SECONDARY_QUEUE);
 		}
 
 		// Init main temp directory
