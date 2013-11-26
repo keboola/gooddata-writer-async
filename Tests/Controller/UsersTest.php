@@ -16,7 +16,8 @@ class UsersTest extends AbstractControllerTest
 		$user = $this->_createUser();
 
 		// Check of GoodData
-		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		$bucketInfo = self::$configuration->bucketInfo();
+		self::$restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
 		$userInfo = self::$restApi->getUser($user['uid']);
 		$this->assertArrayHasKey('accountSetting', $userInfo, "Response for GoodData API user call should contain 'accountSetting' key.");
 
@@ -50,7 +51,8 @@ class UsersTest extends AbstractControllerTest
 		));
 
 		// Check GoodData
-		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		$bucketInfo = self::$configuration->bucketInfo();
+		self::$restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
 		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/users');
 		$this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");
 		$this->assertCount(3, $userProjectsInfo['users'], "Response for GoodData API project users call should return three users.");
@@ -94,7 +96,8 @@ class UsersTest extends AbstractControllerTest
 		));
 
 		// Check GoodData
-		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
+		$bucketInfo = self::$configuration->bucketInfo();
+		self::$restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
 		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/invitations');
 		$this->assertArrayHasKey('invitations', $userProjectsInfo, "Response for GoodData API project invitations call should contain 'invitations' key.");
 		$this->assertGreaterThanOrEqual(1, $userProjectsInfo['invitations'], "Response for GoodData API project invitations call should return at least one invitation.");

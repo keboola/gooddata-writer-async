@@ -40,7 +40,8 @@ class FiltersTest extends AbstractControllerTest
 
 	public function testCreateFilter()
 	{
-		$pid = self::$configuration->bucketInfo['gd']['pid'];
+		$bucketInfo = self::$configuration->bucketInfo();
+		$pid = $bucketInfo['gd']['pid'];
 
 		// Upload data
 		$this->_prepareData();
@@ -53,8 +54,8 @@ class FiltersTest extends AbstractControllerTest
 		$this->assertCount(1, $filterList);
 
 		self::$restApi->setCredentials(
-			self::$configuration->bucketInfo['gd']['username'],
-			self::$configuration->bucketInfo['gd']['password']
+			$bucketInfo['gd']['username'],
+			$bucketInfo['gd']['password']
 		);
 		$gdFilters = self::$restApi->getFilters($pid);
 		$gdFilter = $gdFilters[0];
@@ -63,7 +64,8 @@ class FiltersTest extends AbstractControllerTest
 
 	public function testAssignFilterToUser()
 	{
-		$pid = self::$configuration->bucketInfo['gd']['pid'];
+		$bucketInfo = self::$configuration->bucketInfo();
+		$pid = $bucketInfo['gd']['pid'];
 
 		// Upload data
 		$this->_prepareData();
@@ -79,7 +81,8 @@ class FiltersTest extends AbstractControllerTest
 
 	public function testSyncFilter()
 	{
-		$pid = self::$configuration->bucketInfo['gd']['pid'];
+		$bucketInfo = self::$configuration->bucketInfo();
+		$pid = $bucketInfo['gd']['pid'];
 
 		// Upload data
 		$this->_prepareData();
@@ -97,8 +100,8 @@ class FiltersTest extends AbstractControllerTest
 		$filterList = self::$configuration->getFilters();
 
 		self::$restApi->setCredentials(
-			self::$configuration->bucketInfo['gd']['username'],
-			self::$configuration->bucketInfo['gd']['password']
+			$bucketInfo['gd']['username'],
+			$bucketInfo['gd']['password']
 		);
 		$gdFilters = self::$restApi->getFilters($pid);
 		$gdFilter = $gdFilters[0];
@@ -107,7 +110,8 @@ class FiltersTest extends AbstractControllerTest
 
 	public function testDeleteFilter()
 	{
-		$pid = self::$configuration->bucketInfo['gd']['pid'];
+		$bucketInfo = self::$configuration->bucketInfo();
+		$pid = $bucketInfo['gd']['pid'];
 
 		// Upload data
 		$this->_prepareData();
@@ -136,7 +140,8 @@ class FiltersTest extends AbstractControllerTest
 
 	public function testGetFilters()
 	{
-		$pid = self::$configuration->bucketInfo['gd']['pid'];
+		$bucketInfo = self::$configuration->bucketInfo();
+		$pid = $bucketInfo['gd']['pid'];
 
 		// Upload data
 		$this->_prepareData();

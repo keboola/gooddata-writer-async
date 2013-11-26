@@ -35,7 +35,8 @@ class ExecuteReports extends AbstractJob
 
 		$gdWriteStartTime = date('c');
 		try {
-			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+			$bucketInfo = $this->configuration->bucketInfo();
+			$this->restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
 			foreach ($pids as $pid) {
 				$reports = $this->restApi->get(sprintf('/gdc/md/%s/query/reports', $pid));
 				if (isset($reports['query']['entries'])) {

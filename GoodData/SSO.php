@@ -51,8 +51,9 @@ class SSO
 		);
 		file_put_contents($jsonFile, json_encode($signData));
 
-		shell_exec(sprintf('sudo -u root %s %s %s %s %s 2>&1',
-			self::SSO_SCRIPT_PATH, $this->passphrase, $jsonFile, $this->ssoUser, self::GOODDATA_EMAIL));
+		$command = sprintf('sudo -u root %s %s %s %s %s 2>&1',
+			self::SSO_SCRIPT_PATH, $this->passphrase, $jsonFile, $this->ssoUser, self::GOODDATA_EMAIL);echo $command . PHP_EOL;
+		shell_exec($command);
 		unlink($jsonFile);
 		if (file_exists($jsonFile . '.enc')) {
 			$sign = file_get_contents($jsonFile . '.enc');

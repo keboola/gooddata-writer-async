@@ -6,11 +6,6 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\StorageApi\Table as StorageApiTable,
-	Keboola\GoodDataWriter\Service\S3Client;
-use Guzzle\Http\Client;
 
 class JobsTest extends AbstractControllerTest
 {

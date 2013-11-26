@@ -30,24 +30,25 @@ class CloneProject extends AbstractJob
 			throw new WrongConfigurationException("Parameter pidSource is missing");
 		}
 		$this->configuration->checkBucketAttributes();
+		$bucketInfo = $this->configuration->bucketInfo();
 
 		$gdWriteStartTime = date('c');
 		try {
 			// Check access to source project
-			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$this->restApi->getProject($this->configuration->bucketInfo['gd']['pid']);
+			$this->restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
+			$this->restApi->getProject($bucketInfo['gd']['pid']);
 
 			$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 			// Get user uri if not set
-			if (empty($this->configuration->bucketInfo['gd']['uid'])) {
-				$userId = $this->restApi->userId($this->configuration->bucketInfo['gd']['username'], $this->mainConfig['gd']['domain']);
+			if (empty($bucketInfo['gd']['uid'])) {
+				$userId = $this->restApi->userId($bucketInfo['gd']['username'], $this->mainConfig['gd']['domain']);
 				$this->configuration->updateWriter('gd.uid', $userId);
-				$this->configuration->bucketInfo['gd']['uid'] = $userId;
+				$bucketInfo['gd']['uid'] = $userId;
 			}
 			$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
-			$this->restApi->cloneProject($this->configuration->bucketInfo['gd']['pid'], $projectPid,
+			$this->restApi->cloneProject($bucketInfo['gd']['pid'], $projectPid,
 				empty($params['includeData']) ? 0 : 1, empty($params['includeUsers']) ? 0 : 1);
-			$this->restApi->addUserToProject($this->configuration->bucketInfo['gd']['uid'], $projectPid);
+			$this->restApi->addUserToProject($bucketInfo['gd']['uid'], $projectPid);
 
 			$this->configuration->saveProject($projectPid);
 			$this->sharedConfig->saveProject($projectPid, $params['accessToken'], $this->restApi->apiUrl, $job);

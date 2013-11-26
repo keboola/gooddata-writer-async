@@ -6,9 +6,9 @@
 
 namespace Keboola\GoodDataWriter\Service;
 
-use Aws\Common\Facade\ElasticBeanstalk;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\StorageApi\Client as StorageApiClient,
+use Keboola\StorageApi\Config\Reader,
+	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable;
 
 abstract class StorageApiConfiguration
@@ -31,15 +31,20 @@ abstract class StorageApiConfiguration
 	 * )
 	 * @var array
 	 */
-	protected static $_tablesConfiguration;
-	protected static $_tables;
-	protected static $_sapiCache = array();
+	protected $_tables;
+	protected $_sapiCache = array();
 
 
 	/**
 	 * @var string
 	 */
 	public $bucketId;
+	
+	
+	public function __construct($storageApiClient)
+	{
+		$this->_storageApiClient = $storageApiClient;
+	}
 
 	/**
 	 * @param $tableId
@@ -153,57 +158,57 @@ abstract class StorageApiConfiguration
 
 	protected function _createConfigTable($tableName)
 	{
-		if (!isset(self::$_tables[$tableName])) return false;
+		if (!isset($this->_tables[$tableName])) return false;
 
 		return $this->_createTable(
 			$this->bucketId . '.' . $tableName,
-			self::$_tables[$tableName]['primaryKey'],
-			self::$_tables[$tableName]['columns'],
-			self::$_tables[$tableName]['indices']);
+			$this->_tables[$tableName]['primaryKey'],
+			$this->_tables[$tableName]['columns'],
+			$this->_tables[$tableName]['indices']);
 	}
 
 	protected function _updateConfigTable($tableName, $data, $incremental = true)
 	{
-		if (!isset(self::$_tables[$tableName])) return false;
+		if (!isset($this->_tables[$tableName])) return false;
 
 		return $this->_saveTable(
 			$this->bucketId . '.' . $tableName,
-			self::$_tables[$tableName]['primaryKey'],
-			self::$_tables[$tableName]['columns'],
+			$this->_tables[$tableName]['primaryKey'],
+			$this->_tables[$tableName]['columns'],
 			$data,
 			$incremental,
 			true,
-			self::$_tables[$tableName]['indices']
+			$this->_tables[$tableName]['indices']
 		);
 	}
 
 	protected function _updateConfigTableRow($tableName, $data)
 	{
-		if (!isset(self::$_tables[$tableName])) return false;
+		if (!isset($this->_tables[$tableName])) return false;
 
 		return $this->_updateTableRow(
 			$this->bucketId . '.' . $tableName,
-			self::$_tables[$tableName]['primaryKey'],
+			$this->_tables[$tableName]['primaryKey'],
 			$data,
-			self::$_tables[$tableName]['indices']
+			$this->_tables[$tableName]['indices']
 		);
 	}
 
 	protected function _getConfigTableRow($tableName, $id)
 	{
-		if (!isset(self::$_tables[$tableName])) return false;
+		if (!isset($this->_tables[$tableName])) return false;
 
-		$result = $this->_fetchTableRows($this->bucketId . '.' . $tableName, self::$_tables[$tableName]['primaryKey'], $id);
+		$result = $this->_fetchTableRows($this->bucketId . '.' . $tableName, $this->_tables[$tableName]['primaryKey'], $id);
 		return count($result) ? current($result) : false;
 	}
 
-	protected static function _checkConfigTable($tableName, $columns)
+	protected function _checkConfigTable($tableName, $columns)
 	{
-		if (!isset(self::$_tables[$tableName])) return false;
+		if (!isset($this->_tables[$tableName])) return false;
 
-		if ($columns != self::$_tables[$tableName]['columns']) {
+		if ($columns != $this->_tables[$tableName]['columns']) {
 			throw new WrongConfigurationException(sprintf("Table '%s' appears to be wrongly configured. Contains columns: '%s' but should contain columns: '%s'",
-				$tableName, implode(',', $columns), implode(',', self::$_tables[$tableName]['columns'])));
+				$tableName, implode(',', $columns), implode(',', $this->_tables[$tableName]['columns'])));
 		}
 
 		return true;
@@ -215,7 +220,7 @@ abstract class StorageApiConfiguration
 	 */
 	protected function _getConfigTable($tableName)
 	{
-		if (!isset(self::$_tables[$tableName])) return false;
+		if (!isset($this->_tables[$tableName])) return false;
 
 		$tableId = $this->bucketId . '.' . $tableName;
 		if (!$this->_storageApiClient->tableExists($tableId)) {
@@ -223,10 +228,16 @@ abstract class StorageApiConfiguration
 		}
 		$table = $this->_fetchTableRows($tableId);
 		if (count($table)) {
-			self::_checkConfigTable($tableName, array_keys(current($table)));
+			$this->_checkConfigTable($tableName, array_keys(current($table)));
 		}
 
 		return $table;
+	}
+
+
+	public function bucketInfo()
+	{
+		return $this->sapi_bucketInfo($this->bucketId);
 	}
 
 
@@ -237,40 +248,51 @@ abstract class StorageApiConfiguration
 	 * @TODO move somewhere else (maybe create subclass of SAPI client)
 	 ********************/
 
-	public static function sapi_listBuckets($storageApi)
+
+	public function sapi_listBuckets()
 	{
 		$cacheKey = 'listBuckets';
-		if (!isset(self::$_sapiCache[$cacheKey])) {
-			self::$_sapiCache[$cacheKey] = $storageApi->listBuckets();
-		}
-		return self::$_sapiCache[$cacheKey];
+		//if (!isset($this->_sapiCache[$cacheKey])) {
+			$this->_sapiCache[$cacheKey] = $this->_storageApiClient->listBuckets();
+		//}
+		return $this->_sapiCache[$cacheKey];
+	}
+
+	public function sapi_bucketInfo($bucketId)
+	{
+		$cacheKey = 'bucketInfo.' . $bucketId;
+		//if (!isset($this->_sapiCache[$cacheKey])) {
+			Reader::$client = $this->_storageApiClient;
+			$this->_sapiCache[$cacheKey] = Reader::read($this->bucketId, null, false);
+		//}
+		return $this->_sapiCache[$cacheKey];
 	}
 
 	public function sapi_listTables($bucketId)
 	{
 		$cacheKey = 'listTables.' . $bucketId;
-		if (!isset(self::$_sapiCache[$cacheKey])) {
-			self::$_sapiCache[$cacheKey] = $this->_storageApiClient->listTables($bucketId);
-		}
-		return self::$_sapiCache[$cacheKey];
+		//if (!isset($this->_sapiCache[$cacheKey])) {
+			$this->_sapiCache[$cacheKey] = $this->_storageApiClient->listTables($bucketId);
+		//}
+		return $this->_sapiCache[$cacheKey];
 	}
 
 	public function sapi_getTable($tableId)
 	{
 		$cacheKey = 'getTable.' . $tableId;
-		if (!isset(self::$_sapiCache[$cacheKey])) {
-			self::$_sapiCache[$cacheKey] = $this->_storageApiClient->getTable($tableId);
-		}
-		return self::$_sapiCache[$cacheKey];
+		//if (!isset($this->_sapiCache[$cacheKey])) {
+			$this->_sapiCache[$cacheKey] = $this->_storageApiClient->getTable($tableId);
+		//}
+		return $this->_sapiCache[$cacheKey];
 	}
 
 	public function sapi_tableExists($tableId)
 	{
 		$cacheKey = 'tableExists.' . $tableId;
-		if (!isset(self::$_sapiCache[$cacheKey])) {
-			self::$_sapiCache[$cacheKey] = $this->_storageApiClient->tableExists($tableId);
-		}
-		return self::$_sapiCache[$cacheKey];
+		//if (!isset($this->_sapiCache[$cacheKey])) {
+			$this->_sapiCache[$cacheKey] = $this->_storageApiClient->tableExists($tableId);
+		//}
+		return $this->_sapiCache[$cacheKey];
 	}
 
 	public function sapi_exportTable($tableId, $options = array())
@@ -283,10 +305,10 @@ abstract class StorageApiConfiguration
 			}
 			$cacheKey .=  '.' . implode(':', array_keys($keyOptions)) . '.' . implode(':', array_values($keyOptions));
 		}
-		if (!isset(self::$_sapiCache[$cacheKey])) {
+		//if (!isset($this->_sapiCache[$cacheKey])) {
 			$csv = $this->_storageApiClient->exportTable($tableId, null, $options);
-			self::$_sapiCache[$cacheKey] = StorageApiClient::parseCsv($csv, true);
-		}
-		return self::$_sapiCache[$cacheKey];
+			$this->_sapiCache[$cacheKey] = StorageApiClient::parseCsv($csv, true);
+		//}
+		return $this->_sapiCache[$cacheKey];
 	}
 }

@@ -117,9 +117,9 @@ class GoodDataWriter extends Component
 				throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 			}
 
-			return array('writer' => $this->configuration->bucketInfo);
+			return array('writer' => $this->configuration->bucketInfo());
 		} else {
-			return array('writers' => Configuration::getWriters($this->_storageApi));
+			return array('writers' => $this->configuration->getWriters());
 		}
 	}
 
@@ -284,6 +284,7 @@ class GoodDataWriter extends Component
 		$this->configuration->checkProjectsTable();
 
 
+		$bucketInfo = $this->configuration->bucketInfo();
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
@@ -292,7 +293,7 @@ class GoodDataWriter extends Component
 				'projectName' => $projectName,
 				'includeData' => empty($params['includeData']) ? 0 : 1,
 				'includeUsers' => empty($params['includeUsers']) ? 0 : 1,
-				'pidSource' => $this->configuration->bucketInfo['gd']['pid']
+				'pidSource' => $bucketInfo['gd']['pid']
 			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
@@ -621,7 +622,8 @@ class GoodDataWriter extends Component
 
 		$restApi = new RestApi($this->_log);
 
-		$restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+		$bucketInfo = $this->configuration->bucketInfo();
+		$restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
 
 		try {
 			$return = $restApi->get($url);
@@ -1548,7 +1550,7 @@ class GoodDataWriter extends Component
 			'createdTime' => null,
 			'startTime' => null,
 			'endTime' => null,
-			'backendUrl' => $this->configuration->backendUrl,
+			'backendUrl' => null,
 			'pid' => null,
 			'command' => null,
 			'dataset' => null,
