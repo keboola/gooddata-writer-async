@@ -4,6 +4,8 @@ parameters.yml.dist
 composer.lock
 composer.phar
 console
+tmp
+Tests/config/config.php
 
 # osx noise
 .DS_Store
