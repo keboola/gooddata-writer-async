@@ -36,7 +36,7 @@ class ExecuteReports extends AbstractJob
 			}
 
 			// reports uri validation if pid was specified
-			if (empty($params['reports'])) {
+			if (!empty($params['reports'])) {
 				foreach ((array) $params['reports'] AS $reportLink) {
 					if (!preg_match('/^\/gdc\/md\/' . $project['pid'] . '\//', $reportLink)) {
 						throw new WrongParametersException("Parameter 'reports' is not valid; report uri '" .$reportLink . "' does not belong to the project");

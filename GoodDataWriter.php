@@ -1111,9 +1111,6 @@ class GoodDataWriter extends Component
 		if (empty($params['pid'])) {
 			throw new WrongParametersException("Parameter 'pid' is missing");
 		}
-		if (empty($params['reports'])) {
-			throw new WrongParametersException("Parameter 'reports' is missing");
-		}
 
 		$this->_init($params);
 		if (!$this->configuration->bucketId) {
@@ -1132,18 +1129,24 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Project '%s' is not active", $params['pid']));
 		}
 
-		foreach ((array) $params['reports'] AS $reportLink) {
-			if (!preg_match('/^\/gdc\/md\/' . $params['pid'] . '\//', $reportLink)) {
-				throw new WrongParametersException("Parameter 'reports' is not valid; report uri '" .$reportLink . "' does not belong to the project");
+		$reports = array();
+		if (!empty($params['reports'])) {
+			$reports = (array) $params['reports'];
+
+			foreach ($reports AS $reportLink) {
+				if (!preg_match('/^\/gdc\/md\/' . $params['pid'] . '\//', $reportLink)) {
+					throw new WrongParametersException("Parameter 'reports' is not valid; report uri '" .$reportLink . "' does not belong to the project");
+				}
 			}
 		}
+
 
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
 				'pid' => $params['pid'],
-				'reports' => $params['reports'],
+				'reports' => $reports,
 			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
