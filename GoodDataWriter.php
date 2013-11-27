@@ -1108,17 +1108,46 @@ class GoodDataWriter extends Component
 		$createdTime = time();
 
 		// Init parameters
+		if (empty($params['pid'])) {
+			throw new WrongParametersException("Parameter 'pid' is missing");
+		}
+
 		$this->_init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
 		$this->configuration->checkGoodDataSetup();
-		$this->configuration->getDateDimensions();
+		$this->configuration->checkProjectsTable();
+
+		$project = $this->configuration->getProject($params['pid']);
+		if (!$project) {
+			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
+		}
+
+		if (!$project['active']) {
+			throw new WrongParametersException(sprintf("Project '%s' is not active", $params['pid']));
+		}
+
+		$reports = array();
+		if (!empty($params['reports'])) {
+			$reports = (array) $params['reports'];
+
+			foreach ($reports AS $reportLink) {
+				if (!preg_match('/^\/gdc\/md\/' . $params['pid'] . '\//', $reportLink)) {
+					throw new WrongParametersException("Parameter 'reports' is not valid; report uri '" .$reportLink . "' does not belong to the project");
+				}
+			}
+		}
+
 
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
+			'parameters' => array(
+				'pid' => $params['pid'],
+				'reports' => $reports,
+			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
 
