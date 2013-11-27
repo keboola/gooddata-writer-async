@@ -21,29 +21,50 @@ class ExecuteReports extends AbstractJob
 	public function run($job, $params)
 	{
 		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkProjectsTable();
 
 		$pids = array();
-		if (empty($job['pid'])) {
+		if (empty($params['pid'])) {
 			$projects = $this->configuration->getProjects();
 			foreach ($projects as $project) if ($project['active']) {
 				$pids[] = $project['pid'];
 			}
 		} else {
-			$pids[] = $job['pid'];
+			$project = $this->configuration->getProject($params['pid']);
+			if ($project && $project['active']) {
+				$pids[] = $project['pid'];
+			}
+
+			// reports uri validation if pid was specified
+			if (!empty($params['reports'])) {
+				foreach ((array) $params['reports'] AS $reportLink) {
+					if (!preg_match('/^\/gdc\/md\/' . $project['pid'] . '\//', $reportLink)) {
+						throw new WrongParametersException("Parameter 'reports' is not valid; report uri '" .$reportLink . "' does not belong to the project");
+					}
+				}
+			}
 		}
 
-
 		$gdWriteStartTime = date('c');
+
 		try {
 			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
 			foreach ($pids as $pid) {
-				$reports = $this->restApi->get(sprintf('/gdc/md/%s/query/reports', $pid));
-				if (isset($reports['query']['entries'])) {
-					foreach ($reports['query']['entries'] as $report) {
-						$this->restApi->executeReport($report['link']);
+				if (!empty($params['pid']) && !empty($params['reports'])) {
+					// specified reports
+					foreach ($params['reports'] as $reportLink) {
+						$this->restApi->executeReport($reportLink);
 					}
 				} else {
-					throw new RestApiException('Bad format of response, missing query.entries key.');
+					// all reports
+					$reports = $this->restApi->get(sprintf('/gdc/md/%s/query/reports', $pid));
+					if (isset($reports['query']['entries'])) {
+						foreach ($reports['query']['entries'] as $report) {
+							$this->restApi->executeReport($report['link']);
+						}
+					} else {
+						throw new RestApiException('Bad format of response, missing query.entries key.');
+					}
 				}
 			}
 
