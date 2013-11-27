@@ -417,10 +417,35 @@ class RestApi
 	 */
 	public function usersInProject($pid)
 	{
-		$result = $this->jsonRequest(sprintf('/gdc/account/projects/%s/users', $pid));
-		return isset($result['accountSettings']['items']) ? $result['accountSettings']['items'] : array();
+		$result = $this->jsonRequest(sprintf('/gdc/projects/%s/users', $pid));
+		return isset($result['users']) ? $result['users'] : array();
 	}
 
+	/**
+	 * Retrieve userId from projec users
+	 *
+	 * @param $email
+	 * @param $pid
+	 * @return bool|string
+	 */
+	public function userIdByProject($email, $pid)
+	{
+		foreach ($this->usersInProject($pid) as $user) {
+			if (!empty($user['user']['content']['email']) && $user['user']['content']['email'] == $email) {
+				if (!empty($user['user']['links']['self'])) {
+					if (substr($user['user']['links']['self'], 0, 21) == '/gdc/account/profile/') {
+						return substr($user['user']['links']['self'], 21);
+					} else {
+						$this->_log->alert('userId() has wrong result', array(
+							'result' => $user
+						));
+					}
+				}
+				return false;
+			}
+		}
+		return false;
+	}
 
 	/**
 	 * Adds user to the project
@@ -460,6 +485,43 @@ class RestApi
 				'result' => $result
 			));
 			throw new RestApiException('Error in addition to project');
+		}
+	}
+
+	/**
+	 * Remove user from the project
+	 *
+	 * @param $userId
+	 * @param $pid
+	 * @throws RestApiException
+	 * @internal param string $role
+	 */
+	public function removeUserFromProject($userId, $pid)
+	{
+		$uri = sprintf('/gdc/projects/%s/users', $pid);
+		$params = array(
+			'user' => array(
+				'content' => array(
+					'status' => 'DISABLED',
+				),
+				'links' => array(
+					'self' => '/gdc/account/profile/' . $userId
+				)
+			)
+		);
+		$result = $this->jsonRequest($uri, 'POST', $params);
+
+		if ((isset($result['projectUsersUpdateResult']['successful']) && count($result['projectUsersUpdateResult']['successful']))
+			|| (isset($result['projectUsersUpdateResult']['failed']) && !count($result['projectUsersUpdateResult']['failed']))) {
+			// SUCCESS
+			// Sometimes API does not return
+		} else {
+			$this->_log->alert('removeUserFromProject() has not remove user from project', array(
+				'uri' => $uri,
+				'params' => $params,
+				'result' => $result
+			));
+			throw new RestApiException('Error removing from project');
 		}
 	}
 
@@ -548,7 +610,35 @@ class RestApi
 		throw new RestApiException('Role in project not found');
 	}
 
+	/**
+	 * Cancel User Invitation to Project
+	 *
+	 * @param $email
+	 * @param $pid
+	 * @throws \Exception|\Guzzle\Http\Exception\ClientErrorResponseException
+	 */
+	public function cancelInviteUserToProject($email, $pid)
+	{
+		$invitationsUri = sprintf('/gdc/projects/%s/invitations', $pid);
 
+		$invitationsResult = $this->jsonRequest($invitationsUri, 'GET');
+
+		if (isset($invitationsResult['invitations'])) {
+			foreach ($invitationsResult['invitations'] AS $invitationData) {
+				$invitationEmail = $invitationData['invitation']['content']['email'];
+				$invitationStatus = $invitationData['invitation']['content']['status'];
+				$invitationUri = $invitationData['invitation']['links']['self'];
+
+				if ($invitationEmail != $email)
+					continue;
+
+				if ($invitationStatus == 'CANCELED')
+					continue;
+
+				$this->jsonRequest($invitationUri, 'DELETE');
+			}
+		}
+	}
 
 	/**
 	 * Run load data task
