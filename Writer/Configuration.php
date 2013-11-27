@@ -89,14 +89,16 @@ class Configuration extends StorageApiConfiguration
 	 * @param $writerId
 	 * @param StorageApiClient $storageApiClient
 	 */
-	public function __construct($writerId, StorageApiClient $storageApiClient)
+	public function __construct(StorageApiClient $storageApiClient, $writerId = null)
 	{
 		parent::__construct($storageApiClient);
 
-		$this->writerId = $writerId;
-		$this->bucketId = $this->configurationBucket($writerId);
-		$this->tokenInfo = $this->_storageApiClient->verifyToken();
-		$this->projectId = $this->tokenInfo['owner']['id'];
+		if ($writerId) {
+			$this->writerId = $writerId;
+			$this->bucketId = $this->configurationBucket($writerId);
+			$this->tokenInfo = $this->_storageApiClient->verifyToken();
+			$this->projectId = $this->tokenInfo['owner']['id'];
+		}
 
 		//@TODO remove
 		if ($this->bucketId && $this->_storageApiClient->bucketExists($this->bucketId)) {

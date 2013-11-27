@@ -72,10 +72,7 @@ class GoodDataWriter extends Component
 
 		// Init main temp directory
 		$this->_mainConfig = $this->_container->getParameter('gooddata_writer');
-		$tmpDir = $this->_mainConfig['tmp_path'];
-		if (!file_exists($tmpDir)) mkdir($tmpDir);
-
-		$this->configuration = new Configuration($params['writerId'], $this->_storageApi, $tmpDir);
+		$this->configuration = new Configuration($this->_storageApi, $params['writerId']);
 
 		$this->_s3Client = new Service\S3Client(
 			\Aws\S3\S3Client::factory(array(
@@ -119,6 +116,7 @@ class GoodDataWriter extends Component
 
 			return array('writer' => $this->configuration->bucketInfo());
 		} else {
+			$this->configuration = new Configuration($this->_storageApi);
 			return array('writers' => $this->configuration->getWriters());
 		}
 	}

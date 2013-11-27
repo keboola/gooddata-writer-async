@@ -35,13 +35,14 @@ class AddUserToProject extends AbstractJob
 			throw new WrongConfigurationException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
 		}
 
-		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkBucketAttributes();
 
 		if (empty($params['pid'])) {
-			if (empty($this->configuration->bucketInfo['gd']['pid'])) {
+			$bucketInfo = $this->configuration->bucketInfo();
+			if (empty($bucketInfo['gd']['pid'])) {
 				throw new WrongConfigurationException("Parameter 'pid' is missing and writer does not have primary project");
 			}
-			$params['pid'] = $this->configuration->bucketInfo['gd']['pid'];
+			$params['pid'] = $bucketInfo['gd']['pid'];
 		}
 
 		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);

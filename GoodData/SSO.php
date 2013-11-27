@@ -52,7 +52,7 @@ class SSO
 		file_put_contents($jsonFile, json_encode($signData));
 
 		$command = sprintf('sudo -u root %s %s %s %s %s 2>&1',
-			self::SSO_SCRIPT_PATH, $this->passphrase, $jsonFile, $this->ssoUser, self::GOODDATA_EMAIL);echo $command . PHP_EOL;
+			self::SSO_SCRIPT_PATH, $this->passphrase, $jsonFile, $this->ssoUser, self::GOODDATA_EMAIL);
 		shell_exec($command);
 		unlink($jsonFile);
 		if (file_exists($jsonFile . '.enc')) {

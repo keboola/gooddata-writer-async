@@ -67,11 +67,12 @@ class WritersTest extends AbstractControllerTest
 		$user1 = 'user1' . $uniqId . '@test.keboola.com';
 		$user2 = 'user2' . $uniqId . '@test.keboola.com';
 
+		// Create new writer and new configuration
 		$this->_processJob('/gooddata-writer/writers', array(
 			'writerId' => $writerId,
 			'users' => $user1 . ',' . $user2
 		));
-		self::$configuration = new Configuration($writerId, self::$storageApi, self::$mainConfig['tmp_path']);
+		self::$configuration = new Configuration(self::$storageApi, $writerId);
 
 		// Check invitations existence in GD
 		$bucketInfo = self::$configuration->bucketInfo();

@@ -10,7 +10,6 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\Exception\WrongParametersException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
-use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class RemoveUserFromProject extends AbstractJob
 {

@@ -6,6 +6,7 @@
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\GoodData\RestApiException;
+use Sabre\CalDAV\ExpandEventsDoubleEventsTest;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase,
 	Symfony\Bundle\FrameworkBundle\Console\Application,
 	Symfony\Bundle\FrameworkBundle\Client,
@@ -71,8 +72,6 @@ abstract class AbstractControllerTest extends WebTestCase
 		self::$storageApi = new \Keboola\StorageApi\Client($container->getParameter('storageApi.test.token'),
 			self::$client->getContainer()->getParameter('storageApi.url'));
 		self::$restApi = new RestApi($container->get('logger'));
-		self::$configuration = new Configuration($this->writerId, self::$storageApi, self::$mainConfig['tmp_path']);
-
 
 		// Clear test environment
 		// Drop data tables from SAPI
@@ -127,7 +126,7 @@ abstract class AbstractControllerTest extends WebTestCase
 
 		// Init writer
 		$this->_processJob('/gooddata-writer/writers', array());
-		self::$configuration = new Configuration($this->writerId, self::$storageApi, self::$mainConfig['tmp_path']);
+		self::$configuration = new Configuration(self::$storageApi, $this->writerId);
 	}
 
 
