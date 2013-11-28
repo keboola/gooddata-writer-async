@@ -268,11 +268,11 @@ abstract class StorageApiConfiguration
 		return $this->_sapiCache[$cacheKey];
 	}
 
-	public function sapi_listTables($bucketId)
+	public function sapi_listTables($bucketId = null)
 	{
 		$cacheKey = 'listTables.' . $bucketId;
 		//if (!isset($this->_sapiCache[$cacheKey])) {
-			$this->_sapiCache[$cacheKey] = $this->_storageApiClient->listTables($bucketId);
+			$this->_sapiCache[$cacheKey] = $this->_storageApiClient->listTables($bucketId, array('include' => ''));
 		//}
 		return $this->_sapiCache[$cacheKey];
 	}

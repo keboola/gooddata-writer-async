@@ -239,11 +239,9 @@ class Configuration extends StorageApiConfiguration
 	public function getOutputSapiTables()
 	{
 		$result = array();
-		foreach ($this->sapi_listBuckets() as $bucket) {
-			if (substr($bucket['id'], 0, 3) == 'out') {
-				foreach ($this->sapi_listTables($bucket['id']) as $table) {
-					$result[] = $table['id'];
-				}
+		foreach ($this->sapi_listTables() as $table) {
+			if (substr($table['id'], 0, 4) == 'out.') {
+				$result[] = $table['id'];
 			}
 		}
 		return $result;
