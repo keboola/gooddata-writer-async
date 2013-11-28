@@ -183,7 +183,7 @@ class GoodDataWriter extends Component
 			foreach ($users as $user) {
 				$this->_createJob(array(
 					'batchId' => $batchId,
-					'command' => 'inviteUserToProject',
+					'command' => 'addUserToProject',
 					'createdTime' => date('c', $createdTime),
 					'parameters' => array(
 						'email' => $user,
@@ -370,9 +370,6 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->getProject($params['pid'])) {
 			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
 		}
-		if (!$this->configuration->getUser($params['email'])) {
-			throw new WrongParametersException(sprintf("User '%s' is not configured for the writer", $params['email']));
-		}
 		$this->configuration->checkGoodDataSetup();
 		$this->configuration->checkProjectsTable();
 		$this->configuration->checkUsersTable();
@@ -385,7 +382,8 @@ class GoodDataWriter extends Component
 			'parameters' => array(
 				'email' => $params['email'],
 				'pid' => $params['pid'],
-				'role' => $params['role']
+				'role' => $params['role'],
+				'createUser' => isset($params['createUser']) ? 1 : null
 			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
@@ -399,60 +397,70 @@ class GoodDataWriter extends Component
 		}
 	}
 
+
 	/**
-	 * Invite User to Project
+	 * Remove User from Project
 	 * @param $params
 	 * @throws Exception\JobProcessException
 	 * @throws Exception\WrongParametersException
 	 * @return array
 	 */
-	public function postProjectInvitations($params)
+	public function deleteProjectUsers($params)
 	{
-		$command = 'inviteUserToProject';
+		$command = 'removeUserFromProject';
 		$createdTime = time();
-
 
 		// Init parameters
 		if (empty($params['email'])) {
 			throw new WrongParametersException("Parameter 'email' is missing");
 		}
-		if (empty($params['role'])) {
-			throw new WrongParametersException("Parameter 'role' is missing");
-		}
-		$allowedRoles = array_keys(RestApi::$userRoles);
-		if (!in_array($params['role'], $allowedRoles)) {
-			throw new WrongParametersException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
+		if (empty($params['pid'])) {
+			throw new WrongParametersException("Parameter 'pid' is missing");
 		}
 		$this->_init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		if (!empty($params['pid']) && !$this->configuration->getProject($params['pid'])) {
+		if (!$this->configuration->getProject($params['pid'])) {
 			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
 		}
+		if (!$this->configuration->isProjectUser($params['email'], $params['pid'])) {
+			throw new WrongParametersException(sprintf("Project user '%s' is not configured for the writer", $params['email']));
+		}
+		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkProjectsTable();
 		$this->configuration->checkProjectUsersTable();
-
 
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'email' => $params['email'],
-				'pid' => $params['pid'],
-				'role' => $params['role']
-			),
-			'queue' => isset($params['queue']) ? $params['queue'] : null
+			'parameters' => $params
 		));
-		$this->_enqueue($jobInfo['batchId']);
 
+		$this->_enqueue($jobInfo['batchId']);
 
 		if (empty($params['wait'])) {
 			return array('job' => (int)$jobInfo['id']);
 		} else {
-			return $this->_waitForJob($jobInfo['id'], $params['writerId']);
+			$jobId = $jobInfo['id'];
+			$jobFinished = false;
+			do {
+				$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $params['writerId']));
+				if (isset($jobInfo['job']['status']) && ($jobInfo['job']['status'] == 'success' || $jobInfo['job']['status'] == 'error')) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep(30);
+			} while(!$jobFinished);
+
+			if ($jobInfo['job']['status'] == 'success') {
+				return array();
+			} else {
+				$e = new JobProcessException('Remove Project User job failed');
+				$e->setData(array('result' => $jobInfo['job']['result'], 'log' => $jobInfo['job']['log']));
+				throw $e;
+			}
 		}
 	}
-
 
 
 	/***********************
@@ -472,7 +480,12 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		return array('users' => $this->configuration->getUsers());
+		if (isset($params['userEmail'])) {
+			$user = $this->configuration->getUser($params['userEmail']);
+			return array('user' => $user ? $user : null);
+		} else {
+			return array('users' => $this->configuration->getUsers());
+		}
 	}
 
 	/**
@@ -1139,17 +1152,46 @@ class GoodDataWriter extends Component
 		$createdTime = time();
 
 		// Init parameters
+		if (empty($params['pid'])) {
+			throw new WrongParametersException("Parameter 'pid' is missing");
+		}
+
 		$this->_init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
 		$this->configuration->checkGoodDataSetup();
-		$this->configuration->getDateDimensions();
+		$this->configuration->checkProjectsTable();
+
+		$project = $this->configuration->getProject($params['pid']);
+		if (!$project) {
+			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
+		}
+
+		if (!$project['active']) {
+			throw new WrongParametersException(sprintf("Project '%s' is not active", $params['pid']));
+		}
+
+		$reports = array();
+		if (!empty($params['reports'])) {
+			$reports = (array) $params['reports'];
+
+			foreach ($reports AS $reportLink) {
+				if (!preg_match('/^\/gdc\/md\/' . $params['pid'] . '\//', $reportLink)) {
+					throw new WrongParametersException("Parameter 'reports' is not valid; report uri '" .$reportLink . "' does not belong to the project");
+				}
+			}
+		}
+
 
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
+			'parameters' => array(
+				'pid' => $params['pid'],
+				'reports' => $reports,
+			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
 
@@ -1159,8 +1201,8 @@ class GoodDataWriter extends Component
 			return array('job' => (int)$jobInfo['id']);
 		} else {
 			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
-			if (isset($result['job']['result']['uid'])) {
-				return array('uid' => $result['job']['result']['uid']);
+			if (isset($result['job']['status']) && $result['job']['status'] == 'success') {
+				return array('message' => 'Reports executed');
 			} else {
 				$e = new JobProcessException('Job failed');
 				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
