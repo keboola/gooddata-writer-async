@@ -647,6 +647,50 @@ class GoodDataWriter extends Component
 		}
 	}
 
+	public function postProxy($params)
+	{
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		if (empty($params['query'])) {
+			throw new WrongParametersException("Parameter 'query' is missing");
+		}
+
+		if (empty($params['payload'])) {
+			throw new WrongParametersException("Parameter 'payload' is missing");
+		}
+
+		$jobInfo = $this->_createJob(array(
+			'command'       => 'proxyCall',
+			'createdTime'   => date('c', time()),
+			'parameters'    => array(
+				'query'     => $params['query'],
+				'payload'   => $params['payload']
+			),
+			'queue'         => isset($params['queue']) ? $params['queue'] : null
+		));
+		$this->_enqueue($jobInfo['batchId']);
+
+		if (empty($params['wait'])) {
+			return array('job' => (int)$jobInfo['id']);
+		} else {
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
+
+			if (isset($result['job']['status']) && $result['job']['status'] == 'success') {
+				return array(
+					'message'   => 'proxy call executed',
+					'response'  => $result['job']['result']['response']
+				);
+			} else {
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
+				throw $e;
+			}
+		}
+	}
+
 	/***********************
 	 * @section Filters
 	 */
@@ -1479,8 +1523,6 @@ class GoodDataWriter extends Component
 		return array();
 	}
 
-
-
 	/***********************
 	 * @section Jobs
 	 */
@@ -1586,9 +1628,6 @@ class GoodDataWriter extends Component
 
 		return array('batch' => $this->sharedConfig->batchToApiResponse($params['batchId'], $this->_s3Client));
 	}
-
-
-
 
 	private function _createJob($params)
 	{
