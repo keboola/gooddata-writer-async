@@ -1,6 +1,7 @@
 <?php
 /**
- * Created by PhpStorm.
+ * Proxy Call Job
+ *
  * User: mirocillik
  * Date: 19/11/13
  * Time: 15:00
@@ -12,24 +13,19 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
-class CreateObject  extends AbstractJob
+class ProxyCall  extends AbstractJob
 {
-
 	function run($job, $params)
 	{
-		$this->_checkParams($params, array('pid', 'object'));
-
-		$objectId = isset($params['objectId'])?$params['objectId']:null;
-		$definition = $params['object'];
-		$pid = $params['pid'];
+		$this->_checkParams($params, array('query', 'payload'));
 
 		$gdWriteStartTime = date('c');
 		try {
 			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$response = $this->restApi->postObject($pid, $definition, $objectId);
+			$response = $this->restApi->post($params['query'], $params['payload']);
 
 			return $this->_prepareResult($job['id'], array(
-				'objectId' => $response['uri'],
+				'response' => $response,
 				'gdWriteStartTime' => $gdWriteStartTime
 			), $this->restApi->callsLog());
 
