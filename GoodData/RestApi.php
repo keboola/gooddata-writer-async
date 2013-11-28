@@ -33,7 +33,7 @@ class RestApi
 	const BACKOFF_INTERVAL = 60;
 	const WAIT_INTERVAL = 10;
 
-	const API_URL = 'https://secure.gooddata.com';
+	const API_URL = 'https://na1.secure.gooddata.com';
 	const DEFAULT_BACKEND_URL = 'na1.secure.gooddata.com';
 
 	public $apiUrl;
@@ -59,7 +59,7 @@ class RestApi
 	protected $_authSst;
 	protected $_authTt;
 
-	private $_callsLog;
+	public  $callsLog;
 	private $_clearFromLog;
 
 	public function __construct($log)
@@ -78,7 +78,7 @@ class RestApi
 			'content-type' => 'application/json; charset=utf-8'
 		));
 
-		$this->_callsLog = array();
+		$this->callsLog = array();
 		$this->_clearFromLog = array();
 	}
 
@@ -417,10 +417,35 @@ class RestApi
 	 */
 	public function usersInProject($pid)
 	{
-		$result = $this->jsonRequest(sprintf('/gdc/account/projects/%s/users', $pid));
-		return isset($result['accountSettings']['items']) ? $result['accountSettings']['items'] : array();
+		$result = $this->jsonRequest(sprintf('/gdc/projects/%s/users', $pid));
+		return isset($result['users']) ? $result['users'] : array();
 	}
 
+	/**
+	 * Retrieve userId from projec users
+	 *
+	 * @param $email
+	 * @param $pid
+	 * @return bool|string
+	 */
+	public function userIdByProject($email, $pid)
+	{
+		foreach ($this->usersInProject($pid) as $user) {
+			if (!empty($user['user']['content']['email']) && $user['user']['content']['email'] == $email) {
+				if (!empty($user['user']['links']['self'])) {
+					if (substr($user['user']['links']['self'], 0, 21) == '/gdc/account/profile/') {
+						return substr($user['user']['links']['self'], 21);
+					} else {
+						$this->_log->alert('userId() has wrong result', array(
+							'result' => $user
+						));
+					}
+				}
+				return false;
+			}
+		}
+		return false;
+	}
 
 	/**
 	 * Adds user to the project
@@ -460,6 +485,43 @@ class RestApi
 				'result' => $result
 			));
 			throw new RestApiException('Error in addition to project');
+		}
+	}
+
+	/**
+	 * Remove user from the project
+	 *
+	 * @param $userId
+	 * @param $pid
+	 * @throws RestApiException
+	 * @internal param string $role
+	 */
+	public function removeUserFromProject($userId, $pid)
+	{
+		$uri = sprintf('/gdc/projects/%s/users', $pid);
+		$params = array(
+			'user' => array(
+				'content' => array(
+					'status' => 'DISABLED',
+				),
+				'links' => array(
+					'self' => '/gdc/account/profile/' . $userId
+				)
+			)
+		);
+		$result = $this->jsonRequest($uri, 'POST', $params);
+
+		if ((isset($result['projectUsersUpdateResult']['successful']) && count($result['projectUsersUpdateResult']['successful']))
+			|| (isset($result['projectUsersUpdateResult']['failed']) && !count($result['projectUsersUpdateResult']['failed']))) {
+			// SUCCESS
+			// Sometimes API does not return
+		} else {
+			$this->_log->alert('removeUserFromProject() has not remove user from project', array(
+				'uri' => $uri,
+				'params' => $params,
+				'result' => $result
+			));
+			throw new RestApiException('Error removing from project');
 		}
 	}
 
@@ -548,7 +610,35 @@ class RestApi
 		throw new RestApiException('Role in project not found');
 	}
 
+	/**
+	 * Cancel User Invitation to Project
+	 *
+	 * @param $email
+	 * @param $pid
+	 * @throws \Exception|\Guzzle\Http\Exception\ClientErrorResponseException
+	 */
+	public function cancelInviteUserToProject($email, $pid)
+	{
+		$invitationsUri = sprintf('/gdc/projects/%s/invitations', $pid);
 
+		$invitationsResult = $this->jsonRequest($invitationsUri, 'GET');
+
+		if (isset($invitationsResult['invitations'])) {
+			foreach ($invitationsResult['invitations'] AS $invitationData) {
+				$invitationEmail = $invitationData['invitation']['content']['email'];
+				$invitationStatus = $invitationData['invitation']['content']['status'];
+				$invitationUri = $invitationData['invitation']['links']['self'];
+
+				if ($invitationEmail != $email)
+					continue;
+
+				if ($invitationStatus == 'CANCELED')
+					continue;
+
+				$this->jsonRequest($invitationUri, 'DELETE');
+			}
+		}
+	}
 
 	/**
 	 * Run load data task
@@ -1049,6 +1139,7 @@ class RestApi
 	 */
 	private function _request($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true)
 	{
+		$startTime = microtime();
 		$jsonParams = is_array($params) ? json_encode($params) : $params;
 
 		$backoffInterval = self::BACKOFF_INTERVAL;
@@ -1084,7 +1175,7 @@ class RestApi
 
 			try {
 				$response = $request->send();
-				if ($logCall) $this->_logCall($uri, $method, $params, $response->getBody(true));
+				if ($logCall) $this->_logCall($uri, $method, $params, $response->getBody(true), abs(microtime() - $startTime) * 1000);
 
 				if ($response->isSuccessful()) {
 					return $response;
@@ -1092,7 +1183,7 @@ class RestApi
 
 			} catch (ClientErrorResponseException $e) {
 				$response = $request->getResponse()->getBody(true);
-				if ($logCall) $this->_logCall($uri, $method, $params, $response);
+				if ($logCall) $this->_logCall($uri, $method, $params, $response, abs(microtime() - $startTime) * 1000);
 				if ($request->getResponse()->getStatusCode() == 401) {
 					$error401 = true;
 				} else {
@@ -1213,7 +1304,7 @@ class RestApi
 		}
 	}
 
-	protected function _logCall($uri, $method, $params, $response)
+	protected function _logCall($uri, $method, $params, $response, $duration)
 	{
 		$decodedResponse = json_decode($response, true);
 		if (!$decodedResponse) {
@@ -1229,10 +1320,10 @@ class RestApi
 		array_walk_recursive($params, $sanitize);
 		array_walk_recursive($decodedResponse, $sanitize);
 
-		$this->_callsLog[] = array(
-			'timestamp' => date('c'),
-			'backendUrl' => $this->_client->getBaseUrl(),
-			'uri' => $uri,
+		$this->callsLog[] = array(
+			'duration' => $duration,
+			'time' => date('c'),
+			'uri' => $this->_client->getBaseUrl() . $uri,
 			'method' => $method,
 			'params' => $params,
 			'response' => $decodedResponse
@@ -1241,11 +1332,7 @@ class RestApi
 
 	public function callsLog()
 	{
-		if (!defined('JSON_PRETTY_PRINT')) {
-			// fallback for PHP <= 5.3
-			define('JSON_PRETTY_PRINT', 0);
-		}
-		return json_encode($this->_callsLog, JSON_PRETTY_PRINT);
+		return $this->callsLog;
 	}
 
 

@@ -11,6 +11,7 @@ namespace Keboola\GoodDataWriter\Writer;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Service\StorageApiConfiguration, 
 	Keboola\StorageApi\Client as StorageApiClient,
+	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\StorageApi\Config\Reader,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 
@@ -139,10 +140,20 @@ class Configuration extends StorageApiConfiguration
 		}
 
 		// Init the cache
-		self::$_cache = self::$_emptyCache;
+		$this->initCache();
 	}
 
+	/**
+	 * Init and empty cache
+	 *
+	 * @return bool
+	 */
+	private function initCache()
+	{
+		self::$_cache = self::$_emptyCache;
 
+		return $this;
+	}
 
 	/**
 	 * Find configuration bucket for writerId
@@ -762,6 +773,22 @@ class Configuration extends StorageApiConfiguration
 	}
 
 	/**
+	 * Check if user was invited/added to project by writer
+	 * @param $email
+	 * @param $pid
+	 * @return bool
+	 */
+	public function isProjectUser($email, $pid)
+	{
+		foreach ($this->getProjectUsers() AS $projectUser) {
+			if ($projectUser['email'] == $email && $projectUser['pid'] == $pid && empty($projectUser['main']))
+				return true;
+		}
+
+		return false;
+	}
+
+	/**
 	 * @param null $pid
 	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
 	 * @return array
@@ -855,6 +882,97 @@ class Configuration extends StorageApiConfiguration
 		);
 		$this->_updateConfigTableRow(self::PROJECT_USERS_TABLE_NAME, $data);
 		self::$_cache[self::PROJECT_USERS_TABLE_NAME][] = $data;
+	}
+
+	/**
+	 * @param $pid
+	 * @param $email
+	 * @param $role
+	 */
+	public function saveProjectInvite($pid, $email, $role)
+	{
+		$action = 'invite';
+		$data = array(
+			'id' => sha1($pid . $email . $action . date('c')),
+			'pid' => $pid,
+			'email' => $email,
+			'role' => $role,
+			'action' => $action
+		);
+		$table = new StorageApiTable($this->_storageApiClient, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
+		$table->setHeader(array_keys($data));
+		$table->setFromArray(array($data));
+		$table->setPartial(true);
+		$table->setIncremental(true);
+		if (!$this->_storageApiClient->tableExists($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME)) {
+			$table->addIndex('pid');
+			$table->addIndex('email');
+		}
+		$table->save();
+
+		$this->_projectUsers[] = $data;
+	}
+
+	/**
+	 * @param $pid
+	 * @param $email
+	 */
+	public function removeProjectUserAdd($pid, $email)
+	{
+		$this->initCache();
+		$filter = array();
+		foreach ($this->getProjectUsers() as $projectUser) {
+			if (isset($projectUser['main']))
+				continue;
+
+			if ($projectUser['pid'] == $pid && $projectUser['email'] == $email && $projectUser['action'] == 'add')
+				$filter[] = $projectUser['id'];
+		}
+
+		if (!$filter)
+			return;
+
+		$this->_storageApiClient->deleteTableRows(
+			$this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME,
+			array(
+				'whereColumn' => 'id',
+				'whereValues' => $filter,
+			)
+		);
+
+		$this->_projectUsers = null;
+		$this->initCache();
+	}
+
+	/**
+	 * @param $pid
+	 * @param $email
+	 */
+	public function removeProjectUserInvite($pid, $email)
+	{
+		$this->initCache();
+		$filter = array();
+		foreach ($this->getProjectUsers() as $projectUser) {
+			if (isset($projectUser['main']))
+				continue;
+
+			if ($projectUser['pid'] == $pid && $projectUser['email'] == $email && $projectUser['action'] == 'invite')
+				$filter[] = $projectUser['id'];
+		}
+
+		if (!$filter)
+			return;
+
+		$this->_storageApiClient->deleteTableRows(
+			$this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME,
+			array(
+				'whereColumn' => 'id',
+				'whereValues' => $filter,
+			)
+		);
+
+		$this->_projectUsers = null;
+		$this->initCache();
 	}
 
 	/**
