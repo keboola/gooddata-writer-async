@@ -318,8 +318,6 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getDataSetForApi($tableId)
 	{
-		$this->updateDataSetsFromSapi();
-
 		$dataSet = $this->getDataSet($tableId);
 
 		$previews = array();
