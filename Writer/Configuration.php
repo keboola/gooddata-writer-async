@@ -96,12 +96,12 @@ class Configuration extends StorageApiConfiguration
 		if ($writerId) {
 			$this->writerId = $writerId;
 			$this->bucketId = $this->configurationBucket($writerId);
-			$this->tokenInfo = $this->_storageApiClient->verifyToken();
+			$this->tokenInfo = $this->_storageApiClient->getLogData();
 			$this->projectId = $this->tokenInfo['owner']['id'];
 		}
 
 		//@TODO remove
-		if ($this->bucketId && $this->_storageApiClient->bucketExists($this->bucketId)) {
+		if ($this->bucketId && $this->sapi_bucketExists($this->bucketId)) {
 			$this->migrateConfiguration();
 		}
 	}

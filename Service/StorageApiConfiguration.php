@@ -252,10 +252,20 @@ abstract class StorageApiConfiguration
 	public function sapi_listBuckets()
 	{
 		$cacheKey = 'listBuckets';
-		//if (!isset($this->_sapiCache[$cacheKey])) {
+		if (!isset($this->_sapiCache[$cacheKey])) {
 			$this->_sapiCache[$cacheKey] = $this->_storageApiClient->listBuckets();
-		//}
+		}
 		return $this->_sapiCache[$cacheKey];
+	}
+
+	public function sapi_bucketExists($bucketId)
+	{
+		foreach ($this->sapi_listBuckets() as $bucket) {
+			if ($bucketId == $bucket['id']) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public function sapi_bucketInfo($bucketId)
