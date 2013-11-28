@@ -23,7 +23,6 @@
 			<file>Tests/Controller/DatasetsTest.php</file>
 			<file>Tests/Controller/JobsTest.php</file>
 			<file>Tests/Controller/ProxyTest.php</file>
-            <file>Tests/Controller/ObjectsTest.php</file>
         </testsuite>
     </testsuites>
 </phpunit>
