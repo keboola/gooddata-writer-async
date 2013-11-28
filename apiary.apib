@@ -189,26 +189,9 @@ GET /project-users?writerId={writerId}&pid={pid}
 
 
 ### Add user to project
-Adds GoodData user to specified project. User has to exist in Keboola domain.
+Adds GoodData user to specified project.
 
-#### Parameters
-
-* **writerId** (required) - KBC id of writer
-* **pid** (required) - PID of project
-* **email** (required) - email of user
-* **role** (required) - role of user (one of: admin, editor, readOnly, dashboardOnly)
-* **queue** (optional) - with value **secondary** will put job in secondary queue
-POST /project-users
-> X-StorageApi-Token: your_token
-> Accept: application/json
-{ "writerId": "writer1", "pid": "xjywplmhejceb6j3ezzlxiganmjavqio", "email": "user1@keboola.com", "role": "editor" }
-< 200
-< Content-Type: application/json
-{ "status": "ok", "job": job_id, "duration": 35.12 }
-
-
-### Add user to project and wait
-Adds GoodData user to specified project. User has to exist in Keboola domain.
+If user does not exists or exists in other domain, project invitation will be sent to user.
 
 #### Parameters
 
@@ -222,6 +205,43 @@ POST /project-users
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "writerId": "writer1", "pid": "xjywplmhejceb6j3ezzlxiganmjavqio", "email": "user1@keboola.com", "role": "editor" }
+< 200
+< Content-Type: application/json
+{ "status": "ok", "job": job_id, "duration": 35.12 }
+
+### Add user to project and create him if does not exists
+Adds GoodData user to specified project. New user account will be created if user does not exists in GoodData
+
+If user exists in other domain, project invitation will be sent to user.
+
+#### Parameters
+
+* **createUser** (optional)
+* **wait** (optional)
+* **writerId** (required) - KBC id of writer
+* **pid** (required) - PID of project
+* **email** (required) - email of user
+* **role** (required) - role of user (one of: admin, editor, readOnly, dashboardOnly)
+* **queue** (optional) - with value **secondary** will put job in secondary queue
+POST /project-users
+> X-StorageApi-Token: your_token
+> Accept: application/json
+{ "createUser": "1", "writerId": "writer1", "pid": "xjywplmhejceb6j3ezzlxiganmjavqio", "email": "user1@keboola.com", "role": "editor" }
+< 200
+< Content-Type: application/json
+{ "status": "ok", "job": job_id, "duration": 35.12 }
+
+### Remove user from project
+Remove user from specified project. Project invitations will be also canceled.
+
+#### Parameters
+
+* **wait** (optional)
+* **writerId** (required) - KBC id of writer
+* **pid** (required) - PID of project
+* **email** (required) - email of user
+DELETE /project-users?writerId={writerId}&pid={pr0j3ct_p1d}&email={user@email.com}
+> X-StorageApi-Token: your_token
 < 200
 < Content-Type: application/json
 { "status": "ok", "job": job_id, "duration": 35.12 }
