@@ -419,7 +419,7 @@ class Configuration extends StorageApiConfiguration
 
 		if ($tableConfig['definition']) {
 			$tableConfig['columns'] = json_decode($tableConfig['definition'], true);
-			if (!$tableConfig['columns']) {
+			if ($tableConfig['columns'] === NULL) {
 				throw new WrongConfigurationException("Definition of columns is not valid json");
 			}
 		} else {
@@ -485,7 +485,7 @@ class Configuration extends StorageApiConfiguration
 
 		if ($tableRow['definition']) {
 			$definition = json_decode($tableRow['definition'], true);
-			if (!$definition) {
+			if ($definition === NULL) {
 				throw new WrongConfigurationException("Definition of columns for table '$tableId' is not valid json");
 			}
 			$definition[$column] = isset($definition[$column]) ? array_merge($definition[$column], $data) : $data;
@@ -591,7 +591,7 @@ class Configuration extends StorageApiConfiguration
 		}
 		if ($dataSet['definition']) {
 			$definition = json_decode($dataSet['definition'], true);
-			if (!$definition) {
+			if ($definition === NULL) {
 				throw new WrongConfigurationException("Definition of columns for table '$tableId' is not valid json");
 			}
 
