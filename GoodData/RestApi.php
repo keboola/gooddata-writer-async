@@ -1035,27 +1035,6 @@ class RestApi
 		return $response;
 	}
 
-	public function postObject($pid, $definition, $objectId = null)
-	{
-		// trick to get rid of "labels": {} problem
-		$definitionJson = json_encode($definition);
-		$definitionJson = str_replace('"labels":[]', '"labels":{}', $definitionJson);
-
-		$url = '/gdc/md/' . $pid . '/obj/';
-
-		if (null != $objectId) {
-			$url .= $objectId;
-		}
-
-		$response = $this->jsonRequest($url, 'POST', $definitionJson, array(), false);
-
-		if (!isset($response['uri'])) {
-			throw new RestApiException('Error occured on object update. ObjectId ' . $objectId);
-		}
-
-		return $response;
-	}
-
 	/**
 	 * Poll task uri and wait for its finish
 	 * @param $uri

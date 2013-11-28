@@ -1524,63 +1524,6 @@ class GoodDataWriter extends Component
 	}
 
 	/***********************
-	 * @section GD objects manipulation
-	 */
-
-
-	/**
-	 * Post Report
-	 * Create or update object
-	 *
-	 * @param $params
-	 * @throws Exception\JobProcessException
-	 * @throws Exception\WrongParametersException
-	 * @return array
-	 */
-	public function postObject($params)
-	{
-		$this->_init($params);
-
-		if (empty($params['pid'])) {
-			throw new WrongParametersException("Project is must be defined");
-		}
-
-		$command = 'createObject';
-		$createdTime = time();
-
-		$jobInfo = $this->_createJob(array(
-			'command'       => $command,
-			'createdTime'   => date('c', $createdTime),
-			'parameters'    => array(
-				'pid'           => $params['pid'],
-				'object'        => $params['object'],
-				'objectId'      => isset($params['objectId']) ? $params['objectId'] : null
-			),
-			'queue'         => isset($params['queue']) ? $params['queue'] : null
-		));
-		$this->_enqueue($jobInfo['batchId']);
-
-
-		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
-		} else {
-			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
-
-			if (isset($result['job']['status']) && $result['job']['status'] == 'success') {
-				return array(
-					'message'   => 'object created'
-				);
-			} else {
-				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
-				throw $e;
-			}
-		}
-	}
-
-
-
-	/***********************
 	 * @section Jobs
 	 */
 
