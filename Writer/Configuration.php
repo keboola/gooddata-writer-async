@@ -317,7 +317,7 @@ class Configuration extends StorageApiConfiguration
 	 * @return mixed
 	 */
 	public function getDataSetForApi($tableId)
-	{var_dump($this->sapi_bucketInfo($this->bucketId)); die();
+	{
 		$dataSet = $this->getDataSet($tableId);
 
 		$previews = array();

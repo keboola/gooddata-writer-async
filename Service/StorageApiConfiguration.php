@@ -304,9 +304,9 @@ abstract class StorageApiConfiguration
 	public function sapi_getTable($tableId)
 	{
 		$cacheKey = 'getTable.' . $tableId;
-		//if (!isset($this->_sapiCache[$cacheKey])) {
+		if (!isset($this->_sapiCache[$cacheKey])) {
 			$this->_sapiCache[$cacheKey] = $this->_storageApiClient->getTable($tableId);
-		//}
+		}
 		return $this->_sapiCache[$cacheKey];
 	}
 
@@ -321,10 +321,10 @@ abstract class StorageApiConfiguration
 			}
 			$cacheKey .=  '.' . implode(':', array_keys($keyOptions)) . '.' . implode(':', array_values($keyOptions));
 		}
-		//if (!isset($this->_sapiCache[$cacheKey])) {
+		if (!isset($this->_sapiCache[$cacheKey])) {
 			$csv = $this->_storageApiClient->exportTable($tableId, null, $options);
 			$this->_sapiCache[$cacheKey] = StorageApiClient::parseCsv($csv, true);
-		//}
+		}
 		return $this->_sapiCache[$cacheKey];
 	}
 }
