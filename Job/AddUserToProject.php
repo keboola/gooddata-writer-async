@@ -38,11 +38,11 @@ class AddUserToProject extends AbstractJob
 		$this->configuration->checkBucketAttributes();
 
 		if (empty($params['pid'])) {
-			$bucketInfo = $this->configuration->bucketInfo();
-			if (empty($bucketInfo['gd']['pid'])) {
+			$bucketAttributes = $this->configuration->bucketAttributes();
+			if (empty($bucketAttributes['gd']['pid'])) {
 				throw new WrongConfigurationException("Parameter 'pid' is missing and writer does not have primary project");
 			}
-			$params['pid'] = $bucketInfo['gd']['pid'];
+			$params['pid'] = $bucketAttributes['gd']['pid'];
 		}
 
 		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);

@@ -235,9 +235,23 @@ abstract class StorageApiConfiguration
 	}
 
 
-	public function bucketInfo()
+	public function bucketAttributes()
 	{
-		return $this->sapi_bucketInfo($this->bucketId);
+		$bucketData = null;
+		foreach ($this->sapi_listBuckets() as $bucket) {
+			if ($this->bucketId == $bucket['id']) {
+				$bucketData = $bucket;
+			}
+		}
+		if (!$bucketData) {
+			return false;
+		}
+
+		$attributes = array();
+		foreach ($bucketData['attributes'] as $attr) {
+			$attributes[$attr['name']] = $attr['value'];
+		}
+		return $attributes;
 	}
 
 
@@ -266,16 +280,6 @@ abstract class StorageApiConfiguration
 			}
 		}
 		return false;
-	}
-
-	public function sapi_bucketInfo($bucketId)
-	{
-		$cacheKey = 'bucketInfo.' . $bucketId;
-		//if (!isset($this->_sapiCache[$cacheKey])) {
-			Reader::$client = $this->_storageApiClient;
-			$this->_sapiCache[$cacheKey] = Reader::read($this->bucketId, null, false);
-		//}
-		return $this->_sapiCache[$cacheKey];
 	}
 
 	public function sapi_listTables($bucketId = null)

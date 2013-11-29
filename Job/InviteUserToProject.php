@@ -32,19 +32,19 @@ class InviteUserToProject extends AbstractJob
 			throw new WrongConfigurationException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
 		}
 		$this->configuration->checkBucketAttributes();
-		$bucketInfo = $this->configuration->bucketInfo();
+		$bucketAttributes = $this->configuration->bucketAttributes();
 
 		if (empty($params['pid'])) {
-			if (empty($bucketInfo['gd']['pid'])) {
+			if (empty($bucketAttributes['gd']['pid'])) {
 				throw new WrongConfigurationException("Parameter 'pid' is missing and writer does not have primary project");
 			}
-			$params['pid'] = $bucketInfo['gd']['pid'];
+			$params['pid'] = $bucketAttributes['gd']['pid'];
 		}
 
 
 		$gdWriteStartTime = date('c');
 		try {
-			$this->restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
+			$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			$this->restApi->inviteUserToProject($params['email'], $params['pid'], RestApi::$userRoles[$params['role']]);
 
 			$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role']);

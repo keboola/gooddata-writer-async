@@ -36,7 +36,7 @@ class UploadTable extends AbstractJob
 		if (empty($job['xmlFile'])) {
 			throw new WrongConfigurationException("Parameter 'xmlFile' is missing");
 		}
-		$bucketInfo = $this->configuration->bucketInfo();
+		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->configuration->checkBucketAttributes();
 		$this->configuration->updateDataSetsFromSapi();
 
@@ -55,11 +55,11 @@ class UploadTable extends AbstractJob
 		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
-		$filterColumn = $this->_getFilterColumn($params['tableId'], $tableDefinition, $bucketInfo);
+		$filterColumn = $this->_getFilterColumn($params['tableId'], $tableDefinition, $bucketAttributes);
 		$zipPath = isset($this->mainConfig['zip_path']) ? $this->mainConfig['zip_path'] : null;
-		$webDavUrl = $this->_getWebDavUrl($bucketInfo);
+		$webDavUrl = $this->_getWebDavUrl($bucketAttributes);
 
-		$this->restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
+		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$e = $stopWatch->stop($stopWatchId);
 		$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));
@@ -191,20 +191,20 @@ class UploadTable extends AbstractJob
         }
 		$clToolApi = new CLToolApi($this->log, $clPath);
 		$clToolApi->s3client = $this->s3Client;
-		if (isset($bucketInfo['gd']['backendUrl'])) {
-			$urlParts = parse_url($bucketInfo['gd']['backendUrl']);
+		if (isset($bucketAttributes['gd']['backendUrl'])) {
+			$urlParts = parse_url($bucketAttributes['gd']['backendUrl']);
 			if ($urlParts && !empty($urlParts['host'])) {
 				$clToolApi->setBackendUrl($urlParts['host']);
 			}
 		}
-		$clToolApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
+		$clToolApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$e = $stopWatch->stop($stopWatchId);
 		$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));
 
 		// Start GoodData transfer
 		$gdWriteStartTime = date('c');
 		try {
-			$webDav = new WebDav($bucketInfo['gd']['username'], $bucketInfo['gd']['password'], $webDavUrl, $zipPath);
+			$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl, $zipPath);
 
 			$uploadedDimensions = array();
 			foreach ($createDateJobs as $gdJob) {
@@ -358,11 +358,11 @@ class UploadTable extends AbstractJob
 	}
 
 
-	private function _getFilterColumn($tableId, $tableDefinition, $bucketInfo)
+	private function _getFilterColumn($tableId, $tableDefinition, $bucketAttributes)
 	{
 		$filterColumn = null;
-		if (isset($bucketInfo['filterColumn']) && empty($tableDefinition['ignoreFilter'])) {
-			$filterColumn = $bucketInfo['filterColumn'];
+		if (isset($bucketAttributes['filterColumn']) && empty($tableDefinition['ignoreFilter'])) {
+			$filterColumn = $bucketAttributes['filterColumn'];
 			$tableInfo = $this->configuration->getSapiTable($tableId);
 			if (!in_array($filterColumn, $tableInfo['columns'])) {
 				throw new WrongConfigurationException("Filter column does not exist in the table");
@@ -374,14 +374,14 @@ class UploadTable extends AbstractJob
 		return $filterColumn;
 	}
 
-	private function _getWebDavUrl($bucketInfo)
+	private function _getWebDavUrl($bucketAttributes)
 	{
 		$webDavUrl = null;
-		if (isset($bucketInfo['gd']['backendUrl']) && $bucketInfo['gd']['backendUrl'] != RestApi::DEFAULT_BACKEND_URL) {
+		if (isset($bucketAttributes['gd']['backendUrl']) && $bucketAttributes['gd']['backendUrl'] != RestApi::DEFAULT_BACKEND_URL) {
 
 			// Get WebDav url for non-default backend
-			$backendUrl = (substr($bucketInfo['gd']['backendUrl'], 0, 8) != 'https://'
-					? 'https://' : '') . $bucketInfo['gd']['backendUrl'];
+			$backendUrl = (substr($bucketAttributes['gd']['backendUrl'], 0, 8) != 'https://'
+					? 'https://' : '') . $bucketAttributes['gd']['backendUrl'];
 			$this->restApi->setBaseUrl($backendUrl);
 			$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 			$gdc = $this->restApi->get('/gdc');
@@ -392,7 +392,7 @@ class UploadTable extends AbstractJob
 				}
 			}
 			if (!$webDavUrl) {
-				throw new JobProcessException(sprintf("Getting of WebDav url for backend '%s' failed.", $bucketInfo['gd']['backendUrl']));
+				throw new JobProcessException(sprintf("Getting of WebDav url for backend '%s' failed.", $bucketAttributes['gd']['backendUrl']));
 			}
 		}
 		return $webDavUrl;

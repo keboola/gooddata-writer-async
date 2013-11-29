@@ -24,25 +24,25 @@ class WritersTest extends AbstractControllerTest
 		$this->assertTrue($validConfiguration, "Writer configuration is not valid.");
 
 		// Check project existence in GD
-		$bucketInfo = self::$configuration->bucketInfo();
-		self::$restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
-		$projectInfo = self::$restApi->getProject($bucketInfo['gd']['pid']);
+		$bucketAttributes = self::$configuration->bucketAttributes();
+		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$projectInfo = self::$restApi->getProject($bucketAttributes['gd']['pid']);
 		$this->assertArrayHasKey('project', $projectInfo, "Response for GoodData API login call should contain 'project' key.");
 		$this->assertArrayHasKey('content', $projectInfo['project'], "Response for GoodData API login call should contain 'project.content' key.");
 		$this->assertArrayHasKey('state', $projectInfo['project']['content'], "Response for GoodData API login call should contain 'project.content.state' key.");
 		$this->assertEquals('ENABLED', $projectInfo['project']['content']['state'], "Response for GoodData API login call should have key 'project.content.state' with value 'ENABLED'.");
 
 		// Check user existence in GD
-		$userInfo = self::$restApi->getUser($bucketInfo['gd']['uid']);
+		$userInfo = self::$restApi->getUser($bucketAttributes['gd']['uid']);
 		$this->assertArrayHasKey('accountSetting', $userInfo, "Response for GoodData API user info call should contain 'accountSetting' key.");
 
 		// Check user's access to the project in GD
-		$userProjectsInfo = self::$restApi->get(sprintf('/gdc/account/profile/%s/projects', $bucketInfo['gd']['uid']));
+		$userProjectsInfo = self::$restApi->get(sprintf('/gdc/account/profile/%s/projects', $bucketAttributes['gd']['uid']));
 		$this->assertArrayHasKey('projects', $userProjectsInfo, "Response for GoodData API user projects call should contain 'projects' key.");
 		$this->assertCount(1, $userProjectsInfo['projects'], "Writer's primary user should have exactly one project assigned.");
 		$projectFound = false;
 		foreach ($userProjectsInfo['projects'] as $p) {
-			if (isset($p['project']['links']['metadata']) && strpos($p['project']['links']['metadata'], $bucketInfo['gd']['pid']) !== false) {
+			if (isset($p['project']['links']['metadata']) && strpos($p['project']['links']['metadata'], $bucketAttributes['gd']['pid']) !== false) {
 				$projectFound = true;
 				break;
 			}
@@ -75,9 +75,9 @@ class WritersTest extends AbstractControllerTest
 		self::$configuration = new Configuration(self::$storageApi, $writerId);
 
 		// Check invitations existence in GD
-		$bucketInfo = self::$configuration->bucketInfo();
-		self::$restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
-		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $bucketInfo['gd']['pid'] . '/invitations');
+		$bucketAttributes = self::$configuration->bucketAttributes();
+		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $bucketAttributes['gd']['pid'] . '/invitations');
 		$this->assertArrayHasKey('invitations', $userProjectsInfo, "Response for GoodData API project invitations call should contain 'invitations' key.");
 		$this->assertGreaterThanOrEqual(1, $userProjectsInfo['invitations'], "Response for GoodData API project invitations call should return at least one invitation.");
 		$user1Invited = false;

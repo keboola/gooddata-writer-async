@@ -266,9 +266,9 @@ class JobExecutor
 			);
 
 			$restApi = new RestApi($this->_log);
-			$bucketInfo = $configuration->bucketInfo();
-			if (isset($bucketInfo['gd']['backendUrl'])) {
-				$restApi->setBaseUrl($bucketInfo['gd']['backendUrl']);
+			$bucketAttributes = $configuration->bucketAttributes();
+			if (isset($bucketAttributes['gd']['backendUrl'])) {
+				$restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
 			}
 
 			/**

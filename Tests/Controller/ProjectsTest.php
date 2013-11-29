@@ -24,8 +24,8 @@ class ProjectsTest extends AbstractControllerTest
 
 
 		// Check of GoodData
-		$bucketInfo = self::$configuration->bucketInfo();
-		self::$restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
+		$bucketAttributes = self::$configuration->bucketAttributes();
+		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$projectInfo = self::$restApi->getProject($project['pid']);
 		$this->assertArrayHasKey('project', $projectInfo, "Response for GoodData API project call should contain 'project' key.");
 		$this->assertArrayHasKey('content', $projectInfo['project'], "Response for GoodData API project call should contain 'project.content' key.");
@@ -199,8 +199,8 @@ class ProjectsTest extends AbstractControllerTest
 		$this->assertArrayHasKey('status', $response['job']['result'], "Response for writer call '/jobs?jobId=' should contain key 'job.result.status'.");
 		$this->assertEquals('success', $response['job']['result']['status'], "Response for writer call '/jobs?jobId=' should contain key 'job.result.status' with value 'success'.");
 
-		$bucketInfo = self::$configuration->bucketInfo();
-		self::$restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
+		$bucketAttributes = self::$configuration->bucketAttributes();
+		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$data = self::$restApi->get('/gdc/md/' . $mainPid . '/data/sets');
 		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");

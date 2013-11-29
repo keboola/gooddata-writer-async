@@ -13,8 +13,8 @@ class UsersTest extends AbstractControllerTest
 		$user = $this->_createUser();
 
 		// Check of GoodData
-		$bucketInfo = self::$configuration->bucketInfo();
-		self::$restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
+		$bucketAttributes = self::$configuration->bucketAttributes();
+		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$userInfo = self::$restApi->getUser($user['uid']);
 		$this->assertArrayHasKey('accountSetting', $userInfo, "Response for GoodData API user call should contain 'accountSetting' key.");
 
@@ -53,8 +53,8 @@ class UsersTest extends AbstractControllerTest
 		));
 
 		// Check GoodData
-		$bucketInfo = self::$configuration->bucketInfo();
-		self::$restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
+		$bucketAttributes = self::$configuration->bucketAttributes();
+		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/users');
 		$this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");
 		$this->assertCount(3, $userProjectsInfo['users'], "Response for GoodData API project users call should return three users.");
@@ -100,7 +100,7 @@ class UsersTest extends AbstractControllerTest
 			'role' => 'editor'
 		));
 
-		self::$restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
+		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		// Check Writer API
 		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
@@ -183,8 +183,8 @@ class UsersTest extends AbstractControllerTest
 		));
 
 		// Check GoodData
-		$bucketInfo = self::$configuration->bucketInfo();
-		self::$restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
+		$bucketAttributes = self::$configuration->bucketAttributes();
+		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/users');
 		$this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");
 		$this->assertCount(3, $userProjectsInfo['users'], "Response for GoodData API project users call should return three users.");
@@ -268,7 +268,7 @@ class UsersTest extends AbstractControllerTest
 			'role' => 'editor'
 		));
 
-		self::$restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
+		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		// Check Writer API
 		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);

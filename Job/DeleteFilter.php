@@ -23,8 +23,8 @@ class DeleteFilter extends AbstractJob {
 		));
 
 		try {
-			$bucketInfo = $this->configuration->bucketInfo();
-			$this->restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
+			$bucketAttributes = $this->configuration->bucketAttributes();
+			$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			try {
 				$this->restApi->deleteFilter($params['uri']);
 			} catch (RestApiException $e) {

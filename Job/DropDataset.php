@@ -32,9 +32,9 @@ class DropDataset extends AbstractJob
 		$gdWriteStartTime = date('c');
 
 		try {
-			$bucketInfo = $this->configuration->bucketInfo();
-			$this->restApi->setCredentials($bucketInfo['gd']['username'], $bucketInfo['gd']['password']);
-			$this->restApi->getProject($bucketInfo['gd']['pid']);
+			$bucketAttributes = $this->configuration->bucketAttributes();
+			$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+			$this->restApi->getProject($bucketAttributes['gd']['pid']);
 
 			foreach ($projects as $project) if ($project['active']) {
 				$this->restApi->dropDataset($project['pid'], $job['dataset']);
