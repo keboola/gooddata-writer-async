@@ -61,6 +61,10 @@ class GoodDataWriter extends Component
 	 */
 	private function _init($params)
 	{
+		/*StorageApiClient::setLogger(function($message, $data) {
+			echo $message . PHP_EOL . PHP_EOL;
+		});*/
+
 		// Init params
 		if (!isset($params['writerId'])) {
 			throw new WrongParametersException('Missing parameter \'writerId\'');

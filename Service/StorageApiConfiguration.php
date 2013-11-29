@@ -281,10 +281,20 @@ abstract class StorageApiConfiguration
 	public function sapi_listTables($bucketId = null)
 	{
 		$cacheKey = 'listTables.' . $bucketId;
-		//if (!isset($this->_sapiCache[$cacheKey])) {
+		if (!isset($this->_sapiCache[$cacheKey])) {
 			$this->_sapiCache[$cacheKey] = $this->_storageApiClient->listTables($bucketId, array('include' => ''));
-		//}
+		}
 		return $this->_sapiCache[$cacheKey];
+	}
+
+	public function sapi_tableExists($tableId)
+	{
+		foreach ($this->sapi_listTables() as $table) {
+			if ($tableId == $table['id']) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public function sapi_getTable($tableId)
@@ -296,14 +306,6 @@ abstract class StorageApiConfiguration
 		return $this->_sapiCache[$cacheKey];
 	}
 
-	public function sapi_tableExists($tableId)
-	{
-		$cacheKey = 'tableExists.' . $tableId;
-		//if (!isset($this->_sapiCache[$cacheKey])) {
-			$this->_sapiCache[$cacheKey] = $this->_storageApiClient->tableExists($tableId);
-		//}
-		return $this->_sapiCache[$cacheKey];
-	}
 
 	public function sapi_exportTable($tableId, $options = array())
 	{
