@@ -33,4 +33,51 @@ class ProxyTest extends AbstractControllerTest
 		$this->assertArrayHasKey('users', $responseJson['response'], "Response for writer call '/proxy' should contain 'users' key users in GD reponse.");
 		$this->assertCount(2, $responseJson['response']['users'], "Response for writer call '/proxy' should return two users in GD reponse.");
 	}
+
+	public function testPostProxy()
+	{
+		// Upload data
+		$this->_prepareData();
+		$this->_processJob('/gooddata-writer/upload-project');
+
+		$pid = self::$configuration->bucketInfo['gd']['pid'];
+
+		$attr = $this->getAttributeByTitle($pid, 'Id (Categories)');
+
+		$attrUri = $attr['attribute']['meta']['uri'];
+
+		// repost attribute to GD
+		$jobId = $this->_processJob('/gooddata-writer/proxy', array(
+			'writerId'  => $this->writerId,
+			'query'     => $attrUri,
+			'payload'   => $attr
+		), 'POST');
+
+		$jobStatus = $this->_getWriterApi('/gooddata-writer/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
+
+		$this->assertEquals('success', $jobStatus['job']['result']['status']);
+	}
+
+	protected function getAttributes($pid)
+	{
+		$query = sprintf('/gdc/md/%s/query/attributes', $pid);
+
+		$result = $this->_getWriterApi('/gooddata-writer/proxy?writerId=' . $this->writerId . '&query=' . $query);
+
+		if (isset($result['response']['query']['entries'])) {
+			return $result['response']['query']['entries'];
+		} else {
+			throw new Exception('Attributes in project could not be fetched');
+		}
+	}
+
+	public function getAttributeByTitle($pid, $title)
+	{
+		foreach ($this->getAttributes($pid) as $attr) {
+			if ($attr['title'] == $title) {
+				$result = $this->_getWriterApi('/gooddata-writer/proxy?writerId=' . $this->writerId . '&query=' . $attr['link']);
+				return $result['response'];
+			}
+		}
+	}
 }
