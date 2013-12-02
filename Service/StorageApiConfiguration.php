@@ -140,7 +140,7 @@ abstract class StorageApiConfiguration
 	 * @return \Keboola\StorageApi\Table
 	 */
 	protected function _saveTable($tableId, $primaryKey, $headers, $data = array(), $incremental = true, $partial = true, $indices = array())
-	{
+	{echo $tableId . PHP_EOL;
 		$table = new StorageApiTable($this->_storageApiClient, $tableId, null, $primaryKey);
 		$table->setHeader($headers);
 		if (count($data)) {
@@ -262,6 +262,11 @@ abstract class StorageApiConfiguration
 	 * @TODO move somewhere else (maybe create subclass of SAPI client)
 	 ********************/
 
+
+	public function clearCache()
+	{
+		$this->_sapiCache = array();
+	}
 
 	public function sapi_listBuckets()
 	{

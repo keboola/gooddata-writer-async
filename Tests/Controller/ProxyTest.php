@@ -16,13 +16,13 @@ class ProxyTest extends AbstractControllerTest
 		$user = $this->_createUser();
 
 		// Check of GoodData
-		$bucketAttributes = self::$configuration->bucketAttributes();
-		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		$userInfo = self::$restApi->getUser($user['uid']);
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$userInfo = $this->restApi->getUser($user['uid']);
 		$this->assertArrayHasKey('accountSetting', $userInfo, "Response for GoodData API user call should contain 'accountSetting' key.");
 
 		// Check of Writer API
-		$projectsList = self::$configuration->getProjects();
+		$projectsList = $this->configuration->getProjects();
 		$this->assertGreaterThanOrEqual(1, $projectsList, "Response for writer call '/projects' should return at least one GoodData project.");
 		$project = $projectsList[count($projectsList)-1];
 

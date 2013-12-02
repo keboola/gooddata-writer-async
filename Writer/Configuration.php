@@ -101,7 +101,7 @@ class Configuration extends StorageApiConfiguration
 		}
 
 		//@TODO remove
-		if ($this->bucketId && $this->sapi_bucketExists($this->bucketId)) {
+		if ($this->bucketId && $this->sapi_bucketExists($this->bucketId) && !$this->sapi_tableExists($this->bucketId . '.' . self::DATA_SETS_TABLE_NAME)) {
 			$this->migrateConfiguration();
 		}
 	}
@@ -188,11 +188,11 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function checkBucketAttributes()
 	{
-		$bucketInfo = $this->sapi_bucketInfo($this->bucketId);
-		$valid = !empty($bucketInfo['gd']['pid'])
-			&& !empty($bucketInfo['gd']['username'])
-			&& !empty($bucketInfo['gd']['uid'])
-			&& !empty($bucketInfo['gd']['password']);
+		$bucketAttributes = $this->bucketAttributes();
+		$valid = !empty($bucketAttributes['gd']['pid'])
+			&& !empty($bucketAttributes['gd']['username'])
+			&& !empty($bucketAttributes['gd']['uid'])
+			&& !empty($bucketAttributes['gd']['password']);
 
 		if (!$valid) {
 			throw new WrongConfigurationException('Writer is missing GoodData configuration');
@@ -832,10 +832,10 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getProjects()
 	{
-		$bucketInfo = $this->sapi_bucketInfo($this->bucketId);
+		$bucketAttributes = $this->bucketAttributes();
 		$projects = $this->_getConfigTable(self::PROJECTS_TABLE_NAME);
-		if (isset($bucketInfo['gd']['pid'])) {
-			array_unshift($projects, array('pid' => $bucketInfo['gd']['pid'], 'active' => true, 'main' => true));
+		if (isset($bucketAttributes['gd']['pid'])) {
+			array_unshift($projects, array('pid' => $bucketAttributes['gd']['pid'], 'active' => true, 'main' => true));
 		}
 		return $projects;
 	}
@@ -896,12 +896,12 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getUsers()
 	{
-		$bucketInfo = $this->sapi_bucketInfo($this->bucketId);
+		$bucketAttributes = $this->bucketAttributes();
 		$users = $this->_getConfigTable(self::USERS_TABLE_NAME);
-		if (isset($bucketInfo['gd']['username']) && isset($bucketInfo['gd']['uid'])) {
+		if (isset($bucketAttributes['gd']['username']) && isset($bucketAttributes['gd']['uid'])) {
 			array_unshift($users, array(
-				'email' => $bucketInfo['gd']['username'],
-				'uid' => $bucketInfo['gd']['uid'],
+				'email' => $bucketAttributes['gd']['username'],
+				'uid' => $bucketAttributes['gd']['uid'],
 				'main' => true
 			));
 		}
@@ -961,13 +961,13 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getProjectUsers($pid = null)
 	{
-		$bucketInfo = $this->sapi_bucketInfo($this->bucketId);
+		$bucketAttributes = $this->bucketAttributes();
 		$projectUsers = $this->_getConfigTable(self::PROJECT_USERS_TABLE_NAME);
-		if (!count($projectUsers) && isset($bucketInfo['gd']['pid']) && isset($bucketInfo['gd']['username'])) {
+		if (!count($projectUsers) && isset($bucketAttributes['gd']['pid']) && isset($bucketAttributes['gd']['username'])) {
 			array_unshift($projectUsers, array(
 				'id' => 0,
-				'pid' => $bucketInfo['gd']['pid'],
-				'email' => $bucketInfo['gd']['username'],
+				'pid' => $bucketAttributes['gd']['pid'],
+				'email' => $bucketAttributes['gd']['username'],
 				'role' => 'admin',
 				'action' => 'add',
 				'main' => true
@@ -1359,66 +1359,64 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function migrateConfiguration()
 	{
-		if (!$this->sapi_tableExists($this->bucketId . '.' . self::DATA_SETS_TABLE_NAME)) {
-			$this->_createConfigTable(self::DATA_SETS_TABLE_NAME);
+		$this->_createConfigTable(self::DATA_SETS_TABLE_NAME);
 
-			foreach ($this->sapi_listTables($this->bucketId) as $table) {
-				if ($table['name'] == 'dateDimensions') {
-					if (!$this->sapi_tableExists($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME)) {
-						$this->_createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
-						$data = array();
-						foreach ($this->_fetchTableRows($table['id']) as $row) {
-							$data[] = array('name' => $row['name'], 'includeTime' => $row['includeTime']);
-						}
-						$this->_updateConfigTable(self::DATE_DIMENSIONS_TABLE_NAME, $data, false);
-						//@TODO $this->_storageApiClient->dropTable($table['id']);
+		foreach ($this->sapi_listTables($this->bucketId) as $table) {
+			if ($table['name'] == 'dateDimensions') {
+				if (!$this->sapi_tableExists($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME)) {
+					$this->_createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
+					$data = array();
+					foreach ($this->_fetchTableRows($table['id']) as $row) {
+						$data[] = array('name' => $row['name'], 'includeTime' => $row['includeTime']);
 					}
-				}
-				if (!in_array($table['name'], array_keys($this->_tables)) && $table['name'] != 'dateDimensions') {
-					$configTable = $this->getSapiTable($table['id']);
-					$dataSetRow = array(
-						'id' => null,
-						'name' => null,
-						'export' => null,
-						'isExported' => null,
-						'lastChangeDate' => null,
-						'incrementalLoad' => null,
-						'ignoreFilter' => null,
-						'definition' => null
-					);
-					if (count($configTable['attributes'])) foreach ($configTable['attributes'] as $attribute) {
-						if ($attribute['name'] == 'tableId') {
-							$dataSetRow['id'] = $attribute['value'];
-						}
-						if ($attribute['name'] == 'gdName') {
-							$dataSetRow['name'] = $attribute['value'];
-						}
-						if ($attribute['name'] == 'export') {
-							$dataSetRow['export'] = empty($attribute['value']) ? 0 : 1;
-						}
-						if ($attribute['name'] == 'lastExportDate') {
-							$dataSetRow['isExported'] = empty($attribute['value']) ? 0 : 1;
-						}
-						if ($attribute['name'] == 'lastChangeDate') {
-							$dataSetRow['lastChangeDate'] = $attribute['value'];
-						}
-						if ($attribute['name'] == 'incrementalLoad') {
-							$dataSetRow['incrementalLoad'] = (int)$attribute['value'];
-						}
-						if ($attribute['name'] == 'ignoreFilter') {
-							$dataSetRow['ignoreFilter'] = empty($attribute['value']) ? 0 : 1;
-						}
-					}
-					$columns = array();
-					foreach ($this->_fetchTableRows($table['id']) as $colDef) {
-						$colName = $colDef['name'];
-						unset($colDef['name']);
-						$columns[$colName] = $this->_cleanColumnDefinition($colDef);
-					}
-					$dataSetRow['definition'] = json_encode($columns);
-					$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $dataSetRow);
+					$this->_updateConfigTable(self::DATE_DIMENSIONS_TABLE_NAME, $data, false);
 					//@TODO $this->_storageApiClient->dropTable($table['id']);
 				}
+			}
+			if (!in_array($table['name'], array_keys($this->_tables)) && $table['name'] != 'dateDimensions') {
+				$configTable = $this->getSapiTable($table['id']);
+				$dataSetRow = array(
+					'id' => null,
+					'name' => null,
+					'export' => null,
+					'isExported' => null,
+					'lastChangeDate' => null,
+					'incrementalLoad' => null,
+					'ignoreFilter' => null,
+					'definition' => null
+				);
+				if (count($configTable['attributes'])) foreach ($configTable['attributes'] as $attribute) {
+					if ($attribute['name'] == 'tableId') {
+						$dataSetRow['id'] = $attribute['value'];
+					}
+					if ($attribute['name'] == 'gdName') {
+						$dataSetRow['name'] = $attribute['value'];
+					}
+					if ($attribute['name'] == 'export') {
+						$dataSetRow['export'] = empty($attribute['value']) ? 0 : 1;
+					}
+					if ($attribute['name'] == 'lastExportDate') {
+						$dataSetRow['isExported'] = empty($attribute['value']) ? 0 : 1;
+					}
+					if ($attribute['name'] == 'lastChangeDate') {
+						$dataSetRow['lastChangeDate'] = $attribute['value'];
+					}
+					if ($attribute['name'] == 'incrementalLoad') {
+						$dataSetRow['incrementalLoad'] = (int)$attribute['value'];
+					}
+					if ($attribute['name'] == 'ignoreFilter') {
+						$dataSetRow['ignoreFilter'] = empty($attribute['value']) ? 0 : 1;
+					}
+				}
+				$columns = array();
+				foreach ($this->_fetchTableRows($table['id']) as $colDef) {
+					$colName = $colDef['name'];
+					unset($colDef['name']);
+					$columns[$colName] = $this->_cleanColumnDefinition($colDef);
+				}
+				$dataSetRow['definition'] = json_encode($columns);
+				$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $dataSetRow);
+				//@TODO $this->_storageApiClient->dropTable($table['id']);
 			}
 		}
 	}

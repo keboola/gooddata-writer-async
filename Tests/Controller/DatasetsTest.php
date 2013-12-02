@@ -23,9 +23,9 @@ class DatasetsTest extends AbstractControllerTest
 		$this->_processJob('/gooddata-writer/upload-project');
 
 		// Check existence of datasets in the project
-		$bucketAttributes = self::$configuration->bucketAttributes();
-		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		$data = self::$restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
 		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
 		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
 		$this->assertCount(4, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with four values.");
@@ -86,16 +86,16 @@ class DatasetsTest extends AbstractControllerTest
 		$jobId = $this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.categories'));
 
 		// Check existence of datasets in the project
-		$bucketAttributes = self::$configuration->bucketAttributes();
-		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		$data = self::$restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
 		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
 		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
 		$this->assertCount(1, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with one value.");
 		$this->assertEquals('dataset.categories', $data['dataSetsInfo']['sets'][0]['meta']['identifier'], "GoodData project should contain dataset 'Categories'.");
 
 		// Check csv of main project if contains all rows
-		$csvFile = sprintf('%s/%s/%s/data.csv', self::$mainConfig['tmp_path'], $jobId, $bucketAttributes['gd']['pid']);
+		$csvFile = sprintf('%s/%s/%s/data.csv', $this->mainConfig['tmp_path'], $jobId, $bucketAttributes['gd']['pid']);
 		$this->assertTrue(file_exists($csvFile), sprintf("Data csv file '%s' should exist.", $csvFile));
 		$csv = new CsvFile($csvFile);
 		$rowsNumber = 0;
@@ -109,8 +109,8 @@ class DatasetsTest extends AbstractControllerTest
 	/*public function testGetModel()
 	{
 		//@TODO exit() in GoodDataWriter::getModel() stops test execution
-		self::$client->request('GET', sprintf('/gooddata-writer/model?writerId=%s', $this->writerId));
-		$response = self::$client->getResponse();
+		$this->httpClient->request('GET', sprintf('/gooddata-writer/model?writerId=%s', $this->writerId));
+		$response = $this->httpClient->getResponse();
 		$responseJson = json_decode($response->getContent(), true);
 
 		$this->assertArrayHasKey('nodes', $responseJson);
@@ -251,7 +251,7 @@ class DatasetsTest extends AbstractControllerTest
 		$nowTime = date('c');
 
 		// Remove column and test if lastChangeDate changed
-		self::$storageApi->deleteTableColumn($tableId, 'price');
+		$this->storageApi->deleteTableColumn($tableId, 'price');
 
 		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $tableId);
 		$this->assertArrayHasKey('table', $responseJson, "Response for writer call '/tables&tableId=' should contain 'table' key.");

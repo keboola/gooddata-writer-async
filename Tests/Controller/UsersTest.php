@@ -13,9 +13,9 @@ class UsersTest extends AbstractControllerTest
 		$user = $this->_createUser();
 
 		// Check of GoodData
-		$bucketAttributes = self::$configuration->bucketAttributes();
-		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		$userInfo = self::$restApi->getUser($user['uid']);
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$userInfo = $this->restApi->getUser($user['uid']);
 		$this->assertArrayHasKey('accountSetting', $userInfo, "Response for GoodData API user call should contain 'accountSetting' key.");
 
 
@@ -41,7 +41,7 @@ class UsersTest extends AbstractControllerTest
 	{
 		$user = $this->_createUser();
 
-		$projectsList = self::$configuration->getProjects();
+		$projectsList = $this->configuration->getProjects();
 		$this->assertGreaterThanOrEqual(1, $projectsList, "Response for writer call '/projects' should return at least one GoodData project.");
 		$project = $projectsList[count($projectsList)-1];
 
@@ -53,9 +53,9 @@ class UsersTest extends AbstractControllerTest
 		));
 
 		// Check GoodData
-		$bucketAttributes = self::$configuration->bucketAttributes();
-		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/users');
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$userProjectsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/users');
 		$this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");
 		$this->assertCount(3, $userProjectsInfo['users'], "Response for GoodData API project users call should return three users.");
 		$userInProject = false;
@@ -82,7 +82,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertTrue($userInProject, "Response for writer call '/project-users' should return tested user.");
 
 		// Case 2 - User exists in other domain
-		self::$restApi->setCredentials(self::$mainConfig['gd']['username'], self::$mainConfig['gd']['password']);
+		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 
 		$otherUser = null;
 		if (defined('WRITER_TEST_OTHER_DOMAIN_USER'))
@@ -90,7 +90,7 @@ class UsersTest extends AbstractControllerTest
 
 		$this->assertNotEmpty($otherUser, "User from other domain should be configured in tests config file.");
 
-		$otherUserId = self::$restApi->userId($otherUser, self::$mainConfig['gd']['domain']);
+		$otherUserId = $this->restApi->userId($otherUser, $this->mainConfig['gd']['domain']);
 
 		$this->assertFalse($otherUserId, "Invited user for writer call '/project-users' should not exist in same domain.");
 
@@ -100,7 +100,7 @@ class UsersTest extends AbstractControllerTest
 			'role' => 'editor'
 		));
 
-		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		// Check Writer API
 		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
@@ -116,7 +116,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertTrue($userInvited, "Response for writer call '/project-users' should return invited user.");
 
 		// Check GoodData
-		$userInvitationsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/invitations');
+		$userInvitationsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/invitations');
 		$this->assertArrayHasKey('invitations', $userInvitationsInfo, "Response for GoodData API project invitations call should contain 'invitations' key.");
 		$this->assertCount(1, $userInvitationsInfo['invitations'], "Response for GoodData API project users call should return three users.");
 		$userInvited = false;
@@ -140,7 +140,7 @@ class UsersTest extends AbstractControllerTest
 		));
 
 		// Check GoodData
-		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/users');
+		$userProjectsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/users');
 		$this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");
 		$this->assertCount(4, $userProjectsInfo['users'], "Response for GoodData API project users call should return three users.");
 		$userInProject = false;
@@ -171,7 +171,7 @@ class UsersTest extends AbstractControllerTest
 	{
 		$user = $this->_createUser();
 
-		$projectsList = self::$configuration->getProjects();
+		$projectsList = $this->configuration->getProjects();
 		$this->assertGreaterThanOrEqual(1, $projectsList, "Response for writer call '/projects' should return at least one GoodData project.");
 		$project = $projectsList[count($projectsList)-1];
 
@@ -183,9 +183,9 @@ class UsersTest extends AbstractControllerTest
 		));
 
 		// Check GoodData
-		$bucketAttributes = self::$configuration->bucketAttributes();
-		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/users');
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$userProjectsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/users');
 		$this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");
 		$this->assertCount(3, $userProjectsInfo['users'], "Response for GoodData API project users call should return three users.");
 		$userInProject = false;
@@ -219,7 +219,7 @@ class UsersTest extends AbstractControllerTest
 		$this->_processJob('/gooddata-writer/project-users?' . implode('&', $params), array(), 'DELETE');
 
 		// Check GoodData
-		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/users');
+		$userProjectsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/users');
 		$this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");
 		$this->assertCount(3, $userProjectsInfo['users'], "Response for GoodData API project users call should return three users.");
 		$userInProject = false;
@@ -250,7 +250,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertFalse($userInProject, "Response for writer call '/project-users' should not return tested user.");
 
 		// Case 2 - User exists in other domain
-		self::$restApi->setCredentials(self::$mainConfig['gd']['username'], self::$mainConfig['gd']['password']);
+		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 
 		$otherUser = null;
 		if (defined('WRITER_TEST_OTHER_DOMAIN_USER'))
@@ -258,7 +258,7 @@ class UsersTest extends AbstractControllerTest
 
 		$this->assertNotEmpty($otherUser, "User from other domain should be configured in tests config file.");
 
-		$otherUserId = self::$restApi->userId($otherUser, self::$mainConfig['gd']['domain']);
+		$otherUserId = $this->restApi->userId($otherUser, $this->mainConfig['gd']['domain']);
 
 		$this->assertFalse($otherUserId, "Invited user for writer call '/project-users' should not exist in same domain.");
 
@@ -268,7 +268,7 @@ class UsersTest extends AbstractControllerTest
 			'role' => 'editor'
 		));
 
-		self::$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		// Check Writer API
 		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
@@ -284,7 +284,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertTrue($userInvited, "Response for writer call '/project-users' should return invited user.");
 
 		// Check GoodData
-		$userInvitationsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/invitations');
+		$userInvitationsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/invitations');
 		$this->assertArrayHasKey('invitations', $userInvitationsInfo, "Response for GoodData API project invitations call should contain 'invitations' key.");
 		$this->assertCount(1, $userInvitationsInfo['invitations'], "Response for GoodData API project users call should return three users.");
 
@@ -308,7 +308,7 @@ class UsersTest extends AbstractControllerTest
 		$this->_processJob('/gooddata-writer/project-users?' . implode('&', $params), array(), 'DELETE');
 
 		// Check GoodData
-		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/users');
+		$userProjectsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/users');
 		$this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");
 		$this->assertCount(3, $userProjectsInfo['users'], "Response for GoodData API project users call should return three users.");
 		$userInProject = false;
@@ -341,7 +341,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertFalse($userInProject, "Response for writer call '/project-users' should not return tested user.");
 
 		// Check GoodData
-		$userInvitationsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/invitations');
+		$userInvitationsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/invitations');
 		$this->assertArrayHasKey('invitations', $userInvitationsInfo, "Response for GoodData API project invitations call should contain 'invitations' key.");
 		$this->assertCount(1, $userInvitationsInfo['invitations'], "Response for GoodData API project users call should return three users.");
 		$userInvited = false;
@@ -366,7 +366,7 @@ class UsersTest extends AbstractControllerTest
 		));
 
 		// Check GoodData
-		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/users');
+		$userProjectsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/users');
 		$this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");
 		$this->assertCount(4, $userProjectsInfo['users'], "Response for GoodData API project users call should return three users.");
 		$userInProject = false;
@@ -401,7 +401,7 @@ class UsersTest extends AbstractControllerTest
 		$this->_processJob('/gooddata-writer/project-users?' . implode('&', $params), array(), 'DELETE');
 
 		// Check GoodData
-		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/users');
+		$userProjectsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/users');
 		$this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");
 		$this->assertCount(4, $userProjectsInfo['users'], "Response for GoodData API project users call should return three users.");
 		$userInProject = false;
@@ -434,7 +434,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertFalse($userInProject, "Response for writer call '/project-users' should not return tested user.");
 
 		// Check GoodData
-		$userInvitationsInfo = self::$restApi->get('/gdc/projects/' . $project['pid'] . '/invitations');
+		$userInvitationsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/invitations');
 		$this->assertArrayHasKey('invitations', $userInvitationsInfo, "Response for GoodData API project invitations call should contain 'invitations' key.");
 		$this->assertCount(1, $userInvitationsInfo['invitations'], "Response for GoodData API project users call should return three users.");
 		$userInvited = false;
@@ -454,7 +454,7 @@ class UsersTest extends AbstractControllerTest
 	{
 		$user = $this->_createUser();
 
-		$projectsList = self::$configuration->getProjects();
+		$projectsList = $this->configuration->getProjects();
 		$project = $projectsList[count($projectsList)-1];
 
 		$responseJson = $this->_getWriterApi(
