@@ -1017,6 +1017,24 @@ class RestApi
 		}
 	}
 
+	public function post($url, $payload = null)
+	{
+		$payloadJson = array();
+		if (null != $payload) {
+			// trick to get rid of "labels": {} problem
+			$payloadJson = json_encode($payload);
+			$payloadJson = str_replace('"labels":[]', '"labels":{}', $payloadJson);
+		}
+
+		$response = $this->jsonRequest($url, 'POST', $payloadJson, array(), false);
+
+		if (!isset($response['uri'])) {
+			throw new RestApiException('Error occured on post to url ' . $url);
+		}
+
+		return $response;
+	}
+
 	/**
 	 * Poll task uri and wait for its finish
 	 * @param $uri

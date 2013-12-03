@@ -654,6 +654,50 @@ class GoodDataWriter extends Component
 		}
 	}
 
+	public function postProxy($params)
+	{
+		$this->_init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		if (empty($params['query'])) {
+			throw new WrongParametersException("Parameter 'query' is missing");
+		}
+
+		if (empty($params['payload'])) {
+			throw new WrongParametersException("Parameter 'payload' is missing");
+		}
+
+		$jobInfo = $this->_createJob(array(
+			'command'       => 'proxyCall',
+			'createdTime'   => date('c', time()),
+			'parameters'    => array(
+				'query'     => $params['query'],
+				'payload'   => $params['payload']
+			),
+			'queue'         => isset($params['queue']) ? $params['queue'] : null
+		));
+		$this->_enqueue($jobInfo['batchId']);
+
+		if (empty($params['wait'])) {
+			return array('job' => (int)$jobInfo['id']);
+		} else {
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
+
+			if (isset($result['job']['status']) && $result['job']['status'] == 'success') {
+				return array(
+					'message'   => 'proxy call executed',
+					'response'  => $result['job']['result']['response']
+				);
+			} else {
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
+				throw $e;
+			}
+		}
+	}
+
 	/***********************
 	 * @section Filters
 	 */
@@ -1115,16 +1159,47 @@ class GoodDataWriter extends Component
 		$createdTime = time();
 
 		// Init parameters
+		if (empty($params['pid'])) {
+			throw new WrongParametersException("Parameter 'pid' is missing");
+		}
+
 		$this->_init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
+
 		$this->configuration->checkBucketAttributes();
+		$this->configuration->checkProjectsTable();
+
+		$project = $this->configuration->getProject($params['pid']);
+		if (!$project) {
+			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $params['pid']));
+		}
+
+		if (!$project['active']) {
+			throw new WrongParametersException(sprintf("Project '%s' is not active", $params['pid']));
+		}
+
+		$reports = array();
+		if (!empty($params['reports'])) {
+			$reports = (array) $params['reports'];
+
+			foreach ($reports AS $reportLink) {
+				if (!preg_match('/^\/gdc\/md\/' . $params['pid'] . '\//', $reportLink)) {
+					throw new WrongParametersException("Parameter 'reports' is not valid; report uri '" .$reportLink . "' does not belong to the project");
+				}
+			}
+		}
+
 
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
+			'parameters' => array(
+				'pid' => $params['pid'],
+				'reports' => $reports,
+			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
 
@@ -1433,8 +1508,6 @@ class GoodDataWriter extends Component
 		return array();
 	}
 
-
-
 	/***********************
 	 * @section Jobs
 	 */
@@ -1540,9 +1613,6 @@ class GoodDataWriter extends Component
 
 		return array('batch' => $this->sharedConfig->batchToApiResponse($params['batchId'], $this->_s3Client));
 	}
-
-
-
 
 	private function _createJob($params)
 	{
