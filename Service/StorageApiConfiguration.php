@@ -140,7 +140,7 @@ abstract class StorageApiConfiguration
 	 * @return \Keboola\StorageApi\Table
 	 */
 	protected function _saveTable($tableId, $primaryKey, $headers, $data = array(), $incremental = true, $partial = true, $indices = array())
-	{echo $tableId . PHP_EOL;
+	{
 		$table = new StorageApiTable($this->_storageApiClient, $tableId, null, $primaryKey);
 		$table->setHeader($headers);
 		if (count($data)) {
@@ -171,7 +171,7 @@ abstract class StorageApiConfiguration
 	{
 		if (!isset($this->_tables[$tableName])) return false;
 
-		return $this->_saveTable(
+		$result = $this->_saveTable(
 			$this->bucketId . '.' . $tableName,
 			$this->_tables[$tableName]['primaryKey'],
 			$this->_tables[$tableName]['columns'],
@@ -180,18 +180,24 @@ abstract class StorageApiConfiguration
 			true,
 			$this->_tables[$tableName]['indices']
 		);
+
+		$this->clearCache();
+		return $result;
 	}
 
 	protected function _updateConfigTableRow($tableName, $data)
 	{
 		if (!isset($this->_tables[$tableName])) return false;
 
-		return $this->_updateTableRow(
+		$result = $this->_updateTableRow(
 			$this->bucketId . '.' . $tableName,
 			$this->_tables[$tableName]['primaryKey'],
 			$data,
 			$this->_tables[$tableName]['indices']
 		);
+
+		$this->clearCache();
+		return $result;
 	}
 
 	protected function _getConfigTableRow($tableName, $id)
@@ -249,7 +255,15 @@ abstract class StorageApiConfiguration
 
 		$attributes = array();
 		foreach ($bucketData['attributes'] as $attr) {
-			$attributes[$attr['name']] = $attr['value'];
+			$attrArray = explode('.', $attr['name']);
+			if (count($attrArray) > 1) {
+				if (!isset($attributes[$attrArray[0]])) {
+					$attributes[$attrArray[0]] = array();
+				}
+				$attributes[$attrArray[0]][$attrArray[1]] = $attr['value'];
+			} else {
+				$attributes[$attr['name']] = $attr['value'];
+			}
 		}
 		return $attributes;
 	}
@@ -259,7 +273,7 @@ abstract class StorageApiConfiguration
 	/********************
 	 ********************
 	 * @section SAPI cache
-	 * @TODO move somewhere else (maybe create subclass of SAPI client)
+	 * @TODO TEMPORAL SOLUTION - move somewhere else (maybe create subclass of SAPI client)
 	 ********************/
 
 

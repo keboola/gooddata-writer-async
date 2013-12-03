@@ -126,6 +126,9 @@ abstract class AbstractControllerTest extends WebTestCase
 
 		// Init writer
 		$this->_processJob('/gooddata-writer/writers', array());
+
+		// Reset configuration
+		$this->configuration = new Configuration($this->storageApi, $this->writerId);
 	}
 
 
@@ -176,6 +179,9 @@ abstract class AbstractControllerTest extends WebTestCase
 				'gdName' => '', 'type' => 'DATE', 'format' => 'yyyy-MM-dd', 'dateDimension' => 'ProductDate'));
 		$this->configuration->updateColumnDefinition($this->dataBucketId . '.products', 'category', array(
 				'gdName' => '', 'type' => 'REFERENCE', 'schemaReference' => $this->dataBucketId . '.categories'));
+
+		// Reset configuration
+		$this->configuration = new Configuration($this->storageApi, $this->writerId);
 	}
 
 

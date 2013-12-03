@@ -66,7 +66,7 @@ class ProjectsTest extends AbstractControllerTest
 
 
 		// Prepare data
-		$table = new StorageApiTable(self::$storageApi, $this->dataBucketId . '.' . $filteredTableName, null, 'id');
+		$table = new StorageApiTable($this->storageApi, $this->dataBucketId . '.' . $filteredTableName, null, 'id');
 		$table->setHeader(array('id', 'name', 'pid'));
 		$table->addIndex('pid');
 		$table->setFromArray(array(
@@ -75,7 +75,7 @@ class ProjectsTest extends AbstractControllerTest
 		));
 		$table->save();
 
-		$table = new StorageApiTable(self::$storageApi, $this->dataBucketId . '.' . $notFilteredTableName, null, 'id');
+		$table = new StorageApiTable($this->storageApi, $this->dataBucketId . '.' . $notFilteredTableName, null, 'id');
 		$table->setHeader(array('id', 'name'));
 		$table->setFromArray(array(
 			array('x1', 'X 1'),
@@ -168,7 +168,7 @@ class ProjectsTest extends AbstractControllerTest
 
 
 		// Prepare data
-		$table = new StorageApiTable(self::$storageApi, $this->dataBucketId . '.' . $tableName, null, 'id');
+		$table = new StorageApiTable($this->storageApi, $this->dataBucketId . '.' . $tableName, null, 'id');
 		$table->setHeader(array('id', 'name', 'pid'));
 		$table->addIndex('pid');
 		$table->setFromArray(array(

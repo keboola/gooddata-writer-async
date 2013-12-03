@@ -308,6 +308,10 @@ class Configuration extends StorageApiConfiguration
 		if (count($add)) {
 			$this->_updateConfigTable(self::DATA_SETS_TABLE_NAME, $add);
 		}
+
+		if (count($delete) || count($add)) {
+			$this->clearCache();
+		}
 	}
 
 
@@ -471,7 +475,6 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function updateColumnDefinition($tableId, $column, $data)
 	{
-		$this->updateDataSetsFromSapi();
 		$this->updateDataSetFromSapi($tableId);
 
 		$tableRow = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
@@ -552,7 +555,6 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function updateDataSetDefinition($tableId, $name, $value)
 	{
-		$this->updateDataSetsFromSapi();
 		$this->updateDataSetFromSapi($tableId);
 
 		$tableRow = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
@@ -562,7 +564,6 @@ class Configuration extends StorageApiConfiguration
 		if (!isset($tableRow[$name])) {
 			throw new WrongConfigurationException("DataSet does not have '$name' definition parameter");
 		}
-
 		$tableRow[$name] = $value;
 		$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableRow);
 	}
@@ -575,15 +576,12 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function updateDataSetFromSapi($tableId)
 	{
-		if (!$this->sapi_tableExists($tableId)) {
-			throw new WrongConfigurationException("Table '$tableId' does not exist");
-		}
-
 		$anythingChanged = false;
 		$table = $this->getSapiTable($tableId);
 		$dataSet = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
 		if (!$dataSet) {
-			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
+			$dataSet = array('id' => $tableId, 'definition' => array());
+			$anythingChanged = true;
 		}
 		if ($dataSet['definition']) {
 			$definition = json_decode($dataSet['definition'], true);
@@ -612,9 +610,9 @@ class Configuration extends StorageApiConfiguration
 
 		if ($anythingChanged) {
 			$dataSet['definition'] = json_encode($definition);
+			$dataSet['lastChangeDate'] = date('c');
 			$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $dataSet);
-
-			$this->updateDataSetDefinition($tableId, 'lastChangeDate', date('c'));
+			$this->clearCache();
 		}
 	}
 
