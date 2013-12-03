@@ -6,9 +6,6 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\StorageApi\Table as StorageApiTable;
-
 class ProxyTest extends AbstractControllerTest
 {
 	public function testGetProxy()
@@ -41,7 +38,8 @@ class ProxyTest extends AbstractControllerTest
 		$this->_prepareData();
 		$this->_processJob('/gooddata-writer/upload-project');
 
-		$pid = self::$configuration->bucketInfo['gd']['pid'];
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$pid = $bucketAttributes['gd']['pid'];
 
 		$attr = $this->getAttributeByTitle($pid, 'Id (Categories)');
 
@@ -68,7 +66,7 @@ class ProxyTest extends AbstractControllerTest
 		if (isset($result['response']['query']['entries'])) {
 			return $result['response']['query']['entries'];
 		} else {
-			throw new Exception('Attributes in project could not be fetched');
+			throw new \Exception('Attributes in project could not be fetched');
 		}
 	}
 
@@ -80,5 +78,6 @@ class ProxyTest extends AbstractControllerTest
 				return $result['response'];
 			}
 		}
+		return false;
 	}
 }
