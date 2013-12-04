@@ -550,6 +550,9 @@ class Configuration extends StorageApiConfiguration
 		if (empty($data['sortOrder'])) {
 			unset($data['sortOrder']);
 		}
+		if ($data['type'] == 'IGNORE') {
+			$data = array('type' => 'IGNORE');
+		}
 		return $data;
 	}
 
