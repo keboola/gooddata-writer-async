@@ -528,7 +528,7 @@ class Configuration extends StorageApiConfiguration
 		if ($data['type'] != 'REFERENCE' && isset($data['schemaReference'])) {
 			unset($data['schemaReference']);
 		}
-		if (!in_array($data['type'], array('REFERENCE', 'HYPERLINK', 'LABEL')) && isset($data['reference'])) {
+		if (!in_array($data['type'], array('HYPERLINK', 'LABEL')) && isset($data['reference'])) {
 			unset($data['reference']);
 		}
 		if ($data['type'] != 'DATE' && isset($data['format'])) {
@@ -552,7 +552,14 @@ class Configuration extends StorageApiConfiguration
 			unset($data['sortOrder']);
 		}
 		if ($data['type'] == 'IGNORE') {
-			$data = array('type' => 'IGNORE');
+			unset($data['schemaReference']);
+			unset($data['reference']);
+			unset($data['format']);
+			unset($data['dateDimension']);
+			unset($data['dataType']);
+			unset($data['dataTypeSize']);
+			unset($data['sortLabel']);
+			unset($data['sortOrder']);
 		}
 		return $data;
 	}
