@@ -346,8 +346,9 @@ class Configuration extends StorageApiConfiguration
 			$column['name'] = $columnName;
 			if (!isset($column['gdName']))
 				$column['gdName'] = $columnName;
+			$column = $this->_cleanColumnDefinition($column);
 			$column['preview'] = isset($previews[$columnName]) ? $previews[$columnName] : array();
-			$columns[] = $this->_cleanColumnDefinition($column);
+			$columns[] = $column;
 		}
 
 		return array(
