@@ -7,8 +7,7 @@
 namespace Keboola\GoodDataWriter\Service;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\StorageApi\Config\Reader,
-	Keboola\StorageApi\Client as StorageApiClient,
+use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable;
 
 abstract class StorageApiConfiguration
@@ -32,7 +31,8 @@ abstract class StorageApiConfiguration
 	 * @var array
 	 */
 	protected $_tables;
-	protected $_sapiCache = array();
+
+	protected $_cache = array();
 
 
 	/**
@@ -279,16 +279,16 @@ abstract class StorageApiConfiguration
 
 	public function clearCache()
 	{
-		$this->_sapiCache = array();
+		$this->_cache = array();
 	}
 
 	public function sapi_listBuckets()
 	{
 		$cacheKey = 'listBuckets';
-		if (!isset($this->_sapiCache[$cacheKey])) {
-			$this->_sapiCache[$cacheKey] = $this->_storageApiClient->listBuckets();
+		if (!isset($this->_cache[$cacheKey])) {
+			$this->_cache[$cacheKey] = $this->_storageApiClient->listBuckets();
 		}
-		return $this->_sapiCache[$cacheKey];
+		return $this->_cache[$cacheKey];
 	}
 
 	public function sapi_bucketExists($bucketId)
@@ -304,10 +304,10 @@ abstract class StorageApiConfiguration
 	public function sapi_listTables($bucketId = null)
 	{
 		$cacheKey = 'listTables.' . $bucketId;
-		if (!isset($this->_sapiCache[$cacheKey])) {
-			$this->_sapiCache[$cacheKey] = $this->_storageApiClient->listTables($bucketId, array('include' => ''));
+		if (!isset($this->_cache[$cacheKey])) {
+			$this->_cache[$cacheKey] = $this->_storageApiClient->listTables($bucketId, array('include' => ''));
 		}
-		return $this->_sapiCache[$cacheKey];
+		return $this->_cache[$cacheKey];
 	}
 
 	public function sapi_tableExists($tableId)
@@ -323,10 +323,10 @@ abstract class StorageApiConfiguration
 	public function sapi_getTable($tableId)
 	{
 		$cacheKey = 'getTable.' . $tableId;
-		if (!isset($this->_sapiCache[$cacheKey])) {
-			$this->_sapiCache[$cacheKey] = $this->_storageApiClient->getTable($tableId);
+		if (!isset($this->_cache[$cacheKey])) {
+			$this->_cache[$cacheKey] = $this->_storageApiClient->getTable($tableId);
 		}
-		return $this->_sapiCache[$cacheKey];
+		return $this->_cache[$cacheKey];
 	}
 
 
@@ -340,10 +340,10 @@ abstract class StorageApiConfiguration
 			}
 			$cacheKey .=  '.' . implode(':', array_keys($keyOptions)) . '.' . implode(':', array_values($keyOptions));
 		}
-		if (!isset($this->_sapiCache[$cacheKey])) {
+		if (!isset($this->_cache[$cacheKey])) {
 			$csv = $this->_storageApiClient->exportTable($tableId, null, $options);
-			$this->_sapiCache[$cacheKey] = StorageApiClient::parseCsv($csv, true);
+			$this->_cache[$cacheKey] = StorageApiClient::parseCsv($csv, true);
 		}
-		return $this->_sapiCache[$cacheKey];
+		return $this->_cache[$cacheKey];
 	}
 }

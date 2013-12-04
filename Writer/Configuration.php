@@ -209,7 +209,7 @@ class Configuration extends StorageApiConfiguration
 	public function updateWriter($key, $value, $protected = null)
 	{
 		$this->_storageApiClient->setBucketAttribute($this->bucketId, $key, $value, $protected);
-		$this->_sapiCache['bucketInfo.' . $this->bucketId][$key] = $value; //@TODO
+		$this->_cache['bucketInfo.' . $this->bucketId][$key] = $value; //@TODO
 	}
 
 
@@ -277,6 +277,12 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function updateDataSetsFromSapi()
 	{
+		// Do only once per request
+		$cacheKey = 'updateDataSetsFromSapi';
+		if (!empty($this->_cache[$cacheKey])) {
+			return;
+		}
+
 		$tableId = $this->bucketId . '.' . self::DATA_SETS_TABLE_NAME;
 		if (!$this->sapi_tableExists($tableId)) {
 			$this->_createConfigTable(self::DATA_SETS_TABLE_NAME);
@@ -312,6 +318,8 @@ class Configuration extends StorageApiConfiguration
 		if (count($delete) || count($add)) {
 			$this->clearCache();
 		}
+
+		$this->_cache[$cacheKey] = true;
 	}
 
 
@@ -576,6 +584,12 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function updateDataSetFromSapi($tableId)
 	{
+		// Do only once per request
+		$cacheKey = 'updateDataSetFromSapi.' . $tableId;
+		if (!empty($this->_cache[$cacheKey])) {
+			return;
+		}
+
 		$anythingChanged = false;
 		$table = $this->getSapiTable($tableId);
 		$dataSet = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
@@ -614,6 +628,8 @@ class Configuration extends StorageApiConfiguration
 			$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $dataSet);
 			$this->clearCache();
 		}
+
+		$this->_cache[$cacheKey] = true;
 	}
 
 
