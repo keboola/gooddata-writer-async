@@ -6,9 +6,9 @@
          convertErrorsToExceptions="true"
          convertNoticesToExceptions="true"
          convertWarningsToExceptions="true"
-         processIsolation="false"
-         stopOnFailure="false"
-         syntaxCheck="false"
+         processIsolation="true"
+         stopOnFailure="true"
+         syntaxCheck="true"
          bootstrap="Tests/bootstrap.php">
 	<php>
 		<server name="KERNEL_DIR" value="vendor/syrup/development-bundle/app/" />

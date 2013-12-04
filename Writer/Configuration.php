@@ -404,7 +404,7 @@ class Configuration extends StorageApiConfiguration
 		foreach ($this->_getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
 			$tables[$table['id']] = array(
 				'name' => $table['name'] ? $table['name'] : $table['id'],
-				'referenceable' => $this->dataSetHasConnectionPoint($table['id'])
+				'referenceable' => strpos($table['definition'], 'CONNECTION_POINT') !== false
 			);
 		}
 		return $tables;
@@ -439,22 +439,6 @@ class Configuration extends StorageApiConfiguration
 	}
 
 
-	/**
-	 * Check if data set has connection point
-	 * @param $tableId
-	 * @return bool
-	 */
-	public function dataSetHasConnectionPoint($tableId)
-	{
-		$tableConfig = $this->getDataSet($tableId);
-
-		foreach ($tableConfig['columns'] as $column) {
-			if ($column['type'] == 'CONNECTION_POINT') {
-				return true;
-			}
-		}
-		return false;
-	}
 
 	/**
 	 * Check if data set has connection point
