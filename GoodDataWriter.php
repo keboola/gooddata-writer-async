@@ -210,7 +210,7 @@ class GoodDataWriter extends Component
 	 */
 	public function deleteWriters($params)
 	{
-		$command = 'dropWriter';
+		$command = 'deleteWriter';
 		$createdTime = time();
 
 		$this->_init($params);
