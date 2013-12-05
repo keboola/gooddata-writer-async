@@ -532,7 +532,8 @@ class GoodDataWriter extends Component
 				'firstName' => $params['firstName'],
 				'lastName' => $params['lastName'],
 				'email' => $params['email'],
-				'password' => $params['password']
+				'password' => $params['password'],
+				'ssoProvider' => empty($params['ssoProvider']) ? null : $params['ssoProvider']
 			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
