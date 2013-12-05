@@ -10,7 +10,8 @@ class UsersTest extends AbstractControllerTest
 {
 	public function testCreateUser()
 	{
-		$user = $this->_createUser();
+		$ssoProvider = 'keboola.com';
+		$user = $this->_createUser($ssoProvider);
 
 		// Check of GoodData
 		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);

@@ -265,14 +265,18 @@ abstract class AbstractControllerTest extends WebTestCase
 		return $resultId;
 	}
 
-	protected  function _createUser()
+	protected  function _createUser($ssoProvider = null)
 	{
-		$this->_processJob('/gooddata-writer/users', array(
+		$params = array(
 			'email' => 'test' . time() . uniqid() . '@test.keboola.com',
 			'password' => md5(uniqid()),
 			'firstName' => 'Test',
 			'lastName' => 'KBC'
-		));
+		);
+		if ($ssoProvider) {
+			$params['ssoProvider'] = $ssoProvider;
+		}
+		$this->_processJob('/gooddata-writer/users', $params);
 
 		$usersList = self::$configuration->getUsers();
 		$this->assertGreaterThanOrEqual(2, $usersList, "Response for writer call '/users' should return at least two GoodData users.");
