@@ -50,8 +50,8 @@ while ($line = fgetcsv($fh)) {
 
 				if (in_array($i+1, $timeColumns)) {
 					// Add time fact (number of seconds since midnight)
-					$startTime = new DateTime($columnDate->format('Y-m-d 00:00:00'));
-					$seconds = $columnDate->getTimestamp() - $startTime->getTimestamp();
+					$columnDateTimestamp = $columnDate->getTimestamp();
+					$seconds = $columnDateTimestamp - strtotime($columnDate->format('Y-m-d 00:00:00'));
 					$resultLine[] = $seconds;
 					$resultLine[] = $seconds;
 				}
