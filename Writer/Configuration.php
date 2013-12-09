@@ -403,15 +403,17 @@ class Configuration extends StorageApiConfiguration
 
 		$tables = array();
 		foreach ($this->_getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
-			$tableDefinition = json_decode($table['definition'], true);
-			if ($tableDefinition === NULL) {
-				throw new WrongConfigurationException(sprintf("Definition of columns for table '%s' is not valid json", $table['id']));
-			}
 			$hasConnectionPoint = false;
-			foreach ($tableDefinition as $column) {
-				if ($column['type'] == 'CONNECTION_POINT') {
-					$hasConnectionPoint = true;
-					break;
+			if (!empty($table['definition'])) {
+				$tableDefinition = json_decode($table['definition'], true);
+				if ($tableDefinition === NULL) {
+					throw new WrongConfigurationException(sprintf("Definition of columns for table '%s' is not valid json", $table['id']));
+				}
+				foreach ($tableDefinition as $column) {
+					if ($column['type'] == 'CONNECTION_POINT') {
+						$hasConnectionPoint = true;
+						break;
+					}
 				}
 			}
 

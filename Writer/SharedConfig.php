@@ -159,6 +159,12 @@ class SharedConfig extends StorageApiConfiguration
 				$job['parameters'] = $params;
 			}
 		}
+		if (isset($job['parameters']['accessToken'])) {
+			$job['parameters']['accessToken'] = '***';
+		}
+		if (isset($job['parameters']['password'])) {
+			$job['parameters']['password'] = '***';
+		}
 
 		// Find private links and make them accessible
 		if ($s3Client) {
