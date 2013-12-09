@@ -27,30 +27,30 @@ class ToolCommand extends ContainerAwareCommand
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
 		$this->loadTimeDimension($input->getArgument('pid'), $input->getArgument('name'));
-
 	}
 
 	public function loadTimeDimension($pid, $dimensionName)
 	{
 		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
+
 		$restApi = new RestApi(null, $this->getContainer()->get('logger'));
 		$restApi->setCredentials($mainConfig['gd']['username'], $mainConfig['gd']['password']);
 
 
 		$webDav = new WebDav($mainConfig['gd']['username'], $mainConfig['gd']['password']);
 
-		$tmpFolderName = 'tmp-'.uniqid();
-		$tmpDir = $mainConfig['tmpPath'] . '/' . $tmpFolderName;
+		$tmpFolderName = 'tool-'.uniqid();
+		$tmpDir = $mainConfig['tmp_path'] . '/' . $tmpFolderName;
 		mkdir($tmpDir);
 		$dimensionName = RestApi::gdName($dimensionName);
 		$tmpFolderDimension = $tmpDir . '/' . $dimensionName;
 		$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
 
 		mkdir($tmpFolderDimension);
-		$manifest = file_get_contents($mainConfig['scriptsPath'], '/time-dimension-manifest.json');
+		$manifest = file_get_contents($mainConfig['scripts_path'] . '/time-dimension-manifest.json');
 		$timeDimensionManifest = str_replace('%NAME%', $dimensionName, $manifest);
 		file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
-		copy($mainConfig['scriptsPath'] . '/time-dimension.csv', $tmpFolderDimension . '/data.csv');
+		copy($mainConfig['scripts_path'] . '/time-dimension.csv', $tmpFolderDimension . '/data.csv');
 		$webDav->upload($tmpFolderDimension, $tmpFolderNameDimension, $tmpFolderDimension . '/upload_info.json', $tmpFolderDimension . '/data.csv');
 
 

@@ -9,26 +9,12 @@
 			"email": "jakub@keboola.com"
 		}
 	],
-	"repositories": [
-		{
-			"type": "package",
-			"package": {
-				"name": "gooddata/gooddata-cl",
-				"version": "1.2.67",
-				"dist": {
-					"url": "http://developer.gooddata.com/downloads/cl-tool/gooddata-cli.zip",
-					"type": "zip"
-				}
-			}
-		}
-	],
 	"require": {
 		"php": ">=5.3.5",
-		"gooddata/gooddata-cl": "1.2.*",
 		"sabre/dav": "1.8.*"
 	},
 	"require-dev": {
-		"syrup/component-bundle": "1.2.*",
+		"syrup/component-bundle": "1.3.*",
 		"syrup/development-bundle": "1.1.*",
 		"phpunit/phpunit": "3.7.*"
 	},

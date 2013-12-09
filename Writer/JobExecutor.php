@@ -121,7 +121,7 @@ class JobExecutor
 		try {
 			$this->_storageApiClient = new StorageApiClient(
 				$job['token'],
-				$this->_container->getParameter('storageApi.url'),
+				$this->_container->getParameter('storage_api.url'),
 				$gdWriterParams['user_agent']
 			);
 			$this->_storageApiClient->setRunId($jobId);

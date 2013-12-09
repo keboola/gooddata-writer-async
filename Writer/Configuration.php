@@ -681,7 +681,7 @@ class Configuration extends StorageApiConfiguration
 
 			if (!empty($columnDefinition['dataType'])) {
 				$dataType = $columnDefinition['dataType'];
-				if ($columnDefinition['dataTypeSize']) {
+				if (!empty($columnDefinition['dataTypeSize'])) {
 					$dataType .= '(' . $columnDefinition['dataTypeSize'] . ')';
 				}
 				$column->appendChild($xml->createElement('dataType', $dataType));
