@@ -297,6 +297,28 @@ class RestApi
 		$this->waitForTask($result['uri']);
 	}
 
+	public function validateProject($pid, $validate = array('pdm'))
+	{
+		$result = $this->jsonRequest(sprintf('/gdc/md/%s/validate', $pid), 'POST', array('validateProject' => $validate));
+		if (!isset($result['asyncTask']['link']['poll'])) {
+			throw new RestApiException('Project validation failed');
+		}
+
+		// Wait until project is ready
+		$repeat = true;
+		$i = 1;
+		do {
+			sleep(self::WAIT_INTERVAL * ($i + 1));
+
+			$result = $this->jsonRequest($result['asyncTask']['link']['poll']);
+			if (isset($result['projectValidateResult'])) {
+				return $result['projectValidateResult'];
+			}
+
+			$i++;
+		} while ($repeat);
+	}
+
 
 	/**
 	 * Creates user in the domain

@@ -150,9 +150,9 @@ abstract class AbstractControllerTest extends WebTestCase
 		$table = new StorageApiTable(self::$storageApi, $this->dataBucketId . '.products', null, 'id');
 		$table->setHeader(array('id', 'name', 'price', 'date', 'category'));
 		$table->setFromArray(array(
-			array('p1', 'Product 1', '45', '2013-01-01', 'c1'),
-			array('p2', 'Product 2', '26', '2013-01-03', 'c2'),
-			array('p3', 'Product 3', '112', '2013-01-03', 'c1')
+			array('p1', 'Product 1', '45', '2013-01-01 00:01:59', 'c1'),
+			array('p2', 'Product 2', '26', '2013-01-03 11:12:05', 'c2'),
+			array('p3', 'Product 3', '112', '2012-10-28 23:07:06', 'c1')
 		));
 		$table->save();
 
@@ -181,7 +181,7 @@ abstract class AbstractControllerTest extends WebTestCase
 			array('id', 'Id', 'CONNECTION_POINT', '', '', '', '', '', '', '', ''),
 			array('name', 'Name', 'ATTRIBUTE', '', '', '', '', '', '', '', ''),
 			array('price', 'Price', 'FACT', '', '', '', '', '', '', '', ''),
-			array('date', 'Date', 'DATE', '', '', '', '', 'yyyy-MM-dd', 'ProductDate', '', ''),
+			array('date', 'Date', 'DATE', '', '', '', '', 'yyyy-MM-dd HH:mm:ss', 'ProductDate', '', ''),
 			array('category', 'Category', 'REFERENCE', '', '', $this->dataBucketId . '.categories', '', '', '', '', '')
 		));
 		$table->save();
