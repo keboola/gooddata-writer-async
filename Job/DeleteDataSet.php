@@ -10,7 +10,7 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
-class DropDataset extends AbstractJob
+class DeleteDataSet extends AbstractJob
 {
 	/**
 	 * @param $job

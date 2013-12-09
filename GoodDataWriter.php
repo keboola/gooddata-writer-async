@@ -215,7 +215,7 @@ class GoodDataWriter extends Component
 	 */
 	public function deleteWriters($params)
 	{
-		$command = 'dropWriter';
+		$command = 'deleteWriter';
 		$createdTime = time();
 
 		$this->_init($params);
@@ -538,7 +538,8 @@ class GoodDataWriter extends Component
 				'firstName' => $params['firstName'],
 				'lastName' => $params['lastName'],
 				'email' => $params['email'],
-				'password' => $params['password']
+				'password' => $params['password'],
+				'ssoProvider' => empty($params['ssoProvider']) ? null : $params['ssoProvider']
 			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
