@@ -6,6 +6,7 @@
  * -d orders of date columns separated by comma
  * -i orders of ignored columns separated by comma
  */
+date_default_timezone_set('UTC');
 
 $fh = fopen('php://stdin', 'r');
 $stderr = fopen('php://stderr', 'w');
@@ -51,7 +52,7 @@ while ($line = fgetcsv($fh)) {
 				if (in_array($i+1, $timeColumns)) {
 					// Add time fact (number of seconds since midnight)
 					$columnDateTimestamp = $columnDate->getTimestamp();
-					$seconds = $columnDateTimestamp - strtotime($columnDate->format('Y-m-d 00:00:00'));
+					$seconds = $columnDateTimestamp - strtotime(date('Y-m-d 00:00:00', $columnDateTimestamp));
 					$resultLine[] = $seconds;
 					$resultLine[] = $seconds;
 				}
