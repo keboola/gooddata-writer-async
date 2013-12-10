@@ -1361,6 +1361,8 @@ class GoodDataWriter extends Component
 			// Table detail
 			return array('table' => $this->configuration->getDataSetForApi($params['tableId']));
 		} elseif (isset($params['referenceable'])) {
+			return array('tables' => $this->configuration->getDataSetsWithConnectionPointOld());
+		} elseif (isset($params['connection'])) {
 			return array('tables' => $this->configuration->getDataSetsWithConnectionPoint());
 		} else {
 			return array('tables' => $this->configuration->getDataSets());

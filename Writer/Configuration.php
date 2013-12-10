@@ -396,8 +396,9 @@ class Configuration extends StorageApiConfiguration
 	 * Get list of defined data sets with connection point
 	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
 	 * @return array
+	 * @TODO remove
 	 */
-	public function getDataSetsWithConnectionPoint()
+	public function getDataSetsWithConnectionPointOld()
 	{
 		$this->updateDataSetsFromSapi();
 
@@ -421,6 +422,32 @@ class Configuration extends StorageApiConfiguration
 				'name' => $table['name'] ? $table['name'] : $table['id'],
 				'referenceable' => $hasConnectionPoint
 			);
+		}
+		return $tables;
+	}
+
+	public function getDataSetsWithConnectionPoint()
+	{
+		$this->updateDataSetsFromSapi();
+
+		$tables = array();
+		foreach ($this->_getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
+			$hasConnectionPoint = false;
+			if (!empty($table['definition'])) {
+				$tableDefinition = json_decode($table['definition'], true);
+				if ($tableDefinition === NULL) {
+					throw new WrongConfigurationException(sprintf("Definition of columns for table '%s' is not valid json", $table['id']));
+				}
+				foreach ($tableDefinition as $column) {
+					if ($column['type'] == 'CONNECTION_POINT') {
+						$hasConnectionPoint = true;
+						break;
+					}
+				}
+				if ($hasConnectionPoint) {
+					$tables[$table['id']] = $table['name'] ? $table['name'] : $table['id'];
+				}
+			}
 		}
 		return $tables;
 	}
