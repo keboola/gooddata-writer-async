@@ -236,10 +236,11 @@ class CsvHandler
 					);
 					break;
 				case 'DATE':
+					$dimensionName = self::gdName($column->schemaReference);
 					$manifest['dataSetSLIManifest']['parts'][] = array(
 						'columnName' => (string)$column->name,
 						'populates' => array(
-							sprintf('%s.date.mmddyyyy', self::gdName($column->schemaReference))
+							sprintf('%s.date.mmddyyyy', $dimensionName)
 						),
 						'constraints' => array(
 							'date' => (string)$column->format
@@ -265,7 +266,7 @@ class CsvHandler
 						$manifest['dataSetSLIManifest']['parts'][] = array(
 							'columnName' => (string)$column->name . '_id',
 							'populates' => array(
-								sprintf('label.time.second.of.day.%s', self::gdName($column->schemaReference))
+								sprintf('label.time.second.of.day.%s', $dimensionName)
 							),
 							'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
 							'referenceKey' => 1

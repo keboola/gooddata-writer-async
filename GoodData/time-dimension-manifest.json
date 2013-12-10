@@ -6,7 +6,8 @@
 				"populates" : [
 					"label.time.second.of.day.%NAME%"
 				],
-				"mode" : "FULL"
+				"mode" : "FULL",
+				"referenceKey" : 1
 			},
 			{
 				"columnName" : "second",
@@ -60,8 +61,7 @@
 				"populates" : [
 					"label.time.%NAME%"
 				],
-				"mode" : "FULL",
-				"referenceKey" : 1
+				"mode" : "FULL"
 			},
 			{
 				"columnName" : "time12",
