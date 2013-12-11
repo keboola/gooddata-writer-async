@@ -434,7 +434,8 @@ class GoodDataWriter extends Component
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => $params
+			'parameters' => $params,
+			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
 
 		$this->_enqueue($jobInfo['batchId']);
