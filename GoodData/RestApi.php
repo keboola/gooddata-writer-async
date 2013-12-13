@@ -427,8 +427,23 @@ class RestApi
 	 */
 	public function usersInDomain($domain)
 	{
+		$users = array();
+
+		// first page
 		$result = $this->jsonRequest(sprintf('/gdc/account/domains/%s/users', $domain), 'GET', array(), array(), false);
-		return isset($result['accountSettings']['items']) ? $result['accountSettings']['items'] : array();
+
+		if (isset($result['accountSettings']['items']))
+			$users = array_merge($users, $result['accountSettings']['items']);
+
+		// next pages
+		while (isset($result['accountSettings']['paging']['next'])) {
+			$result = $this->jsonRequest($result['accountSettings']['paging']['next'], 'GET', array(), array(), false);
+
+			if (isset($result['accountSettings']['items']))
+				$users = array_merge($users, $result['accountSettings']['items']);
+		}
+
+		return $users;
 	}
 
 	/**
