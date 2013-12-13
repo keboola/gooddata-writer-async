@@ -240,6 +240,7 @@ Remove user from specified project. Project invitations will be also canceled.
 * **writerId** (required) - KBC id of writer
 * **pid** (required) - PID of project
 * **email** (required) - email of user
+* **queue** (optional) - with value **secondary** will put job in secondary queue
 DELETE /project-users?writerId={writerId}&pid={pr0j3ct_p1d}&email={user@email.com}
 > X-StorageApi-Token: your_token
 < 200
