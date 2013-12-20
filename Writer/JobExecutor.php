@@ -281,13 +281,21 @@ class JobExecutor
 			try {
 				$result = $command->run($job, $parameters);
 			} catch (RestApiException $e) {
-				throw new ClientException('Rest API error: ' . $e->getMessage());
+				$e2 = new ClientException('Rest API error: ' . $e->getMessage());
+				$e2->setData(array('trace' => $e->getTraceAsString()));
+				throw $e2;
 			} catch (CLToolApiErrorException $e) {
-				throw new ClientException('CL Tool error: ' . $e->getMessage());
+				$e2 = new ClientException('CL Tool error: ' . $e->getMessage());
+				$e2->setData(array('trace' => $e->getTraceAsString()));
+				throw $e2;
 			} catch (UnauthorizedException $e) {
-				throw new ClientException('Bad GoodData credentials: ' . $e->getMessage());
+				$e2 = new ClientException('Bad GoodData credentials: ' . $e->getMessage());
+				$e2->setData(array('trace' => $e->getTraceAsString()));
+				throw $e2;
 			} catch (\Keboola\StorageApi\ClientException $e) {
-				throw new ClientException('Storage API problem: ' . $e->getMessage());
+				$e2 = new ClientException('Storage API problem: ' . $e->getMessage());
+				$e2->setData(array('trace' => $e->getTraceAsString()));
+				throw $e2;
 			}
 
 			$duration = time() - $time;

@@ -964,7 +964,7 @@ class RestApi
 			}
 		}
 
-		$this->_log->alert('', array(
+		$this->_log->alert('getAttributeById() attribute not found', array(
 			'pid'               => $pid,
 			'attribute'         => $id,
 			'attributesFound'   => $attributes

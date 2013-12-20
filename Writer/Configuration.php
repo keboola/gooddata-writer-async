@@ -854,6 +854,7 @@ class Configuration extends StorageApiConfiguration
 			$data = array();
 			foreach ($this->_getConfigTable(self::DATE_DIMENSIONS_TABLE_NAME) as $row) {
 				$row['includeTime'] = (bool)$row['includeTime'];
+				$row['isExported'] = (bool)$row['isExported'];
 				$data[$row['name']] = $row;
 			}
 
