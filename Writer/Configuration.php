@@ -9,7 +9,8 @@
 namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
-use Keboola\GoodDataWriter\Service\StorageApiConfiguration, 
+use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Service\StorageApiConfiguration,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
@@ -64,7 +65,7 @@ class Configuration extends StorageApiConfiguration
 			'indices' => array()
 		),
         self::DATE_DIMENSIONS_TABLE_NAME => array(
-            'columns' => array('name', 'includeTime'),
+            'columns' => array('name', 'includeTime', 'isExported'),
             'primaryKey' => 'name',
             'indices' => array()
         ),
@@ -81,6 +82,11 @@ class Configuration extends StorageApiConfiguration
 	 * @var string
 	 */
 	public $writerId;
+
+	/**
+	 * @var RestApi
+	 */
+	public $restApi;
 
 
 	/**
@@ -814,6 +820,7 @@ class Configuration extends StorageApiConfiguration
 			$data = array();
 			foreach ($this->_getConfigTable(self::DATE_DIMENSIONS_TABLE_NAME) as $row) {
 				$row['includeTime'] = (bool)$row['includeTime'];
+				$row['isExported'] = (bool)$row['isExported'];
 				$data[$row['name']] = $row;
 			}
 
@@ -856,7 +863,21 @@ class Configuration extends StorageApiConfiguration
 	{
 		$data = array(
 			'name' => $name,
-			'includeTime' => $includeTime
+			'includeTime' => $includeTime,
+			'isExported' => null
+		);
+		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
+	}
+
+	/**
+	 * Update export status of date dimension
+	 * @param $name
+	 */
+	public function setDateDimensionIsExported($name)
+	{
+		$data = array(
+			'name' => $name,
+			'isExported' => 1
 		);
 		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
 	}
@@ -1422,7 +1443,11 @@ class Configuration extends StorageApiConfiguration
 					$this->_createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
 					$data = array();
 					foreach ($this->_fetchTableRows($table['id']) as $row) {
-						$data[] = array('name' => $row['name'], 'includeTime' => $row['includeTime']);
+						$data[] = array(
+							'name' => $row['name'],
+							'includeTime' => $row['includeTime'],
+							'isExported' => (bool)$row['lastExportDate']
+						);
 					}
 					$this->_updateConfigTable(self::DATE_DIMENSIONS_TABLE_NAME, $data, false);
 					//@TODO $this->_storageApiClient->dropTable($table['id']);

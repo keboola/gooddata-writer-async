@@ -5,9 +5,6 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\StorageApi\Table as StorageApiTable;
-
 class FiltersTest extends AbstractControllerTest
 {
 	protected function _createFilter($pid)

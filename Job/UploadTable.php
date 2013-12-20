@@ -124,6 +124,7 @@ class UploadTable extends AbstractJob
 		// Find out new date dimensions and enqueue them for creation
 		$dateDimensions = null;
 		$dateDimensionsToLoad = array();
+		$newDimensions = array();
 		if ($xmlFileObject->columns) foreach ($xmlFileObject->columns->column as $column) if ((string)$column->ldmType == 'DATE') {
 			if (!$dateDimensions) {
 				$dateDimensions = $this->configuration->getDateDimensions();
@@ -140,8 +141,12 @@ class UploadTable extends AbstractJob
 					'gdName' => RestApi::gdName($dimension),
 					'includeTime' => !empty($dateDimensions[$dimension]['includeTime'])
 				);
+				if (!$dateDimensions[$dimension]['isExported']) {
+					$newDimensions[$dimension] = null;
+				}
 			}
 		}
+		$newDimensions = array_keys($newDimensions);
 
 		// Enqueue jobs for creation/update of dataSet and load data
 		foreach ($projectsToLoad as $project) {
@@ -233,6 +238,13 @@ class UploadTable extends AbstractJob
 					$this->_checkEtlError($result, $webDav, $gdJob, 'time.' . $dimensionName, $debugFile,
 						$tmpFolderDimension, $tmpFolderName, 'Dimension ' . $gdJob['name']);
 				}
+
+				if (in_array($gdJob['name'], $newDimensions)) {
+					// Save export status to definition
+					$this->configuration->setDateDimensionIsExported($gdJob['name']);
+					unset($newDimensions[$gdJob['name']]);
+				}
+
 				$e = $stopWatch->stop($stopWatchId);
 				$eventsLog[$stopWatchId] = array(
 					'duration' => $e->getDuration(),
@@ -250,6 +262,11 @@ class UploadTable extends AbstractJob
 				if (!file_exists($clToolApi->tmpDir)) mkdir($clToolApi->tmpDir);
 				if ($gdJob['command'] == 'create') {
 					$clToolApi->createDataSet($gdJob['pid'], $xmlFile);
+
+					if (empty($tableDefinition['isExported'])) {
+						// Save export status to definition
+						$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
+					}
 				} else {
 					$clToolApi->updateDataSet($gdJob['pid'], $xmlFile, 1);
 				}
@@ -337,11 +354,6 @@ class UploadTable extends AbstractJob
 				'restApi' => $this->restApi->callsLog,
 				'clTool' => $clToolApi->output
 			);
-		}
-
-		if (empty($tableDefinition['isExported'])) {
-			$this->configuration->updateDataSetDefinition($params['tableId'], 'export', 1);
-			$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
 		}
 
 		$result = array(
