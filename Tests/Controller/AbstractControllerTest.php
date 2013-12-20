@@ -68,7 +68,7 @@ abstract class AbstractControllerTest extends WebTestCase
 
 		$this->mainConfig = $container->getParameter('gooddata_writer');
 		$this->storageApi = new \Keboola\StorageApi\Client($container->getParameter('storageApi.test.token'),
-			$this->httpClient->getContainer()->getParameter('storageApi.url'));
+			$this->httpClient->getContainer()->getParameter('storageApi.test.url'));
 		$this->restApi = new RestApi($container->get('logger'));
 
 		// Clear test environment
@@ -163,23 +163,51 @@ abstract class AbstractControllerTest extends WebTestCase
 
 		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.categories', 'name', 'Categories');
 		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.categories', 'export', '1');
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.categories', 'id', array(
-				'gdName' => 'Id', 'type' => 'CONNECTION_POINT'));
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.categories', 'name', array(
-				'gdName' => 'Name', 'type' => 'ATTRIBUTE'));
+		$this->configuration->updateColumnsDefinition($this->dataBucketId . '.categories', array(
+			array(
+				'name' => 'id',
+				'gdName' => 'Id',
+				'type' => 'CONNECTION_POINT'
+			),
+			array(
+				'name' => 'name',
+				'gdName' => 'Name',
+				'type' => 'ATTRIBUTE'
+			)
+		));
 
 		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.products', 'name', 'Products');
 		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.products', 'export', '1');
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.products', 'id', array(
-				'gdName' => 'Id', 'type' => 'CONNECTION_POINT'));
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.products', 'name', array(
-				'gdName' => 'Name', 'type' => 'ATTRIBUTE'));
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.products', 'price', array(
-				'gdName' => 'Price', 'type' => 'FACT'));
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.products', 'date', array(
-				'gdName' => '', 'type' => 'DATE', 'format' => 'yyyy-MM-dd HH:mm:ss', 'dateDimension' => 'ProductDate'));
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.products', 'category', array(
-				'gdName' => '', 'type' => 'REFERENCE', 'schemaReference' => $this->dataBucketId . '.categories'));
+		$this->configuration->updateColumnsDefinition($this->dataBucketId . '.products', array(
+			array(
+				'name' => 'id',
+				'gdName' => 'Id',
+				'type' => 'CONNECTION_POINT'
+			),
+			array(
+				'name' => 'name',
+				'gdName' => 'Name',
+				'type' => 'ATTRIBUTE'
+			),
+			array(
+				'name' => 'price',
+				'gdName' => 'Price',
+				'type' => 'FACT'
+			),
+			array(
+				'name' => 'date',
+				'gdName' => '',
+				'type' => 'DATE',
+				'format' => 'yyyy-MM-dd HH:mm:ss',
+				'dateDimension' => 'ProductDate'
+			),
+			array(
+				'name' => 'category',
+				'gdName' => '',
+				'type' => 'REFERENCE',
+				'schemaReference' => $this->dataBucketId . '.categories'
+			)
+		));
 
 		// Reset configuration
 		$this->configuration = new Configuration($this->storageApi, $this->writerId);

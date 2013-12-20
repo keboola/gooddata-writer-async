@@ -88,17 +88,35 @@ class ProjectsTest extends AbstractControllerTest
 		$this->configuration->updateWriter('filterColumn', 'pid');
 		$this->configuration->updateDataSetsFromSapi();
 
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.' . $filteredTableName, 'id',
-			array('gdName' => 'Id', 'type' => 'CONNECTION_POINT'));
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.' . $filteredTableName, 'name',
-			array('gdName' => 'Name', 'type' => 'ATTRIBUTE'));
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.' . $filteredTableName, 'pid',
-			array('gdName' => '', 'type' => 'IGNORE'));
-
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.' . $notFilteredTableName, 'id',
-			array('gdName' => 'Id', 'type' => 'CONNECTION_POINT'));
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.' . $notFilteredTableName, 'name',
-			array('gdName' => 'Name', 'type' => 'ATTRIBUTE'));
+		$this->configuration->updateColumnsDefinition($this->dataBucketId . '.' . $filteredTableName, array(
+			array(
+				'name' => 'id',
+				'gdName' => 'Id',
+				'type' => 'CONNECTION_POINT'
+			),
+			array(
+				'name' => 'name',
+				'gdName' => 'Name',
+				'type' => 'ATTRIBUTE'
+			),
+			array(
+				'name' => 'pid',
+				'gdName' => '',
+				'type' => 'IGNORE'
+			)
+		));
+		$this->configuration->updateColumnsDefinition($this->dataBucketId . '.' . $notFilteredTableName, array(
+			array(
+				'name' => 'id',
+				'gdName' => 'Id',
+				'type' => 'CONNECTION_POINT'
+			),
+			array(
+				'name' => 'name',
+				'gdName' => 'Name',
+				'type' => 'ATTRIBUTE'
+			)
+		));
 
 
 		// Test if upload of not-filtered table without 'ignoreFilter' attribute fails
@@ -183,12 +201,23 @@ class ProjectsTest extends AbstractControllerTest
 		// Prepare configuration
 		$this->configuration->updateWriter('filterColumn', 'pid');
 
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.' . $tableName, 'id',
-			array('gdName' => 'Id', 'type' => 'CONNECTION_POINT'));
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.' . $tableName, 'name',
-			array('gdName' => 'Name', 'type' => 'ATTRIBUTE'));
-		$this->configuration->updateColumnDefinition($this->dataBucketId . '.' . $tableName, 'pid',
-			array('gdName' => '', 'type' => 'IGNORE'));
+		$this->configuration->updateColumnsDefinition($this->dataBucketId . '.' . $tableName, array(
+				array(
+					'name' => 'id',
+					'gdName' => 'Id',
+					'type' => 'CONNECTION_POINT'
+				),
+				array(
+					'name' => 'name',
+					'gdName' => 'Name',
+					'type' => 'ATTRIBUTE'
+				),
+				array(
+					'name' => 'pid',
+					'gdName' => '',
+					'type' => 'IGNORE'
+				)
+			));
 
 
 		// Test if upload went only to clone

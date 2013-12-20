@@ -30,7 +30,7 @@ abstract class StorageApiConfiguration
 	 * )
 	 * @var array
 	 */
-	protected $_tables;
+	protected $tables;
 
 	protected $_cache = array();
 
@@ -158,27 +158,27 @@ abstract class StorageApiConfiguration
 
 	protected function _createConfigTable($tableName)
 	{
-		if (!isset($this->_tables[$tableName])) return false;
+		if (!isset($this->tables[$tableName])) return false;
 
 		return $this->_createTable(
 			$this->bucketId . '.' . $tableName,
-			$this->_tables[$tableName]['primaryKey'],
-			$this->_tables[$tableName]['columns'],
-			$this->_tables[$tableName]['indices']);
+			$this->tables[$tableName]['primaryKey'],
+			$this->tables[$tableName]['columns'],
+			$this->tables[$tableName]['indices']);
 	}
 
 	protected function _updateConfigTable($tableName, $data, $incremental = true)
 	{
-		if (!isset($this->_tables[$tableName])) return false;
+		if (!isset($this->tables[$tableName])) return false;
 
 		$result = $this->_saveTable(
 			$this->bucketId . '.' . $tableName,
-			$this->_tables[$tableName]['primaryKey'],
-			$this->_tables[$tableName]['columns'],
+			$this->tables[$tableName]['primaryKey'],
+			$this->tables[$tableName]['columns'],
 			$data,
 			$incremental,
 			true,
-			$this->_tables[$tableName]['indices']
+			$this->tables[$tableName]['indices']
 		);
 
 		$this->clearCache();
@@ -187,13 +187,13 @@ abstract class StorageApiConfiguration
 
 	protected function _updateConfigTableRow($tableName, $data)
 	{
-		if (!isset($this->_tables[$tableName])) return false;
+		if (!isset($this->tables[$tableName])) return false;
 
 		$result = $this->_updateTableRow(
 			$this->bucketId . '.' . $tableName,
-			$this->_tables[$tableName]['primaryKey'],
+			$this->tables[$tableName]['primaryKey'],
 			$data,
-			$this->_tables[$tableName]['indices']
+			$this->tables[$tableName]['indices']
 		);
 
 		$this->clearCache();
@@ -202,19 +202,19 @@ abstract class StorageApiConfiguration
 
 	protected function _getConfigTableRow($tableName, $id)
 	{
-		if (!isset($this->_tables[$tableName])) return false;
+		if (!isset($this->tables[$tableName])) return false;
 
-		$result = $this->_fetchTableRows($this->bucketId . '.' . $tableName, $this->_tables[$tableName]['primaryKey'], $id);
+		$result = $this->_fetchTableRows($this->bucketId . '.' . $tableName, $this->tables[$tableName]['primaryKey'], $id);
 		return count($result) ? current($result) : false;
 	}
 
 	protected function _checkConfigTable($tableName, $columns)
 	{
-		if (!isset($this->_tables[$tableName])) return false;
+		if (!isset($this->tables[$tableName])) return false;
 
-		if ($columns != $this->_tables[$tableName]['columns']) {
+		if ($columns != $this->tables[$tableName]['columns']) {
 			throw new WrongConfigurationException(sprintf("Table '%s' appears to be wrongly configured. Contains columns: '%s' but should contain columns: '%s'",
-				$tableName, implode(',', $columns), implode(',', $this->_tables[$tableName]['columns'])));
+				$tableName, implode(',', $columns), implode(',', $this->tables[$tableName]['columns'])));
 		}
 
 		return true;
@@ -226,7 +226,7 @@ abstract class StorageApiConfiguration
 	 */
 	protected function _getConfigTable($tableName)
 	{
-		if (!isset($this->_tables[$tableName])) return false;
+		if (!isset($this->tables[$tableName])) return false;
 
 		$tableId = $this->bucketId . '.' . $tableName;
 		if (!$this->_storageApiClient->tableExists($tableId)) {

@@ -1388,33 +1388,28 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Table '%s' does not exist", $params['tableId']));
 		}
 
+		$tableId = $params['tableId'];
+		unset($params['tableId']);
+
 		$this->configuration->updateDataSetsFromSapi();
 
 		if (isset($params['column'])) {
-			$params['column'] = trim($params['column']);
+			$columnName = trim($params['column']);
+			unset($params['column']);
 
 			// Column detail
-			$sourceTableInfo = $this->configuration->getSapiTable($params['tableId']);
-			if (!in_array($params['column'], $sourceTableInfo['columns'])) {
-				throw new WrongParametersException(sprintf("Table '%s' does not exist", $params['tableId']));
-			}
+			$this->configuration->updateColumnsDefinition($tableId, $columnName, $params);
 
-			$values = array();
-			foreach ($params as $key => $value) if (in_array($key, array('gdName', 'type', 'dataType', 'dataTypeSize',
-				'schemaReference', 'reference', 'format', 'dateDimension', 'sortLabel', 'sortOrder'))) {
-				$values[$key] = $value;
-			}
-			if (count($values)) {
-				$this->configuration->updateColumnDefinition($params['tableId'], $params['column'], $values);
-				$this->configuration->updateDataSetDefinition($params['tableId'], 'lastChangeDate', date('c'));
-			}
+		} elseif (isset($params['columns'])) {
+			$this->configuration->updateColumnsDefinition($tableId, $params['columns']);
 		} else {
 			// Table detail
-			$this->configuration->updateDataSetDefinition($params['tableId'], 'lastChangeDate', date('c'));
-			if (isset($params['gdName'])) $params['name'] = $params['gdName']; //@TODO remove
-			foreach ($params as $key => $value) if (in_array($key, array('name', 'export', 'lastChangeDate', 'lastExportDate', 'sanitize', 'incrementalLoad'))) {
-				$this->configuration->updateDataSetDefinition($params['tableId'], $key, $value);
+			if (isset($params['gdName'])) { //@TODO remove
+				$params['name'] = $params['gdName'];
+				unset($params['gdName']);
 			}
+
+			$this->configuration->updateDataSetDefinition($tableId, $params);
 		}
 
 		return array();

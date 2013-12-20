@@ -5,6 +5,7 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
+use Aws\Common\Facade\ElasticBeanstalk;
 use Keboola\Csv\CsvFile;
 
 class DatasetsTest extends AbstractControllerTest
@@ -78,7 +79,7 @@ class DatasetsTest extends AbstractControllerTest
 
 
 		// Check validity of foreign keys (including time dimension during daylight saving switch values)
-		$result = $this->restApi->validateProject($bucketAttributes['gd']['pid']);
+		$result = self::$restApi->validateProject(self::$configuration->bucketInfo['gd']['pid']);
 		$this->assertEquals(0, $result['error_found'], 'Project validation should not contain errors but result is: ' . print_r($result, true));
 		$this->assertEquals(0, $result['fatal_error_found'], 'Project validation should not contain errors but result is: ' . print_r($result, true));
 	}
@@ -229,24 +230,72 @@ class DatasetsTest extends AbstractControllerTest
 		}
 
 		$this->assertNotEquals($lastChangeDate, $lastChangeDateAfterUpdate, 'Last change date should be changed after update');
+
+
+
+		// Test column definitions
+		$columnName = 'id';
+		$newGdName = 'test' . uniqid();
+		$this->_postWriterApi('/gooddata-writer/tables', array(
+			'writerId' => $this->writerId,
+			'tableId' => $tableId,
+			'column' => $columnName,
+			'gdName' => $newGdName
+		));
+		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $tableId);
+
+		$this->assertArrayHasKey('table', $responseJson, "Response for writer call '/tables&tableId=' should contain 'table' key.");
+		$this->assertArrayHasKey('columns', $responseJson['table'], "Response for writer call '/tables&tableId=' should contain 'table.columns' key.");
+		$columnFound = false;
+		foreach ($responseJson['table']['columns'] as $column) {
+			if ($column['name'] == $columnName) {
+				$columnFound = true;
+				$this->assertEquals($newGdName, $column['gdName'], sprintf("GdName of column '%s' should be changed to '%s'", $columnName, $newGdName));
+				break;
+			}
+		}
+		$this->assertTrue($columnFound, sprintf("Response for writer call '/tables&tableId=' should contain '%s' column.", $columnName));
+
+
+		// Test multiple columns change
+		// Test column definitions
+		$columnName1 = 'id';
+		$newGdName1 = 'test' . uniqid();
+		$columnName2 = 'name';
+		$newGdName2 = 'test' . uniqid();
+		$this->_postWriterApi('/gooddata-writer/tables', array(
+			'writerId' => $this->writerId,
+			'tableId' => $tableId,
+			'columns' => array(
+				array(
+					'name' => $columnName1,
+					'gdName' => $newGdName1,
+				),
+				array(
+					'name' => $columnName2,
+					'gdName' => $newGdName2,
+				)
+			)
+		));
+		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $tableId);
+		$this->assertArrayHasKey('table', $responseJson, "Response for writer call '/tables&tableId=' should contain 'table' key.");
+		$this->assertArrayHasKey('columns', $responseJson['table'], "Response for writer call '/tables&tableId=' should contain 'table.columns' key.");
+		$column1Found = false;
+		$column2Found = false;
+		foreach ($responseJson['table']['columns'] as $column) {
+			if ($column['name'] == $columnName1) {
+				$column1Found = true;
+				$this->assertEquals($newGdName1, $column['gdName'], sprintf("GdName of column '%s' should be changed to '%s'", $columnName1, $newGdName1));
+			}
+			if ($column['name'] == $columnName2) {
+				$column2Found = true;
+				$this->assertEquals($newGdName2, $column['gdName'], sprintf("GdName of column '%s' should be changed to '%s'", $columnName2, $newGdName2));
+			}
+		}
+		$this->assertTrue($column1Found, sprintf("Response for writer call '/tables&tableId=' should contain '%s' column.", $columnName1));
+		$this->assertTrue($column2Found, sprintf("Response for writer call '/tables&tableId=' should contain '%s' column.", $columnName2));
 	}
 
-
-	public function testResetExport()
-	{
-		$this->_prepareData();
-		$tableId = $this->dataBucketId . '.categories';
-
-		$this->_processJob('/gooddata-writer/upload-table', array('tableId' => $tableId));
-
-		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $tableId);
-		$this->assertArrayHasKey('lastExportDate', $responseJson['table'], "Exported table should contain 'lastExportDate' attribute.");
-
-		$this->_postWriterApi('/gooddata-writer/reset-export', array('writerId' => $this->writerId));
-
-		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $tableId);
-		$this->assertEquals(0, $responseJson['table']['lastExportDate'], "Reset table should contain empty 'lastExportDate' attribute.");
-	}
 
 
 	public function testRemoveColumn()

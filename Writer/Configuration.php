@@ -9,8 +9,7 @@
 namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
-use Keboola\GoodDataWriter\GoodData\RestApi;
-use Keboola\GoodDataWriter\Service\StorageApiConfiguration,
+use Keboola\GoodDataWriter\Service\StorageApiConfiguration, 
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
@@ -33,7 +32,7 @@ class Configuration extends StorageApiConfiguration
 	 * Definition serves for automatic configuration of Storage API tables
 	 * @var array
 	 */
-	protected $_tables = array(
+	public $tables = array(
 		self::PROJECTS_TABLE_NAME => array(
 			'columns' => array('pid', 'active'),
 			'primaryKey' => 'pid',
@@ -65,7 +64,7 @@ class Configuration extends StorageApiConfiguration
 			'indices' => array()
 		),
         self::DATE_DIMENSIONS_TABLE_NAME => array(
-            'columns' => array('name', 'includeTime', 'isExported'),
+            'columns' => array('name', 'includeTime'),
             'primaryKey' => 'name',
             'indices' => array()
         ),
@@ -76,17 +75,15 @@ class Configuration extends StorageApiConfiguration
         )
 	);
 
+	public static $columnDefinitions = array('gdName', 'type', 'dataType', 'dataTypeSize', 'schemaReference', 'reference',
+		'format', 'dateDimension', 'sortLabel', 'sortOrder');
+
 
 
 	/**
 	 * @var string
 	 */
 	public $writerId;
-
-	/**
-	 * @var RestApi
-	 */
-	public $restApi;
 
 
 	/**
@@ -376,13 +373,11 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Get list of defined data sets
-	 * @param bool $update
 	 * @return array
 	 */
-	public function getDataSets($update = true)
+	public function getDataSets()
 	{
-		if ($update)
-			$this->updateDataSetsFromSapi();
+		$this->updateDataSetsFromSapi();
 		$tables = array();
 		foreach ($this->_getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
 			$tables[] = array(
@@ -464,14 +459,12 @@ class Configuration extends StorageApiConfiguration
 	/**
 	 * Get definition of data set
 	 * @param $tableId
-	 * @param bool $update
-	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
 	 * @return bool|mixed
+	 * @throws WrongConfigurationException
 	 */
-	public function getDataSet($tableId, $update = true)
+	public function getDataSet($tableId)
 	{
-		if ($update)
-			$this->updateDataSetFromSapi($tableId);
+		$this->updateDataSetFromSapi($tableId);
 
 		$tableConfig = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
 		if (!$tableConfig) {
@@ -499,7 +492,7 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getDimensionsOfDataSet($tableId)
 	{
-		$dataSet = $this->getDataSet($tableId, false);
+		$dataSet = $this->getDataSet($tableId);
 
 		$dimensions = array();
 		foreach ($dataSet['columns'] as $column) {
@@ -516,9 +509,10 @@ class Configuration extends StorageApiConfiguration
 	 * @param $tableId
 	 * @param $column
 	 * @param $data
-	 * @throws WrongConfigurationException
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongParametersException
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
 	 */
-	public function updateColumnDefinition($tableId, $column, $data)
+	public function updateColumnsDefinition($tableId, $column, $data = null)
 	{
 		$this->updateDataSetFromSapi($tableId);
 
@@ -526,21 +520,42 @@ class Configuration extends StorageApiConfiguration
 		if (!$tableRow) {
 			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
 		}
-
 		if ($tableRow['definition']) {
 			$definition = json_decode($tableRow['definition'], true);
 			if ($definition === NULL) {
 				throw new WrongConfigurationException("Definition of columns for table '$tableId' is not valid json");
 			}
-			$definition[$column] = isset($definition[$column]) ? array_merge($definition[$column], $data) : $data;
-			$definition[$column] = $this->_cleanColumnDefinition($definition[$column]);
-
-			$tableRow['definition'] = json_encode($definition);
-
 		} else {
-			$tableRow['definition'] = json_encode(array($column => $data));
+			$definition = array();
 		}
 
+		if (is_array($column)) {
+			// Update more columns
+			foreach ($column as $columnData) {
+				if (!isset($columnData['name'])) {
+					throw new WrongParametersException("One of the columns is missing 'name' parameter");
+				}
+				$columnName = $columnData['name'];
+				unset($columnData['name']);
+
+				foreach (array_keys($columnData) as $key) if (!in_array($key, self::$columnDefinitions)) {
+					throw new WrongParametersException(sprintf("Parameter '%s' is not valid for column definition", $key));
+				}
+
+				$definition[$columnName] = isset($definition[$columnName]) ? array_merge($definition[$columnName], $columnData) : $columnData;
+				$definition[$columnName] = $this->_cleanColumnDefinition($definition[$columnName]);
+			}
+		} else {
+			// Update one column
+			if (!$data) {
+				$data = array();
+			}
+			$definition[$column] = isset($definition[$column]) ? array_merge($definition[$column], $data) : $data;
+			$definition[$column] = $this->_cleanColumnDefinition($definition[$column]);
+		}
+
+		$tableRow['definition'] = json_encode($definition);
+		$tableRow['lastChangeDate'] = date('c');
 		$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableRow);
 	}
 
@@ -606,9 +621,10 @@ class Configuration extends StorageApiConfiguration
 	 * @param $tableId
 	 * @param $name
 	 * @param $value
-	 * @throws WrongConfigurationException
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongParametersException
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
 	 */
-	public function updateDataSetDefinition($tableId, $name, $value)
+	public function updateDataSetDefinition($tableId, $name, $value = null)
 	{
 		$this->updateDataSetFromSapi($tableId);
 
@@ -616,10 +632,28 @@ class Configuration extends StorageApiConfiguration
 		if (!$tableRow) {
 			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
 		}
-		if (!isset($tableRow[$name])) {
-			throw new WrongConfigurationException("DataSet does not have '$name' definition parameter");
+
+		$allowedParams = $this->tables[Configuration::DATA_SETS_TABLE_NAME]['columns'];
+		unset($allowedParams['id']);
+		unset($allowedParams['lastChangeDate']);
+		unset($allowedParams['definition']);
+
+		if (is_array($name)) {
+			unset($name['writerId']);
+			// Update more values at once
+			foreach (array_keys($name) as $key) if (!in_array($key, $allowedParams)) {
+				throw new WrongParametersException(sprintf("Parameter '%s' is not valid for table definition", $key));
+			}
+			$tableRow = array_merge($tableRow, $name);
+		} else {
+			// Update one value
+			if (!in_array($name, $allowedParams)) {
+				throw new WrongParametersException(sprintf("Parameter '%s' is not valid for table definition", $name));
+			}
+			$tableRow[$name] = $value;
 		}
-		$tableRow[$name] = $value;
+
+		$tableRow['lastChangeDate'] = date('c');
 		$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableRow);
 	}
 
@@ -820,7 +854,6 @@ class Configuration extends StorageApiConfiguration
 			$data = array();
 			foreach ($this->_getConfigTable(self::DATE_DIMENSIONS_TABLE_NAME) as $row) {
 				$row['includeTime'] = (bool)$row['includeTime'];
-				$row['isExported'] = (bool)$row['isExported'];
 				$data[$row['name']] = $row;
 			}
 
@@ -841,7 +874,7 @@ class Configuration extends StorageApiConfiguration
 		$dimensions = $this->getDateDimensions();
 
 		$usage = array();
-		foreach ($this->getDataSets(false) as $dataSet) {
+		foreach ($this->getDataSets() as $dataSet) {
 			foreach ($this->getDimensionsOfDataSet($dataSet['id']) as $dimension) {
 				if (!isset($usage[$dimension])) {
 					$usage[$dimension]['usedIn'] = array();
@@ -863,21 +896,7 @@ class Configuration extends StorageApiConfiguration
 	{
 		$data = array(
 			'name' => $name,
-			'includeTime' => $includeTime,
-			'isExported' => null
-		);
-		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
-	}
-
-	/**
-	 * Update export status of date dimension
-	 * @param $name
-	 */
-	public function setDateDimensionIsExported($name)
-	{
-		$data = array(
-			'name' => $name,
-			'isExported' => 1
+			'includeTime' => $includeTime
 		);
 		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
 	}
@@ -1443,17 +1462,13 @@ class Configuration extends StorageApiConfiguration
 					$this->_createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
 					$data = array();
 					foreach ($this->_fetchTableRows($table['id']) as $row) {
-						$data[] = array(
-							'name' => $row['name'],
-							'includeTime' => $row['includeTime'],
-							'isExported' => (bool)$row['lastExportDate']
-						);
+						$data[] = array('name' => $row['name'], 'includeTime' => $row['includeTime']);
 					}
 					$this->_updateConfigTable(self::DATE_DIMENSIONS_TABLE_NAME, $data, false);
 					//@TODO $this->_storageApiClient->dropTable($table['id']);
 				}
 			}
-			if (!in_array($table['name'], array_keys($this->_tables)) && $table['name'] != 'dateDimensions') {
+			if (!in_array($table['name'], array_keys($this->tables)) && $table['name'] != 'dateDimensions') {
 				$configTable = $this->getSapiTable($table['id']);
 				$dataSetRow = array(
 					'id' => null,
