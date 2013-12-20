@@ -370,11 +370,13 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Get list of defined data sets
+	 * @param bool $update
 	 * @return array
 	 */
-	public function getDataSets()
+	public function getDataSets($update = true)
 	{
-		$this->updateDataSetsFromSapi();
+		if ($update)
+			$this->updateDataSetsFromSapi();
 		$tables = array();
 		foreach ($this->_getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
 			$tables[] = array(
@@ -456,12 +458,14 @@ class Configuration extends StorageApiConfiguration
 	/**
 	 * Get definition of data set
 	 * @param $tableId
+	 * @param bool $update
+	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
 	 * @return bool|mixed
-	 * @throws WrongConfigurationException
 	 */
-	public function getDataSet($tableId)
+	public function getDataSet($tableId, $update = true)
 	{
-		$this->updateDataSetFromSapi($tableId);
+		if ($update)
+			$this->updateDataSetFromSapi($tableId);
 
 		$tableConfig = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
 		if (!$tableConfig) {
@@ -489,7 +493,7 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getDimensionsOfDataSet($tableId)
 	{
-		$dataSet = $this->getDataSet($tableId);
+		$dataSet = $this->getDataSet($tableId, false);
 
 		$dimensions = array();
 		foreach ($dataSet['columns'] as $column) {
@@ -830,7 +834,7 @@ class Configuration extends StorageApiConfiguration
 		$dimensions = $this->getDateDimensions();
 
 		$usage = array();
-		foreach ($this->getDataSets() as $dataSet) {
+		foreach ($this->getDataSets(false) as $dataSet) {
 			foreach ($this->getDimensionsOfDataSet($dataSet['id']) as $dimension) {
 				if (!isset($usage[$dimension])) {
 					$usage[$dimension]['usedIn'] = array();
