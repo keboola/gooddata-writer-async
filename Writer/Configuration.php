@@ -64,7 +64,7 @@ class Configuration extends StorageApiConfiguration
 			'indices' => array()
 		),
         self::DATE_DIMENSIONS_TABLE_NAME => array(
-            'columns' => array('name', 'includeTime'),
+            'columns' => array('name', 'includeTime', 'isExported'),
             'primaryKey' => 'name',
             'indices' => array()
         ),
