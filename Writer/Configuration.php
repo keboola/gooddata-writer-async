@@ -897,7 +897,17 @@ class Configuration extends StorageApiConfiguration
 	{
 		$data = array(
 			'name' => $name,
-			'includeTime' => $includeTime
+			'includeTime' => $includeTime,
+			'isExported' => null
+		);
+		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
+	}
+
+	public function setDateDimensionIsExported($name)
+	{
+		$data = array(
+			'name' => $name,
+			'isExported' => 1
 		);
 		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
 	}

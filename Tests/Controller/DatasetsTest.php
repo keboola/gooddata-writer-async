@@ -5,7 +5,6 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Aws\Common\Facade\ElasticBeanstalk;
 use Keboola\Csv\CsvFile;
 
 class DatasetsTest extends AbstractControllerTest
@@ -79,7 +78,7 @@ class DatasetsTest extends AbstractControllerTest
 
 
 		// Check validity of foreign keys (including time dimension during daylight saving switch values)
-		$result = self::$restApi->validateProject(self::$configuration->bucketInfo['gd']['pid']);
+		$result = $this->restApi->validateProject($bucketAttributes['gd']['pid']);
 		$this->assertEquals(0, $result['error_found'], 'Project validation should not contain errors but result is: ' . print_r($result, true));
 		$this->assertEquals(0, $result['fatal_error_found'], 'Project validation should not contain errors but result is: ' . print_r($result, true));
 	}
