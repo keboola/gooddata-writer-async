@@ -799,7 +799,7 @@ class Configuration extends StorageApiConfiguration
 							$reference = NULL;
 							foreach ($refTableDefinition['columns'] as $cName => $c) {
 								if ($c['type'] == 'CONNECTION_POINT') {
-									$reference = !empty($c['gdName']) ? $c['gdName'] : $cName;
+									$reference = $cName;
 									break;
 								}
 							}
