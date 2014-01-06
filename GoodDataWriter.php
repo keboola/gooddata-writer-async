@@ -1450,7 +1450,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		return array('dimensions' => $this->configuration->getDateDimensions(isset($params['usage'])));
+		return array('dimensions' => (object) $this->configuration->getDateDimensions(isset($params['usage'])));
 	}
 
 
