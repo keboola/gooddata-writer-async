@@ -427,8 +427,23 @@ class RestApi
 	 */
 	public function usersInDomain($domain)
 	{
+		$users = array();
+
+		// first page
 		$result = $this->jsonRequest(sprintf('/gdc/account/domains/%s/users', $domain), 'GET', array(), array(), false);
-		return isset($result['accountSettings']['items']) ? $result['accountSettings']['items'] : array();
+
+		if (isset($result['accountSettings']['items']))
+			$users = array_merge($users, $result['accountSettings']['items']);
+
+		// next pages
+		while (isset($result['accountSettings']['paging']['next'])) {
+			$result = $this->jsonRequest($result['accountSettings']['paging']['next'], 'GET', array(), array(), false);
+
+			if (isset($result['accountSettings']['items']))
+				$users = array_merge($users, $result['accountSettings']['items']);
+		}
+
+		return $users;
 	}
 
 	/**
@@ -520,11 +535,25 @@ class RestApi
 	 */
 	public function removeUserFromProject($userId, $pid)
 	{
+		// GD BUG fix - adding user roles
+		$rolesUri = sprintf('/gdc/projects/%s/users/%s/roles', $pid, $userId);
+		$result = $this->get($rolesUri);
+		if ((isset($result['associatedRoles']['roles']) && count($result['associatedRoles']['roles']))) {
+			// SUCCESS
+		} else {
+			$this->_log->alert('removeUserFromProject() has not remove user from project - could not load user roles', array(
+				'uri' => $rolesUri,
+				'result' => $result
+			));
+			throw new RestApiException('Error removing from project');
+		}
+
 		$uri = sprintf('/gdc/projects/%s/users', $pid);
 		$params = array(
 			'user' => array(
 				'content' => array(
 					'status' => 'DISABLED',
+					'userRoles' => $result['associatedRoles']['roles'],
 				),
 				'links' => array(
 					'self' => '/gdc/account/profile/' . $userId

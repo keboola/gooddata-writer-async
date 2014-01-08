@@ -6,6 +6,7 @@ composer.phar
 console
 tmp
 Tests/config/config.php
+Command/DebugCommand.php
 
 # osx noise
 .DS_Store
