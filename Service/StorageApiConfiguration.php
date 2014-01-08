@@ -253,19 +253,24 @@ abstract class StorageApiConfiguration
 			return false;
 		}
 
-		$attributes = array();
-		foreach ($bucketData['attributes'] as $attr) {
+		return $this->parseAttributes($bucketData['attributes']);
+	}
+
+	protected function parseAttributes($attributes)
+	{
+		$result = array();
+		foreach ($attributes as $attr) {
 			$attrArray = explode('.', $attr['name']);
 			if (count($attrArray) > 1) {
-				if (!isset($attributes[$attrArray[0]])) {
-					$attributes[$attrArray[0]] = array();
+				if (!isset($result[$attrArray[0]])) {
+					$result[$attrArray[0]] = array();
 				}
-				$attributes[$attrArray[0]][$attrArray[1]] = $attr['value'];
+				$result[$attrArray[0]][$attrArray[1]] = $attr['value'];
 			} else {
-				$attributes[$attr['name']] = $attr['value'];
+				$result[$attr['name']] = $attr['value'];
 			}
 		}
-		return $attributes;
+		return $result;
 	}
 
 

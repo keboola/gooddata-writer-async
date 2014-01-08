@@ -139,24 +139,14 @@ class Configuration extends StorageApiConfiguration
 	{
 		$writers = array();
 		foreach ($this->sapi_listBuckets() as $bucket) {
-			$writerId = false;
-			$foundWriterType = false;
-			if (isset($bucket['attributes']) && is_array($bucket['attributes'])) foreach($bucket['attributes'] as $attribute) {
-				if ($attribute['name'] == 'writerId') {
-					$writerId = $attribute['value'];
+			if (isset($bucket['attributes']) && is_array($bucket['attributes'])) {
+				$bucketAttributes = $this->parseAttributes($bucket['attributes']);
+
+				if (isset($bucketAttributes['writer']) && $bucketAttributes['writer'] == self::WRITER_NAME && isset($bucketAttributes['writerId'])) {
+					$bucketAttributes['id'] = $bucketAttributes['writerId'];
+					$bucketAttributes['bucket'] = $bucket['id'];
+					$writers[] = $bucketAttributes;
 				}
-				if ($attribute['name'] == 'writer') {
-					$foundWriterType = $attribute['value'] == self::WRITER_NAME;
-				}
-				if ($writerId && $foundWriterType) {
-					break;
-				}
-			}
-			if ($writerId && $foundWriterType) {
-				$writers[] = array(
-					'id' => $writerId,
-					'bucket' => $bucket['id']
-				);
 			}
 		}
 		return $writers;
