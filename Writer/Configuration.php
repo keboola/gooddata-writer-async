@@ -124,7 +124,7 @@ class Configuration extends StorageApiConfiguration
 	public function configurationBucket($writerId)
 	{
 		foreach ($this->getWriters() as $w) {
-			if ($w['id'] == $writerId) {
+			if ($w['writerId'] == $writerId) {
 				return $w['bucket'];
 			}
     	}

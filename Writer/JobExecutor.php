@@ -248,7 +248,7 @@ class JobExecutor
 			}
 
 			$mainConfig = $this->_container->getParameter('gooddata_writer');
-			$mainConfig['storageApi.url'] = $this->_container->getParameter('storageApi.url');
+			$mainConfig['storage_api.url'] = $this->_container->getParameter('storage_api.url');
 
 			$tmpDir = sprintf('%s/%s', $mainConfig['tmp_path'], $job['id']);
             if (!file_exists($mainConfig['tmp_path'])) mkdir($mainConfig['tmp_path']);

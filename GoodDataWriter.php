@@ -440,8 +440,7 @@ class GoodDataWriter extends Component
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => $params,
-			'queue' => isset($params['queue']) ? $params['queue'] : null
+			'parameters' => $params
 		));
 
 		$this->_enqueue($jobInfo['batchId']);
@@ -1248,9 +1247,9 @@ class GoodDataWriter extends Component
 				'transitions' => array()
 			);
 			$dimensionsUrl = sprintf('%s/admin/gooddata/dates/project/%s/writer/%s',
-				$this->_container->getParameter('storageApi.url'), $this->configuration->projectId, $this->configuration->writerId);
+				$this->_container->getParameter('storage_api.url'), $this->configuration->projectId, $this->configuration->writerId);
 			$tableUrl = sprintf('%s/admin/gooddata/columns/project/%s/writer/%s/table/',
-				$this->_container->getParameter('storageApi.url'), $this->configuration->projectId, $this->configuration->writerId);
+				$this->_container->getParameter('storage_api.url'), $this->configuration->projectId, $this->configuration->writerId);
 			foreach ($this->configuration->getDataSets() as $dataSet) if (!empty($dataSet['export'])) {
 
 				$result['nodes'][] = array(
@@ -1451,7 +1450,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		return array('dimensions' => (object) $this->configuration->getDateDimensions(isset($params['usage'])));
+		return array('dimensions' => $this->configuration->getDateDimensions(isset($params['usage'])));
 	}
 
 

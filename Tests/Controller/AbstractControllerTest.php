@@ -63,12 +63,12 @@ abstract class AbstractControllerTest extends WebTestCase
 		$this->httpClient = static::createClient();
 		$container = $this->httpClient->getContainer();
 		$this->httpClient->setServerParameters(array(
-			'HTTP_X-StorageApi-Token' => $container->getParameter('storageApi.test.token')
+			'HTTP_X-StorageApi-Token' => $container->getParameter('storage_api.test.token')
 		));
 
 		$this->mainConfig = $container->getParameter('gooddata_writer');
-		$this->storageApi = new \Keboola\StorageApi\Client($container->getParameter('storageApi.test.token'),
-			$this->httpClient->getContainer()->getParameter('storageApi.test.url'));
+		$this->storageApi = new \Keboola\StorageApi\Client($container->getParameter('storage_api.test.token'),
+			$this->httpClient->getContainer()->getParameter('storage_api.test.url'));
 		$this->restApi = new RestApi($container->get('logger'));
 
 		// Clear test environment
