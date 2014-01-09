@@ -6,9 +6,6 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\StorageApi\Table as StorageApiTable;
-
 class ProxyTest extends AbstractControllerTest
 {
 	public function testGetProxy()
@@ -16,12 +13,13 @@ class ProxyTest extends AbstractControllerTest
 		$user = $this->_createUser();
 
 		// Check of GoodData
-		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
-		$userInfo = self::$restApi->getUser($user['uid']);
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$userInfo = $this->restApi->getUser($user['uid']);
 		$this->assertArrayHasKey('accountSetting', $userInfo, "Response for GoodData API user call should contain 'accountSetting' key.");
 
 		// Check of Writer API
-		$projectsList = self::$configuration->getProjects();
+		$projectsList = $this->configuration->getProjects();
 		$this->assertGreaterThanOrEqual(1, $projectsList, "Response for writer call '/projects' should return at least one GoodData project.");
 		$project = $projectsList[count($projectsList)-1];
 
@@ -40,7 +38,8 @@ class ProxyTest extends AbstractControllerTest
 		$this->_prepareData();
 		$this->_processJob('/gooddata-writer/upload-project');
 
-		$pid = self::$configuration->bucketInfo['gd']['pid'];
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$pid = $bucketAttributes['gd']['pid'];
 
 		$attr = $this->getAttributeByTitle($pid, 'Id (Categories)');
 
@@ -67,7 +66,7 @@ class ProxyTest extends AbstractControllerTest
 		if (isset($result['response']['query']['entries'])) {
 			return $result['response']['query']['entries'];
 		} else {
-			throw new Exception('Attributes in project could not be fetched');
+			throw new \Exception('Attributes in project could not be fetched');
 		}
 	}
 
@@ -79,5 +78,6 @@ class ProxyTest extends AbstractControllerTest
 				return $result['response'];
 			}
 		}
+		return false;
 	}
 }

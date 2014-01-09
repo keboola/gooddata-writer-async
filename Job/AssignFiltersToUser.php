@@ -40,7 +40,8 @@ class assignFiltersToUser extends AbstractJob
 		}
 
 		try {
-			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+			$bucketAttributes = $this->configuration->bucketAttributes();
+			$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			$this->restApi->assignFiltersToUser($filterUris, $user['uid'], $params['pid']);
 
 			$this->configuration->saveFilterUser($filterUris, $params['userEmail']);

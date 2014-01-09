@@ -29,6 +29,8 @@ class CreateWriter extends AbstractJob
 			throw new WrongConfigurationException("Parameter projectName is missing");
 		}
 
+        $this->configuration->updateDataSetsFromSapi();
+
 
 		$gdWriteStartTime = date('c');
 		$username = sprintf($this->mainConfig['gd']['user_email'], $job['projectId'], $job['writerId'] . '-' . uniqid());
@@ -49,10 +51,10 @@ class CreateWriter extends AbstractJob
 		}
 
 		// Save data to configuration bucket
-		$this->configuration->setBucketAttribute('gd.pid', $projectPid);
-		$this->configuration->setBucketAttribute('gd.username', $username);
-		$this->configuration->setBucketAttribute('gd.password', $password, true);
-		$this->configuration->setBucketAttribute('gd.uid', $userId);
+		$this->configuration->updateWriter('gd.pid', $projectPid);
+		$this->configuration->updateWriter('gd.username', $username);
+		$this->configuration->updateWriter('gd.password', $password, true);
+		$this->configuration->updateWriter('gd.uid', $userId);
 
 
 		$this->sharedConfig->saveProject($projectPid, $params['accessToken'], $this->restApi->apiUrl, $job);

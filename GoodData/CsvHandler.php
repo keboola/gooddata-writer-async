@@ -61,6 +61,7 @@ class CsvHandler
 			$token, $this->_jobId, $userAgent, $sapiUrl, $tableId, $incrementalLoad, $filter);
 	}
 
+
 	/**
 	 * Parse csv and prepare for data load
 	 * @param $xmlFileObject

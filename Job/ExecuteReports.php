@@ -6,7 +6,8 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
+use Keboola\GoodDataWriter\Exception\WrongParametersException,
+	Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
@@ -16,11 +17,12 @@ class ExecuteReports extends AbstractJob
 	 * @param $job
 	 * @param $params
 	 * @throws WrongConfigurationException
+	 * @throws WrongParametersException
 	 * @return array
 	 */
 	public function run($job, $params)
 	{
-		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkBucketAttributes();
 		$this->configuration->checkProjectsTable();
 
 		$pids = array();
@@ -48,7 +50,8 @@ class ExecuteReports extends AbstractJob
 		$gdWriteStartTime = date('c');
 
 		try {
-			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+			$bucketAttributes = $this->configuration->bucketAttributes();
+			$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			foreach ($pids as $pid) {
 				if (!empty($params['pid']) && !empty($params['reports'])) {
 					// specified reports

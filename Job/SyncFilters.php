@@ -19,7 +19,8 @@ class SyncFilters extends AbstractJob {
 		$gdWriteStartTime = date('c');
 
 		try {
-			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
+			$bucketAttributes = $this->configuration->bucketAttributes();
+			$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 			$projects = $this->configuration->getProjects();
 			if (!empty($params['pid'])) {

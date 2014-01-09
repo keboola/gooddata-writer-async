@@ -1,11 +1,9 @@
 parameters.yml.dist
-scripts/debug.php
 *.log
 .idea
-application/configs/config.ini
-cache.properties
 composer.lock
 composer.phar
+console
 tmp
 Tests/config/config.php
 Command/DebugCommand.php

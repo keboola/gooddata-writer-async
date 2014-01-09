@@ -26,20 +26,21 @@ class DeleteDataSet extends AbstractJob
 		if (empty($params['tableId'])) {
 			throw new WrongConfigurationException("Parameter 'tableId' is missing");
 		}
-		$this->configuration->checkGoodDataSetup();
+		$this->configuration->checkBucketAttributes();
 
 		$projects = $this->configuration->getProjects();
 		$gdWriteStartTime = date('c');
 
 		try {
-			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$this->restApi->getProject($this->configuration->bucketInfo['gd']['pid']);
+			$bucketAttributes = $this->configuration->bucketAttributes();
+			$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+			$this->restApi->getProject($bucketAttributes['gd']['pid']);
 
 			foreach ($projects as $project) if ($project['active']) {
 				$this->restApi->dropDataset($project['pid'], $job['dataset']);
 			}
 
-			$this->configuration->setTableAttribute($params['tableId'], 'lastExportDate', '');
+			$this->configuration->updateDataSetDefinition($params['tableId'], 'lastExportDate', '');
 			return $this->_prepareResult($job['id'], array(
 				'gdWriteStartTime' => $gdWriteStartTime
 			), $this->restApi->callsLog());

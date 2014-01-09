@@ -121,7 +121,7 @@ class JobExecutor
 		try {
 			$this->_storageApiClient = new StorageApiClient(
 				$job['token'],
-				$this->_container->getParameter('storageApi.url'),
+				$this->_container->getParameter('storage_api.url'),
 				$gdWriterParams['user_agent']
 			);
 			$this->_storageApiClient->setRunId($jobId);
@@ -248,13 +248,13 @@ class JobExecutor
 			}
 
 			$mainConfig = $this->_container->getParameter('gooddata_writer');
-			$mainConfig['storageApi.url'] = $this->_container->getParameter('storageApi.url');
+			$mainConfig['storage_api.url'] = $this->_container->getParameter('storage_api.url');
 
 			$tmpDir = sprintf('%s/%s', $mainConfig['tmp_path'], $job['id']);
             if (!file_exists($mainConfig['tmp_path'])) mkdir($mainConfig['tmp_path']);
             if (!file_exists($tmpDir)) mkdir($tmpDir);
 
-			$configuration = new Configuration($job['writerId'], $this->_storageApiClient, $tmpDir);
+			$configuration = new Configuration($this->_storageApiClient, $job['writerId']);
 
 			$s3Client = new S3Client(
 				\Aws\S3\S3Client::factory(array(
@@ -266,8 +266,9 @@ class JobExecutor
 			);
 
 			$restApi = new RestApi($this->_log);
-			if (isset($configuration->bucketInfo['gd']['backendUrl'])) {
-				$restApi->setBaseUrl($configuration->bucketInfo['gd']['backendUrl']);
+			$bucketAttributes = $configuration->bucketAttributes();
+			if (isset($bucketAttributes['gd']['backendUrl'])) {
+				$restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
 			}
 
 			/**
@@ -280,13 +281,21 @@ class JobExecutor
 			try {
 				$result = $command->run($job, $parameters);
 			} catch (RestApiException $e) {
-				throw new ClientException('Rest API error: ' . $e->getMessage());
+				$e2 = new ClientException('Rest API error: ' . $e->getMessage());
+				$e2->setData(array('trace' => $e->getTraceAsString()));
+				throw $e2;
 			} catch (CLToolApiErrorException $e) {
-				throw new ClientException('CL Tool error: ' . $e->getMessage());
+				$e2 = new ClientException('CL Tool error: ' . $e->getMessage());
+				$e2->setData(array('trace' => $e->getTraceAsString()));
+				throw $e2;
 			} catch (UnauthorizedException $e) {
-				throw new ClientException('Bad GoodData credentials: ' . $e->getMessage());
+				$e2 = new ClientException('Bad GoodData credentials: ' . $e->getMessage());
+				$e2->setData(array('trace' => $e->getTraceAsString()));
+				throw $e2;
 			} catch (\Keboola\StorageApi\ClientException $e) {
-				throw new ClientException('Storage API problem: ' . $e->getMessage());
+				$e2 = new ClientException('Storage API problem: ' . $e->getMessage());
+				$e2->setData(array('trace' => $e->getTraceAsString()));
+				throw $e2;
 			}
 
 			$duration = time() - $time;

@@ -398,7 +398,7 @@ class RestApi
 	 *
 	 * @param $email
 	 * @param $domain
-	 * @return array
+	 * @return array|bool
 	 */
 	public function userId($email, $domain)
 	{
@@ -993,7 +993,7 @@ class RestApi
 			}
 		}
 
-		$this->_log->alert('', array(
+		$this->_log->alert('getAttributeById() attribute not found', array(
 			'pid'               => $pid,
 			'attribute'         => $id,
 			'attributesFound'   => $attributes
