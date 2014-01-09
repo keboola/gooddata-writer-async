@@ -440,7 +440,8 @@ class GoodDataWriter extends Component
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => $params
+			'parameters' => $params,
+			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));
 
 		$this->_enqueue($jobInfo['batchId']);
@@ -1450,7 +1451,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		return array('dimensions' => $this->configuration->getDateDimensions(isset($params['usage'])));
+		return array('dimensions' => (object) $this->configuration->getDateDimensions(isset($params['usage'])));
 	}
 
 
