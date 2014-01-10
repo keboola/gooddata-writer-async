@@ -144,7 +144,7 @@ class GoodDataWriter extends Component
 		if (!isset($params['writerId'])) {
 			throw new WrongParametersException('Missing parameter \'writerId\'');
 		}
-		if (!preg_match('/^[a-zA-z0-9_]+$/', $params['writerId'])) {
+		if (!preg_match('/^[a-zA-Z0-9_]+$/', $params['writerId'])) {
 			throw new WrongParametersException('Parameter writerId may contain only basic letters, numbers and underscores');
 		}
 
