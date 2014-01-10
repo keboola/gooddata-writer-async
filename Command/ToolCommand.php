@@ -40,7 +40,7 @@ class ToolCommand extends ContainerAwareCommand
 		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
 
 		$restApi = new RestApi(null, $this->getContainer()->get('logger'));
-		$restApi->setCredentials($mainConfig['gd']['username'], $mainConfig['gd']['password']);
+		$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
 
 
 		$webDav = new WebDav($mainConfig['gd']['username'], $mainConfig['gd']['password']);

@@ -36,7 +36,7 @@ class CreateWriter extends AbstractJob
 		$username = sprintf($this->mainConfig['gd']['user_email'], $job['projectId'], $job['writerId'] . '-' . uniqid());
 		$password = md5(uniqid());
 
-		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+		$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 		try {
 			try {
 				$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);

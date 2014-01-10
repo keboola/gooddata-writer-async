@@ -59,7 +59,7 @@ class UploadTable extends AbstractJob
 		$zipPath = isset($this->mainConfig['zip_path']) ? $this->mainConfig['zip_path'] : null;
 		$webDavUrl = $this->_getWebDavUrl($bucketAttributes);
 
-		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$e = $stopWatch->stop($stopWatchId);
 		$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));
@@ -438,7 +438,7 @@ class UploadTable extends AbstractJob
 			$backendUrl = (substr($bucketAttributes['gd']['backendUrl'], 0, 8) != 'https://'
 					? 'https://' : '') . $bucketAttributes['gd']['backendUrl'];
 			$this->restApi->setBaseUrl($backendUrl);
-			$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+			$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 			$gdc = $this->restApi->get('/gdc');
 			if (isset($gdc['about']['links'])) foreach ($gdc['about']['links'] as $link) {
 				if ($link['category'] == 'uploads') {

@@ -14,7 +14,7 @@ class ProxyTest extends AbstractControllerTest
 
 		// Check of GoodData
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$userInfo = $this->restApi->getUser($user['uid']);
 		$this->assertArrayHasKey('accountSetting', $userInfo, "Response for GoodData API user call should contain 'accountSetting' key.");
 

@@ -44,7 +44,7 @@ class InviteUserToProject extends AbstractJob
 
 		$gdWriteStartTime = date('c');
 		try {
-			$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+			$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			$this->restApi->inviteUserToProject($params['email'], $params['pid'], RestApi::$userRoles[$params['role']]);
 
 			$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role']);

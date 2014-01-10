@@ -643,7 +643,7 @@ class GoodDataWriter extends Component
 		$restApi = new RestApi($this->_log);
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		try {
 			$return = $restApi->get($url);

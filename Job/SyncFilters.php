@@ -20,7 +20,7 @@ class SyncFilters extends AbstractJob {
 
 		try {
 			$bucketAttributes = $this->configuration->bucketAttributes();
-			$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+			$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 			$projects = $this->configuration->getProjects();
 			if (!empty($params['pid'])) {

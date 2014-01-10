@@ -22,7 +22,7 @@ class ProxyCall  extends AbstractJob
 		$gdWriteStartTime = date('c');
 		try {
 			$bucketAttributes = $this->configuration->bucketAttributes();
-			$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+			$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			$response = $this->restApi->post($params['query'], $params['payload']);
 
 			return $this->_prepareResult($job['id'], array(

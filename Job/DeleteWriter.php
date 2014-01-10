@@ -22,7 +22,7 @@ class DeleteWriter extends AbstractJob
 			throw new WrongConfigurationException('Writer has been already deleted.');
 		}
 
-		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+		$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 
 		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) {
 
