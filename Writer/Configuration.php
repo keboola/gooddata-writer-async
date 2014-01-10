@@ -1440,7 +1440,7 @@ class Configuration extends StorageApiConfiguration
 		$tableDef = $this->getDataSet($tableId);
 
 		$tableName = $tableId;
-		if (isset($tableDef['name'])) {
+		if (!empty($tableDef['name'])) {
 			$tableName = $tableDef['name'];
 		}
 
