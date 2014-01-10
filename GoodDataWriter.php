@@ -1409,6 +1409,10 @@ class GoodDataWriter extends Component
 				$params['name'] = $params['gdName'];
 				unset($params['gdName']);
 			}
+			if (isset($params['lastExportDate'])) { //@TODO remove
+				$params['isExported'] = $params['lastExportDate'] ? 1 : 0;
+				unset($params['lastExportDate']);
+			}
 
 			$this->configuration->updateDataSetDefinition($tableId, $params);
 		}
