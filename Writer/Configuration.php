@@ -373,7 +373,7 @@ class Configuration extends StorageApiConfiguration
 			$tables[] = array(
 				'id' => $table['id'],
 				'bucket' => substr($table['id'], 0, strrpos($table['id'], '.')),
-				'name' => $table['name'],
+				'name' => empty($table['name']) ? $table['id'] : $table['name'],
 				'export' => (bool)$table['export'],
 				'isExported' => (bool)$table['isExported'],
 				'lastChangeDate' => $table['lastChangeDate'],
