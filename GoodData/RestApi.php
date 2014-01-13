@@ -1282,7 +1282,7 @@ class RestApi
 		try {
 			$response = $this->request('/gdc/account/token', 'GET', array(), array(), false, false);
 		} catch (RestApiException $e) {
-			throw new RestApiException('Rest API Login failed');
+			throw new RestApiException('Rest refresh token failed');
 		}
 
 		$this->authTt = $this->findCookie($response, 'GDCAuthTT');
@@ -1291,7 +1291,7 @@ class RestApi
 				'response' => $response->getBody(true),
 				'status' => $response->getStatusCode()
 			));
-			throw new RestApiException('Rest API Login failed');
+			throw new RestApiException('Rest refresh token failed');
 		}
 	}
 

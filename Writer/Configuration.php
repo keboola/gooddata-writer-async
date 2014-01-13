@@ -92,7 +92,7 @@ class Configuration extends StorageApiConfiguration
 	 * @param $writerId
 	 * @param StorageApiClient $storageApiClient
 	 */
-	public function __construct(StorageApiClient $storageApiClient, $writerId = null)
+	public function __construct(StorageApiClient $storageApiClient, $writerId = null, $migrate = true)
 	{
 		parent::__construct($storageApiClient);
 
@@ -104,7 +104,7 @@ class Configuration extends StorageApiConfiguration
 		}
 
 		//@TODO remove
-		if ($this->bucketId && $this->sapi_bucketExists($this->bucketId) && !$this->sapi_tableExists($this->bucketId . '.' . self::DATA_SETS_TABLE_NAME)) {
+		if ($migrate && $this->bucketId && $this->sapi_bucketExists($this->bucketId) && !$this->sapi_tableExists($this->bucketId . '.' . self::DATA_SETS_TABLE_NAME)) {
 			$this->migrateConfiguration();
 		}
 	}

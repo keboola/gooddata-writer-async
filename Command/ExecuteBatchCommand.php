@@ -43,13 +43,6 @@ class ExecuteBatchCommand extends ContainerAwareCommand
 
 		$executor = new JobExecutor($sharedConfig, $this->getContainer());
 		$executor->runBatch($input->getArgument('batchId'), $input->getOption('force'));
-
-		$params = $this->getContainer()->getParameter('gooddata_writer');
-		$sqsClient = \Aws\Sqs\SqsClient::factory(array(
-			'key' => $params['aws']['access_key'],
-			'secret' => $params['aws']['secret_key'],
-			'region' => $params['aws']['region']
-		));
 	}
 
 }

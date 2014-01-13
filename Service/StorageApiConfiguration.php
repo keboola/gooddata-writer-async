@@ -158,10 +158,13 @@ abstract class StorageApiConfiguration
 
 	protected function _createConfigTable($tableName)
 	{
-		if (!isset($this->tables[$tableName])) return false;
+		$tableId = $this->bucketId . '.' . $tableName;
+
+		if (!isset($this->tables[$tableName]) || $this->_storageApiClient->tableExists($tableId))
+			return false;
 
 		return $this->_createTable(
-			$this->bucketId . '.' . $tableName,
+			$tableId,
 			$this->tables[$tableName]['primaryKey'],
 			$this->tables[$tableName]['columns'],
 			$this->tables[$tableName]['indices']);

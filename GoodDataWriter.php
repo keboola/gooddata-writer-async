@@ -59,7 +59,7 @@ class GoodDataWriter extends Component
 	 * @param $params
 	 * @throws Exception\WrongParametersException
 	 */
-	private function _init($params)
+	private function _init($params, $migrate=true)
 	{
 		/*StorageApiClient::setLogger(function($message, $data) {
 			echo $message . PHP_EOL . PHP_EOL;
@@ -76,7 +76,7 @@ class GoodDataWriter extends Component
 
 		// Init main temp directory
 		$this->_mainConfig = $this->_container->getParameter('gooddata_writer');
-		$this->configuration = new Configuration($this->_storageApi, $params['writerId']);
+		$this->configuration = new Configuration($this->_storageApi, $params['writerId'], $migrate);
 
 		$this->_s3Client = new Service\S3Client(
 			\Aws\S3\S3Client::factory(array(
@@ -148,7 +148,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException('Parameter writerId may contain only basic letters, numbers and underscores');
 		}
 
-		$this->_init($params);
+		$this->_init($params, false);
 
 		$this->configuration->createWriter($params['writerId'], isset($params['backendUrl']) ? $params['backendUrl'] : null);
 
