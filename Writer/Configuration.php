@@ -337,7 +337,7 @@ class Configuration extends StorageApiConfiguration
 		foreach ($sourceTable['columns'] as $columnName) {
 			$column = $dataSet['columns'][$columnName];
 			$column['name'] = $columnName;
-			if (!isset($column['gdName']))
+			if (empty($column['gdName']))
 				$column['gdName'] = $columnName;
 			$column = $this->_cleanColumnDefinition($column);
 			$column['preview'] = isset($previews[$columnName]) ? $previews[$columnName] : array();
@@ -346,7 +346,7 @@ class Configuration extends StorageApiConfiguration
 
 		return array(
 			'id' => $tableId,
-			'name' => $dataSet['name'],
+			'name' => empty($dataSet['name']) ? $tableId : $dataSet['name'],
 			'export' => (bool)$dataSet['export'],
 			'isExported' => (bool)$dataSet['isExported'],
 			'lastChangeDate' => $dataSet['lastChangeDate'] ? $dataSet['lastChangeDate'] : null,
