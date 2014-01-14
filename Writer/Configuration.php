@@ -580,8 +580,6 @@ class Configuration extends StorageApiConfiguration
 		}
 		if (empty($data['dataTypeSize'])) {
 			unset($data['dataTypeSize']);
-		} else {
-			$data['dataTypeSize'] = (int)$data['dataTypeSize'];
 		}
 		if (empty($data['dataType'])) {
 			unset($data['dataType']);
