@@ -151,7 +151,7 @@ class CsvHandler
 			throw new CsvHandlerException('You must init the download first');
 		}
 
-		$command = sprintf('gzip -c | curl -T - --header %s --retry 12 --user %s:%s %s',
+		$command = sprintf('gzip -c | curl -s -S -T - --header %s --retry 12 --user %s:%s %s',
 			escapeshellarg('Content-encoding: gzip'), escapeshellarg($username), escapeshellarg($password),
 			escapeshellarg('https://' . $url . '/data.csv'));
 
