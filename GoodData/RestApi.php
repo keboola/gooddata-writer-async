@@ -1060,6 +1060,17 @@ class RestApi
 		}
 	}
 
+	public function getWebDavUrl()
+	{
+		$gdc = $this->get('/gdc');
+		if (isset($gdc['about']['links'])) foreach ($gdc['about']['links'] as $link) {
+			if ($link['category'] == 'uploads') {
+				return $link['link'];
+			}
+		}
+		return false;
+	}
+
 	public function post($url, $payload = null)
 	{
 		$payloadJson = array();

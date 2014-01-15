@@ -51,24 +51,32 @@ class CsvHandler
 	 * @param bool $incrementalLoad
 	 * @param string|bool $filterColumn
 	 * @param null $filterValue
+	 *
+	 * Assemble curl to download csv from SAPI and ungzip it
+	 * There is approx. 38 minutes backoff for 5xx errors from SAPI (via --retry 12)
 	 */
 	public function initDownload($tableId, $token, $sapiUrl, $userAgent, $incrementalLoad = false, $filterColumn = false, $filterValue = null)
 	{
 		$incrementalLoad = $incrementalLoad ? '&changedSince=-' . $incrementalLoad . '+days' : null;
-		$filter = ($filterColumn && $filterValue) ? '&whereColumn=' . $filterColumn . '&whereValues[]=' . $filterValue : null;
-		$this->_command = sprintf('curl -g -s --header "Accept-encoding: gzip" --header "X-StorageApi-Token: %s"'
-			.' --header "X-KBC-RunId: %d" --user-agent "%s" "%s/v2/storage/tables/%s/export?format=escaped%s%s" | gzip -d',
-			$token, $this->_jobId, $userAgent, $sapiUrl, $tableId, $incrementalLoad, $filter);
+		$filter = ($filterColumn && $filterValue) ? '&whereColumn=' . $filterColumn . '&whereValues%5B%5D=' . $filterValue : null;
+		$sapiUrl = sprintf('%s/v2/storage/tables/%s/export?format=escaped%s%s', $sapiUrl, $tableId, $incrementalLoad, $filter);
+		$this->_command = sprintf('curl -s -S -f --header %s --header %s --header %s --user-agent %s --retry 12 %s | gzip -d',
+			escapeshellarg('Accept-encoding: gzip'), escapeshellarg('X-StorageApi-Token: ' . $token),
+			escapeshellarg('X-KBC-RunId: ' . $this->_jobId), escapeshellarg($userAgent), escapeshellarg($sapiUrl));
 	}
 
 
 	/**
 	 * Parse csv and prepare for data load
 	 * @param $xmlFileObject
-	 * @throws \Keboola\GoodDataWriter\Exception\JobProcessException
+	 * @throws CsvHandlerException
 	 */
 	public function prepareTransformation($xmlFileObject)
 	{
+		if (!$this->_command) {
+			throw new CsvHandlerException('You must init the download first');
+		}
+
 		$csvHeaders = array();
 		$ignoredColumnsIndices = array();
 		$dateColumnsIndices = array();
@@ -129,20 +137,33 @@ class CsvHandler
 		$this->_command .= ' | ' . $command;
 	}
 
-	public function runDownload($csvFile)
+
+
+	/**
+	 * @param $username
+	 * @param $password
+	 * @param $url
+	 * @throws CsvHandlerException
+	 */
+	public function runUpload($username, $password, $url)
 	{
 		if (!$this->_command) {
 			throw new CsvHandlerException('You must init the download first');
 		}
 
-		$this->_command .= ' > ' . escapeshellarg($csvFile);
+		$command = sprintf('gzip -c | curl -T - --header %s --retry 12 --user %s:%s %s',
+			escapeshellarg('Content-encoding: gzip'), escapeshellarg($username), escapeshellarg($password),
+			escapeshellarg('https://' . $url . '/data.csv'));
+
+		$this->_command .= ' | ' . $command;
 
 		$process = new Process($this->_command);
 		$process->setTimeout(null);
 		$process->run();
 		if (!$process->isSuccessful()) {
-			$message = $process->getErrorOutput() ? $process->getErrorOutput() : 'CSV download and preparation failed.';
+			$message = 'CSV handling failed. ' . $process->getErrorOutput();
 			$e = new CsvHandlerException($message);
+			$e->setData(array('command' => $this->_command));
 			if (!$process->getErrorOutput()) {
 				$e->setData(array(
 					'priority' => 'alert',
@@ -152,18 +173,9 @@ class CsvHandler
 			}
 			throw $e;
 		}
-		if (!file_exists($csvFile)) {
-			$e = new CsvHandlerException('CSV download and preparation failed');
-			$e->setData(array(
-				'priority' => 'alert',
-				'command' => $this->_command,
-				'error' => 'Csv not created'
-			));
-			throw $e;
-		}
+
 		$this->_command = null;
 	}
-
 
 
 

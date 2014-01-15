@@ -56,7 +56,6 @@ class UploadTable extends AbstractJob
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
 		$filterColumn = $this->_getFilterColumn($params['tableId'], $tableDefinition, $bucketAttributes);
-		$zipPath = isset($this->mainConfig['zip_path']) ? $this->mainConfig['zip_path'] : null;
 		$webDavUrl = $this->_getWebDavUrl($bucketAttributes);
 
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -209,7 +208,7 @@ class UploadTable extends AbstractJob
 		// Start GoodData transfer
 		$gdWriteStartTime = date('c');
 		try {
-			$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl, $zipPath);
+			$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl);
 
 			$uploadedDimensions = array();
 			foreach ($createDateJobs as $gdJob) {
@@ -229,7 +228,9 @@ class UploadTable extends AbstractJob
 						file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
 						copy($this->scriptsPath . '/time-dimension.csv', $tmpFolderDimension . '/data.csv');
 						$csvFileSize += filesize($tmpFolderDimension . '/data.csv');
-						$webDav->upload($tmpFolderDimension, $tmpFolderNameDimension, $tmpFolderDimension . '/upload_info.json', $tmpFolderDimension . '/data.csv');
+						$webDav->prepareFolder($tmpFolderNameDimension);
+						$webDav->upload($tmpFolderDimension . '/upload_info.json', $tmpFolderNameDimension);
+						$webDav->upload($tmpFolderDimension . '/data.csv', $tmpFolderNameDimension);
 						$uploadedDimensions[] = $gdJob['name'];
 					}
 
@@ -309,26 +310,29 @@ class UploadTable extends AbstractJob
 
 			$debug['manifest'] = $manifestUrl;
 			foreach ($loadDataJobs as $gdJob) {
-				$stopWatchId = 'downloadCsv-' . $gdJob['pid'];
+				$stopWatchId = 'transferCsv-' . $gdJob['pid'];
 				$stopWatch->start($stopWatchId);
 				$this->restApi->callsLog = array();
 				$dataTmpDir = $this->tmpDir . '/' . $gdJob['pid'];
 				if (!file_exists($dataTmpDir)) mkdir($dataTmpDir);
+				$webDavFolder = $tmpFolderName . '-' . $gdJob['pid'];
 
+				$webDav->prepareFolder($webDavFolder);
+				if (!$webDavUrl) $webDavUrl = $webDav->url;//@TODO
 				$this->_csvHandler->initDownload($params['tableId'], $job['token'], $this->mainConfig['storage_api.url'],
 					$this->mainConfig['user_agent'], $gdJob['incrementalLoad'], $gdJob['filterColumn'], $gdJob['pid']);
 				$this->_csvHandler->prepareTransformation($xmlFileObject);
-				$this->_csvHandler->runDownload($dataTmpDir . '/data.csv');
-				$csvFileSize += filesize($dataTmpDir . '/data.csv');
-				$e = $stopWatch->stop($stopWatchId);
-				$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'), 'size' => filesize($dataTmpDir . '/data.csv'));
+				$this->_csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl . '/uploads/' . $webDavFolder);
 
-				$stopWatchId = 'uploadCsv-' . $gdJob['pid'];
-				$stopWatch->start($stopWatchId);
-				$webDavFolder = $tmpFolderName . '-' . $gdJob['pid'];
-				$webDav->upload($dataTmpDir, $webDavFolder, $this->tmpDir . '/upload_info.json', $dataTmpDir . '/data.csv');
 				$e = $stopWatch->stop($stopWatchId);
-				$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'), 'size' => filesize($dataTmpDir . '/upload.zip'));
+				$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));
+
+				$stopWatchId = 'uploadManifest-' . $gdJob['pid'];
+				$stopWatch->start($stopWatchId);
+
+				$webDav->upload($this->tmpDir . '/upload_info.json', $webDavFolder);
+				$e = $stopWatch->stop($stopWatchId);
+				$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'), 'size' => filesize($this->tmpDir . '/upload_info.json'));
 
 				// Run load task
 				$stopWatchId = 'runEtl-' . $gdJob['pid'];
@@ -439,13 +443,7 @@ class UploadTable extends AbstractJob
 					? 'https://' : '') . $bucketAttributes['gd']['backendUrl'];
 			$this->restApi->setBaseUrl($backendUrl);
 			$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
-			$gdc = $this->restApi->get('/gdc');
-			if (isset($gdc['about']['links'])) foreach ($gdc['about']['links'] as $link) {
-				if ($link['category'] == 'uploads') {
-					$webDavUrl = $link['link'];
-					break;
-				}
-			}
+			$webDavUrl = $this->restApi->getWebDavUrl();
 			if (!$webDavUrl) {
 				throw new JobProcessException(sprintf("Getting of WebDav url for backend '%s' failed.", $bucketAttributes['gd']['backendUrl']));
 			}

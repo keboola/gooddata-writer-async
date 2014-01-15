@@ -6,8 +6,8 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\Csv\CsvFile;
 use Keboola\StorageApi\Table as StorageApiTable;
+use Keboola\GoodDataWriter\GoodData\WebDav;
 
 class ProjectsTest extends AbstractControllerTest
 {
@@ -147,23 +147,28 @@ class ProjectsTest extends AbstractControllerTest
 		$this->assertArrayHasKey('status', $response['job']['result'], "Response for writer call '/jobs?jobId=' should contain key 'job.result.status'.");
 		$this->assertEquals('success', $response['job']['result']['status'], "Response for writer call '/jobs?jobId=' should contain key 'job.result.status' with value 'success'.");
 
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+
 		// Check csv of main project if contains all rows
-		$csvFile = sprintf('%s/%s/%s/data.csv', $this->mainConfig['tmp_path'], $jobId, $mainPid);
-		$this->assertTrue(file_exists($csvFile), sprintf("Data csv file '%s' should exist.", $csvFile));
-		$csv = new CsvFile($csvFile);
+		$csv = $webDav->get(sprintf('%s-%s/data.csv', $jobId, $mainPid));
+		if (!$csv) {
+			$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s-%s/data.csv' should exist.", $jobId, $bucketAttributes['gd']['pid']));
+		}
 		$rowsNumber = 0;
-		foreach ($csv as $row) {
-			$rowsNumber++;
+		foreach (explode("\n", $csv) as $row) {
+			if ($row) $rowsNumber++;
 		}
 		$this->assertEquals(3, $rowsNumber, "Csv of main project should contain two rows with header.");
 
 		// Check csv of clone if contains only filtered rows
-		$csvFile = sprintf('%s/%s/%s/data.csv', $this->mainConfig['tmp_path'], $jobId, $clonedPid);
-		$this->assertTrue(file_exists($csvFile), sprintf("Data csv file '%s' should exist.", $csvFile));
-		$csv = new CsvFile($csvFile);
+		$csv = $webDav->get(sprintf('%s-%s/data.csv', $jobId, $clonedPid));
+		if (!$csv) {
+			$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s-%s/data.csv' should exist.", $jobId, $bucketAttributes['gd']['pid']));
+		}
 		$rowsNumber = 0;
-		foreach ($csv as $row) {
-			$rowsNumber++;
+		foreach (explode("\n", $csv) as $row) {
+			if ($row) $rowsNumber++;
 		}
 		$this->assertEquals(2, $rowsNumber, "Csv of cloned project should contain only one row with header.");
 	}
