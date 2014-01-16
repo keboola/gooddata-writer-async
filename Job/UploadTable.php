@@ -236,18 +236,21 @@ class UploadTable extends AbstractJob
 				$stopWatchId = $gdJob['command'] . 'DataSet'.'-'.$gdJob['pid'];
 				$stopWatch->start($stopWatchId);
 				$clToolApi->debugLogUrl = null;
+				$this->restApi->callsLog = array();
 				$clToolApi->s3Dir = $tmpFolderName . '/' . $gdJob['pid'];
 				$clToolApi->tmpDir = $this->tmpDir . '/' . $gdJob['pid'];
 				if (!file_exists($clToolApi->tmpDir)) mkdir($clToolApi->tmpDir);
 				if ($gdJob['command'] == 'create') {
-					$clToolApi->createDataSet($gdJob['pid'], $xmlFile);
+					$maql = $clToolApi->createDataSetMaql($gdJob['pid'], $xmlFile);
+					$this->restApi->executeMaql($gdJob['pid'], $maql);
 
 					if (empty($tableDefinition['isExported'])) {
 						// Save export status to definition
 						$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
 					}
 				} else {
-					$clToolApi->updateDataSet($gdJob['pid'], $xmlFile, 1);
+					$maql = $clToolApi->updateDataSetMaql($gdJob['pid'], $xmlFile, 1);
+					$this->restApi->executeMaql($gdJob['pid'], $maql);
 				}
 				if ($clToolApi->debugLogUrl) {
 					if ($gdJob['mainProject']) {
@@ -261,7 +264,8 @@ class UploadTable extends AbstractJob
 				$eventsLog[$stopWatchId] = array(
 					'duration' => $e->getDuration(),
 					'time' => date('c'),
-					'clTool' => $clToolApi->output
+					'clTool' => $clToolApi->output,
+					'restApi' => $this->restApi->callsLog
 				);
 			}
 
