@@ -296,6 +296,10 @@ class UploadTable extends AbstractJob
 					$webDav->upload($tmpFolderDimension . '/upload_info.json', $tmpFolderNameDimension);
 					$webDav->upload($tmpFolderDimension . '/data.csv', $tmpFolderNameDimension);
 					$dimensionsToUpload[] = $gdJob['name'];
+
+					$e = $stopWatch->stop($stopWatchId);
+					$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'),
+						'url' => $webDav->url, 'folder' => '/uploads/' . $tmpFolderNameDimension);
 				}
 			}
 
@@ -322,7 +326,8 @@ class UploadTable extends AbstractJob
 
 				$webDav->upload($this->tmpDir . '/upload_info.json', $webDavFolder);
 				$e = $stopWatch->stop($stopWatchId);
-				$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));
+				$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'),
+					'url' => $webDavUrl, 'folder' => '/uploads/' . $webDavFolder);
 			}
 
 
