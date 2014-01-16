@@ -299,6 +299,7 @@ class UploadTable extends AbstractJob
 				}
 			}
 
+			if (!$webDavUrl) $webDavUrl = $webDav->url;
 
 			// Upload dataSets
 			foreach ($loadDataJobs as $gdJob) {
@@ -307,14 +308,11 @@ class UploadTable extends AbstractJob
 				$webDavFolder = $tmpFolderName . '-' . $gdJob['pid'];
 
 				$webDav->prepareFolder($webDavFolder);
-				if (!$webDavUrl) $webDavUrl = $webDav->url;//@TODO
-				if (substr($webDavUrl, 0, 8) == 'https://')
-					$webDavUrl = substr($webDavUrl, 8);
 
 				$this->_csvHandler->initDownload($params['tableId'], $job['token'], $this->mainConfig['storage_api.url'],
 					$this->mainConfig['user_agent'], $gdJob['incrementalLoad'], $gdJob['filterColumn'], $gdJob['pid']);
 				$this->_csvHandler->prepareTransformation($xmlFileObject);
-				$this->_csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl . '/uploads/' . $webDavFolder);
+				$this->_csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl, '/uploads/' . $webDavFolder);
 
 				$e = $stopWatch->stop($stopWatchId);
 				$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));

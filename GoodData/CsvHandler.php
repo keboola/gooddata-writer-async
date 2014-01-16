@@ -138,22 +138,28 @@ class CsvHandler
 	}
 
 
-
 	/**
 	 * @param $username
 	 * @param $password
 	 * @param $url
+	 * @param $uri
 	 * @throws CsvHandlerException
 	 */
-	public function runUpload($username, $password, $url)
+	public function runUpload($username, $password, $url, $uri)
 	{
 		if (!$this->_command) {
 			throw new CsvHandlerException('You must init the download first');
 		}
 
+		if (substr($url, 0, 8) != 'https://') {
+			$url = 'https://' . $url;
+		}
+		$urlParts = parse_url($url);
+		$url = 'https://' . $urlParts['host'];
+
 		$command = sprintf('gzip -c | curl -s -S -T - --header %s --retry 12 --user %s:%s %s',
 			escapeshellarg('Content-encoding: gzip'), escapeshellarg($username), escapeshellarg($password),
-			escapeshellarg('https://' . $url . '/data.csv'));
+			escapeshellarg($url . $uri . '/data.csv'));
 
 		$this->_command .= ' | ' . $command;
 
