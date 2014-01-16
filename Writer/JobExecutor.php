@@ -11,7 +11,8 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
-	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
+	Keboola\GoodDataWriter\GoodData\UnauthorizedException,
+	Keboola\StorageApi\ClientException as StorageApiClientException;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Exception as StorageApiException;
@@ -293,7 +294,7 @@ class JobExecutor
 				$e2 = new ClientException('Bad GoodData credentials: ' . $e->getMessage());
 				$e2->setData(array('trace' => $e->getTraceAsString()));
 				throw $e2;
-			} catch (\Keboola\StorageApi\ClientException $e) {
+			} catch (StorageApiClientException $e) {
 				$e2 = new ClientException('Storage API problem: ' . $e->getMessage());
 				$e2->setData(array('trace' => $e->getTraceAsString()));
 				throw $e2;
