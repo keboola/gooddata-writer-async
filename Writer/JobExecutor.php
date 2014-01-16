@@ -331,7 +331,7 @@ class JobExecutor
 			$duration = $time - time();
 
 			$this->_log->alert('Job execution error', array(
-				'job' => $job,
+				'jobId' => $job,
 				'exception' => $e,
 			));
 
