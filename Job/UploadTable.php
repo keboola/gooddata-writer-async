@@ -56,6 +56,7 @@ class UploadTable extends AbstractJob
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
 		$filterColumn = $this->_getFilterColumn($params['tableId'], $tableDefinition, $bucketAttributes);
 
+		$webDavUrl = $this->_getWebDavUrl($bucketAttributes);
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$e = $stopWatch->stop($stopWatchId);
@@ -272,7 +273,6 @@ class UploadTable extends AbstractJob
 
 
 			// Upload to WebDav
-			$webDavUrl = $this->_getWebDavUrl($bucketAttributes);
 			$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl);
 
 
