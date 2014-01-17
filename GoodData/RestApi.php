@@ -1080,7 +1080,7 @@ class RestApi
 			$payloadJson = str_replace('"labels":[]', '"labels":{}', $payloadJson);
 		}
 
-		$response = $this->jsonRequest($url, 'POST', $payloadJson);
+		$response = $this->jsonRequest($url, 'POST', $payloadJson, array(), false);
 
 		if (!isset($response['uri'])) {
 			throw new RestApiException('Error occured on post to url ' . $url);
