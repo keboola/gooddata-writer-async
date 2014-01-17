@@ -1080,7 +1080,7 @@ class RestApi
 			$payloadJson = str_replace('"labels":[]', '"labels":{}', $payloadJson);
 		}
 
-		$response = $this->jsonRequest($url, 'POST', $payloadJson, array(), false);
+		$response = $this->jsonRequest($url, 'POST', $payloadJson);
 
 		if (!isset($response['uri'])) {
 			throw new RestApiException('Error occured on post to url ' . $url);
@@ -1346,7 +1346,7 @@ class RestApi
 		$clearFromLog = $this->clearFromLog;
 		$sanitize = function(&$value) use($clearFromLog) {
 			if (in_array($value, $clearFromLog)) {
-				$value = '---';
+				$value = '***';
 			}
 		};
 		array_walk_recursive($params, $sanitize);
