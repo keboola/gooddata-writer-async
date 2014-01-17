@@ -89,8 +89,6 @@ class Configuration extends StorageApiConfiguration
 	/**
 	 * Prepare configuration
 	 * Get bucket attributes and backendUrl for Rest API calls
-	 * @param $writerId
-	 * @param StorageApiClient $storageApiClient
 	 */
 	public function __construct(StorageApiClient $storageApiClient, $writerId = null, $migrate = true)
 	{
@@ -118,8 +116,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Find configuration bucket for writerId
-	 * @param $writerId
-	 * @return bool
 	 */
 	public function configurationBucket($writerId)
 	{
@@ -325,13 +321,6 @@ class Configuration extends StorageApiConfiguration
 	{
 		$dataSet = $this->getDataSet($tableId);
 
-		$previews = array();
-		foreach($this->_fetchTableRows($tableId, null, null, array('limit' => 10)) as $row) {
-			foreach ($row as $key => $value) {
-				$previews[$key][] = $value;
-			}
-		}
-
 		$columns = array();
 		$sourceTable = $this->getSapiTable($tableId);
 		foreach ($sourceTable['columns'] as $columnName) {
@@ -340,7 +329,6 @@ class Configuration extends StorageApiConfiguration
 			if (empty($column['gdName']))
 				$column['gdName'] = $columnName;
 			$column = $this->_cleanColumnDefinition($column);
-			$column['preview'] = isset($previews[$columnName]) ? $previews[$columnName] : array();
 			$columns[] = $column;
 		}
 
