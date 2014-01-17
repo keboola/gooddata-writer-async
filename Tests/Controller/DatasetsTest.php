@@ -5,7 +5,7 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\Csv\CsvFile;
+use Keboola\GoodDataWriter\GoodData\WebDav;
 
 class DatasetsTest extends AbstractControllerTest
 {
@@ -23,7 +23,7 @@ class DatasetsTest extends AbstractControllerTest
 
 		// Check existence of datasets in the project
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
 		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
 		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
@@ -92,20 +92,21 @@ class DatasetsTest extends AbstractControllerTest
 
 		// Check existence of datasets in the project
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
 		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
 		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
 		$this->assertCount(1, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with one value.");
-		$this->assertEquals('dataset.categories', $data['dataSetsInfo']['sets'][0]['meta']['identifier'], "GoodData project should contain dataset 'Categories'.");
+		$this->assertEquals('dataset.categories', $data['dataSetsInfo']['sets'][0]['meta']['identifier'], "GoodData project should contain dataSet 'Categories'.");
 
-		// Check csv of main project if contains all rows
-		$csvFile = sprintf('%s/%s/%s/data.csv', $this->mainConfig['tmp_path'], $jobId, $bucketAttributes['gd']['pid']);
-		$this->assertTrue(file_exists($csvFile), sprintf("Data csv file '%s' should exist.", $csvFile));
-		$csv = new CsvFile($csvFile);
+		$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$csv = $webDav->get(sprintf('%s-%s/data.csv', $jobId, $bucketAttributes['gd']['pid']));
+		if (!$csv) {
+			$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s-%s/data.csv' should exist.", $jobId, $bucketAttributes['gd']['pid']));
+		}
 		$rowsNumber = 0;
-		foreach ($csv as $row) {
-			$rowsNumber++;
+		foreach (explode("\n", $csv) as $row) {
+			if ($row) $rowsNumber++;
 		}
 		$this->assertEquals(3, $rowsNumber, "Csv of main project should contain two rows with header.");
 	}

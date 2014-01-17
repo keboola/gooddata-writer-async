@@ -8,6 +8,8 @@
 
 namespace Keboola\GoodDataWriter;
 
+use Aws\S3\S3Client;
+use Aws\Sqs\SqsClient;
 use Guzzle\Common\Exception\InvalidArgumentException;
 use Guzzle\Http\Url;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
@@ -44,22 +46,23 @@ class GoodDataWriter extends Component
 	/**
 	 * @var array
 	 */
-	private $_mainConfig;
+	private $mainConfig;
 	/**
 	 * @var Service\S3Client
 	 */
-	private $_s3Client;
+	private $s3Client;
 	/**
 	 * @var Service\Queue
 	 */
-	private $_queue;
+	private $queue;
 
 	/**
 	 * Init Writer
 	 * @param $params
+	 * @param bool $migrate
 	 * @throws Exception\WrongParametersException
 	 */
-	private function _init($params)
+	private function init($params, $migrate=true)
 	{
 		/*StorageApiClient::setLogger(function($message, $data) {
 			echo $message . PHP_EOL . PHP_EOL;
@@ -75,31 +78,49 @@ class GoodDataWriter extends Component
 		}
 
 		// Init main temp directory
-		$this->_mainConfig = $this->_container->getParameter('gooddata_writer');
-		$this->configuration = new Configuration($this->_storageApi, $params['writerId']);
+		$this->mainConfig = $this->_container->getParameter('gooddata_writer');
+		$this->configuration = new Configuration($this->_storageApi, $params['writerId'], $migrate);
+	}
 
-		$this->_s3Client = new Service\S3Client(
-			\Aws\S3\S3Client::factory(array(
-				'key' => $this->_mainConfig['aws']['access_key'],
-				'secret' => $this->_mainConfig['aws']['secret_key'])
-			),
-			$this->_mainConfig['aws']['s3_bucket'],
-			$this->configuration->projectId . '.' . $this->configuration->writerId
-		);
+	private function getS3Client()
+	{
+		if (!$this->s3Client) {
+			$this->s3Client = new Service\S3Client(
+				S3Client::factory(array(
+						'key' => $this->mainConfig['aws']['access_key'],
+						'secret' => $this->mainConfig['aws']['secret_key'])
+				),
+				$this->mainConfig['aws']['s3_bucket'],
+				$this->configuration->projectId . '.' . $this->configuration->writerId
+			);
+		}
+		return $this->s3Client;
+	}
 
-		$sqsClient = \Aws\Sqs\SqsClient::factory(array(
-			'key' => $this->_mainConfig['aws']['access_key'],
-			'secret' => $this->_mainConfig['aws']['secret_key'],
-			'region' => $this->_mainConfig['aws']['region']
-		));
-		$this->_queue = new Service\Queue($sqsClient, $this->_mainConfig['aws']['queue_url']);
+	private function getQueue()
+	{
+		if (!$this->queue) {
+			$sqsClient = SqsClient::factory(array(
+				'key' => $this->mainConfig['aws']['access_key'],
+				'secret' => $this->mainConfig['aws']['secret_key'],
+				'region' => $this->mainConfig['aws']['region']
+			));
+			$this->queue = new Service\Queue($sqsClient, $this->mainConfig['aws']['queue_url']);
+		}
+		return $this->queue;
+	}
 
-		$sharedStorageApi = new StorageApiClient(
-			$this->_mainConfig['shared_sapi']['token'],
-			$this->_mainConfig['shared_sapi']['url'],
-			$this->_mainConfig['user_agent']
-		);
-		$this->sharedConfig = new Writer\SharedConfig($sharedStorageApi);
+	private function getSharedConfig()
+	{
+		if (!$this->sharedConfig) {
+			$sharedStorageApi = new StorageApiClient(
+				$this->mainConfig['shared_sapi']['token'],
+				$this->mainConfig['shared_sapi']['url'],
+				$this->mainConfig['user_agent']
+			);
+			$this->sharedConfig = new Writer\SharedConfig($sharedStorageApi);
+		}
+		return $this->sharedConfig;
 	}
 
 
@@ -113,7 +134,7 @@ class GoodDataWriter extends Component
 	public function getWriters($params)
 	{
 		if (isset($params['writerId'])) {
-			$this->_init($params);
+			$this->init($params);
 			if (!$this->configuration->bucketId) {
 				throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 			}
@@ -144,16 +165,16 @@ class GoodDataWriter extends Component
 		if (!isset($params['writerId'])) {
 			throw new WrongParametersException('Missing parameter \'writerId\'');
 		}
-		if (!preg_match('/^[a-zA-z0-9_]+$/', $params['writerId'])) {
+		if (!preg_match('/^[a-zA-Z0-9_]+$/', $params['writerId'])) {
 			throw new WrongParametersException('Parameter writerId may contain only basic letters, numbers and underscores');
 		}
 
-		$this->_init($params);
+		$this->init($params, false);
 
 		$this->configuration->createWriter($params['writerId'], isset($params['backendUrl']) ? $params['backendUrl'] : null);
 
-		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->_mainConfig['gd']['access_token'];
-		$projectName = sprintf($this->_mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
+		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->mainConfig['gd']['access_token'];
+		$projectName = sprintf($this->mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 
 
 		$batchId = $this->_storageApi->generateId();
@@ -218,14 +239,14 @@ class GoodDataWriter extends Component
 		$command = 'deleteWriter';
 		$createdTime = time();
 
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
 		$this->configuration->updateWriter('toDelete', '1');
 
-		$this->sharedConfig->cancelJobs($this->configuration->projectId, $this->configuration->writerId);
+		$this->getSharedConfig()->cancelJobs($this->configuration->projectId, $this->configuration->writerId);
 
 		$jobInfo = $this->_createJob(array(
 			'command' => $command,
@@ -256,7 +277,7 @@ class GoodDataWriter extends Component
 	 */
 	public function getProjects($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -278,13 +299,13 @@ class GoodDataWriter extends Component
 		$createdTime = time();
 
 		// Init parameters
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->_mainConfig['gd']['access_token'];
+		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->mainConfig['gd']['access_token'];
 		$projectName = !empty($params['name']) ? $params['name']
-			: sprintf($this->_mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
+			: sprintf($this->mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 		$this->configuration->checkBucketAttributes();
 		$this->configuration->checkProjectsTable();
 
@@ -333,7 +354,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'pid' is required");
 		}
 
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -369,7 +390,7 @@ class GoodDataWriter extends Component
 		if (!in_array($params['role'], $allowedRoles)) {
 			throw new WrongParametersException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
 		}
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -423,7 +444,7 @@ class GoodDataWriter extends Component
 		if (empty($params['pid'])) {
 			throw new WrongParametersException("Parameter 'pid' is missing");
 		}
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -482,7 +503,7 @@ class GoodDataWriter extends Component
 	 */
 	public function getUsers($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -524,7 +545,7 @@ class GoodDataWriter extends Component
 		if (strlen($params['password']) < 7) {
 			throw new WrongParametersException("Parameter 'password' must have at least seven characters");
 		}
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -570,7 +591,7 @@ class GoodDataWriter extends Component
 		if (empty($params['pid'])) {
 			throw new WrongParametersException("Parameter 'pid' is missing");
 		}
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -589,7 +610,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("User " . $user . " doesn't exist in writer");
 		}
 
-		$sso = new SSO($this->configuration, $this->_mainConfig['gd'], $this->_mainConfig['tmp_path']);
+		$sso = new SSO($this->configuration, $this->mainConfig['gd'], $this->mainConfig['tmp_path']);
 
 		$targetUrl = '/#s=/gdc/projects/' . $params['pid'];
 		if (isset($params['targetUrl'])) {
@@ -618,7 +639,7 @@ class GoodDataWriter extends Component
 	 */
 	public function getProxy($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -643,7 +664,7 @@ class GoodDataWriter extends Component
 		$restApi = new RestApi($this->_log);
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		try {
 			$return = $restApi->get($url);
@@ -658,7 +679,7 @@ class GoodDataWriter extends Component
 
 	public function postProxy($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -715,7 +736,7 @@ class GoodDataWriter extends Component
 	 */
 	public function getFilters($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -763,7 +784,7 @@ class GoodDataWriter extends Component
 			$params['operator'] = '=';
 		}
 
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -808,7 +829,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'uri' is missing");
 		}
 
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -861,7 +882,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'pid' is missing");
 		}
 
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -906,7 +927,7 @@ class GoodDataWriter extends Component
 		$command = 'syncFilters';
 		$createdTime = time();
 
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -949,7 +970,7 @@ class GoodDataWriter extends Component
 	 */
 	public function getXml($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
@@ -979,7 +1000,7 @@ class GoodDataWriter extends Component
 		if (empty($params['tableId'])) {
 			throw new WrongParametersException("Parameter 'tableId' is missing");
 		}
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -990,7 +1011,7 @@ class GoodDataWriter extends Component
 		$batchId = $this->_storageApi->generateId();
 
 		$xml = $this->configuration->getXml($params['tableId']);
-		$xmlUrl = $this->_s3Client->uploadString(sprintf('batch-%s/%s.xml', $batchId, $params['tableId']), $xml, 'text/xml');
+		$xmlUrl = $this->getS3Client()->uploadString(sprintf('batch-%s/%s.xml', $batchId, $params['tableId']), $xml, 'text/xml');
 
 		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
 		$jobData = array(
@@ -1036,7 +1057,7 @@ class GoodDataWriter extends Component
 		$createdTime = time();
 
 		// Init parameters
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -1054,7 +1075,7 @@ class GoodDataWriter extends Component
 			} catch (WrongConfigurationException $e) {
 				throw new WrongConfigurationException(sprintf('Wrong configuration of table \'%s\': %s', $dataSet['id'], $e->getMessage()));
 			}
-			$xmlUrl = $this->_s3Client->uploadString(sprintf('batch-%s/%s.xml', $batchId, $dataSet['id']), $xml, 'text/xml');
+			$xmlUrl = $this->getS3Client()->uploadString(sprintf('batch-%s/%s.xml', $batchId, $dataSet['id']), $xml, 'text/xml');
 			$definition = $this->configuration->getDataSet($dataSet['id']);
 
 			$tables[$dataSet['id']] = array(
@@ -1165,7 +1186,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'pid' is missing");
 		}
 
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -1236,7 +1257,7 @@ class GoodDataWriter extends Component
 	 */
 	public function getModel($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -1353,7 +1374,7 @@ class GoodDataWriter extends Component
 	 */
 	public function getTables($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -1381,7 +1402,7 @@ class GoodDataWriter extends Component
 		if (empty($params['tableId'])) {
 			throw new WrongParametersException("Parameter 'tableId' is missing");
 		}
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -1429,7 +1450,7 @@ class GoodDataWriter extends Component
 	 */
 	public function postResetExport($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -1450,7 +1471,7 @@ class GoodDataWriter extends Component
 	 */
 	public function getDateDimensions($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -1467,7 +1488,7 @@ class GoodDataWriter extends Component
 	 */
 	public function deleteDateDimensions($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -1493,7 +1514,7 @@ class GoodDataWriter extends Component
 	 */
 	public function postDateDimensions($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -1523,18 +1544,18 @@ class GoodDataWriter extends Component
 	 */
 	public function getJobs($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
 		if (empty($params['jobId'])) {
 			$days = isset($params['days']) ? $params['days'] : 7;
-			$jobs = $this->sharedConfig->fetchJobs($this->configuration->projectId, $params['writerId'], $days);
+			$jobs = $this->getSharedConfig()->fetchJobs($this->configuration->projectId, $params['writerId'], $days);
 
 			$result = array();
 			foreach ($jobs as $job) {
-				$result[] = $this->sharedConfig->jobToApiResponse($job, $this->_s3Client);
+				$result[] = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
 			}
 
 			return array('jobs' => $result);
@@ -1542,7 +1563,7 @@ class GoodDataWriter extends Component
 			if (is_array($params['jobId'])) {
 				throw new WrongParametersException("Parameter 'jobId' has to be a number");
 			}
-			$job = $this->sharedConfig->fetchJob($params['jobId'], $this->configuration->writerId, $this->configuration->projectId);
+			$job = $this->getSharedConfig()->fetchJob($params['jobId'], $this->configuration->writerId, $this->configuration->projectId);
 			if (!$job) {
 				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['jobId'], $this->configuration->writerId));
 			}
@@ -1575,7 +1596,7 @@ class GoodDataWriter extends Component
 					throw new WrongParametersException("There is no csvFile for this job");
 				}
 			} else {
-				$job = $this->sharedConfig->jobToApiResponse($job, $this->_s3Client);
+				$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
 				return array('job' => $job);
 			}
 		}
@@ -1589,12 +1610,12 @@ class GoodDataWriter extends Component
 	 */
 	public function postCancelJobs($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 		if (!isset($params['writerId'])) {
 			throw new WrongParametersException('Missing parameter \'writerId\'');
 		}
 
-		$this->sharedConfig->cancelJobs($this->configuration->projectId, $this->configuration->writerId);
+		$this->getSharedConfig()->cancelJobs($this->configuration->projectId, $this->configuration->writerId);
 		return array();
 	}
 
@@ -1606,7 +1627,7 @@ class GoodDataWriter extends Component
 	 */
 	public function getBatch($params)
 	{
-		$this->_init($params);
+		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
@@ -1614,7 +1635,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'batchId' is missing");
 		}
 
-		return array('batch' => $this->sharedConfig->batchToApiResponse($params['batchId'], $this->_s3Client));
+		return array('batch' => $this->getSharedConfig()->batchToApiResponse($params['batchId'], $this->getS3Client()));
 	}
 
 	private function _createJob($params)
@@ -1657,11 +1678,11 @@ class GoodDataWriter extends Component
 		);
 		$jobInfo = array_merge($jobInfo, $params);
 
-		$this->sharedConfig->saveJob($jobId, $jobInfo);
+		$this->getSharedConfig()->saveJob($jobId, $jobInfo);
 
-		$message = "Writer job $jobId created manually";
+		$message = "Job $jobId created";
 		$results = array('jobId' => $jobId);
-		$this->sharedConfig->logEvent($this->configuration->writerId, $jobInfo['runId'], $message, $params, $results);
+		$this->getSharedConfig()->logEvent($this->configuration->writerId, $jobInfo['runId'], $message, $params, $results);
 
 		$this->_log->log(Logger::INFO, $message, array(
 			'token' => $this->_storageApi->getLogData(),
@@ -1679,7 +1700,7 @@ class GoodDataWriter extends Component
 	 */
 	protected function _enqueue($batchId)
 	{
-		$this->_queue->enqueue(array(
+		$this->getQueue()->enqueue(array(
 			'projectId' => $this->configuration->projectId,
 			'writerId' => $this->configuration->writerId,
 			'batchId' => $batchId

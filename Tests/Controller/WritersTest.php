@@ -25,7 +25,7 @@ class WritersTest extends AbstractControllerTest
 
 		// Check project existence in GD
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$projectInfo = $this->restApi->getProject($bucketAttributes['gd']['pid']);
 		$this->assertArrayHasKey('project', $projectInfo, "Response for GoodData API login call should contain 'project' key.");
 		$this->assertArrayHasKey('content', $projectInfo['project'], "Response for GoodData API login call should contain 'project.content' key.");
@@ -76,7 +76,7 @@ class WritersTest extends AbstractControllerTest
 
 		// Check invitations existence in GD
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$userProjectsInfo = $this->restApi->get('/gdc/projects/' . $bucketAttributes['gd']['pid'] . '/invitations');
 		$this->assertArrayHasKey('invitations', $userProjectsInfo, "Response for GoodData API project invitations call should contain 'invitations' key.");
 		$this->assertGreaterThanOrEqual(1, $userProjectsInfo['invitations'], "Response for GoodData API project invitations call should return at least one invitation.");

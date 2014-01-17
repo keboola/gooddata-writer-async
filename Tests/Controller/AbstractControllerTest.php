@@ -73,7 +73,7 @@ abstract class AbstractControllerTest extends WebTestCase
 
 		// Clear test environment
 		// Drop data tables from SAPI
-		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+		$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 		foreach ($this->storageApi->listBuckets() as $bucket) {
 			$isConfigBucket = substr($bucket['id'], 0, 22) == 'sys.c-wr-gooddata-test';
 			$isDataBucket = substr($bucket['id'], 0, 4) == 'out.';

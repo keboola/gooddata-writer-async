@@ -8,8 +8,7 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
-use Sabre\DAV;
-use Sabre\DAV\Exception\MethodNotAllowed;
+
 use Symfony\Component\Process\Process;
 
 class WebDavException extends \Exception
@@ -20,75 +19,133 @@ class WebDavException extends \Exception
 
 class WebDav
 {
-	/**
-	 * @var DAV\Client
-	 */
-	protected $_client;
-	protected $_url = 'na1-di.gooddata.com';
+	public $url = 'na1-di.gooddata.com';
 	protected $_username;
 	protected $_password;
-	protected $_zipPath;
 
 	/**
 	 * @param $username
 	 * @param $password
 	 * @param null $url
-	 * @param null $zipPath
 	 * @throws WebDavException
 	 */
-	public function __construct($username, $password, $url = null, $zipPath = null)
+	public function __construct($username, $password, $url = null)
 	{
 		$this->_username = $username;
 		$this->_password = $password;
-		$this->_zipPath = $zipPath;
 		if ($url) {
 			$parsedUrl = parse_url($url);
 			if (!$parsedUrl || empty($parsedUrl['host'])) {
 				throw new WebDavException('Malformed base url: ' . $url);
 			}
-			$this->_url = $parsedUrl['host'];
+			$this->url = $parsedUrl['host'];
 		}
-		$this->_client = new DAV\Client(array(
-			'baseUri' => 'https://' . $this->_url,
-			'userName' => $this->_username,
-			'password' => $this->_password
-		));
+	}
+
+
+	/**
+	 * @param $uri
+	 * @param null $method
+	 * @param null $arguments
+	 * @param null $prepend
+	 * @param null $append
+	 * @return string
+	 * @throws WebDavException
+	 */
+	protected function _request($uri, $method = null, $arguments = null, $prepend = null, $append = null)
+	{
+		$url = 'https://' . $this->url . '/uploads/' . $uri;
+		if ($method) {
+			$arguments .= ' -X ' . escapeshellarg($method);
+		}
+		$command = sprintf('curl -s -S -f --retry 15 --user %s:%s %s %s', escapeshellarg($this->_username),
+			escapeshellarg($this->_password), $arguments, escapeshellarg($url));
+
+		$process = new Process($prepend . $command . $append);
+		$process->setTimeout(5 * 60 * 60);
+		$process->run();
+		if (!$process->isSuccessful()) {
+			throw new WebDavException($process->getErrorOutput());
+		}
+
+		return $process->getOutput();
+	}
+
+
+	/**
+	 * @param $folder
+	 */
+	public function prepareFolder($folder)
+	{
+		$this->_request($folder, 'MKCOL');
 	}
 
 
 	/**
 	 * Upload compressed json and csv files from sourceFolder to targetFolder
-	 * @param $zipFolder
+	 * @param $file
 	 * @param $davFolder
-	 * @param $jsonFile
 	 * @throws WebDavException
-	 * @param $csvFile
 	 */
-	public function upload($zipFolder, $davFolder, $jsonFile, $csvFile)
+	public function upload($file, $davFolder)
 	{
-		if (!file_exists($jsonFile)) throw new WebDavException(sprintf("Manifest '%s' for WebDav upload was not found", $jsonFile));
-		if (!file_exists($csvFile)) throw new WebDavException(sprintf("Data csv '%s' for WebDav upload was not found", $csvFile));
+		if (!file_exists($file)) throw new WebDavException(sprintf("File '%s' for WebDav upload does not exist.", $file));
+		$fileInfo = pathinfo($file);
 
-		$zipPath = $this->_zipPath ? $this->_zipPath : 'zip';
-		shell_exec($zipPath . ' -j ' . escapeshellarg($zipFolder . '/upload.zip') . ' ' . escapeshellarg($jsonFile) . ' ' . escapeshellarg($csvFile));
-		if (!file_exists($zipFolder . '/upload.zip')) throw new WebDavException(sprintf("Zip file '%s/upload.zip' for WebDav upload was not created", $zipFolder));
-
+		$fileUri = sprintf('%s/%s', $davFolder, $fileInfo['basename']);
 		try {
-			$this->_client->request('MKCOL', '/uploads/' . $davFolder);
-		} catch (MethodNotAllowed $e) {
-			// Folder already exists, delete and create again
-			$this->_client->request('DELETE', '/uploads/' . $davFolder);
-			$this->_client->request('MKCOL', '/uploads/' . $davFolder);
+			$this->_request(
+				$fileUri,
+				'PUT',
+				'-T - --header ' . escapeshellarg('Content-encoding: gzip'),
+				'cat ' . escapeshellarg($file) . ' | gzip -c | '
+			);
+		} catch (WebDavException $e) {
+			throw new WebDavException("WebDav error when uploading to '" . $fileUri . '". ' . $e->getMessage());
+		}
+	}
+
+
+	/**
+	 * @param $folderName
+	 * @param bool $relative
+	 * @param array $extensions
+	 * @return array
+	 * @throws WebDavException
+	 */
+	public function listFiles($folderName, $relative = false, $extensions = array())
+	{
+		try {
+			$result = $this->_request(
+				$folderName,
+				'PROPFIND',
+				' --data ' . escapeshellarg('<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname /></d:prop></d:propfind>')
+				. ' -L -H ' . escapeshellarg('Content-Type: application/xml') . ' -H ' . escapeshellarg('Depth: 1')
+			);
+		} catch (WebDavException $e) {
+			throw new WebDavException($e->getMessage());
 		}
 
-		$command = sprintf('curl -i --insecure -X PUT --data-binary @%s -v https://%s:%s@%s/uploads/%s/upload.zip 2>&1',
-			escapeshellarg($zipFolder . '/upload.zip'), urlencode($this->_username), urlencode($this->_password), $this->_url, $davFolder);
-		$process = new Process($command);
-		$process->setTimeout(null);
-		$process->run();
-		if (!$process->isSuccessful()) {
-			throw new WebDavException($process->getErrorOutput());
+		libxml_use_internal_errors(true);
+		$responseXML = simplexml_load_string($result, null, LIBXML_NOBLANKS | LIBXML_NOCDATA);
+		if ($responseXML === false) {
+			throw new WebDavException('WebDav returned bad result when asked for error logs.');
 		}
+
+		$responseXML->registerXPathNamespace('D', 'urn:DAV');
+		$list = array();
+		foreach($responseXML->xpath('D:response') as $response) {
+			$response->registerXPathNamespace('D', 'urn:DAV');
+			$href = $response->xpath('D:href');
+			$file = pathinfo((string)$href[0]);
+			if (isset($file['extension'])) {
+				if (!count($extensions) || in_array($file['extension'], $extensions)) {
+					$list[] = $relative ? $file['basename'] : (string)$href[0];
+				}
+			}
+		}
+
+		return $list;
 	}
 
 
@@ -96,31 +153,34 @@ class WebDav
 	 * Save logs of processed csv to file
 	 * @param $folderName
 	 * @param $logFile
+	 * @throws WebDavException
 	 */
 	public function saveLogs($folderName, $logFile)
 	{
-		$files = $this->_client->propFind('/uploads/' . $folderName, array(
-			'{DAV:}displayname'
-		), 1);
-		foreach (array_keys($files) as $file) {
-			if (substr($file, -4) == '.log' || substr($file, -5) == '.json') {
-				$result = $this->get($file);
-				file_put_contents($logFile, $file . PHP_EOL, FILE_APPEND);
-				file_put_contents($logFile, print_r($result, true) . PHP_EOL . PHP_EOL . PHP_EOL, FILE_APPEND);
-			}
+		foreach ($this->listFiles($folderName, true, array('json', 'log')) as $file) {
+			$result = $this->get($folderName . '/' . $file);
+			file_put_contents($logFile, $file . PHP_EOL, FILE_APPEND);
+			file_put_contents($logFile, print_r($result, true) . PHP_EOL . PHP_EOL . PHP_EOL, FILE_APPEND);
 		}
 	}
 
 
 	/**
 	 * Get content of a file from WebDav
-	 * @param $file
+	 * @param $fileUri
+	 * @throws WebDavException
 	 * @return mixed
 	 */
-	public function get($file)
+	public function get($fileUri)
 	{
-		$result = $this->_client->request('GET', $file);
-		return $result['body'];
+		try {
+			return $this->_request(
+				$fileUri,
+				'GET'
+			);
+		} catch (WebDavException $e) {
+			throw new WebDavException("WebDav error when uploading to '" . $fileUri . '". ' . $e->getMessage());
+		}
 	}
 
 

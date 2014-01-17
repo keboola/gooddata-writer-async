@@ -45,7 +45,7 @@ class AddUserToProject extends AbstractJob
 			$params['pid'] = $bucketAttributes['gd']['pid'];
 		}
 
-		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+		$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 
 		$gdWriteStartTime = date('c');
 		try {

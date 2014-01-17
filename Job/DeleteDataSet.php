@@ -33,7 +33,7 @@ class DeleteDataSet extends AbstractJob
 
 		try {
 			$bucketAttributes = $this->configuration->bucketAttributes();
-			$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+			$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			$this->restApi->getProject($bucketAttributes['gd']['pid']);
 
 			foreach ($projects as $project) if ($project['active']) {

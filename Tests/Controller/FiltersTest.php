@@ -50,10 +50,7 @@ class FiltersTest extends AbstractControllerTest
 		$filterList = $this->configuration->getFilters();
 		$this->assertCount(1, $filterList);
 
-		$this->restApi->setCredentials(
-			$bucketAttributes['gd']['username'],
-			$bucketAttributes['gd']['password']
-		);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$gdFilters = $this->restApi->getFilters($pid);
 		$gdFilter = $gdFilters[0];
 		$this->assertEquals($gdFilter['link'], $filterList[0]['uri']);
@@ -96,10 +93,7 @@ class FiltersTest extends AbstractControllerTest
 		// Check result
 		$filterList = $this->configuration->getFilters();
 
-		$this->restApi->setCredentials(
-			$bucketAttributes['gd']['username'],
-			$bucketAttributes['gd']['password']
-		);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$gdFilters = $this->restApi->getFilters($pid);
 		$gdFilter = $gdFilters[0];
 		$this->assertEquals($gdFilter['link'], $filterList[0]['uri']);

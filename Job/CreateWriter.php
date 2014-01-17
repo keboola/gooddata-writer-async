@@ -36,13 +36,9 @@ class CreateWriter extends AbstractJob
 		$username = sprintf($this->mainConfig['gd']['user_email'], $job['projectId'], $job['writerId'] . '-' . uniqid());
 		$password = md5(uniqid());
 
-		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+		$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 		try {
-			try {
-				$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
-			} catch (RestApiException $e) {
-				throw new WrongConfigurationException('Project creation failed: ' . $e->getMessage());
-			}
+			$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
 
 			$userId = $this->restApi->createUser($this->mainConfig['gd']['domain'], $username, $password, 'KBC', 'Writer', $this->mainConfig['gd']['sso_provider']);
 			$this->restApi->addUserToProject($userId, $projectPid, RestApi::$userRoles['admin']);

@@ -35,10 +35,10 @@ class CloneProject extends AbstractJob
 		$gdWriteStartTime = date('c');
 		try {
 			// Check access to source project
-			$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+			$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			$this->restApi->getProject($bucketAttributes['gd']['pid']);
 
-			$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+			$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 			// Get user uri if not set
 			if (empty($bucketAttributes['gd']['uid'])) {
 				$userId = $this->restApi->userId($bucketAttributes['gd']['username'], $this->mainConfig['gd']['domain']);

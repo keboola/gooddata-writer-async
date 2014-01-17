@@ -35,7 +35,7 @@ class createFilter extends AbstractJob
 
 		try {
 			$bucketAttributes = $this->configuration->bucketAttributes();
-			$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+			$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 			$filterUri = $this->restApi->createFilter(
 				$params['name'],

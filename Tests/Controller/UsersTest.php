@@ -15,7 +15,7 @@ class UsersTest extends AbstractControllerTest
 
 		// Check of GoodData
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$userInfo = $this->restApi->getUser($user['uid']);
 		$this->assertArrayHasKey('accountSetting', $userInfo, "Response for GoodData API user call should contain 'accountSetting' key.");
 
@@ -55,7 +55,7 @@ class UsersTest extends AbstractControllerTest
 
 		// Check GoodData
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$userProjectsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/users');
 		$this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");
 		$this->assertCount(3, $userProjectsInfo['users'], "Response for GoodData API project users call should return three users.");
@@ -83,7 +83,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertTrue($userInProject, "Response for writer call '/project-users' should return tested user.");
 
 		// Case 2 - User exists in other domain
-		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+		$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 
 		$otherUser = null;
 		if (defined('WRITER_TEST_OTHER_DOMAIN_USER'))
@@ -101,7 +101,7 @@ class UsersTest extends AbstractControllerTest
 			'role' => 'editor'
 		));
 
-		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		// Check Writer API
 		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
@@ -185,7 +185,7 @@ class UsersTest extends AbstractControllerTest
 
 		// Check GoodData
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$userProjectsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/users');
 		$this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");
 		$this->assertCount(3, $userProjectsInfo['users'], "Response for GoodData API project users call should return three users.");
@@ -251,7 +251,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertFalse($userInProject, "Response for writer call '/project-users' should not return tested user.");
 
 		// Case 2 - User exists in other domain
-		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+		$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
 
 		$otherUser = null;
 		if (defined('WRITER_TEST_OTHER_DOMAIN_USER'))
@@ -269,7 +269,7 @@ class UsersTest extends AbstractControllerTest
 			'role' => 'editor'
 		));
 
-		$this->restApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		// Check Writer API
 		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);

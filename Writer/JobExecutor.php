@@ -11,7 +11,8 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
-	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
+	Keboola\GoodDataWriter\GoodData\UnauthorizedException,
+	Keboola\StorageApi\ClientException as StorageApiClientException;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Exception as StorageApiException;
@@ -254,7 +255,8 @@ class JobExecutor
             if (!file_exists($mainConfig['tmp_path'])) mkdir($mainConfig['tmp_path']);
             if (!file_exists($tmpDir)) mkdir($tmpDir);
 
-			$configuration = new Configuration($this->_storageApiClient, $job['writerId']);
+			// Do not migrate (migration had to be performed at least when the job was created)
+			$configuration = new Configuration($this->_storageApiClient, $job['writerId'], false);
 
 			$s3Client = new S3Client(
 				\Aws\S3\S3Client::factory(array(
@@ -292,7 +294,7 @@ class JobExecutor
 				$e2 = new ClientException('Bad GoodData credentials: ' . $e->getMessage());
 				$e2->setData(array('trace' => $e->getTraceAsString()));
 				throw $e2;
-			} catch (\Keboola\StorageApi\ClientException $e) {
+			} catch (StorageApiClientException $e) {
 				$e2 = new ClientException('Storage API problem: ' . $e->getMessage());
 				$e2->setData(array('trace' => $e->getTraceAsString()));
 				throw $e2;
@@ -329,7 +331,7 @@ class JobExecutor
 			$duration = $time - time();
 
 			$this->_log->alert('Job execution error', array(
-				'job' => $job,
+				'jobId' => $job,
 				'exception' => $e,
 			));
 

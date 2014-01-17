@@ -188,7 +188,7 @@ class CLToolApi
 	 * @throws CLToolApiErrorException
 	 * @throws \Exception
 	 */
-	public function createDataSet($pid, $xmlFile)
+	public function createDataSetMaql($pid, $xmlFile)
 	{
 		$this->output = array();
 		if (file_exists($xmlFile)) {
@@ -206,16 +206,18 @@ class CLToolApi
 				$command  = 'OpenProject(id="' . $pid . '"); ';
 				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '"); ';
 				$command .= 'GenerateMaql(maqlFile="' . $maqlFile . '"); ';
-				$command .= 'ExecuteMaql(maqlFile="' . $maqlFile . '"); ';
 
 				$this->output['command'] = $command;
 				$this->call($command);
 
 				if (file_exists($maqlFile)) {
-					$this->output['maql'] = file_get_contents($maqlFile);
+					$maql = file_get_contents($maqlFile);
+					$this->output['maql'] = $maql;
 					unlink($maqlFile);
+
+					return $maql;
 				} else {
-					throw new CLToolApiErrorException();
+					throw new CLToolApiErrorException('Maql file was not created.');
 				}
 			} else {
 				$this->output['errors'] = libxml_get_errors();
@@ -235,7 +237,7 @@ class CLToolApi
 	 * @throws \Exception
 	 * @return string|bool
 	 */
-	public function updateDataSet($pid, $xmlFile, $updateAll=FALSE)
+	public function updateDataSetMaql($pid, $xmlFile, $updateAll=FALSE)
 	{
 		$this->output = array();
 		if (file_exists($xmlFile)) {
@@ -261,14 +263,13 @@ class CLToolApi
 				$this->call($command);
 
 				if (file_exists($maqlFile)) {
-					$this->output['maql'] = file_get_contents($maqlFile);
-
-					$command = 'OpenProject(id="' . $pid . '"); ExecuteMaql(maqlFile="' . $maqlFile . '");';
-
-					$this->output['command2'] = $command;
-					$this->call($command);
-
+					$maql = file_get_contents($maqlFile);
+					$this->output['maql'] = $maql;
 					unlink($maqlFile);
+
+					return $maql;
+				} else {
+					return false;
 				}
 			} else {
 				$this->output['errors'] = libxml_get_errors();

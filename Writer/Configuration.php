@@ -92,7 +92,7 @@ class Configuration extends StorageApiConfiguration
 	 * @param $writerId
 	 * @param StorageApiClient $storageApiClient
 	 */
-	public function __construct(StorageApiClient $storageApiClient, $writerId = null)
+	public function __construct(StorageApiClient $storageApiClient, $writerId = null, $migrate = true)
 	{
 		parent::__construct($storageApiClient);
 
@@ -104,7 +104,7 @@ class Configuration extends StorageApiConfiguration
 		}
 
 		//@TODO remove
-		if ($this->bucketId && $this->sapi_bucketExists($this->bucketId) && !$this->sapi_tableExists($this->bucketId . '.' . self::DATA_SETS_TABLE_NAME)) {
+		if ($migrate && $this->bucketId && $this->sapi_bucketExists($this->bucketId) && !$this->sapi_tableExists($this->bucketId . '.' . self::DATA_SETS_TABLE_NAME)) {
 			$this->migrateConfiguration();
 		}
 	}
@@ -337,7 +337,7 @@ class Configuration extends StorageApiConfiguration
 		foreach ($sourceTable['columns'] as $columnName) {
 			$column = $dataSet['columns'][$columnName];
 			$column['name'] = $columnName;
-			if (!isset($column['gdName']))
+			if (empty($column['gdName']))
 				$column['gdName'] = $columnName;
 			$column = $this->_cleanColumnDefinition($column);
 			$column['preview'] = isset($previews[$columnName]) ? $previews[$columnName] : array();
@@ -346,7 +346,7 @@ class Configuration extends StorageApiConfiguration
 
 		return array(
 			'id' => $tableId,
-			'name' => $dataSet['name'],
+			'name' => empty($dataSet['name']) ? $tableId : $dataSet['name'],
 			'export' => (bool)$dataSet['export'],
 			'isExported' => (bool)$dataSet['isExported'],
 			'lastChangeDate' => $dataSet['lastChangeDate'] ? $dataSet['lastChangeDate'] : null,
@@ -373,7 +373,7 @@ class Configuration extends StorageApiConfiguration
 			$tables[] = array(
 				'id' => $table['id'],
 				'bucket' => substr($table['id'], 0, strrpos($table['id'], '.')),
-				'name' => $table['name'],
+				'name' => empty($table['name']) ? $table['id'] : $table['name'],
 				'export' => (bool)$table['export'],
 				'isExported' => (bool)$table['isExported'],
 				'lastChangeDate' => $table['lastChangeDate'],
@@ -580,8 +580,6 @@ class Configuration extends StorageApiConfiguration
 		}
 		if (empty($data['dataTypeSize'])) {
 			unset($data['dataTypeSize']);
-		} else {
-			$data['dataTypeSize'] = (int)$data['dataTypeSize'];
 		}
 		if (empty($data['dataType'])) {
 			unset($data['dataType']);
