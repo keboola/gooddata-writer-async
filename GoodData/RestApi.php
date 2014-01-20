@@ -1263,6 +1263,8 @@ class RestApi
 	 */
 	public function login($username, $password)
 	{
+		$this->clearFromLog[] = $password;
+
 		try {
 			$response = $this->request('/gdc/account/login', 'POST', array(
 				'postUserLogin' => array(
@@ -1270,7 +1272,7 @@ class RestApi
 					'password' => $password,
 					'remember' => 0
 				)
-			), array(), false, false);
+			), array(), true, false);
 		} catch (RestApiException $e) {
 			throw new RestApiException('Rest API Login failed');
 		}
@@ -1291,7 +1293,7 @@ class RestApi
 	public function refreshToken()
 	{
 		try {
-			$response = $this->request('/gdc/account/token', 'GET', array(), array(), false, false);
+			$response = $this->request('/gdc/account/token', 'GET', array(), array(), true, false);
 		} catch (RestApiException $e) {
 			throw new RestApiException('Rest refresh token failed');
 		}

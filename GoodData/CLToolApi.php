@@ -252,7 +252,7 @@ class CLToolApi
 
 				$command  = 'OpenProject(id="' . $pid . '"); ';
 				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '"); ';
-				$command .= 'GenerateUpdateMaql(maqlFile="' . $maqlFile . '"';
+				$command .= 'GenerateUpdateMaql(maqlFile="' . $maqlFile . '" rebuildLabels="false"';
 				if ($updateAll) {
 					$command .= ' updateAll="true"';
 				}
