@@ -251,7 +251,9 @@ class UploadTable extends AbstractJob
 					}
 				} else {
 					$maql = $clToolApi->updateDataSetMaql($gdJob['pid'], $xmlFile, 1);
-					$this->restApi->executeMaql($gdJob['pid'], $maql);
+					if ($maql) {
+						$this->restApi->executeMaql($gdJob['pid'], $maql);
+					}
 				}
 				if ($clToolApi->debugLogUrl) {
 					if ($gdJob['mainProject']) {

@@ -1568,37 +1568,8 @@ class GoodDataWriter extends Component
 				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['jobId'], $this->configuration->writerId));
 			}
 
-			if (isset($params['detail']) && $params['detail'] == 'csv') {
-				$result = json_decode($job['result'], true);
-				if (isset($result['csvFile']) && file_exists($result['csvFile'])) {
-
-					$response = new StreamedResponse(function() use($result) {
-						$linesCount = !empty($params['limit']) ? $params['limit'] : -1;
-						$handle = fopen($result['csvFile'], 'r');
-						if ($handle === false) {
-							return false;
-						}
-						while (($buffer = fgets($handle)) !== false && $linesCount != 0) {
-							print $buffer;
-							$linesCount--;
-						}
-						fclose($handle);
-						return true;
-					});
-					$response->headers->set('Content-Disposition', $response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $params['jobId'] . '.csv'));
-					$response->headers->set('Content-Length', filesize($result['csvFile']));
-					$response->headers->set('Content-Type', 'text/csv');
-					$response->headers->set('Access-Control-Allow-Origin', '*');
-					$response->send();
-					exit();
-
-				} else {
-					throw new WrongParametersException("There is no csvFile for this job");
-				}
-			} else {
-				$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
-				return array('job' => $job);
-			}
+			$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
+			return array('job' => $job);
 		}
 	}
 
@@ -1714,6 +1685,7 @@ class GoodDataWriter extends Component
 		$i = 1;
 		do {
 			$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $writerId));
+			$this->sharedConfig = null; // Workaround of cache bug
 			if (isset($jobInfo['job']['status']) && !in_array($jobInfo['job']['status'], array('waiting', 'processing'))) {
 				$jobFinished = true;
 			}
@@ -1736,6 +1708,7 @@ class GoodDataWriter extends Component
 		$i = 1;
 		do {
 			$jobsInfo = $this->getBatch(array('batchId' => $batchId, 'writerId' => $writerId));
+			$this->sharedConfig = null; // Workaround of cache bug
 			if (isset($jobsInfo['batch']['status']) && !in_array($jobsInfo['batch']['status'], array('waiting', 'processing'))) {
 				$jobsFinished = true;
 			}
