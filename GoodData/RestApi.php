@@ -833,10 +833,7 @@ class RestApi
 
 
 	/**
-	 * Execute MAQL
-	 * @param $pid
-	 * @param $maql
-	 * @return string
+	 * Execute Maql
 	 */
 	public function executeMaql($pid, $maql)
 	{
@@ -847,6 +844,32 @@ class RestApi
 			)
 		);
 		return $this->jsonRequest($uri, 'POST', $params);
+	}
+
+
+	/**
+	 * Execute Maql asynchronously and wait for result
+	 */
+	public function executeMaqlAsync($pid, $maql)
+	{
+		$uri = sprintf('/gdc/md/%s/ldm/manage2', $pid);
+		$params = array(
+			'manage' => array(
+				'maql' => $maql
+			)
+		);
+		$result = $this->jsonRequest($uri, 'POST', $params);
+		if (empty($result['entries']['link'])) {
+			$this->log->alert('executeMaqlAsync() result is missing status url in entries.link', array(
+				'uri' => $uri,
+				'maql' => $maql,
+				'result' => $result
+			));
+			throw new RestApiException('Error in result of async maql');
+		}
+
+		$status = $this->get($result['entries']['link']);
+
 	}
 
 

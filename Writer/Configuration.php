@@ -9,7 +9,8 @@
 namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
-use Keboola\GoodDataWriter\Service\StorageApiConfiguration, 
+use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Service\StorageApiConfiguration,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
@@ -687,6 +688,120 @@ class Configuration extends StorageApiConfiguration
 		}
 
 		$this->_cache[$cacheKey] = true;
+	}
+
+
+	public function getLDM()
+	{
+		$dataSets = array();
+
+		$tables = $this->_getConfigTable(self::DATA_SETS_TABLE_NAME);
+		$tableNames = array();
+		foreach ($tables as $table) if ($table['export']) {
+			$tableNames[$table['id']] = RestApi::datasetId($table['name']);
+		}
+
+
+		foreach ($tables as $table) if ($table['export']) {
+			if (!empty($table['definition'])) {
+				$dataSetName = empty($table['name']) ? $table['id'] : $table['name'];
+				$dataSet = array(
+					'identifier' => RestApi::datasetId($dataSetName),
+					'title' => $dataSetName
+				);
+
+				$tableDefinition = json_decode($table['definition'], true);
+				if ($tableDefinition === NULL) {
+					throw new WrongConfigurationException(sprintf("Definition of columns for table '%s' is not valid json", $table['id']));
+				}
+
+				$facts = array();
+				$attributes = array();
+				$references = array();
+				foreach ($tableDefinition as $columnName => $column) {
+					$columnTitle = empty($column['gdName']) ? $columnName : $column['gdName'];
+					$columnIdentifier = RestApi::gdName($columnTitle);
+
+					switch($column['type']) {
+						case 'CONNECTION_POINT' :
+							$dataSet['anchor'] = array(
+								'attribute' => array(
+									'identifier' => 'attr.' . RestApi::gdName($dataSetName) . '.' . $columnIdentifier,
+									'title' => $columnTitle,
+									'folder' => $dataSetName
+								)
+							);
+							break;
+						case 'FACT' :
+							$fact = array(
+								'fact' => array(
+									'identifier' => 'fact.' . RestApi::gdName($dataSetName) . '.' . $columnIdentifier,
+									'title' => $columnTitle
+								)
+							);
+							if (!empty($column['dataType'])) {
+								$fact['fact']['dataType'] = $column['dataType'];
+								if (!empty($column['dataTypeSize'])) {
+									$fact['fact']['dataType'] .= '(' . $column['dataTypeSize'] . ')';
+								}
+							}
+							$facts[] = $fact;
+							break;
+						case 'ATTRIBUTE' :
+							$attributes = array(
+								'attribute' => array(
+									'identifier' => 'attr.' . RestApi::gdName($dataSetName) . '.' . $columnIdentifier,
+									'title' => $columnTitle,
+									'folder' => $dataSetName
+								)
+							);
+							break;
+						case 'HYPERLINK' :
+						case 'LABEL' :
+							//@TODO
+							break;
+						case 'REFERENCE' :
+							$references[] = $tableNames[$column['schemaReference']];
+							break;
+						case 'DATE' :
+							$references[] = RestApi::dimensionId($column['dateDimension']);
+							break;
+					}
+				}
+
+				if (count($facts)) {
+					$dataSet['facts'] = $facts;
+				}
+				if (count($attributes)) {
+					$dataSet['attributes'] = $attributes;
+				}
+				if (count($references)) {
+					$dataSet['references'] = $references;
+				}
+
+				$dataSets[] = array(
+					'dataset' => $dataSet
+				);
+			}
+		}
+
+		$dateDimensions = array();
+		foreach ($this->getDateDimensions() as $d) {
+			$dateDimensions[] = array(
+				'dateDimension' => array(
+					'name' => RestApi::dimensionId($d['name']),
+					'title' => $d['name']
+				)
+			);
+		}
+
+		$result = array(
+			'projectModel' => array(
+				'datasets' => $dataSets,
+				'dateDimensions' => $dateDimensions
+			)
+		);
+		return $result;
 	}
 
 

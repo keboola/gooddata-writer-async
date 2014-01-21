@@ -962,6 +962,21 @@ class GoodDataWriter extends Component
 	 * @section Data and project structure
 	 */
 
+
+	/**
+	 * Generates LDM model of writer
+	 */
+	public function getLdm($params)
+	{
+		$this->init($params);
+
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		return $this->configuration->getLDM();
+	}
+
 	/**
 	 * @param $params
 	 * @throws Exception\WrongParametersException
@@ -1424,15 +1439,6 @@ class GoodDataWriter extends Component
 			$this->configuration->updateColumnsDefinition($tableId, $params['columns']);
 		} else {
 			// Table detail
-			if (isset($params['gdName'])) { //@TODO remove
-				$params['name'] = $params['gdName'];
-				unset($params['gdName']);
-			}
-			if (isset($params['lastExportDate'])) { //@TODO remove
-				$params['isExported'] = $params['lastExportDate'] ? 1 : 0;
-				unset($params['lastExportDate']);
-			}
-
 			$this->configuration->updateDataSetDefinition($tableId, $params);
 		}
 
