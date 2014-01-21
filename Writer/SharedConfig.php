@@ -209,7 +209,6 @@ class SharedConfig extends StorageApiConfiguration
 				'id' => (int) $job['tokenId'],
 				'description' => $job['tokenDesc'],
 			),
-			'initializedBy' => $job['initializedBy'],
 			'createdTime' => $job['createdTime'],
 			'startTime' => !empty($job['startTime']) ? $job['startTime'] : null,
 			'endTime' => !empty($job['endTime']) ? $job['endTime'] : null,
@@ -219,7 +218,6 @@ class SharedConfig extends StorageApiConfiguration
 			'parameters' => $job['parameters'],
 			'result' => $job['result'],
 			'gdWriteStartTime' => $job['gdWriteStartTime'],
-			'gdWriteBytes' => $job['gdWriteBytes'] ? (int) $job['gdWriteBytes'] : null,
 			'status' => $job['status'],
 			'log' => $job['log'],
 			'queueId' => !empty($job['queueId']) ? $job['queueId'] : sprintf('%s.%s.%s', $job['projectId'], $job['writerId'], self::PRIMARY_QUEUE)

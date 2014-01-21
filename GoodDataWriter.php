@@ -23,9 +23,7 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Syrup\ComponentBundle\Component\Component;
 use Monolog\Logger;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag,
-	Symfony\Component\HttpFoundation\StreamedResponse,
-	Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Response;
 use Syrup\ComponentBundle\Exception\SyrupComponentException;
 
 class GoodDataWriter extends Component

@@ -60,7 +60,12 @@ class UploadTable extends AbstractJob
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$e = $stopWatch->stop($stopWatchId);
-		$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));
+		$eventsLog[$stopWatchId] = array(
+			'duration' => $e->getDuration(),
+			'time' => date('c'),
+			'restApi' => $this->restApi->callsLog
+		);
+		$this->restApi->callsLog = array();
 
 		// Get xml
 		$stopWatchId = 'getXml';
@@ -465,7 +470,8 @@ class UploadTable extends AbstractJob
 
 		$result = array(
 			'status' => $error ? 'error' : 'success',
-			'debug' => json_encode($debug)
+			'debug' => json_encode($debug),
+			'incrementalLoad' => (int) $incrementalLoad
 		);
 		if (!empty($gdWriteStartTime)) {
 			$result['gdWriteStartTime'] = $gdWriteStartTime;
