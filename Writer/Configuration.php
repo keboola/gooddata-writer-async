@@ -718,12 +718,15 @@ class Configuration extends StorageApiConfiguration
 				$facts = array();
 				$attributes = array();
 				$references = array();
+				$labels = array();
+				$connectionPoint = null;
 				foreach ($tableDefinition as $columnName => $column) {
 					$columnTitle = empty($column['gdName']) ? $columnName : $column['gdName'];
 					$columnIdentifier = RestApi::gdName($columnTitle);
 
 					switch($column['type']) {
 						case 'CONNECTION_POINT' :
+							$connectionPoint = $columnTitle;
 							$dataSet['anchor'] = array(
 								'attribute' => array(
 									'identifier' => 'attr.' . RestApi::gdName($dataSetName) . '.' . $columnIdentifier,
@@ -748,7 +751,7 @@ class Configuration extends StorageApiConfiguration
 							$facts[] = $fact;
 							break;
 						case 'ATTRIBUTE' :
-							$attributes = array(
+							$attributes[$columnTitle] = array(
 								'attribute' => array(
 									'identifier' => 'attr.' . RestApi::gdName($dataSetName) . '.' . $columnIdentifier,
 									'title' => $columnTitle,
@@ -758,7 +761,17 @@ class Configuration extends StorageApiConfiguration
 							break;
 						case 'HYPERLINK' :
 						case 'LABEL' :
-							//@TODO
+							if (!isset($labels[$column['reference']])) {
+								$labels[$column['reference']] = array();
+							}
+							$labels[$column['reference']][] = array(
+								'label' => array(
+									'identifier' => 'label.' . RestApi::gdName($dataSetName) . '.' . $columnIdentifier,
+									'title' => $columnTitle,
+									'type' => 'GDC.' . ($column['type'] == 'HYPERLINK' ? 'link' : 'text')
+								)
+							);
+
 							break;
 						case 'REFERENCE' :
 							$references[] = $tableNames[$column['schemaReference']];
@@ -769,11 +782,19 @@ class Configuration extends StorageApiConfiguration
 					}
 				}
 
+				foreach ($labels as $attributeId => $labelArray) {
+					if (isset($attributes[$attributeId])) {
+						$attributes[$attributeId]['attribute']['labels'] = $labelArray;
+					} else if ($attributeId == $connectionPoint) {
+						$dataSet['anchor']['attribute']['labels'] = $labelArray;
+					}
+				}
+
 				if (count($facts)) {
 					$dataSet['facts'] = $facts;
 				}
 				if (count($attributes)) {
-					$dataSet['attributes'] = $attributes;
+					$dataSet['attributes'] = \array_values($attributes);
 				}
 				if (count($references)) {
 					$dataSet['references'] = $references;
