@@ -322,7 +322,8 @@ class JobExecutor
 
 			$data = $e->getData();
 			if (count($data)) {
-				$data['job'] = $job['id'];
+				$data['jobId'] = $job['id'];
+				$data['runId'] = $this->_storageApiClient->getRunId();
 				$this->_log->alert('Writer Error', $data);
 			}
 
@@ -333,6 +334,7 @@ class JobExecutor
 			$this->_log->alert('Job execution error', array(
 				'jobId' => $job,
 				'exception' => $e,
+				'runId' => $this->_storageApiClient->getRunId()
 			));
 
 			$sapiEvent
