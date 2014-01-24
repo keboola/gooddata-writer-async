@@ -35,7 +35,7 @@ class FiltersTest extends AbstractControllerTest
 		));
 	}
 
-	public function testCreateFilter()
+	public function testFilters()
 	{
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$pid = $bucketAttributes['gd']['pid'];
@@ -44,6 +44,10 @@ class FiltersTest extends AbstractControllerTest
 		$this->_prepareData();
 		$this->_processJob('/gooddata-writer/upload-project');
 
+
+		/**
+		 * Create filter
+		 */
 		$this->_createFilter($pid);
 
 		// Check result
@@ -54,38 +58,21 @@ class FiltersTest extends AbstractControllerTest
 		$gdFilters = $this->restApi->getFilters($pid);
 		$gdFilter = $gdFilters[0];
 		$this->assertEquals($gdFilter['link'], $filterList[0]['uri']);
-	}
 
-	public function testAssignFilterToUser()
-	{
-		$bucketAttributes = $this->configuration->bucketAttributes();
-		$pid = $bucketAttributes['gd']['pid'];
 
-		// Upload data
-		$this->_prepareData();
-		$this->_processJob('/gooddata-writer/upload-project');
-
-		$this->_createFilter($pid);
+		/**
+		 * Assign filter to user
+		 */
 		$this->_assignFilterToUser($pid);
 
 		// Check result
 		$filtersUsers = $this->configuration->getFiltersUsers();
 		$this->assertCount(1, $filtersUsers);
-	}
 
-	public function testSyncFilter()
-	{
-		$bucketAttributes = $this->configuration->bucketAttributes();
-		$pid = $bucketAttributes['gd']['pid'];
 
-		// Upload data
-		$this->_prepareData();
-		$this->_processJob('/gooddata-writer/upload-project');
-
-		$this->_createFilter($pid);
-		$this->_assignFilterToUser($pid);
-
-		// Create and process job
+		/**
+		 * Sync filters
+		 */
 		$this->_processJob('/gooddata-writer/sync-filters', array(
 			"pid"   => $pid,
 		));
@@ -97,50 +84,11 @@ class FiltersTest extends AbstractControllerTest
 		$gdFilters = $this->restApi->getFilters($pid);
 		$gdFilter = $gdFilters[0];
 		$this->assertEquals($gdFilter['link'], $filterList[0]['uri']);
-	}
 
-	public function testDeleteFilter()
-	{
-		$bucketAttributes = $this->configuration->bucketAttributes();
-		$pid = $bucketAttributes['gd']['pid'];
 
-		// Upload data
-		$this->_prepareData();
-		$this->_processJob('/gooddata-writer/upload-project');
-
-		$this->_createFilter($pid);
-		$this->_assignFilterToUser($pid);
-
-		$filters = $this->configuration->getFilters();
-		$filter = $filters[0];
-
-		// Create and process job
-		$this->_processJob(
-			'/gooddata-writer/filters?writerId=' . $this->writerId . '&uri=' . $filter['uri'] . '&dev=1',
-			array(),
-			'DELETE'
-		);
-
-		// Check result
-		$filters = $this->configuration->getFilters();
-		$this->assertCount(0, $filters);
-
-		$filtersUsers = $this->configuration->getFiltersUsers();
-		$this->assertCount(0, $filtersUsers);
-	}
-
-	public function testGetFilters()
-	{
-		$bucketAttributes = $this->configuration->bucketAttributes();
-		$pid = $bucketAttributes['gd']['pid'];
-
-		// Upload data
-		$this->_prepareData();
-		$this->_processJob('/gooddata-writer/upload-project');
-
-		$this->_createFilter($pid);
-		$this->_assignFilterToUser($pid);
-
+		/**
+		 * Get filters
+		 */
 		$responseJson = $this->_getWriterApi('/gooddata-writer/filters?writerId=' . $this->writerId);
 		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters should contain 'filters' key.");
 		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
@@ -152,6 +100,19 @@ class FiltersTest extends AbstractControllerTest
 		$responseJson = $this->_getWriterApi('/gooddata-writer/filters?writerId=' . $this->writerId . '&userEmail=' . $user['email'] . '&pid=' . $pid);
 		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters should contain 'filters' key.");
 		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
+
+
+		/**
+		 * Delete filter
+		 */
+		$filter = $filterList[0];
+
+		// Create and process job
+		$this->_processJob(
+			'/gooddata-writer/filters?writerId=' . $this->writerId . '&uri=' . $filter['uri'] . '&dev=1',
+			array(),
+			'DELETE'
+		);
 	}
 
 }

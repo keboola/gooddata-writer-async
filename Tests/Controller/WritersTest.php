@@ -12,8 +12,11 @@ use Keboola\GoodDataWriter\Writer\Configuration;
 class WritersTest extends AbstractControllerTest
 {
 
-	public function testCreateWriter()
+	public function testWriters()
 	{
+		/**
+		 * create writer
+		 */
 		// Check writer configuration
 		$validConfiguration = true;
 		try {
@@ -48,20 +51,12 @@ class WritersTest extends AbstractControllerTest
 			}
 		}
 		$this->assertTrue($projectFound, "Writer's primary user should have assigned master project.");
-	}
 
 
-	public function testDeleteWriter()
-	{
-		$this->_processJob('/gooddata-writer/delete-writers');
 
-		// Check non-existence of configuration
-		$this->assertFalse($this->configuration->configurationBucket($this->writerId), "Writer configuration should not exist anymore.");
-	}
-
-
-	public function testCreateWriterWithInvitations()
-	{
+		/**
+		 * Create writer with invitations
+		 */
 		$uniqId = uniqid();
 		$writerId = 'test' . $uniqId;
 		$user1 = 'user1' . $uniqId . '@test.keboola.com';
@@ -93,16 +88,14 @@ class WritersTest extends AbstractControllerTest
 		$this->assertTrue($user1Invited, "Response for GoodData API project invitations call should return tested user 1.");
 		$this->assertTrue($user2Invited, "Response for GoodData API project invitations call should return tested user 2.");
 
-		$this->_processJob('/gooddata-writer/delete-writers');
-	}
 
-
-	public function testGetWriters()
-	{
+		/**
+		 * test writers configuration
+		 */
 		$responseJson = $this->_getWriterApi('/gooddata-writer/writers');
 
 		$this->assertArrayHasKey('writers', $responseJson, "Response for writer call '/writers' should contain 'writers' key.");
-		$this->assertCount(1, $responseJson['writers'], "Response for writer call '/writers' should contain only one writer.");
+		$this->assertCount(2, $responseJson['writers'], "Response for writer call '/writers' should contain two writers.");
 		$this->assertArrayHasKey('id', $responseJson['writers'][0], "Response for writer call '/writers' should contain 'writers..id' key.");
 		$this->assertArrayHasKey('bucket', $responseJson['writers'][0], "Response for writer call '/writers' should contain 'writers..bucket' key.");
 		$this->assertEquals($this->writerId, $responseJson['writers'][0]['id'], "Response for writer call '/writers' should contain id of created writer.");
@@ -116,6 +109,13 @@ class WritersTest extends AbstractControllerTest
 		$this->assertArrayHasKey('writerId', $responseJson['writer'], "Response for writer call '/writers?writerId=' should contain 'writer.writerId' key.");
 		$this->assertEquals($this->writerId, $responseJson['writer']['writerId'], "Response for writer call '/writers?writerId=' should contain id of created writer.");
 		$this->assertEquals('gooddata', $responseJson['writer']['writer'], "Response for writer call '/writers?writerId=' should contain name of the writer.");
+
+		/**
+		 * delete writer
+		 */
+		$this->_processJob('/gooddata-writer/delete-writers');
+		// Check non-existence of configuration
+		$this->assertFalse($this->configuration->configurationBucket($this->writerId), "Writer configuration should not exist anymore.");
 	}
 
 }

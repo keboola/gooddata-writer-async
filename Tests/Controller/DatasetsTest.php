@@ -10,89 +10,19 @@ use Keboola\GoodDataWriter\GoodData\WebDav;
 class DatasetsTest extends AbstractControllerTest
 {
 
-	/*public function testXml()
-	{
-		//@TODO
-	}*/
-
-	public function testUploadProject()
+	public function testUploadJobs()
 	{
 		$this->_prepareData();
-
-		$this->_processJob('/gooddata-writer/upload-project');
-
-		// Check existence of datasets in the project
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		$data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
-		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
-		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
-		$this->assertCount(4, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with four values.");
-
-		$dateFound = false;
-		$dateTimeFound = false;
-		$categoriesFound = false;
-		$productsFound = false;
-		$dateTimeDataLoad = false;
-		$categoriesDataLoad = false;
-		$productsDataLoad = false;
-		foreach ($data['dataSetsInfo']['sets'] as $d) {
-			if ($d['meta']['identifier'] == 'dataset.time.productdate') {
-				$dateTimeFound = true;
-				if ($d['lastUpload']['dataUploadShort']['status'] == 'OK') {
-					$dateTimeDataLoad = true;
-				}
-			}
-			if ($d['meta']['identifier'] == 'productdate.dataset.dt') {
-				$dateFound = true;
-			}
-			if ($d['meta']['identifier'] == 'dataset.categories') {
-				$categoriesFound = true;
-				if ($d['lastUpload']['dataUploadShort']['status'] == 'OK') {
-					$categoriesDataLoad = true;
-				}
-			}
-			if ($d['meta']['identifier'] == 'dataset.products') {
-				$productsFound = true;
-				if ($d['lastUpload']['dataUploadShort']['status'] == 'OK') {
-					$productsDataLoad = true;
-				}
-			}
-		}
-		$this->assertTrue($dateFound, "Date dimension has not been found in GoodData");
-		$this->assertTrue($dateTimeFound, "Time dimension has not been found in GoodData");
-		$this->assertTrue($categoriesFound, "Dataset 'Categories' has not been found in GoodData");
-		$this->assertTrue($productsFound, "Dataset 'Products' has not been found in GoodData");
-
-		$this->assertTrue($dateTimeDataLoad, "Data to time dimension has not been loaded to GoodData");
-		$this->assertTrue($categoriesDataLoad, "Data to dataset 'Categories' has not been loaded to GoodData");
-		$this->assertTrue($productsDataLoad, "Data to dataset 'Products' has not been loaded to GoodData");
 
 
-		// Run once again
-		$batchId = $this->_processJob('/gooddata-writer/upload-project');
-		$response = $this->_getWriterApi('/gooddata-writer/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-		$this->assertArrayHasKey('batch', $response, "Response for writer call '/batch?batchId=' should contain key 'batch'.");
-		$this->assertArrayHasKey('status', $response['batch'], "Response for writer call '/jobs?jobId=' should contain key 'batch.status'.");
-		$this->assertEquals('success', $response['batch']['status'], "Result of second /upload-project should be 'success'.");
-
-
-		// Check validity of foreign keys (including time dimension during daylight saving switch values)
-		$result = $this->restApi->validateProject($bucketAttributes['gd']['pid']);
-		$this->assertEquals(0, $result['error_found'], 'Project validation should not contain errors but result is: ' . print_r($result, true));
-		$this->assertEquals(0, $result['fatal_error_found'], 'Project validation should not contain errors but result is: ' . print_r($result, true));
-	}
-
-
-	public function testUploadTable()
-	{
-		$this->_prepareData();
-
+		/**
+		 * Upload single table
+		 */
 		$jobId = $this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.categories'));
 
 		// Check existence of datasets in the project
-		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
 		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
 		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
@@ -109,6 +39,78 @@ class DatasetsTest extends AbstractControllerTest
 			if ($row) $rowsNumber++;
 		}
 		$this->assertEquals(3, $rowsNumber, "Csv of main project should contain two rows with header.");
+
+		$categoriesFound = false;
+		$categoriesDataLoad = false;
+		$data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
+		foreach ($data['dataSetsInfo']['sets'] as $d) {
+			if ($d['meta']['identifier'] == 'dataset.categories') {
+				$categoriesFound = true;
+				if ($d['lastUpload']['dataUploadShort']['status'] == 'OK') {
+					$categoriesDataLoad = true;
+				}
+			}
+		}
+		$this->assertTrue($categoriesFound, "Dataset 'Categories' has not been found in GoodData");
+		$this->assertTrue($categoriesDataLoad, "Data to dataset 'Categories' has not been loaded to GoodData");
+
+
+
+		/**
+		 * Upload whole project
+		 */
+		$this->_processJob('/gooddata-writer/upload-project');
+
+		// Check existence of datasets in the project
+		$data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
+		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
+		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
+		$this->assertCount(4, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with four values.");
+
+		$dateFound = false;
+		$dateTimeFound = false;
+		$productsFound = false;
+		$dateTimeDataLoad = false;
+		$productsDataLoad = false;
+		foreach ($data['dataSetsInfo']['sets'] as $d) {
+			if ($d['meta']['identifier'] == 'dataset.time.productdate') {
+				$dateTimeFound = true;
+				if ($d['lastUpload']['dataUploadShort']['status'] == 'OK') {
+					$dateTimeDataLoad = true;
+				}
+			}
+			if ($d['meta']['identifier'] == 'productdate.dataset.dt') {
+				$dateFound = true;
+			}
+			if ($d['meta']['identifier'] == 'dataset.products') {
+				$productsFound = true;
+				if ($d['lastUpload']['dataUploadShort']['status'] == 'OK') {
+					$productsDataLoad = true;
+				}
+			}
+		}
+		$this->assertTrue($dateFound, "Date dimension has not been found in GoodData");
+		$this->assertTrue($dateTimeFound, "Time dimension has not been found in GoodData");
+		$this->assertTrue($productsFound, "Dataset 'Products' has not been found in GoodData");
+
+		$this->assertTrue($dateTimeDataLoad, "Data to time dimension has not been loaded to GoodData");
+		$this->assertTrue($productsDataLoad, "Data to dataset 'Products' has not been loaded to GoodData");
+
+
+		/**
+		 * Upload whole project once again
+		 */
+		$batchId = $this->_processJob('/gooddata-writer/upload-project');
+		$response = $this->_getWriterApi('/gooddata-writer/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
+		$this->assertArrayHasKey('batch', $response, "Response for writer call '/batch?batchId=' should contain key 'batch'.");
+		$this->assertArrayHasKey('status', $response['batch'], "Response for writer call '/jobs?jobId=' should contain key 'batch.status'.");
+		$this->assertEquals('success', $response['batch']['status'], "Result of second /upload-project should be 'success'.");
+
+
+		// Check validity of foreign keys (including time dimension during daylight saving switch values)
+		$result = $this->restApi->validateProject($bucketAttributes['gd']['pid']);
+		$this->assertEquals(0, $result['error_found'], 'Project validation should not contain errors but result is: ' . print_r($result, true));
+		$this->assertEquals(0, $result['fatal_error_found'], 'Project validation should not contain errors but result is: ' . print_r($result, true));
 	}
 
 
@@ -126,10 +128,14 @@ class DatasetsTest extends AbstractControllerTest
 	}*/
 
 
-	public function testGetTables()
+	public function testTablesDefinition()
 	{
 		$this->_prepareData();
 
+
+		/**
+		 * Get all tables
+		 */
 		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId);
 
 		$this->assertArrayHasKey('tables', $responseJson, "Response for writer call '/tables' should contain 'tables' key.");
@@ -148,27 +154,11 @@ class DatasetsTest extends AbstractControllerTest
 			$this->assertTrue(in_array($table['gdName'], array('Products', 'Categories')), sprintf("Table '%s' does not belong to configured tables.", $table['id']));
 			$this->assertArrayHasKey('lastExportDate', $table, sprintf("Table '%s' should have 'lastExportDate' attribute.", $table['id']));
 		}
-	}
 
-	public function testGetDataSetsWithConnectionPoint()
-	{
-		$this->_prepareData();
 
-		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&referenceable');
-
-		$this->assertArrayHasKey('tables', $responseJson, "Response for writer call '/tables?referenceable' should contain 'tables' key.");
-
-		$this->assertCount(2, $responseJson['tables'], "Response for writer call '/tables?referenceable' should contain two configured tables.");
-		foreach ($responseJson['tables'] as $table) {
-			$this->assertArrayHasKey('referenceable', $table, "There should be 'referenceable' flag of each table.");
-			$this->assertEquals(1, $table['referenceable'], "Both tables should be referenceable");
-		}
-	}
-
-	public function testGetSpecificTable()
-	{
-		$this->_prepareData();
-
+		/**
+		 * Get specific table
+		 */
 		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $this->dataBucketId . '.products');
 
 		$this->assertArrayHasKey('table', $responseJson, "Response for writer call '/tables?tableId=' should contain 'table' key.");
@@ -177,13 +167,21 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertArrayHasKey('columns', $responseJson['table'], "Response for writer call '/tables?tableId=' should contain 'table.columns' key.");
 		$this->assertEquals($this->dataBucketId . '.products', $responseJson['table']['tableId'], "Response for writer call '/tables?tableId=' should contain 'table.tableId' key with value of data bucket Products.");
 		$this->assertCount(5, $responseJson['table']['columns'], "Response for writer call '/tables?tableId=' should contain 'table.columns' key with five columns.");
-	}
 
 
-	public function testPostTables()
-	{
-		$this->_prepareData();
+		/**
+		 * Get tables with connection points
+		 */
+		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&connection');
 
+		$this->assertArrayHasKey('tables', $responseJson, "Response for writer call '/tables?connection' should contain 'tables' key.");
+		$this->assertCount(2, $responseJson['tables'], "Response for writer call '/tables?connection' should contain two configured tables.");
+
+
+
+		/**
+		 * Change table definition
+		 */
 		$tableId = $this->dataBucketId . '.products';
 		$testName = uniqid('test-name');
 
@@ -212,7 +210,6 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertTrue($testResult, "Changed name was not found in configuration.");
 		$this->assertNotEmpty($lastChangeDate, "Change of name did not set 'lastChangeDate' attribute");
 
-
 		// Change gdName again and check if lastChangeDate changed
 		$this->_postWriterApi('/gooddata-writer/tables', array(
 			'writerId' => $this->writerId,
@@ -232,8 +229,9 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertNotEquals($lastChangeDate, $lastChangeDateAfterUpdate, 'Last change date should be changed after update');
 
 
-
-		// Test column definitions
+		/**
+		 * Change column definition
+		 */
 		$columnName = 'id';
 		$newGdName = 'test' . uniqid();
 		$this->_postWriterApi('/gooddata-writer/tables', array(
@@ -257,8 +255,9 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertTrue($columnFound, sprintf("Response for writer call '/tables&tableId=' should contain '%s' column.", $columnName));
 
 
-		// Test multiple columns change
-		// Test column definitions
+		/**
+		 * Change multiple columns definition
+		 */
 		$columnName1 = 'id';
 		$newGdName1 = 'test' . uniqid();
 		$columnName2 = 'name';
@@ -294,13 +293,12 @@ class DatasetsTest extends AbstractControllerTest
 		}
 		$this->assertTrue($column1Found, sprintf("Response for writer call '/tables&tableId=' should contain '%s' column.", $columnName1));
 		$this->assertTrue($column2Found, sprintf("Response for writer call '/tables&tableId=' should contain '%s' column.", $columnName2));
-	}
 
 
 
-	public function testRemoveColumn()
-	{
-		$this->_prepareData();
+		/**
+		 * Remove column from out table
+		 */
 		$tableId = $this->dataBucketId . '.products';
 		$nowTime = date('c');
 
@@ -312,12 +310,13 @@ class DatasetsTest extends AbstractControllerTest
 
 		$this->assertArrayHasKey('lastChangeDate', $responseJson['table'], "Response for writer call '/tables&tableId=' should contain 'table.lastChangeDate' key.");
 		$this->assertGreaterThan($nowTime, $responseJson['table']['lastChangeDate'], "Response for writer call '/tables&tableId=' should have 'table.lastChangeDate' updated.");
-	}
 
-	public function testDateDimensions()
-	{
+
+
+		/**
+		 * Date Dimensions
+		 */
 		//@TODO get, delete, post
-		$this->_prepareData();
 
 		// Create dimension
 		$this->_postWriterApi('/gooddata-writer/date-dimensions', array(

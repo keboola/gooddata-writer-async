@@ -10,10 +10,14 @@ namespace Keboola\GoodDataWriter\Tests\Controller;
 class JobsTest extends AbstractControllerTest
 {
 
-	public function testJobInfo()
+	public function testJobs()
 	{
 		$this->_prepareData();
 
+
+		/**
+		 * Jobs info
+		 */
 		$responseJson = $this->_postWriterApi('/gooddata-writer/upload-table', array(
 			'writerId' => $this->writerId,
 			'tableId' => $this->dataBucketId . '.categories'
@@ -66,19 +70,12 @@ class JobsTest extends AbstractControllerTest
 		}
 		$this->assertTrue($uploadCategoriesFound, "Response for GoodData API call '/jobs' should contain job of dataset 'Categories' upload.");
 		$this->assertTrue($uploadProductsFound, "Response for GoodData API call '/jobs' should contain job of dataset 'Products' upload.");
-	}
 
 
-	/*public function testWaitForJob()
-	{
-		//@TODO we have to process the job while it is waiting - so the need for parallel processing?
-	}*/
 
-
-	public function testCancelJobs()
-	{
-		$this->_prepareData();
-
+		/**
+		 * Cancel jobs
+		 */
 		// Upload project
 		$responseJson = $this->_postWriterApi('/gooddata-writer/upload-project', array(
 			'writerId' => $this->writerId
