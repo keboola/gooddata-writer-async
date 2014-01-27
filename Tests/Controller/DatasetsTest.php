@@ -10,11 +10,12 @@ use Keboola\GoodDataWriter\GoodData\WebDav;
 class DatasetsTest extends AbstractControllerTest
 {
 
-	public function testUploadJobs()
+	public function testDatasets()
 	{
 		$this->_prepareData();
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 
 		/**
@@ -29,7 +30,6 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertCount(1, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with one value.");
 		$this->assertEquals('dataset.categories', $data['dataSetsInfo']['sets'][0]['meta']['identifier'], "GoodData project should contain dataSet 'Categories'.");
 
-		$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$csv = $webDav->get(sprintf('%s-%s/data.csv', $jobId, $bucketAttributes['gd']['pid']));
 		if (!$csv) {
 			$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s-%s/data.csv' should exist.", $jobId, $bucketAttributes['gd']['pid']));
@@ -111,26 +111,8 @@ class DatasetsTest extends AbstractControllerTest
 		$result = $this->restApi->validateProject($bucketAttributes['gd']['pid']);
 		$this->assertEquals(0, $result['error_found'], 'Project validation should not contain errors but result is: ' . print_r($result, true));
 		$this->assertEquals(0, $result['fatal_error_found'], 'Project validation should not contain errors but result is: ' . print_r($result, true));
-	}
 
 
-	/*public function testGetModel()
-	{
-		//@TODO exit() in GoodDataWriter::getModel() stops test execution
-		$this->httpClient->request('GET', sprintf('/gooddata-writer/model?writerId=%s', $this->writerId));
-		$response = $this->httpClient->getResponse();
-		$responseJson = json_decode($response->getContent(), true);
-
-		$this->assertArrayHasKey('nodes', $responseJson);
-		$this->assertArrayHasKey('links', $responseJson);
-		$this->assertCount(2, $responseJson['nodes']);
-		$this->assertCount(1, $responseJson['links']);
-	}*/
-
-
-	public function testTablesDefinition()
-	{
-		$this->_prepareData();
 
 
 		/**
