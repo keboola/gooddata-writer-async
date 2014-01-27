@@ -282,22 +282,35 @@ class JobExecutor
 			$command->log = $this->_log;
 			try {
 				$result = $command->run($job, $parameters);
-			} catch (RestApiException $e) {
-				$e2 = new ClientException('Rest API error: ' . $e->getMessage());
-				$e2->setData(array('trace' => $e->getTraceAsString()));
-				throw $e2;
-			} catch (CLToolApiErrorException $e) {
-				$e2 = new ClientException('CL Tool error: ' . $e->getMessage());
-				$e2->setData(array('trace' => $e->getTraceAsString()));
-				throw $e2;
-			} catch (UnauthorizedException $e) {
-				$e2 = new ClientException('Bad GoodData credentials: ' . $e->getMessage());
-				$e2->setData(array('trace' => $e->getTraceAsString()));
-				throw $e2;
-			} catch (StorageApiClientException $e) {
-				$e2 = new ClientException('Storage API problem: ' . $e->getMessage());
-				$e2->setData(array('trace' => $e->getTraceAsString()));
-				throw $e2;
+			} catch (\Exception $e) {
+				$error = null;
+
+				if ($e instanceof RestApiException) {
+					$error = 'Rest API';
+				} elseif ($e instanceof CLToolApiErrorException) {
+					$error = 'CL Tool';
+				} elseif ($e instanceof UnauthorizedException) {
+					$error = 'Bad GoodData credentials';
+				} elseif ($e instanceof StorageApiClientException) {
+					$error = 'Storage API';
+				} elseif ($e instanceof ClientException) {
+					$error = 'Error';
+					$data = $e->getData();
+					if (count($data)) {
+						$result['data'] = $s3Client->uploadString($job['id'] . '/debug-data.txt', print_r($data, true));
+					}
+				}
+
+				if ($error) {
+					$result['status'] = 'error';
+					$result['error'] = $error . ': ' . $e->getMessage();
+					$result['trace'] = $s3Client->uploadString($job['id'] . '/trace.txt', json_encode($e->getTraceAsString(), JSON_PRETTY_PRINT));
+
+					$sapiEvent->setType(StorageApiEvent::TYPE_WARN);
+					$sapiEvent->setDescription($result['error']);
+				} else {
+					throw $e;
+				}
 			}
 
 			$duration = time() - $time;
@@ -305,29 +318,10 @@ class JobExecutor
 				->setMessage("Job $job[id] end")
 				->setDuration($duration);
 			$this->_logEvent($sapiEvent);
-
 			if (empty($result['status'])) $result['status'] = 'success';
 
 			return $result;
 
-		} catch (ClientException $e) {
-			$duration = $time - time();
-
-			$sapiEvent
-				->setMessage("Job $job[id] end")
-				->setType(StorageApiEvent::TYPE_WARN)
-				->setDescription($e->getMessage())
-				->setDuration($duration);
-			$this->_logEvent($sapiEvent);
-
-			$data = $e->getData();
-			if (count($data)) {
-				$data['jobId'] = $job['id'];
-				$data['runId'] = $this->_storageApiClient->getRunId();
-				$this->_log->alert('Writer Error', $data);
-			}
-
-			return array('status' => 'error', 'error' => $e->getMessage());
 		} catch (\Exception $e) {
 			$duration = $time - time();
 
