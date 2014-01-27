@@ -59,6 +59,10 @@ class RestApi
 	public  $callsLog;
 	private $clearFromLog;
 
+	private $username;
+	private $password;
+
+
 	public function __construct($log)
 	{
 		$this->log = $log;
@@ -715,6 +719,10 @@ class RestApi
 				$try++;
 			} while (in_array($taskResponse['taskStatus'], array('PREPARED', 'RUNNING')));
 
+			if ($taskResponse['taskStatus'] == 'ERROR') {
+				throw new RestApiException('ETL task finished with error');
+			}
+
 			return $taskResponse;
 
 		} else {
@@ -722,7 +730,7 @@ class RestApi
 				'uri' => $uri,
 				'result' => $result
 			));
-			throw new RestApiException('Pull task could not be started');
+			throw new RestApiException('ETL task could not be started');
 		}
 	}
 
@@ -865,7 +873,7 @@ class RestApi
 			sleep(10 * $try);
 			$taskResponse = $this->jsonRequest($pollLink);
 
-			if (!isset($taskResponse['wTaskStatus'])) {
+			if (!isset($taskResponse['wTaskStatus']['status'])) {
 				$this->log->alert('loadData() has bad response', array(
 					'uri' => $result['pullTask']['uri'],
 					'result' => $taskResponse
@@ -874,7 +882,11 @@ class RestApi
 			}
 
 			$try++;
-		} while (in_array($taskResponse['wTaskStatus'], array('PREPARED', 'RUNNING')));
+		} while (in_array($taskResponse['wTaskStatus']['status'], array('PREPARED', 'RUNNING')));
+
+		if ($taskResponse['wTaskStatus']['status'] == 'ERROR') {
+			throw new RestApiException('Task /ldm/manage2 finished with error');
+		}
 
 		return $taskResponse;
 	}
@@ -1263,6 +1275,7 @@ class RestApi
 					throw new RestApiException($response);
 				}
 			} catch (ServerErrorResponseException $e) {
+				$response = $request->getResponse()->getBody(true);
 				// BackOff
 				if ($request->getResponse()->getStatusCode() == 503) {
 					// Wait indefinitely due to GD maintenance
@@ -1293,6 +1306,8 @@ class RestApi
 	 */
 	public function login($username, $password)
 	{
+		$this->username = $username;
+		$this->password = $password;
 		$this->clearFromLog[] = $password;
 
 		try {
