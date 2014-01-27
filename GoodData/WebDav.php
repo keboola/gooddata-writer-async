@@ -112,7 +112,11 @@ class WebDav
 			$this->request($file, 'PROPFIND');
 			return true;
 		} catch (WebDavException $e) {
-			return false;
+			if (strstr($e->getMessage(), '404 Not Found')) {
+				return false;
+			} else {
+				throw $e;
+			}
 		}
 	}
 
