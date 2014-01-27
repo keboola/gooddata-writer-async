@@ -822,35 +822,16 @@ class RestApi
 			$maql = str_replace('%NAME%', $name, $maql);
 		}
 
-		$this->request(sprintf('/gdc/md/%s/ldm/manage', $pid), 'POST', array(
-			'manage' => array(
-				'maql' => $maql
-			)
-		));
+		$this->executeMaql($pid, $maql);
 	}
 
 
-
-
-	/**
-	 * Execute Maql
-	 */
-	public function executeMaql($pid, $maql)
-	{
-		$uri = sprintf('/gdc/md/%s/ldm/manage', $pid);
-		$params = array(
-			'manage' => array(
-				'maql' => $maql
-			)
-		);
-		return $this->jsonRequest($uri, 'POST', $params);
-	}
 
 
 	/**
 	 * Execute Maql asynchronously and wait for result
 	 */
-	public function executeMaqlAsync($pid, $maql)
+	public function executeMaql($pid, $maql)
 	{
 		$uri = sprintf('/gdc/md/%s/ldm/manage2', $pid);
 		$params = array(
@@ -859,17 +840,43 @@ class RestApi
 			)
 		);
 		$result = $this->jsonRequest($uri, 'POST', $params);
-		if (empty($result['entries']['link'])) {
+
+		$pollLink = null;
+		if (isset($result['entries']) && count($result['entries'])) {
+			foreach ($result['entries'] as $entry) {
+				if (isset($entry['category']) && isset($entry['link']) && $entry['category'] == 'tasks-status') {
+					$pollLink = $entry['link'];
+					break;
+				}
+			}
+		}
+
+		if (empty($pollLink)) {
 			$this->log->alert('executeMaqlAsync() result is missing status url in entries.link', array(
 				'uri' => $uri,
 				'maql' => $maql,
 				'result' => $result
 			));
-			throw new RestApiException('Error in result of async maql');
+			throw new RestApiException('Error in result of /ldm/manage2 task');
 		}
 
-		$status = $this->get($result['entries']['link']);
+		$try = 1;
+		do {
+			sleep(10 * $try);
+			$taskResponse = $this->jsonRequest($pollLink);
 
+			if (!isset($taskResponse['wTaskStatus'])) {
+				$this->log->alert('loadData() has bad response', array(
+					'uri' => $result['pullTask']['uri'],
+					'result' => $taskResponse
+				));
+				throw new RestApiException('Task /ldm/manage2 could not be checked');
+			}
+
+			$try++;
+		} while (in_array($taskResponse['wTaskStatus'], array('PREPARED', 'RUNNING')));
+
+		return $taskResponse;
 	}
 
 
