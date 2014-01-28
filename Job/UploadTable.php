@@ -190,7 +190,7 @@ class UploadTable extends AbstractJob
 				'pid' => $project['pid'],
 				'filterColumn' => ($filterColumn && empty($project['main'])) ? $filterColumn : false,
 				'mainProject' => !empty($project['main']),
-				'incrementalLoad' => $incrementalLoad && $dataSetExists
+				'incrementalLoad' => ($dataSetExists && $incrementalLoad) ? $incrementalLoad : 0
 			);
 		}
 

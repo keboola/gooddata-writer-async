@@ -734,6 +734,11 @@ class RestApi
 		}
 	}
 
+	public function updateProject()
+	{
+
+	}
+
 
 
 	/**
