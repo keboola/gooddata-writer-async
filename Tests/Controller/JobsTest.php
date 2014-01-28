@@ -60,16 +60,19 @@ class JobsTest extends AbstractControllerTest
 			$jobResponse = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
 			$this->assertArrayHasKey('job', $jobResponse, "Response for GoodData API call '/jobs?jobId=' should contain 'job' key.");
 			$this->assertArrayHasKey('command', $jobResponse['job'], "Response for GoodData API call '/jobs?jobId=' should contain 'job.command' key.");
-			$this->assertArrayHasKey('dataset', $jobResponse['job'], "Response for GoodData API call '/jobs?jobId=' should contain 'job.dataset' key.");
-			if ($jobResponse['job']['command'] == 'uploadTable' && $jobResponse['job']['dataset'] == 'Categories') {
+			if ($jobResponse['job']['command'] == 'uploadTable') {
+				$this->assertArrayHasKey('parameters', $jobResponse['job'], "Response for GoodData API call '/jobs?jobId=' should contain 'job.parameters' key.");
+				$this->assertArrayHasKey('tableId', $jobResponse['job']['parameters'], "Response for GoodData API call '/jobs?jobId=' should contain 'job.parameters.tableId' key.");
+			}
+			if ($jobResponse['job']['command'] == 'uploadTable' && $jobResponse['job']['parameters']['tableId'] == $this->dataBucketId . '.categories') {
 				$uploadCategoriesFound = true;
 			}
-			if ($jobResponse['job']['command'] == 'uploadTable' && $jobResponse['job']['dataset'] == 'Products') {
+			if ($jobResponse['job']['command'] == 'uploadTable' && $jobResponse['job']['parameters']['tableId'] == $this->dataBucketId . '.products') {
 				$uploadProductsFound = true;
 			}
 		}
-		$this->assertTrue($uploadCategoriesFound, "Response for GoodData API call '/jobs' should contain job of dataset 'Categories' upload.");
-		$this->assertTrue($uploadProductsFound, "Response for GoodData API call '/jobs' should contain job of dataset 'Products' upload.");
+		$this->assertTrue($uploadCategoriesFound, "Response for GoodData API call '/jobs' should contain job of table 'out.c-main.categories' upload.");
+		$this->assertTrue($uploadProductsFound, "Response for GoodData API call '/jobs' should contain job of table 'out.c-main.products' upload.");
 
 
 

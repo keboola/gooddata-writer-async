@@ -1542,6 +1542,7 @@ class GoodDataWriter extends Component
 
 	/**
 	 * Get Jobs
+	 * Allow filtering by days, command and tableId
 	 * @param $params
 	 * @throws Exception\WrongParametersException
 	 * @return array
@@ -1555,11 +1556,18 @@ class GoodDataWriter extends Component
 
 		if (empty($params['jobId'])) {
 			$days = isset($params['days']) ? $params['days'] : 7;
-			$jobs = $this->getSharedConfig()->fetchJobs($this->configuration->projectId, $params['writerId'], $days);
+			$tableId = empty($params['tableId']) ? null : $params['tableId'];
+			$command = empty($params['command']) ? null : $params['command'];
+			$jobs = $this->getSharedConfig()->fetchJobs($this->configuration->projectId, $params['writerId'], $days, $tableId);
 
 			$result = array();
 			foreach ($jobs as $job) {
-				$result[] = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
+				if (empty($command) || $command == $job['command']) {
+					$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
+					if (empty($tableId) || (!empty($job['parameters']['tableId']) && $job['parameters']['tableId'] == $tableId)) {
+						$result[] = $job;
+					}
+				}
 			}
 
 			return array('jobs' => $result);
