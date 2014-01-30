@@ -79,7 +79,7 @@ class SyncFilters extends AbstractJob {
 			}
 
 			return $this->_prepareResult($job['id'], array(
-                'status'            => 'success',
+				'status'            => 'success',
 				'gdWriteStartTime'  => $gdWriteStartTime
 			), $this->restApi->callsLog());
 

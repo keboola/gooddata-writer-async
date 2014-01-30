@@ -14,6 +14,7 @@ use Guzzle\Http\Client,
 	Guzzle\Common\Exception\RuntimeException,
 	Guzzle\Http\Message\Header;
 use Guzzle\Http\Curl\CurlHandle;
+use stdClass;
 
 class RestApiException extends \Exception
 {
@@ -1224,20 +1225,29 @@ class RestApi
 
 	public function post($url, $payload = null)
 	{
-		$payloadJson = array();
 		if (null != $payload) {
 			// trick to get rid of "labels": {} problem
-			$payloadJson = json_encode($payload);
-			$payloadJson = str_replace('"labels":[]', '"labels":{}', $payloadJson);
+			$this->fixLabelsRec($payload);
 		}
 
-		$response = $this->jsonRequest($url, 'POST', $payloadJson, array(), false);
-
-		if (!isset($response['uri'])) {
-			throw new RestApiException('Error occured on post to url ' . $url);
-		}
+		$response = $this->jsonRequest($url, 'POST', $payload);
 
 		return $response;
+	}
+
+	protected function fixLabelsRec(&$array)
+	{
+		foreach ($array as $key => &$item) {
+			if ($key == 'labels') {
+				if ($key == 'labels' && empty($item)) {
+					$item = new stdClass();
+				}
+			}
+
+			if (is_array($item)) {
+				$this->fixLabelsRec($item);
+			}
+		}
 	}
 
 	/**
