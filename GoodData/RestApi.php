@@ -14,6 +14,7 @@ use Guzzle\Http\Client,
 	Guzzle\Common\Exception\RuntimeException,
 	Guzzle\Http\Message\Header;
 use Guzzle\Http\Curl\CurlHandle;
+use Keboola\GoodDataWriter\GoodData\Model;
 use stdClass;
 
 class RestApiException extends \Exception
@@ -1227,7 +1228,7 @@ class RestApi
 	{
 		if (null != $payload) {
 			// trick to get rid of "labels": {} problem
-			$this->fixLabelsRec($payload);
+			$this->fixLabelsRecursive($payload);
 		}
 
 		$response = $this->jsonRequest($url, 'POST', $payload);
@@ -1235,7 +1236,7 @@ class RestApi
 		return $response;
 	}
 
-	protected function fixLabelsRec(&$array)
+	protected function fixLabelsRecursive(&$array)
 	{
 		foreach ($array as $key => &$item) {
 			if ($key == 'labels') {
@@ -1245,7 +1246,7 @@ class RestApi
 			}
 
 			if (is_array($item)) {
-				$this->fixLabelsRec($item);
+				$this->fixLabelsRecursive($item);
 			}
 		}
 	}
