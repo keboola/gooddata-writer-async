@@ -133,7 +133,7 @@ class JobExecutor
 				'startTime' => date('c', time()),
 			));
 
-			$result = $this->_executeJob($job);
+			$result = $this->executeJob($job);
 
 		} catch(StorageApiException $e) {
 			$result = array('status' => 'error', 'error' => "Storage API error: " . $e->getMessage());
@@ -225,7 +225,7 @@ class JobExecutor
 	 * @throws WrongConfigurationException
 	 * @return array
 	 */
-	protected function _executeJob($job)
+	protected function executeJob($job)
 	{
 		$time = time();
 		$sapiEvent = $this->prepareSapiEventForJob($job);
@@ -256,7 +256,7 @@ class JobExecutor
             if (!file_exists($tmpDir)) mkdir($tmpDir);
 
 			// Do not migrate (migration had to be performed at least when the job was created)
-			$configuration = new Configuration($this->storageApiClient, $job['writerId'], false);
+			$configuration = new Configuration($this->storageApiClient, $job['writerId'], $mainConfig['scripts_path'], false);
 
 			$s3Client = new S3Client(
 				\Aws\S3\S3Client::factory(array(
@@ -267,7 +267,7 @@ class JobExecutor
 				$job['projectId'] . '.' . $job['writerId']
 			);
 
-			$restApi = new RestApi($this->log);
+			$restApi = new RestApi($this->log, $mainConfig['scripts_path']);
 			$bucketAttributes = $configuration->bucketAttributes();
 			if (isset($bucketAttributes['gd']['backendUrl'])) {
 				$restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
@@ -280,15 +280,20 @@ class JobExecutor
 			$command->tmpDir = $tmpDir;
 			$command->scriptsPath = $mainConfig['scripts_path'];
 			$command->log = $this->log;
+
+			$token = $this->storageApiClient->getLogData();
+			$command->preRelease = !empty($token['owner']['features']) && in_array('rc-writer', $token['owner']['features']);
 			try {
 				$result = $command->run($job, $parameters);
 			} catch (\Exception $e) {
 				$error = null;
+				$data = array();
 
 				if ($e instanceof RestApiException) {
 					$error = 'Rest API';
 				} elseif ($e instanceof CLToolApiErrorException) {
 					$error = 'CL Tool';
+					$data = $e->getData();
 				} elseif ($e instanceof UnauthorizedException) {
 					$error = 'Bad GoodData credentials';
 				} elseif ($e instanceof StorageApiClientException) {
@@ -296,27 +301,30 @@ class JobExecutor
 				} elseif ($e instanceof ClientException) {
 					$error = 'Error';
 					$data = $e->getData();
-					if (count($data)) {
-						$result['data'] = $s3Client->uploadString($job['id'] . '/debug-data.txt', print_r($data, true));
-					}
+				}
+
+				if (count($data)) {
+					$result['data'] = $s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($data));
 				}
 
 				if ($error) {
 					$result['status'] = 'error';
 					$result['error'] = $error . ': ' . $e->getMessage();
 					$result['trace'] = $s3Client->uploadString($job['id'] . '/trace.txt', json_encode($e->getTraceAsString(), JSON_PRETTY_PRINT));
-
-					$sapiEvent->setType(StorageApiEvent::TYPE_WARN);
-					$sapiEvent->setDescription($result['error']);
 				} else {
 					throw $e;
 				}
+			}
+			if (!empty($result['error'])) {
+				$sapiEvent->setDescription($result['error']);
+				$sapiEvent->setType(StorageApiEvent::TYPE_WARN);
 			}
 
 			$duration = time() - $time;
 			$sapiEvent
 				->setMessage("Job $job[id] end")
-				->setDuration($duration);
+				->setDuration($duration)
+				->setResults($result);
 			$this->logEvent($sapiEvent);
 			if (empty($result['status'])) $result['status'] = 'success';
 

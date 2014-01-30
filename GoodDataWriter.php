@@ -77,7 +77,7 @@ class GoodDataWriter extends Component
 
 		// Init main temp directory
 		$this->mainConfig = $this->_container->getParameter('gooddata_writer');
-		$this->configuration = new Configuration($this->_storageApi, $params['writerId'], $migrate);
+		$this->configuration = new Configuration($this->_storageApi, $params['writerId'], $this->mainConfig['scripts_path'], $migrate);
 	}
 
 	private function getS3Client()
@@ -142,7 +142,7 @@ class GoodDataWriter extends Component
 			$result['writer']['writer'] = $this->_name;
 			return $result;
 		} else {
-			$this->configuration = new Configuration($this->_storageApi);
+			$this->configuration = new Configuration($this->_storageApi, null, $this->mainConfig['scripts_path']);
 			return array('writers' => $this->configuration->getWriters());
 		}
 	}
@@ -659,7 +659,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Wrong value for 'query' parameter given");
 		}
 
-		$restApi = new RestApi($this->_log);
+		$restApi = new RestApi($this->_log, $this->mainConfig['scripts_path']);
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -974,7 +974,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
 
-		return $this->configuration->getLDM();
+		//@TODO return $this->configuration->getLDM();
 	}
 
 	/**

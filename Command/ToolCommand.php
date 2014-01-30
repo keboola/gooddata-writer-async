@@ -7,6 +7,7 @@ use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Keboola\GoodDataWriter\GoodData\Model;
 
 class ToolCommand extends ContainerAwareCommand
 {
@@ -39,7 +40,7 @@ class ToolCommand extends ContainerAwareCommand
 
 		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
 
-		$restApi = new RestApi(null, $this->getContainer()->get('logger'));
+		$restApi = new RestApi(null, $this->getContainer()->get('logger'), $mainConfig['scripts_path']);
 		$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
 
 
@@ -48,7 +49,7 @@ class ToolCommand extends ContainerAwareCommand
 		$tmpFolderName = 'tool-'.uniqid();
 		$tmpDir = $mainConfig['tmp_path'] . '/' . $tmpFolderName;
 		mkdir($tmpDir);
-		$dimensionName = RestApi::gdName($dimensionName);
+		$dimensionName = Model::getId($dimensionName);
 		$tmpFolderDimension = $tmpDir . '/' . $dimensionName;
 		$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
 

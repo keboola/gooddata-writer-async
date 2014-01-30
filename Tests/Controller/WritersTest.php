@@ -67,7 +67,7 @@ class WritersTest extends AbstractControllerTest
 			'writerId' => $writerId,
 			'users' => $user1 . ',' . $user2
 		));
-		$this->configuration = new Configuration($this->storageApi, $writerId);
+		$this->configuration = new Configuration($this->storageApi, $writerId, $this->mainConfig['scripts_path']);
 
 		// Check invitations existence in GD
 		$bucketAttributes = $this->configuration->bucketAttributes();

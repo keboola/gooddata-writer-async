@@ -37,6 +37,7 @@ abstract class AbstractJob
 	public $tmpDir;
 	public $rootPath;
 	public $scriptsPath;
+	public $preRelease;
 	/**
 	 * @var \Monolog\Logger
 	 */

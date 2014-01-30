@@ -9,7 +9,6 @@
 namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
-use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Service\StorageApiConfiguration,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable,
@@ -81,19 +80,18 @@ class Configuration extends StorageApiConfiguration
 
 
 
-	/**
-	 * @var string
-	 */
 	public $writerId;
+	private $scriptsPath;
 
 
 	/**
 	 * Prepare configuration
 	 * Get bucket attributes and backendUrl for Rest API calls
 	 */
-	public function __construct(StorageApiClient $storageApiClient, $writerId = null, $migrate = true)
+	public function __construct(StorageApiClient $storageApiClient, $writerId = null, $scriptsPath, $migrate = true)
 	{
 		parent::__construct($storageApiClient);
+		$this->scriptsPath = $scriptsPath;
 
 		if ($writerId) {
 			$this->writerId = $writerId;
@@ -463,6 +461,40 @@ class Configuration extends StorageApiConfiguration
 	}
 
 
+	public function getDataSetDefinition($tableId)
+	{
+		$tableNames = false;
+		$timeDimensions = false;
+
+		$dataSet = $this->getDataSet($tableId);
+
+		foreach ($dataSet['columns'] as &$column) {
+			if ($column['type'] == 'DATE') {
+				if ($timeDimensions === false) {
+					$timeDimensions = array();
+					foreach ($this->getDateDimensions() as $d) {
+						if ($d['includeTime']) {
+							$timeDimensions[] = $d['name'];
+						}
+					}
+				}
+				$column['includeTime'] = in_array($column['dateDimension'], $timeDimensions);
+			}
+			if ($column['type'] == 'REFERENCE') {
+				if ($tableNames === false) {
+					$tableNames = array();
+					foreach ($this->getDataSets() as $table) {
+						$tableNames[$table['id']] = $table['name'];
+					}
+				}
+				$column['schemaReferenceName'] = $tableNames[$column['schemaReference']];
+			}
+		}
+
+		return $dataSet['columns'];
+	}
+
+
 
 	/**
 	 * Check if data set has connection point
@@ -585,7 +617,7 @@ class Configuration extends StorageApiConfiguration
 			unset($data['format']);
 			unset($data['dateDimension']);
 			unset($data['dataType']);
-			unset($data['dataTypeSize']);
+			unset($data['dataTypeSgeize']);
 			unset($data['sortLabel']);
 			unset($data['sortOrder']);
 		}
@@ -688,141 +720,6 @@ class Configuration extends StorageApiConfiguration
 		}
 
 		$this->_cache[$cacheKey] = true;
-	}
-
-
-	public function getLDM()
-	{
-		$dataSets = array();
-
-		$tables = $this->_getConfigTable(self::DATA_SETS_TABLE_NAME);
-		$tableNames = array();
-		foreach ($tables as $table) if ($table['export']) {
-			$tableNames[$table['id']] = RestApi::datasetId($table['name']);
-		}
-
-
-		foreach ($tables as $table) if ($table['export']) {
-			if (!empty($table['definition'])) {
-				$dataSetName = empty($table['name']) ? $table['id'] : $table['name'];
-				$dataSet = array(
-					'identifier' => RestApi::datasetId($dataSetName),
-					'title' => $dataSetName
-				);
-
-				$tableDefinition = json_decode($table['definition'], true);
-				if ($tableDefinition === NULL) {
-					throw new WrongConfigurationException(sprintf("Definition of columns for table '%s' is not valid json", $table['id']));
-				}
-
-				$facts = array();
-				$attributes = array();
-				$references = array();
-				$labels = array();
-				$connectionPoint = null;
-				foreach ($tableDefinition as $columnName => $column) {
-					$columnTitle = empty($column['gdName']) ? $columnName : $column['gdName'];
-					$columnIdentifier = RestApi::gdName($columnTitle);
-
-					switch($column['type']) {
-						case 'CONNECTION_POINT' :
-							$connectionPoint = $columnTitle;
-							$dataSet['anchor'] = array(
-								'attribute' => array(
-									'identifier' => 'attr.' . RestApi::gdName($dataSetName) . '.' . $columnIdentifier,
-									'title' => $columnTitle,
-									'folder' => $dataSetName
-								)
-							);
-							break;
-						case 'FACT' :
-							$fact = array(
-								'fact' => array(
-									'identifier' => 'fact.' . RestApi::gdName($dataSetName) . '.' . $columnIdentifier,
-									'title' => $columnTitle
-								)
-							);
-							if (!empty($column['dataType'])) {
-								$fact['fact']['dataType'] = $column['dataType'];
-								if (!empty($column['dataTypeSize'])) {
-									$fact['fact']['dataType'] .= '(' . $column['dataTypeSize'] . ')';
-								}
-							}
-							$facts[] = $fact;
-							break;
-						case 'ATTRIBUTE' :
-							$attributes[$columnTitle] = array(
-								'attribute' => array(
-									'identifier' => 'attr.' . RestApi::gdName($dataSetName) . '.' . $columnIdentifier,
-									'title' => $columnTitle,
-									'folder' => $dataSetName
-								)
-							);
-							break;
-						case 'HYPERLINK' :
-						case 'LABEL' :
-							if (!isset($labels[$column['reference']])) {
-								$labels[$column['reference']] = array();
-							}
-							$labels[$column['reference']][] = array(
-								'label' => array(
-									'identifier' => 'label.' . RestApi::gdName($dataSetName) . '.' . $columnIdentifier,
-									'title' => $columnTitle,
-									'type' => 'GDC.' . ($column['type'] == 'HYPERLINK' ? 'link' : 'text')
-								)
-							);
-
-							break;
-						case 'REFERENCE' :
-							$references[] = $tableNames[$column['schemaReference']];
-							break;
-						case 'DATE' :
-							$references[] = RestApi::dimensionId($column['dateDimension']);
-							break;
-					}
-				}
-
-				foreach ($labels as $attributeId => $labelArray) {
-					if (isset($attributes[$attributeId])) {
-						$attributes[$attributeId]['attribute']['labels'] = $labelArray;
-					} else if ($attributeId == $connectionPoint) {
-						$dataSet['anchor']['attribute']['labels'] = $labelArray;
-					}
-				}
-
-				if (count($facts)) {
-					$dataSet['facts'] = $facts;
-				}
-				if (count($attributes)) {
-					$dataSet['attributes'] = \array_values($attributes);
-				}
-				if (count($references)) {
-					$dataSet['references'] = $references;
-				}
-
-				$dataSets[] = array(
-					'dataset' => $dataSet
-				);
-			}
-		}
-
-		$dateDimensions = array();
-		foreach ($this->getDateDimensions() as $d) {
-			$dateDimensions[] = array(
-				'dateDimension' => array(
-					'name' => RestApi::dimensionId($d['name']),
-					'title' => $d['name']
-				)
-			);
-		}
-
-		$result = array(
-			'projectModel' => array(
-				'datasets' => $dataSets,
-				'dateDimensions' => $dateDimensions
-			)
-		);
-		return $result;
 	}
 
 

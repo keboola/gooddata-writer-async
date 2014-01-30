@@ -68,8 +68,8 @@ abstract class AbstractControllerTest extends WebTestCase
 
 		$this->mainConfig = $container->getParameter('gooddata_writer');
 		$this->storageApi = new \Keboola\StorageApi\Client($container->getParameter('storage_api.test.token'),
-			$this->httpClient->getContainer()->getParameter('storage_api.test.url'));
-		$this->restApi = new RestApi($container->get('logger'));
+			$this->httpClient->getContainer()->getParameter('storage_api.url'));
+		$this->restApi = new RestApi($container->get('logger'), $this->mainConfig['scripts_path']);
 
 		// Clear test environment
 		// Drop data tables from SAPI
@@ -122,13 +122,13 @@ abstract class AbstractControllerTest extends WebTestCase
 		$command = $application->find('gooddata-writer:execute-batch');
 		$this->commandTester = new CommandTester($command);
 
-		$this->configuration = new Configuration($this->storageApi, $this->writerId);
+		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->mainConfig['scripts_path']);
 
 		// Init writer
 		$this->_processJob('/gooddata-writer/writers', array());
 
 		// Reset configuration
-		$this->configuration = new Configuration($this->storageApi, $this->writerId);
+		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->mainConfig['scripts_path']);
 	}
 
 
@@ -210,7 +210,7 @@ abstract class AbstractControllerTest extends WebTestCase
 		));
 
 		// Reset configuration
-		$this->configuration = new Configuration($this->storageApi, $this->writerId);
+		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->mainConfig['scripts_path']);
 	}
 
 

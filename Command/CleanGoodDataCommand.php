@@ -46,7 +46,7 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 
 		$pids = array();
 		foreach ($sharedConfig->projectsToDelete() as $project) {
-			$restApi = new RestApi($log);
+			$restApi = new RestApi($log, $mainConfig['scripts_path']);
 			$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
 			try {
 				$restApi->dropProject($project['pid']);
@@ -61,7 +61,7 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		}
 		$sharedConfig->markProjectsDeleted($pids);
 
-		$restApi = new RestApi($log);
+		$restApi = new RestApi($log, $mainConfig['scripts_path']);
 		$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
 		$uids = array();
 		foreach ($sharedConfig->usersToDelete() as $user) {

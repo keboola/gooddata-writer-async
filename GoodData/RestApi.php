@@ -50,6 +50,10 @@ class RestApi
 	 */
 	protected $client;
 	/**
+	 * @var Model
+	 */
+	protected $model;
+	/**
 	 * @var \Monolog\Logger
 	 */
 	protected $log;
@@ -63,9 +67,11 @@ class RestApi
 	private $password;
 
 
-	public function __construct($log)
+	public function __construct($log, $scriptsPath)
 	{
 		$this->log = $log;
+
+		$this->model = new Model($scriptsPath);
 
 		$this->client = new Client(self::API_URL, array(
 			'curl.options' => array(
@@ -734,9 +740,107 @@ class RestApi
 		}
 	}
 
-	public function updateProject()
-	{
 
+
+	public function updateDataSet($pid, $dataSetName, $columns)
+	{
+		$model = $this->getProjectModel($pid);
+		foreach ($model['projectModel']['datasets'] as &$dataSet) {
+			if ($dataSet['dataset']['title'] == $dataSetName) {
+				$dataSet['dataset'] = $this->model->getLDM($dataSetName, $columns);
+				break;
+			}
+		}
+		$resultMaql = $this->generateUpdateProjectMaql($pid, $model);
+		if ($resultMaql) {
+			$this->executeMaql($pid, $resultMaql);
+		}
+	}
+
+	public function generateUpdateProjectMaql($pid, $model)
+	{
+		$uri = sprintf('/gdc/projects/%s/model/diff', $pid);
+		$result = $this->jsonRequest($uri, 'POST', array('diffRequest' => array('targetModel' => $model)));
+
+		if (isset($result['asyncTask']['link']['poll'])) {
+
+			$try = 1;
+			do {
+				sleep(10 * $try);
+				$taskResponse = $this->jsonRequest($result['asyncTask']['link']['poll']);
+
+				if (!isset($taskResponse['asyncTask']['link']['poll'])) {
+					if (isset($taskResponse['projectModelDiff']['updateScripts'])) {
+						$preserveDataMaql = null;
+						$noPreserveDataMaql = null;
+						foreach($taskResponse['projectModelDiff']['updateScripts'] as $updateScript) {
+							if ($updateScript['updateScript']['preserveData'] && !$updateScript['updateScript']['cascadeDrops']) {
+								$preserveDataMaql = $updateScript['updateScript']['maqlDdl'];
+							}
+							if (!$updateScript['updateScript']['preserveData'] && !$updateScript['updateScript']['cascadeDrops']) {
+								$noPreserveDataMaql = $updateScript['updateScript']['maqlDdl'];
+							}
+						}
+						return $preserveDataMaql ? $preserveDataMaql : $noPreserveDataMaql;
+					} else {
+						$this->log->alert('updateProjectModel() has bad response', array(
+							'uri' => $uri,
+							'result' => $result
+						));
+						throw new RestApiException('Update Project Model task could not be finished');
+					}
+				}
+
+				$try++;
+			} while (true);
+
+		} else {
+			$this->log->alert('updateProjectModel() has bad response', array(
+				'uri' => $uri,
+				'result' => $result
+			));
+			throw new RestApiException('Update Project Model task could not be started');
+		}
+
+		return false;
+	}
+
+	public function getProjectModel($pid)
+	{
+		$uri = sprintf('/gdc/projects/%s/model/view', $pid);
+		$result = $this->jsonRequest($uri, 'GET');
+
+		if (isset($result['asyncTask']['link']['poll'])) {
+
+			$try = 1;
+			do {
+				sleep(10 * $try);
+				$taskResponse = $this->jsonRequest($result['asyncTask']['link']['poll']);
+
+				if (!isset($taskResponse['asyncTask']['link']['poll'])) {
+					if (isset($taskResponse['projectModelView']['model'])) {
+						return $taskResponse['projectModelView']['model'];
+					} else {
+						$this->log->alert('getProjectModel() has bad response', array(
+							'uri' => $uri,
+							'result' => $result
+						));
+						throw new RestApiException('Get Project Model task could not be finished');
+					}
+				}
+
+				$try++;
+			} while (true);
+
+		} else {
+			$this->log->alert('getProjectModel() has bad response', array(
+				'uri' => $uri,
+				'result' => $result
+			));
+			throw new RestApiException('Get Project Model task could not be started');
+		}
+
+		return false;
 	}
 
 
@@ -1176,13 +1280,6 @@ class RestApi
 
 	/**
 	 * Common request expecting json result
-	 * @param $uri
-	 * @param string $method
-	 * @param array $params
-	 * @param array $headers
-	 * @param bool $logCall
-	 * @throws RestApiException
-	 * @return array|bool|float|int|string
 	 */
 	protected function jsonRequest($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true)
 	{
@@ -1202,15 +1299,7 @@ class RestApi
 
 
 	/**
-	 * @param $uri
-	 * @param string $method
-	 * @param array $params
-	 * @param array $headers
-	 * @param bool $logCall
-	 * @param bool $refreshToken
-	 * @throws UnauthorizedException
-	 * @throws RestApiException
-	 * @return \Guzzle\Http\Message\Response
+	 *
 	 */
 	private function request($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true, $refreshToken = true)
 	{
@@ -1419,22 +1508,4 @@ class RestApi
 		return $this->callsLog;
 	}
 
-
-	public static function gdName($name)
-	{
-		$string = iconv('utf-8', 'ascii//ignore//translit', $name);
-		$string = preg_replace('/[^\w\d_]/', '', $string);
-		$string = preg_replace('/^[\d_]*/', '', $string);
-		return strtolower($string);
-	}
-
-	public static function datasetId($name)
-	{
-		return 'dataset.' . self::gdName($name);
-	}
-
-	public static function dimensionId($name)
-	{
-		return self::gdName($name) . '.dataset.dt';
-	}
 }
