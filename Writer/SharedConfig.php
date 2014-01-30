@@ -6,7 +6,6 @@
 
 namespace Keboola\GoodDataWriter\Writer;
 
-use Keboola\Csv\CsvFile;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\GoodDataWriter\Service\S3Client,
@@ -47,12 +46,6 @@ class SharedConfig extends StorageApiConfiguration
 	}
 
 
-	/**
-	 * @param $projectId
-	 * @param $writerId
-	 * @param $days
-	 * @return mixed
-	 */
 	public function fetchJobs($projectId, $writerId, $days = 7)
 	{
 		return $this->_fetchTableRows(self::JOBS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId, array(
@@ -209,7 +202,6 @@ class SharedConfig extends StorageApiConfiguration
 				'id' => (int) $job['tokenId'],
 				'description' => $job['tokenDesc'],
 			),
-			'initializedBy' => $job['initializedBy'],
 			'createdTime' => $job['createdTime'],
 			'startTime' => !empty($job['startTime']) ? $job['startTime'] : null,
 			'endTime' => !empty($job['endTime']) ? $job['endTime'] : null,
@@ -219,7 +211,6 @@ class SharedConfig extends StorageApiConfiguration
 			'parameters' => $job['parameters'],
 			'result' => $job['result'],
 			'gdWriteStartTime' => $job['gdWriteStartTime'],
-			'gdWriteBytes' => $job['gdWriteBytes'] ? (int) $job['gdWriteBytes'] : null,
 			'status' => $job['status'],
 			'log' => $job['log'],
 			'queueId' => !empty($job['queueId']) ? $job['queueId'] : sprintf('%s.%s.%s', $job['projectId'], $job['writerId'], self::PRIMARY_QUEUE)
@@ -376,13 +367,8 @@ class SharedConfig extends StorageApiConfiguration
 		$this->_updateTable(self::PROJECTS_TO_DELETE_TABLE_ID, 'pid', array('pid', 'deletedTime'), $data);
 	}
 
-	/**
-	 * @param $projectId
-	 * @param $writerId
-	 * @param $pid
-	 * @param $backendUrl
-	 */
-	public function enqueueProjectToDelete($projectId, $writerId, $pid, $backendUrl = null)
+
+	public function enqueueProjectToDelete($projectId, $writerId, $pid)
 	{
 		$data = array(
 			'pid' => $pid,

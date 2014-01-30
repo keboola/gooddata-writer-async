@@ -467,6 +467,13 @@ Jobs
 
 ### Get jobs list
 
+#### Parameters
+
+* **writerId** (required) - id of writer
+* **days** (optional) - age of jobs which should be fetched, default is 7 days
+* **command** (optional) - filter jobs by command
+* **tableId** (optional) - filter jobs belonging to given tableId
+
 GET /jobs?writerId={writerId}
 > X-StorageApi-Token: your_token
 < 200
@@ -483,15 +490,10 @@ GET /jobs?writerId={writerId}
                 "id": 2352,
                 "description": "Master Token"
             },
-            "initializedBy": "",
             "createdTime": "2013-04-05T10:15:48+02:00",
             "startTime": "2013-04-05T10:45:06+02:00",
             "endTime": "2013-04-05T10:45:17+02:00",
             "command": "addUserToProject",
-            "pid": "",
-            "dataset": "",
-            "xmlFile": "",
-            "csvFile": "",
             "parameters": {
                 "writerId": "wr9",
                 "email": "11112@test.keboola.com",
@@ -505,7 +507,6 @@ GET /jobs?writerId={writerId}
                 "duration": 8
             },
             "gdWriteStartTime": "2013-04-05T10:45:12+02:00",
-            "gdWriteBytes": "",
             "status": "success",
             "log": "url to log"
         },
@@ -532,15 +533,10 @@ GET /jobs?writerId={writerId}&jobId={jobId}
             "id": 2352,
             "description": "Master Token"
         },
-        "initializedBy": "",
         "createdTime": "2013-04-05T10:15:48+02:00",
         "startTime": "2013-04-05T10:45:06+02:00",
         "endTime": "2013-04-05T10:45:17+02:00",
         "command": "addUserToProject",
-        "pid": "",
-        "dataset": "",
-        "xmlFile": "",
-        "csvFile": "",
         "parameters": {
             "writerId": "wr9",
             "email": "11112@test.keboola.com",
@@ -554,7 +550,6 @@ GET /jobs?writerId={writerId}&jobId={jobId}
             "duration": 8
         },
         "gdWriteStartTime": "2013-04-05T10:45:12+02:00",
-        "gdWriteBytes": "",
         "status": "success",
         "log": "url to log"
     },

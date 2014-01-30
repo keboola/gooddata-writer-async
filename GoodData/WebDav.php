@@ -20,8 +20,8 @@ class WebDavException extends \Exception
 class WebDav
 {
 	public $url = 'na1-di.gooddata.com';
-	protected $_username;
-	protected $_password;
+	protected $username;
+	protected $password;
 
 	/**
 	 * @param $username
@@ -31,8 +31,8 @@ class WebDav
 	 */
 	public function __construct($username, $password, $url = null)
 	{
-		$this->_username = $username;
-		$this->_password = $password;
+		$this->username = $username;
+		$this->password = $password;
 		if ($url) {
 			$parsedUrl = parse_url($url);
 			if (!$parsedUrl || empty($parsedUrl['host'])) {
@@ -52,14 +52,14 @@ class WebDav
 	 * @return string
 	 * @throws WebDavException
 	 */
-	protected function _request($uri, $method = null, $arguments = null, $prepend = null, $append = null)
+	protected function request($uri, $method = null, $arguments = null, $prepend = null, $append = null)
 	{
 		$url = 'https://' . $this->url . '/uploads/' . $uri;
 		if ($method) {
 			$arguments .= ' -X ' . escapeshellarg($method);
 		}
-		$command = sprintf('curl -s -S -f --retry 15 --user %s:%s %s %s', escapeshellarg($this->_username),
-			escapeshellarg($this->_password), $arguments, escapeshellarg($url));
+		$command = sprintf('curl -s -S -f --retry 15 --user %s:%s %s %s', escapeshellarg($this->username),
+			escapeshellarg($this->password), $arguments, escapeshellarg($url));
 
 		$process = new Process($prepend . $command . $append);
 		$process->setTimeout(5 * 60 * 60);
@@ -77,7 +77,7 @@ class WebDav
 	 */
 	public function prepareFolder($folder)
 	{
-		$this->_request($folder, 'MKCOL');
+		$this->request($folder, 'MKCOL');
 	}
 
 
@@ -94,7 +94,7 @@ class WebDav
 
 		$fileUri = sprintf('%s/%s', $davFolder, $fileInfo['basename']);
 		try {
-			$this->_request(
+			$this->request(
 				$fileUri,
 				'PUT',
 				'-T - --header ' . escapeshellarg('Content-encoding: gzip'),
@@ -102,6 +102,21 @@ class WebDav
 			);
 		} catch (WebDavException $e) {
 			throw new WebDavException("WebDav error when uploading to '" . $fileUri . '". ' . $e->getMessage());
+		}
+	}
+
+
+	public function fileExists($file)
+	{
+		try {
+			$this->request($file, 'PROPFIND');
+			return true;
+		} catch (WebDavException $e) {
+			if (strstr($e->getMessage(), '404 Not Found')) {
+				return false;
+			} else {
+				throw $e;
+			}
 		}
 	}
 
@@ -116,7 +131,7 @@ class WebDav
 	public function listFiles($folderName, $relative = false, $extensions = array())
 	{
 		try {
-			$result = $this->_request(
+			$result = $this->request(
 				$folderName,
 				'PROPFIND',
 				' --data ' . escapeshellarg('<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname /></d:prop></d:propfind>')
@@ -174,7 +189,7 @@ class WebDav
 	public function get($fileUri)
 	{
 		try {
-			return $this->_request(
+			return $this->request(
 				$fileUri,
 				'GET'
 			);

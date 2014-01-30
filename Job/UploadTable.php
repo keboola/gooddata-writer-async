@@ -16,6 +16,7 @@ use Keboola\GoodDataWriter\GoodData\CLToolApi,
 	Keboola\GoodDataWriter\GoodData\CsvHandler,
 	Keboola\GoodDataWriter\GoodData\CsvHandlerException,
 	Keboola\GoodDataWriter\GoodData\WebDav;
+use Keboola\GoodDataWriter\GoodData\WebDavException;
 use Symfony\Component\Stopwatch\Stopwatch;
 
 class UploadTable extends AbstractJob
@@ -56,10 +57,16 @@ class UploadTable extends AbstractJob
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
 		$filterColumn = $this->_getFilterColumn($params['tableId'], $tableDefinition, $bucketAttributes);
 
+		$webDavUrl = $this->_getWebDavUrl($bucketAttributes);
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$e = $stopWatch->stop($stopWatchId);
-		$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));
+		$eventsLog[$stopWatchId] = array(
+			'duration' => $e->getDuration(),
+			'time' => date('c'),
+			'restApi' => $this->restApi->callsLog
+		);
+		$this->restApi->callsLog = array();
 
 		// Get xml
 		$stopWatchId = 'getXml';
@@ -183,7 +190,7 @@ class UploadTable extends AbstractJob
 				'pid' => $project['pid'],
 				'filterColumn' => ($filterColumn && empty($project['main'])) ? $filterColumn : false,
 				'mainProject' => !empty($project['main']),
-				'incrementalLoad' => $incrementalLoad && $dataSetExists
+				'incrementalLoad' => ($dataSetExists && $incrementalLoad) ? $incrementalLoad : 0
 			);
 		}
 
@@ -250,7 +257,9 @@ class UploadTable extends AbstractJob
 					}
 				} else {
 					$maql = $clToolApi->updateDataSetMaql($gdJob['pid'], $xmlFile, 1);
-					$this->restApi->executeMaql($gdJob['pid'], $maql);
+					if ($maql) {
+						$this->restApi->executeMaql($gdJob['pid'], $maql);
+					}
 				}
 				if ($clToolApi->debugLogUrl) {
 					if ($gdJob['mainProject']) {
@@ -272,7 +281,6 @@ class UploadTable extends AbstractJob
 
 
 			// Upload to WebDav
-			$webDavUrl = $this->_getWebDavUrl($bucketAttributes);
 			$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl);
 
 
@@ -321,6 +329,9 @@ class UploadTable extends AbstractJob
 					$this->mainConfig['user_agent'], $gdJob['incrementalLoad'], $gdJob['filterColumn'], $gdJob['pid']);
 				$this->_csvHandler->prepareTransformation($xmlFileObject);
 				$this->_csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl, '/uploads/' . $webDavFolder);
+				if (!$webDav->fileExists($webDavFolder . '/data.csv')) {
+					throw new WebDavException(sprintf("Csv file has not been uploaded to '%s/uploads/%s/data.csv'", $webDavUrl, $webDavFolder));
+				}
 
 				$e = $stopWatch->stop($stopWatchId);
 				$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));
@@ -459,11 +470,19 @@ class UploadTable extends AbstractJob
 				'restApi' => $this->restApi->callsLog,
 				'clTool' => $clToolApi->output
 			);
+		} catch (WebDavException $e) {
+			$error = $e->getMessage();
+			$event = $stopWatch->stop($stopWatchId);
+			$eventsLog[$stopWatchId] = array(
+				'duration' => $event->getDuration(),
+				'time' => date('c')
+			);
 		}
 
 		$result = array(
 			'status' => $error ? 'error' : 'success',
-			'debug' => json_encode($debug)
+			'debug' => json_encode($debug),
+			'incrementalLoad' => (int) $incrementalLoad
 		);
 		if (!empty($gdWriteStartTime)) {
 			$result['gdWriteStartTime'] = $gdWriteStartTime;

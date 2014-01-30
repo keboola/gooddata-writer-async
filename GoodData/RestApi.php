@@ -59,6 +59,10 @@ class RestApi
 	public  $callsLog;
 	private $clearFromLog;
 
+	private $username;
+	private $password;
+
+
 	public function __construct($log)
 	{
 		$this->log = $log;
@@ -715,6 +719,10 @@ class RestApi
 				$try++;
 			} while (in_array($taskResponse['taskStatus'], array('PREPARED', 'RUNNING')));
 
+			if ($taskResponse['taskStatus'] == 'ERROR') {
+				throw new RestApiException('ETL task finished with error');
+			}
+
 			return $taskResponse;
 
 		} else {
@@ -722,8 +730,13 @@ class RestApi
 				'uri' => $uri,
 				'result' => $result
 			));
-			throw new RestApiException('Pull task could not be started');
+			throw new RestApiException('ETL task could not be started');
 		}
+	}
+
+	public function updateProject()
+	{
+
 	}
 
 
@@ -822,31 +835,65 @@ class RestApi
 			$maql = str_replace('%NAME%', $name, $maql);
 		}
 
-		$this->request(sprintf('/gdc/md/%s/ldm/manage', $pid), 'POST', array(
-			'manage' => array(
-				'maql' => $maql
-			)
-		));
+		$this->executeMaql($pid, $maql);
 	}
 
 
 
 
 	/**
-	 * Execute MAQL
-	 * @param $pid
-	 * @param $maql
-	 * @return string
+	 * Execute Maql asynchronously and wait for result
 	 */
 	public function executeMaql($pid, $maql)
 	{
-		$uri = sprintf('/gdc/md/%s/ldm/manage', $pid);
+		$uri = sprintf('/gdc/md/%s/ldm/manage2', $pid);
 		$params = array(
 			'manage' => array(
 				'maql' => $maql
 			)
 		);
-		return $this->jsonRequest($uri, 'POST', $params);
+		$result = $this->jsonRequest($uri, 'POST', $params);
+
+		$pollLink = null;
+		if (isset($result['entries']) && count($result['entries'])) {
+			foreach ($result['entries'] as $entry) {
+				if (isset($entry['category']) && isset($entry['link']) && $entry['category'] == 'tasks-status') {
+					$pollLink = $entry['link'];
+					break;
+				}
+			}
+		}
+
+		if (empty($pollLink)) {
+			$this->log->alert('executeMaqlAsync() result is missing status url in entries.link', array(
+				'uri' => $uri,
+				'maql' => $maql,
+				'result' => $result
+			));
+			throw new RestApiException('Error in result of /ldm/manage2 task');
+		}
+
+		$try = 1;
+		do {
+			sleep(10 * $try);
+			$taskResponse = $this->jsonRequest($pollLink);
+
+			if (!isset($taskResponse['wTaskStatus']['status'])) {
+				$this->log->alert('loadData() has bad response', array(
+					'uri' => $result['pullTask']['uri'],
+					'result' => $taskResponse
+				));
+				throw new RestApiException('Task /ldm/manage2 could not be checked');
+			}
+
+			$try++;
+		} while (in_array($taskResponse['wTaskStatus']['status'], array('PREPARED', 'RUNNING')));
+
+		if ($taskResponse['wTaskStatus']['status'] == 'ERROR') {
+			throw new RestApiException('Task /ldm/manage2 finished with error');
+		}
+
+		return $taskResponse;
 	}
 
 
@@ -1080,7 +1127,7 @@ class RestApi
 			$payloadJson = str_replace('"labels":[]', '"labels":{}', $payloadJson);
 		}
 
-		$response = $this->jsonRequest($url, 'POST', $payloadJson);
+		$response = $this->jsonRequest($url, 'POST', $payloadJson, array(), false);
 
 		if (!isset($response['uri'])) {
 			throw new RestApiException('Error occured on post to url ' . $url);
@@ -1233,6 +1280,7 @@ class RestApi
 					throw new RestApiException($response);
 				}
 			} catch (ServerErrorResponseException $e) {
+				$response = $request->getResponse()->getBody(true);
 				// BackOff
 				if ($request->getResponse()->getStatusCode() == 503) {
 					// Wait indefinitely due to GD maintenance
@@ -1263,6 +1311,10 @@ class RestApi
 	 */
 	public function login($username, $password)
 	{
+		$this->username = $username;
+		$this->password = $password;
+		$this->clearFromLog[] = $password;
+
 		try {
 			$response = $this->request('/gdc/account/login', 'POST', array(
 				'postUserLogin' => array(
@@ -1270,7 +1322,7 @@ class RestApi
 					'password' => $password,
 					'remember' => 0
 				)
-			), array(), false, false);
+			), array(), true, false);
 		} catch (RestApiException $e) {
 			throw new RestApiException('Rest API Login failed');
 		}
@@ -1291,7 +1343,7 @@ class RestApi
 	public function refreshToken()
 	{
 		try {
-			$response = $this->request('/gdc/account/token', 'GET', array(), array(), false, false);
+			$response = $this->request('/gdc/account/token', 'GET', array(), array(), true, false);
 		} catch (RestApiException $e) {
 			throw new RestApiException('Rest refresh token failed');
 		}

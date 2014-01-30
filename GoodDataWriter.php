@@ -23,9 +23,7 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Syrup\ComponentBundle\Component\Component;
 use Monolog\Logger;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag,
-	Symfony\Component\HttpFoundation\StreamedResponse,
-	Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Response;
 use Syrup\ComponentBundle\Exception\SyrupComponentException;
 
 class GoodDataWriter extends Component
@@ -964,6 +962,21 @@ class GoodDataWriter extends Component
 	 * @section Data and project structure
 	 */
 
+
+	/**
+	 * Generates LDM model of writer
+	 */
+	public function getLdm($params)
+	{
+		$this->init($params);
+
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		return $this->configuration->getLDM();
+	}
+
 	/**
 	 * @param $params
 	 * @throws Exception\WrongParametersException
@@ -1426,15 +1439,6 @@ class GoodDataWriter extends Component
 			$this->configuration->updateColumnsDefinition($tableId, $params['columns']);
 		} else {
 			// Table detail
-			if (isset($params['gdName'])) { //@TODO remove
-				$params['name'] = $params['gdName'];
-				unset($params['gdName']);
-			}
-			if (isset($params['lastExportDate'])) { //@TODO remove
-				$params['isExported'] = $params['lastExportDate'] ? 1 : 0;
-				unset($params['lastExportDate']);
-			}
-
 			$this->configuration->updateDataSetDefinition($tableId, $params);
 		}
 
@@ -1538,6 +1542,7 @@ class GoodDataWriter extends Component
 
 	/**
 	 * Get Jobs
+	 * Allow filtering by days, command and tableId
 	 * @param $params
 	 * @throws Exception\WrongParametersException
 	 * @return array
@@ -1551,11 +1556,18 @@ class GoodDataWriter extends Component
 
 		if (empty($params['jobId'])) {
 			$days = isset($params['days']) ? $params['days'] : 7;
-			$jobs = $this->getSharedConfig()->fetchJobs($this->configuration->projectId, $params['writerId'], $days);
+			$tableId = empty($params['tableId']) ? null : $params['tableId'];
+			$command = empty($params['command']) ? null : $params['command'];
+			$jobs = $this->getSharedConfig()->fetchJobs($this->configuration->projectId, $params['writerId'], $days, $tableId);
 
 			$result = array();
 			foreach ($jobs as $job) {
-				$result[] = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
+				if (empty($command) || $command == $job['command']) {
+					$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
+					if (empty($tableId) || (!empty($job['parameters']['tableId']) && $job['parameters']['tableId'] == $tableId)) {
+						$result[] = $job;
+					}
+				}
 			}
 
 			return array('jobs' => $result);
@@ -1568,37 +1580,8 @@ class GoodDataWriter extends Component
 				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['jobId'], $this->configuration->writerId));
 			}
 
-			if (isset($params['detail']) && $params['detail'] == 'csv') {
-				$result = json_decode($job['result'], true);
-				if (isset($result['csvFile']) && file_exists($result['csvFile'])) {
-
-					$response = new StreamedResponse(function() use($result) {
-						$linesCount = !empty($params['limit']) ? $params['limit'] : -1;
-						$handle = fopen($result['csvFile'], 'r');
-						if ($handle === false) {
-							return false;
-						}
-						while (($buffer = fgets($handle)) !== false && $linesCount != 0) {
-							print $buffer;
-							$linesCount--;
-						}
-						fclose($handle);
-						return true;
-					});
-					$response->headers->set('Content-Disposition', $response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $params['jobId'] . '.csv'));
-					$response->headers->set('Content-Length', filesize($result['csvFile']));
-					$response->headers->set('Content-Type', 'text/csv');
-					$response->headers->set('Access-Control-Allow-Origin', '*');
-					$response->send();
-					exit();
-
-				} else {
-					throw new WrongParametersException("There is no csvFile for this job");
-				}
-			} else {
-				$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
-				return array('job' => $job);
-			}
+			$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
+			return array('job' => $job);
 		}
 	}
 
@@ -1714,6 +1697,7 @@ class GoodDataWriter extends Component
 		$i = 1;
 		do {
 			$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $writerId));
+			$this->sharedConfig = null; // Workaround of cache bug
 			if (isset($jobInfo['job']['status']) && !in_array($jobInfo['job']['status'], array('waiting', 'processing'))) {
 				$jobFinished = true;
 			}
@@ -1736,6 +1720,7 @@ class GoodDataWriter extends Component
 		$i = 1;
 		do {
 			$jobsInfo = $this->getBatch(array('batchId' => $batchId, 'writerId' => $writerId));
+			$this->sharedConfig = null; // Workaround of cache bug
 			if (isset($jobsInfo['batch']['status']) && !in_array($jobsInfo['batch']['status'], array('waiting', 'processing'))) {
 				$jobsFinished = true;
 			}

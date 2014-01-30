@@ -8,10 +8,13 @@ namespace Keboola\GoodDataWriter\Tests\Controller;
 
 class ProxyTest extends AbstractControllerTest
 {
-	public function testGetProxy()
+	public function testProxy()
 	{
 		$user = $this->_createUser();
 
+		/**
+		 * Get proxy
+		 */
 		// Check of GoodData
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -30,10 +33,11 @@ class ProxyTest extends AbstractControllerTest
 		$this->assertArrayHasKey('response', $responseJson, "Response for writer call '/proxy' should contain 'response' key.");
 		$this->assertArrayHasKey('users', $responseJson['response'], "Response for writer call '/proxy' should contain 'users' key users in GD reponse.");
 		$this->assertCount(2, $responseJson['response']['users'], "Response for writer call '/proxy' should return two users in GD reponse.");
-	}
 
-	public function testPostProxy()
-	{
+
+		/**
+		 * Post proxy
+		 */
 		// Upload data
 		$this->_prepareData();
 		$this->_processJob('/gooddata-writer/upload-project');
