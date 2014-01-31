@@ -1559,11 +1559,13 @@ class GoodDataWriter extends Component
 			$tableId = empty($params['tableId']) ? null : $params['tableId'];
 			$command = empty($params['command']) ? null : $params['command'];
 			$tokenId = empty($params['tokenId']) ? null : $params['tokenId'];
+			$status = empty($params['status']) ? null : $params['status'];
 			$jobs = $this->getSharedConfig()->fetchJobs($this->configuration->projectId, $params['writerId'], $days, $tableId);
 
 			$result = array();
 			foreach ($jobs as $job) {
-				if ((empty($command) || $command == $job['command']) && (empty($tokenId) || $tokenId == $job['tokenId'])) {
+				if ((empty($command) || $command == $job['command']) && (empty($tokenId) || $tokenId == $job['tokenId'])
+					&& (empty($status) || $status == $job['status'])) {
 					$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
 					if (empty($tableId) || (!empty($job['parameters']['tableId']) && $job['parameters']['tableId'] == $tableId)) {
 						$result[] = $job;
