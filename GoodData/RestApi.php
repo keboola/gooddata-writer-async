@@ -14,7 +14,6 @@ use Guzzle\Http\Client,
 	Guzzle\Common\Exception\RuntimeException,
 	Guzzle\Http\Message\Header;
 use Guzzle\Http\Curl\CurlHandle;
-use Keboola\GoodDataWriter\GoodData\Model;
 use stdClass;
 
 class RestApiException extends \Exception
@@ -697,14 +696,8 @@ class RestApi
 
 	/**
 	 * Run load data task
-	 *
-	 * @param $pid
-	 * @param string $dirName
-	 * @return array|bool|float|int|string
-	 * @throws \Exception|\Guzzle\Http\Exception\ClientErrorResponseException
-	 * @throws RestApiException
 	 */
-	public function loadData($pid, $dirName)
+	public function loadData($pid, $dirName, $dataSetName)
 	{
 		$uri = sprintf('/gdc/md/%s/etl/pull', $pid);
 		$result = $this->jsonRequest($uri, 'POST', array('pullIntegration' => $dirName));
@@ -727,8 +720,10 @@ class RestApi
 				$try++;
 			} while (in_array($taskResponse['taskStatus'], array('PREPARED', 'RUNNING')));
 
-			if ($taskResponse['taskStatus'] == 'ERROR') {
-				throw new RestApiException('ETL task finished with error');
+			if ($taskResponse['taskStatus'] == 'ERROR' || $taskResponse['taskStatus'] == 'WARNING') {
+				// Find upload message
+				$uploadMessage = $this->getUploadMessage($pid, $dataSetName);
+				throw new RestApiException($uploadMessage ? $uploadMessage : 'ETL task finished with error');
 			}
 
 			return $taskResponse;
@@ -1228,7 +1223,7 @@ class RestApi
 	{
 		if (null != $payload) {
 			// trick to get rid of "labels": {} problem
-			$this->fixLabelsRecursive($payload);
+			$this->fixLabelsRec($payload);
 		}
 
 		$response = $this->jsonRequest($url, 'POST', $payload);
@@ -1236,7 +1231,7 @@ class RestApi
 		return $response;
 	}
 
-	protected function fixLabelsRecursive(&$array)
+	protected function fixLabelsRec(&$array)
 	{
 		foreach ($array as $key => &$item) {
 			if ($key == 'labels') {
@@ -1246,7 +1241,7 @@ class RestApi
 			}
 
 			if (is_array($item)) {
-				$this->fixLabelsRecursive($item);
+				$this->fixLabelsRec($item);
 			}
 		}
 	}

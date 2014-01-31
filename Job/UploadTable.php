@@ -58,9 +58,9 @@ class UploadTable extends AbstractJob
 		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
-		$filterColumn = $this->_getFilterColumn($params['tableId'], $tableDefinition, $bucketAttributes);
+		$filterColumn = $this->getFilterColumn($params['tableId'], $tableDefinition, $bucketAttributes);
 
-		$webDavUrl = $this->_getWebDavUrl($bucketAttributes);
+		$webDavUrl = $this->getWebDavUrl($bucketAttributes);
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$e = $stopWatch->stop($stopWatchId);
@@ -376,25 +376,16 @@ class UploadTable extends AbstractJob
 					$stopWatch->start($stopWatchId);
 
 					$dimensionName = Model::getId($gdJob['name']);
+					$dataSetName = 'time.' . $dimensionName;
 					$tmpFolderDimension = $this->tmpDir . '/' . $dimensionName;
 					$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
 
-					$result = $this->restApi->loadData($gdJob['pid'], $tmpFolderNameDimension);
-					$debugFile = $tmpFolderDimension . '/' . $gdJob['pid'] . '-etl.log';
-
-					// Get upload error
-					$dataSetName = 'time.' . $dimensionName;
-					$tmpFolder = $tmpFolderDimension;
-					$taskName = 'Dimension ' . $gdJob['name'];
-					if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
-						// Find upload message
-						$uploadMessage = $this->restApi->getUploadMessage($gdJob['pid'], $dataSetName);
-						if ($uploadMessage) {
-							file_put_contents($debugFile, $uploadMessage . PHP_EOL . PHP_EOL, FILE_APPEND);
-						}
-
-						// Look for .json and .log files in WebDav folder
-						$webDav->saveLogs($tmpFolder, $debugFile);
+					try {
+						$this->restApi->loadData($gdJob['pid'], $tmpFolderNameDimension, $dataSetName);
+					} catch (RestApiException $e) {
+						$debugFile = $tmpFolderDimension . '/' . $gdJob['pid'] . '-etl.log';
+						$taskName = 'Dimension ' . $gdJob['name'];
+						$webDav->saveLogs($tmpFolderDimension, $debugFile);
 						$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $gdJob['pid'], $dataSetName));
 						if ($gdJob['mainProject']) {
 							$debug[$taskName] = $logUrl;
@@ -402,7 +393,7 @@ class UploadTable extends AbstractJob
 							$debug[$gdJob['pid']][$taskName] = $logUrl;
 						}
 
-						throw new RestApiException($taskName . ' Error. ' . $uploadMessage);
+						throw new RestApiException('ETL load failed: ' . $e->getMessage());
 					}
 
 					$e = $stopWatch->stop($stopWatchId);
@@ -425,31 +416,18 @@ class UploadTable extends AbstractJob
 				$webDavFolder = $tmpFolderName . '-' . $gdJob['pid'];
 
 				try {
-					$result = $this->restApi->loadData($gdJob['pid'], $webDavFolder);
-
-					// Get upload error
-					$debugFile = $dataTmpDir . '/etl.log';
-					$tmpFolder = $webDavFolder;
-					$taskName = 'Data load';
-					if ($result['taskStatus'] == 'ERROR' || $result['taskStatus'] == 'WARNING') {
-						// Find upload message
-						$uploadMessage = $this->restApi->getUploadMessage($gdJob['pid'], Model::getId($dataSetName));
-						if ($uploadMessage) {
-							file_put_contents($debugFile, $uploadMessage . PHP_EOL . PHP_EOL, FILE_APPEND);
-						}
-
-						// Look for .json and .log files in WebDav folder
-						$webDav->saveLogs($tmpFolder, $debugFile);
-						$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $gdJob['pid'], $dataSetName));
-						if ($gdJob['mainProject']) {
-							$debug[$taskName] = $logUrl;
-						} else {
-							$debug[$gdJob['pid']][$taskName] = $logUrl;
-						}
-
-						throw new RestApiException($taskName . ' Error. ' . $uploadMessage);
-					}
+					$this->restApi->loadData($gdJob['pid'], $webDavFolder, Model::getId($dataSetName));
 				} catch (RestApiException $e) {
+					$debugFile = $dataTmpDir . '/etl.log';
+					$taskName = 'Data load';
+					$webDav->saveLogs($webDavFolder, $debugFile);
+					$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $gdJob['pid'], $dataSetName));
+					if ($gdJob['mainProject']) {
+						$debug[$taskName] = $logUrl;
+					} else {
+						$debug[$gdJob['pid']][$taskName] = $logUrl;
+					}
+
 					throw new RestApiException('ETL load failed: ' . $e->getMessage());
 				}
 				$e = $stopWatch->stop($stopWatchId);
@@ -504,7 +482,7 @@ class UploadTable extends AbstractJob
 	}
 
 
-	private function _getFilterColumn($tableId, $tableDefinition, $bucketAttributes)
+	private function getFilterColumn($tableId, $tableDefinition, $bucketAttributes)
 	{
 		$filterColumn = null;
 		if (isset($bucketAttributes['filterColumn']) && empty($tableDefinition['ignoreFilter'])) {
@@ -520,7 +498,7 @@ class UploadTable extends AbstractJob
 		return $filterColumn;
 	}
 
-	private function _getWebDavUrl($bucketAttributes)
+	private function getWebDavUrl($bucketAttributes)
 	{
 		$webDavUrl = null;
 		if (isset($bucketAttributes['gd']['backendUrl']) && $bucketAttributes['gd']['backendUrl'] != RestApi::DEFAULT_BACKEND_URL) {
