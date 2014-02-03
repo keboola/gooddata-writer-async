@@ -720,6 +720,41 @@ class GoodDataWriter extends Component
 	}
 
 	/***********************
+	 * @section Reports
+	 */
+
+	public function getDownloadReport($params)
+	{
+		$this->init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		if (!isset($params['uri'])) {
+			throw new WrongParametersException("Parameter 'url' is missing.");
+		}
+		$url = $params['uri'];
+
+		$restApi = new RestApi($this->_log, $this->mainConfig['scripts_path']);
+
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+
+		$tempFileInfo = $this->getTemp()->createTmpFile('gooddata-report', true);
+
+		try {
+			$return = $restApi->exportReport($url, $tempFileInfo->getPathname());
+
+			return array(
+				'response' => $return
+			);
+		} catch (RestApiException $e) {
+			throw new WrongParametersException($e->getMessage(), $e);
+		}
+
+	}
+
+	/***********************
 	 * @section Filters
 	 */
 

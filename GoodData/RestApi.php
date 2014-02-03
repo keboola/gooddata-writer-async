@@ -1246,6 +1246,39 @@ class RestApi
 		}
 	}
 
+	public function exportReport($uri, $filename)
+	{
+		$request = $this->client->get($uri, array(
+			'accept' => 'application/json',
+			'accept-charset' => 'utf-8'
+		));
+
+		if ($this->authSst) {
+			$request->addCookie('GDCAuthSST', $this->authSst);
+		}
+		if ($this->authTt) {
+			$request->addCookie('GDCAuthTT', $this->authTt);
+		}
+
+		$tries = 0;
+		while (true) {
+			$request->setResponseBody($filename);
+			$response = $request->send();
+
+			if ($response->getStatusCode() == 200) {
+				return $filename;
+			}
+			if ($tries > 20) {
+				throw new RestApiException("Unable to download report from url '" . $uri . "'");
+			}
+
+			sleep(5);
+			$tries++;
+		}
+
+		return null;
+	}
+
 	/**
 	 * Poll task uri and wait for its finish
 	 * @param $uri
