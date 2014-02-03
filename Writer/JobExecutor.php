@@ -200,23 +200,28 @@ class JobExecutor
 				$priority = Logger::INFO;
 		}
 
-		$this->log($event->getMessage(), $priority, array(
-			'writerId' => $event->getConfigurationId(),
-			'runId' => $event->getRunId(),
-			'description' => $event->getDescription(),
-			'params' => $event->getParams(),
-			'results' => $event->getResults(),
-			'duration' => $event->getDuration(),
-		));
-	}
-
-	protected function log($message, $priority, array $data)
-	{
-		$this->log->log($priority, $message, array_merge($data, array(
-			'runId' => $this->storageApiClient->getRunId(),
-			'token' => $this->storageApiClient->getLogData(),
+		$logData = array(
 			'jobId' => $this->job['id'],
-		)));
+			'writerId' => $event->getConfigurationId()
+		);
+		$description = $event->getDescription();
+		if (!empty($description)) {
+			$logData['description'] = $description;
+		}
+		$params = $event->getParams();
+		if (count($params)) {
+			$logData['params'] = $params;
+		}
+		$result = $event->getResults();
+		if (count($result)) {
+			$logData['result'] = $result;
+		}
+		$duration = $event->getDuration();
+		if (!empty($duration)) {
+			$logData['duration'] = $duration;
+		}
+
+		$this->log->log($priority, $event->getMessage(), $logData);
 	}
 
 	/**

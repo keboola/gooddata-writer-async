@@ -180,31 +180,14 @@ class CLToolApi
 		throw new \Exception('GoodData Service Unavailable', 400);
 	}
 
-	public function downloadXml($xmlUrl, $xmlFilePath)
-	{
-		$command = 'curl -sS -L --retry 12 ' . escapeshellarg($xmlUrl) . ' > ' . escapeshellarg($xmlFilePath);
-		$process = new Process($command);
-		$process->setTimeout(null);
-		$process->run();
-		if (!$process->isSuccessful()) {
-			$e = new CLToolApiErrorException('XML download failed.');
-			$e->setData(array(
-				'command' => $command,
-				'error' => $process->getErrorOutput(),
-				'output' => $process->getOutput()
-			));
-			throw $e;
-		}
-	}
-
 
 	/**
 	 * Set of commands which create a dataset
 	 */
-	public function createDataSetMaql($pid, $xmlUrl, $dataSetName)
+	public function createDataSetMaql($pid, $xml, $dataSetName)
 	{
 		$xmlFilePath = $this->tmpDir . '/model.xml';
-		$this->downloadXml($xmlUrl, $xmlFilePath);
+		file_put_contents($xmlFilePath, $xml);
 
 		$this->output = array();
 		if (file_exists($xmlFilePath)) {
@@ -237,10 +220,10 @@ class CLToolApi
 	/**
 	 * Set of commands which updates a dataset
 	 */
-	public function updateDataSetMaql($pid, $xmlUrl, $updateAll=FALSE, $dataSetName)
+	public function updateDataSetMaql($pid, $xml, $updateAll=FALSE, $dataSetName)
 	{
 		$xmlFilePath = $this->tmpDir . '/model.xml';
-		$this->downloadXml($xmlUrl, $xmlFilePath);
+		file_put_contents($xmlFilePath, $xml);
 
 		$this->output = array();
 		if (file_exists($xmlFilePath)) {
@@ -273,6 +256,60 @@ class CLToolApi
 		} else {
 			throw new \Exception('XML file does not exist: ' . $xmlFilePath);
 		}
+	}
+
+
+	/**
+	 *
+	 */
+	public static function getXml($definition)
+	{
+		$xml = new \DOMDocument();
+		$schema = $xml->createElement('schema');
+		$name = $xml->createElement('name', $definition['name']);
+		$schema->appendChild($name);
+		$columns = $xml->createElement('columns');
+
+		foreach ($definition['columns'] as $columnDefinition) {
+
+			$column = $xml->createElement('column');
+			$column->appendChild($xml->createElement('name', $columnDefinition['name']));
+			$column->appendChild($xml->createElement('title', $columnDefinition['title']));
+			$column->appendChild($xml->createElement('ldmType', $columnDefinition['type']));
+			if ($columnDefinition['type'] != 'FACT') {
+				$column->appendChild($xml->createElement('folder', $definition['name']));
+			}
+
+			if (!empty($columnDefinition['dataType'])) {
+				$column->appendChild($xml->createElement('dataType', $columnDefinition['dataType']));
+			}
+
+			if (!empty($columnDefinition['sortLabel'])) {
+				$column->appendChild($xml->createElement('sortLabel', $columnDefinition['sortLabel']));
+				$column->appendChild($xml->createElement('sortOrder', !empty($columnDefinition['sortOrder'])
+					? $columnDefinition['sortOrder'] : 'ASC'));
+			}
+
+			if (!empty($columnDefinition['reference'])) {
+				$column->appendChild($xml->createElement('reference', $columnDefinition['reference']));
+			}
+
+			if (!empty($columnDefinition['schemaReference'])) {
+				$column->appendChild($xml->createElement('schemaReference', $columnDefinition['schemaReference']));
+			}
+
+			if ($columnDefinition['type'] == 'DATE') {
+				$column->appendChild($xml->createElement('format', $columnDefinition['format']));
+				$column->appendChild($xml->createElement('datetime', $columnDefinition['includeTime'] ? 'true' : 'false'));
+			}
+
+			$columns->appendChild($column);
+		}
+
+		$schema->appendChild($columns);
+		$xml->appendChild($schema);
+
+		return $xml->saveXML();
 	}
 
 }

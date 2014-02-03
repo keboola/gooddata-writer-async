@@ -18,6 +18,8 @@ use Keboola\GoodDataWriter\GoodData\CLToolApi,
 	Keboola\GoodDataWriter\GoodData\WebDav;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\WebDavException;
+use Keboola\GoodDataWriter\Exception\ClientException;
+use Symfony\Component\Process\Process;
 use Symfony\Component\Stopwatch\Stopwatch;
 
 class UploadTable extends AbstractJob
@@ -74,10 +76,25 @@ class UploadTable extends AbstractJob
 		// Get xml
 		$stopWatchId = 'getXml';
 		$stopWatch->start($stopWatchId);
-		$xmlFile = $job['xmlFile'];
+		$definitionFile = $job['xmlFile'];
 		try {
-			$xmlUrl = $this->s3Client->url($xmlFile);
-			$xmlFileObject = $this->csvHandler->getXml($xmlUrl);
+			$definitionUrl = $this->s3Client->url($definitionFile);
+
+			$command = 'curl -sS -L --retry 12 ' . escapeshellarg($definitionUrl);
+			$process = new Process($command);
+			$process->setTimeout(null);
+			$process->run();
+			if (!$process->isSuccessful()) {
+				$e = new ClientException('Definition download from S3 failed.');
+				$e->setData(array(
+					'command' => $command,
+					'error' => $process->getErrorOutput(),
+					'output' => $process->getOutput()
+				));
+				throw $e;
+			}
+			$definition = json_decode($process->getOutput(), true);
+
 		} catch (CsvHandlerException $e) {
 			$this->log->warn('Download of data set xml failed', array(
 				'exception' => $e->getMessage(),
@@ -88,7 +105,7 @@ class UploadTable extends AbstractJob
 			throw new JobProcessException('Download of data set xml failed');
 		}
 		$e = $stopWatch->stop($stopWatchId);
-		$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'), 'xml' => $xmlUrl);
+		$eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'), 'definition' => $definitionUrl);
 
 		$dataSetName = !empty($tableDefinition['name']) ? $tableDefinition['name'] : $tableDefinition['id'];
 		$dataSetId = Model::getDatasetId($dataSetName);
@@ -97,7 +114,7 @@ class UploadTable extends AbstractJob
 		// Get manifest
 		$stopWatchId = 'getManifest';
 		$stopWatch->start($stopWatchId);
-		$manifest = Model::getDataLoadManifest($xmlFileObject, $incrementalLoad);
+		$manifest = Model::getDataLoadManifest($definition, $incrementalLoad);
 		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
 		$debug['manifest'] = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
 		$e = $stopWatch->stop($stopWatchId);
@@ -130,12 +147,12 @@ class UploadTable extends AbstractJob
 		$dateDimensions = null;
 		$dateDimensionsToLoad = array();
 		$newDimensions = array();
-		if ($xmlFileObject->columns) foreach ($xmlFileObject->columns->column as $column) if ((string)$column->ldmType == 'DATE') {
+		if ($definition['columns']) foreach ($definition['columns'] as $column) if ($column['type'] == 'DATE') {
 			if (!$dateDimensions) {
 				$dateDimensions = $this->configuration->getDateDimensions();
 			}
 
-			$dimension = (string)$column->schemaReference;
+			$dimension = $column['schemaReference'];
 			if (!isset($dateDimensions[$dimension])) {
 				throw new WrongConfigurationException("Date dimension '$dimension' does not exist");
 			}
@@ -249,7 +266,7 @@ class UploadTable extends AbstractJob
 				if ($this->preRelease) {
 					$this->restApi->callsLog = array();
 
-					$this->restApi->updateDataSet($gdJob['pid'], $dataSetName, $this->configuration->getDataSetDefinition($params['tableId']));
+					$this->restApi->updateDataSet($gdJob['pid'], $definition);
 
 					$e = $stopWatch->stop($stopWatchId);
 					$eventsLog[$stopWatchId] = array(
@@ -263,8 +280,9 @@ class UploadTable extends AbstractJob
 					$clToolApi->s3Dir = $tmpFolderName . '/' . $gdJob['pid'];
 					$clToolApi->tmpDir = $this->tmpDir . '/' . $gdJob['pid'];
 					if (!file_exists($clToolApi->tmpDir)) mkdir($clToolApi->tmpDir);
+					$xml = CLToolApi::getXml($definition);
 					if ($gdJob['command'] == 'create') {
-						$maql = $clToolApi->createDataSetMaql($gdJob['pid'], $xmlUrl, $dataSetName);
+						$maql = $clToolApi->createDataSetMaql($gdJob['pid'], $xml, $dataSetName);
 						$this->restApi->executeMaql($gdJob['pid'], $maql);
 
 						if (empty($tableDefinition['isExported'])) {
@@ -272,7 +290,7 @@ class UploadTable extends AbstractJob
 							$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
 						}
 					} else {
-						$maql = $clToolApi->updateDataSetMaql($gdJob['pid'], $xmlUrl, 1, $dataSetName);
+						$maql = $clToolApi->updateDataSetMaql($gdJob['pid'], $xml, 1, $dataSetName);
 						if ($maql) {
 							$this->restApi->executeMaql($gdJob['pid'], $maql);
 						}
@@ -345,7 +363,7 @@ class UploadTable extends AbstractJob
 
 				$this->csvHandler->initDownload($params['tableId'], $job['token'], $this->mainConfig['storage_api.url'],
 					$this->mainConfig['user_agent'], $gdJob['incrementalLoad'], $gdJob['filterColumn'], $gdJob['pid']);
-				$this->csvHandler->prepareTransformation($xmlFileObject);
+				$this->csvHandler->prepareTransformation($definition);
 				$this->csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl, '/uploads/' . $webDavFolder);
 				if (!$webDav->fileExists($webDavFolder . '/data.csv')) {
 					throw new WebDavException(sprintf("Csv file has not been uploaded to '%s/uploads/%s/data.csv'", $webDavUrl, $webDavFolder));

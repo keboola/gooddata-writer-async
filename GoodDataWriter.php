@@ -12,6 +12,7 @@ use Aws\S3\S3Client;
 use Aws\Sqs\SqsClient;
 use Guzzle\Common\Exception\InvalidArgumentException;
 use Guzzle\Http\Url;
+use Keboola\GoodDataWriter\GoodData\CLToolApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\GoodData\SSO,
@@ -19,8 +20,7 @@ use Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\Writer\SharedConfig,
 	Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\GoodDataWriter\Exception\JobProcessException,
-	Keboola\GoodDataWriter\Exception\WrongParametersException,
-	Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+	Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Syrup\ComponentBundle\Component\Component;
 use Monolog\Logger;
 use Symfony\Component\HttpFoundation\Response;
@@ -1027,7 +1027,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Parameter 'tableId' is missing");
 		}
 
-		$response = new Response($this->configuration->getXml($params['tableId']));
+		$response = new Response(CLToolApi::getXml($params['tableId']));
 		$response->headers->set('Content-Type', 'application/xml');
 		$response->headers->set('Access-Control-Allow-Origin', '*');
 		$response->send();
@@ -1058,8 +1058,8 @@ class GoodDataWriter extends Component
 
 		$batchId = $this->_storageApi->generateId();
 
-		$xml = $this->configuration->getXml($params['tableId']);
-		$xmlUrl = $this->getS3Client()->uploadString(sprintf('batch-%s/%s.xml', $batchId, $params['tableId']), $xml, 'text/xml');
+		$definition = $this->configuration->getDataSetDefinition($params['tableId']);
+
 
 		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
 		$jobData = array(
@@ -1067,7 +1067,6 @@ class GoodDataWriter extends Component
 			'command' => 'uploadTable',
 			'dataset' => !empty($tableDefinition['name']) ? $tableDefinition['name'] : $tableDefinition['id'],
 			'createdTime' => date('c', $createdTime),
-			'xmlFile' => $xmlUrl,
 			'parameters' => array(
 				'tableId' => $params['tableId']
 			),
@@ -1083,6 +1082,12 @@ class GoodDataWriter extends Component
 			$jobData['parameters']['sanitize'] = $params['sanitize'];
 		}
 		$jobInfo = $this->_createJob($jobData);
+
+
+		$this->sharedConfig->saveJob($jobInfo['id'], array(
+			'xmlFile' => $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $params['tableId']), json_encode($definition))
+		));
+
 		$this->_enqueue($jobInfo['batchId']);
 
 
@@ -1115,74 +1120,16 @@ class GoodDataWriter extends Component
 		$runId = $this->_storageApi->getRunId();
 		$batchId = $this->_storageApi->generateId();
 
-		// Get tables XML and check them for errors
-		$tables = array();
-		foreach ($this->configuration->getDataSets() as $dataSet) if (!empty($dataSet['export'])) {
-			try {
-				$xml = $this->configuration->getXml($dataSet['id']);
-			} catch (WrongConfigurationException $e) {
-				throw new WrongConfigurationException(sprintf('Wrong configuration of table \'%s\': %s', $dataSet['id'], $e->getMessage()));
-			}
-			$xmlUrl = $this->getS3Client()->uploadString(sprintf('batch-%s/%s.xml', $batchId, $dataSet['id']), $xml, 'text/xml');
-			$definition = $this->configuration->getDataSet($dataSet['id']);
 
-			$tables[$dataSet['id']] = array(
-				'dataset' => !empty($dataSet['name']) ? $dataSet['name'] : $dataSet['id'],
-				'tableId' => $dataSet['id'],
-				'xml' => $xmlUrl,
-				'definition' => $definition['columns']
-			);
-		}
-
-
-		// @TODO move the code somewhere else
-		// Sort tables for GD export according to their references
-		$unsortedTables = array();
-		$sortedTables = array();
-		$references = array();
-		$allTableIds = array_keys($tables);
-		foreach ($tables as $tableId => $tableConfig) {
-			$unsortedTables[$tableId] = $tableConfig;
-			foreach ($tableConfig['definition'] as $c) if ($c['type'] == 'REFERENCE' && !empty($c['schemaReference'])) {
-				if (in_array($c['schemaReference'], $allTableIds)) {
-					$references[$tableId][] = $c['schemaReference'];
-				} else {
-					throw new WrongConfigurationException("Schema reference '{$c['schemaReference']}' for table '{$tableId}'does not exist");
-				}
-			}
-		}
-
-		$ttl = 20;
-		while (count($unsortedTables)) {
-			foreach ($unsortedTables as $tableId => $tableConfig) {
-				$areSortedReferences = TRUE;
-				if (isset($references[$tableId])) foreach($references[$tableId] as $r) {
-					if (!array_key_exists($r, $sortedTables)) {
-						$areSortedReferences = FALSE;
-					}
-				}
-				if ($areSortedReferences) {
-					$sortedTables[$tableId] = $tableConfig;
-					unset($unsortedTables[$tableId]);
-				}
-			}
-			$ttl--;
-
-			if ($ttl <= 0) {
-				throw new WrongConfigurationException('Check of references failed with timeout. You probably have a recursion in tables references');
-			}
-		}
-
-		foreach ($sortedTables as $table) {
+		foreach ($this->configuration->getSortedDataSets() as $dataSet) {
 			$jobData = array(
 				'batchId' => $batchId,
 				'runId' => $runId,
 				'command' => 'uploadTable',
-				'dataset' => $table['dataset'],
+				'dataset' => $dataSet['title'],
 				'createdTime' => date('c', $createdTime),
-				'xmlFile' => $table['xml'],
 				'parameters' => array(
-					'tableId' => $table['tableId']
+					'tableId' => $dataSet['tableId']
 				),
 				'queue' => isset($params['queue']) ? $params['queue'] : null
 			);
@@ -1192,10 +1139,11 @@ class GoodDataWriter extends Component
 			if (isset($params['incrementalLoad'])) {
 				$jobData['parameters']['incrementalLoad'] = $params['incrementalLoad'];
 			}
-			if (isset($params['sanitize'])) {
-				$jobData['parameters']['sanitize'] = $params['sanitize'];
-			}
-			$this->_createJob($jobData);
+			$jobInfo = $this->_createJob($jobData);
+
+			$this->sharedConfig->saveJob($jobInfo['id'], array(
+				'xmlFile' => $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $dataSet['tableId']), json_encode($dataSet['definition']))
+			));
 		}
 
 		// Execute reports

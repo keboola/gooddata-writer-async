@@ -53,7 +53,7 @@ class CsvHandler
 	/**
 	 * Parse csv and prepare for data load
 	 */
-	public function prepareTransformation($xmlFileObject)
+	public function prepareTransformation($definition)
 	{
 		if (!$this->command) {
 			throw new CsvHandlerException('You must init the download first');
@@ -64,31 +64,31 @@ class CsvHandler
 		$dateColumnsIndices = array();
 		$timeColumnsIndices = array();
 		$i = 1;
-		foreach ($xmlFileObject->columns->column as $column) {
+		foreach ($definition['columns'] as $column) {
 			$gdName = null;
-			switch ((string)$column->ldmType) {
+			switch ($column['type']) {
 				case 'CONNECTION_POINT':
-					$csvHeaders[] = (string)$column->name;
+					$csvHeaders[] = $column['name'];
 					break;
 				case 'FACT':
-					$csvHeaders[] = (string)$column->name;
+					$csvHeaders[] = $column['name'];
 					break;
 				case 'ATTRIBUTE':
-					$csvHeaders[] = (string)$column->name;
+					$csvHeaders[] = $column['name'];
 					break;
 				case 'LABEL':
 				case 'HYPERLINK':
-					$csvHeaders[] = (string)$column->name;
+					$csvHeaders[] = $column['name'];
 					break;
 				case 'REFERENCE':
-					$csvHeaders[] = (string)$column->name;
+					$csvHeaders[] = $column['name'];
 					break;
 				case 'DATE':
-					$csvHeaders[] = (string)$column->name;
-					$csvHeaders[] = (string)$column->name . '_dt';
-					if ((string)$column->datetime == 'true') {
-						$csvHeaders[] = (string)$column->name . '_tm';
-						$csvHeaders[] = (string)$column->name . '_id';
+					$csvHeaders[] = $column['name'];
+					$csvHeaders[] = $column['name'] . '_dt';
+					if ($column['includeTime']) {
+						$csvHeaders[] = $column['name'] . '_tm';
+						$csvHeaders[] = $column['name'] . '_id';
 
 						$timeColumnsIndices[] = $i;
 					}
@@ -163,32 +163,6 @@ class CsvHandler
 		}
 
 		$this->command = null;
-	}
-
-
-
-
-
-	/**
-	 * Get and parse xml definition
-	 * @return \SimpleXMLElement
-	 */
-	public function getXml($url)
-	{
-		$context  = stream_context_create(array('http' => array('header' => 'Accept: application/xml')));
-		$xml = file_get_contents($url, false, $context);
-
-		libxml_use_internal_errors(TRUE);
-		$xmlFileObject = simplexml_load_string($xml);
-		if (!$xmlFileObject) {
-			$errors = '';
-			foreach (libxml_get_errors() as $error) {
-				$errors .= $error->message;
-			}
-			throw new CsvHandlerException($errors);
-		}
-
-		return $xmlFileObject;
 	}
 
 }

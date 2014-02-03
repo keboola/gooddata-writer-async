@@ -46,37 +46,36 @@ class Model
 	/**
  	 * Create json for LDM model manipulation
  	*/
-	public function getLDM($dataSetName, $tableDefinition)
+	public function getLDM($tableDefinition)
 	{
 		$dataSet = array(
-			'identifier' => self::getDatasetId($dataSetName),
-			'title' => $dataSetName
+			'identifier' => self::getDatasetId($tableDefinition['name']),
+			'title' => $tableDefinition['name']
 		);
+		$dataSetId = self::getId($tableDefinition['name']);
 
 		$facts = array();
 		$attributes = array();
 		$references = array();
 		$labels = array();
 		$connectionPoint = null;
-		foreach ($tableDefinition as $columnName => $column) {
-			$columnGDName = empty($column['gdName']) ? $columnName : $column['gdName'];
-			$columnIdentifier = self::getId($columnGDName);
-			$columnTitle = sprintf('%s (%s)', $columnGDName, $dataSetName);
+		foreach ($tableDefinition['columns'] as $column) {
+			$columnIdentifier = self::getId($column['name']);
 
 			switch($column['type']) {
 				case 'CONNECTION_POINT' :
-					$connectionPoint = $columnGDName;
+					$connectionPoint = $column['name'];
 					$dataSet['anchor'] = array(
 						'attribute' => array(
-							'identifier' => 'attr.' . self::getId($dataSetName) . '.' . $columnIdentifier,
-							'title' => $columnTitle,
-							'folder' => $dataSetName
+							'identifier' => 'attr.' . $dataSetId . '.' . $columnIdentifier,
+							'title' => $column['title'],
+							'folder' => $tableDefinition['name']
 						)
 					);
-					$labels[$columnName][] = array(
+					$labels[$column['name']][] = array(
 						'label' => array(
-							'identifier' => 'label.' . self::getId($dataSetName) . '.' . $columnIdentifier,
-							'title' => $columnTitle,
+							'identifier' => 'label.' . $dataSetId . '.' . $columnIdentifier,
+							'title' => $column['title'],
 							'type' => 'GDC.' . ($column['type'] == 'HYPERLINK' ? 'link' : 'text')
 						)
 					);
@@ -84,8 +83,8 @@ class Model
 				case 'FACT' :
 					$fact = array(
 						'fact' => array(
-							'identifier' => 'fact.' . self::getId($dataSetName) . '.' . $columnIdentifier,
-							'title' => $columnTitle,
+							'identifier' => 'fact.' . $dataSetId . '.' . $columnIdentifier,
+							'title' => $column['title'],
 						)
 					);
 					if (!empty($column['dataType'])) {
@@ -97,17 +96,17 @@ class Model
 					$facts[] = $fact;
 					break;
 				case 'ATTRIBUTE' :
-					$attributes[$columnName] = array(
+					$attributes[$column['name']] = array(
 						'attribute' => array(
-							'identifier' => 'attr.' . self::getId($dataSetName) . '.' . $columnIdentifier,
-							'title' => $columnTitle,
-							'folder' => $dataSetName
+							'identifier' => 'attr.' . $dataSetId . '.' . $columnIdentifier,
+							'title' => $column['title'],
+							'folder' => $tableDefinition['name']
 						)
 					);
-					$labels[$columnName][] = array(
+					$labels[$column['name']][] = array(
 						'label' => array(
-							'identifier' => 'label.' . self::getId($dataSetName) . '.' . $columnIdentifier,
-							'title' => $columnTitle,
+							'identifier' => 'label.' . $dataSetId . '.' . $columnIdentifier,
+							'title' => $column['title'],
 							'type' => 'GDC.' . ($column['type'] == 'HYPERLINK' ? 'link' : 'text')
 						)
 					);
@@ -119,35 +118,35 @@ class Model
 					}
 					$labels[$column['reference']][] = array(
 						'label' => array(
-							'identifier' => 'label.' . self::getId($dataSetName) . '.' . self::getId($column['reference']) . '.' . $columnIdentifier,
-							'title' => $columnTitle,
+							'identifier' => 'label.' . $dataSetId . '.' . self::getId($column['reference']) . '.' . $columnIdentifier,
+							'title' => $column['title'],
 							'type' => 'GDC.' . ($column['type'] == 'HYPERLINK' ? 'link' : 'text')
 						)
 					);
 
 					break;
 				case 'REFERENCE' :
-					$references[] = self::getDatasetId($column['schemaReferenceName']);
+					$references[] = self::getDatasetId($column['schemaReference']);
 					break;
 				case 'DATE' :
 					if ($column['includeTime']) {
-						$references[] = 'dataset.time.' . self::getId($column['dateDimension']);
+						$references[] = 'dataset.time.' . self::getId($column['schemaReference']);
 						$facts[] = array(
 							'fact' => array(
-								'identifier' => 'dt.' . self::getId($dataSetName) . '.' . $columnIdentifier,
-								'title' => sprintf('%s Date', $columnTitle, $dataSetName),
+								'identifier' => 'dt.' . $dataSetId . '.' . $columnIdentifier,
+								'title' => sprintf('%s Date', $column['title'], $tableDefinition['name']),
 								'dataType' => 'INT'
 							)
 						);
 						$facts[] = array(
 							'fact' => array(
-								'identifier' => 'tm.dt.' . self::getId($dataSetName) . '.' . $columnIdentifier,
-								'title' => sprintf('%s Time', $columnTitle, $dataSetName),
+								'identifier' => 'tm.dt.' . $dataSetId . '.' . $columnIdentifier,
+								'title' => sprintf('%s Time', $column['title'], $tableDefinition['name']),
 								'dataType' => 'INT'
 							)
 						);
 					}
-					$references[] = self::getId($column['dateDimension']);
+					$references[] = self::getId($column['schemaReference']);
 					break;
 			}
 		}
@@ -176,29 +175,25 @@ class Model
 
 	/**
 	 * Create manifest for data load
-	 * @param $xmlFileObject
-	 * @param $incrementalLoad
-	 * @return array
 	 */
-	public static function getDataLoadManifest($xmlFileObject, $incrementalLoad)
+	public static function getDataLoadManifest($definition, $incrementalLoad)
 	{
-		$datasetName = self::getId($xmlFileObject->name);
+		$dataSetName = self::getId($definition['name']);
 		$manifest = array(
 			'dataSetSLIManifest' => array(
 				'file' => 'data.csv',
-				'dataSet' => 'dataset.' . $datasetName,
+				'dataSet' => 'dataset.' . $dataSetName,
 				'parts' => array()
 			)
 		);
-		foreach ($xmlFileObject->columns->column as $column) {
-			$columnName = self::getId($column->name);
-			$gdName = null;
-			switch ((string)$column->ldmType) {
+		foreach ($definition['columns'] as $column) {
+			$columnName = self::getId($column['name']);
+			switch ($column['type']) {
 				case 'CONNECTION_POINT':
 					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => (string)$column->name,
+						'columnName' => $column['name'],
 						'populates' => array(
-							sprintf('label.%s.%s', $datasetName, $columnName)
+							sprintf('label.%s.%s', $dataSetName, $columnName)
 						),
 						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
 						'referenceKey' => 1
@@ -206,18 +201,18 @@ class Model
 					break;
 				case 'FACT':
 					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => (string)$column->name,
+						'columnName' => $column['name'],
 						'populates' => array(
-							sprintf('fact.%s.%s', $datasetName, $columnName)
+							sprintf('fact.%s.%s', $dataSetName, $columnName)
 						),
 						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
 					);
 					break;
 				case 'ATTRIBUTE':
 					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => (string)$column->name,
+						'columnName' => $column['name'],
 						'populates' => array(
-							sprintf('label.%s.%s', $datasetName, $columnName)
+							sprintf('label.%s.%s', $dataSetName, $columnName)
 						),
 						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
 						'referenceKey' => 1
@@ -226,53 +221,53 @@ class Model
 				case 'LABEL':
 				case 'HYPERLINK':
 					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => (string)$column->name,
+						'columnName' => $column['name'],
 						'populates' => array(
-							sprintf('label.%s.%s.%s', $datasetName, self::getId($column->reference), $columnName)
+							sprintf('label.%s.%s.%s', $dataSetName, self::getId($column['reference']), $columnName)
 						),
 						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
 					);
 					break;
 				case 'REFERENCE':
 					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => (string)$column->name,
+						'columnName' => $column['name'],
 						'populates' => array(
-							sprintf('label.%s.%s', self::getId($column->schemaReference), self::getId($column->reference))
+							sprintf('label.%s.%s', self::getId($column['schemaReference']), self::getId($column['reference']))
 						),
 						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
 						'referenceKey' => 1
 					);
 					break;
 				case 'DATE':
-					$dimensionName = self::getId($column->schemaReference);
+					$dimensionName = self::getId($column['schemaReference']);
 					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => (string)$column->name,
+						'columnName' => $column['name'],
 						'populates' => array(
 							sprintf('%s.date.mmddyyyy', $dimensionName)
 						),
 						'constraints' => array(
-							'date' => (string)$column->format
+							'date' => (string)$column['format']
 						),
 						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
 						'referenceKey' => 1
 					);
 					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => (string)$column->name . '_dt',
+						'columnName' => $column['name'] . '_dt',
 						'populates' => array(
-							sprintf('dt.%s.%s', $datasetName, $columnName)
+							sprintf('dt.%s.%s', $dataSetName, $columnName)
 						),
 						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
 					);
-					if ((string)$column->datetime == 'true') {
+					if ($column['includeTime']) {
 						$manifest['dataSetSLIManifest']['parts'][] = array(
-							'columnName' => (string)$column->name . '_tm',
+							'columnName' => $column['name'] . '_tm',
 							'populates' => array(
-								sprintf('tm.dt.%s.%s', $datasetName, $columnName)
+								sprintf('tm.dt.%s.%s', $dataSetName, $columnName)
 							),
 							'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
 						);
 						$manifest['dataSetSLIManifest']['parts'][] = array(
-							'columnName' => (string)$column->name . '_id',
+							'columnName' => $column['name'] . '_id',
 							'populates' => array(
 								sprintf('label.time.second.of.day.%s', $dimensionName)
 							),
