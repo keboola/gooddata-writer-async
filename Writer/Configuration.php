@@ -461,40 +461,6 @@ class Configuration extends StorageApiConfiguration
 	}
 
 
-	public function getDataSetDefinition($tableId)
-	{
-		$tableNames = false;
-		$timeDimensions = false;
-
-		$dataSet = $this->getDataSet($tableId);
-
-		foreach ($dataSet['columns'] as &$column) {
-			if ($column['type'] == 'DATE') {
-				if ($timeDimensions === false) {
-					$timeDimensions = array();
-					foreach ($this->getDateDimensions() as $d) {
-						if ($d['includeTime']) {
-							$timeDimensions[] = $d['name'];
-						}
-					}
-				}
-				$column['includeTime'] = in_array($column['dateDimension'], $timeDimensions);
-			}
-			if ($column['type'] == 'REFERENCE') {
-				if ($tableNames === false) {
-					$tableNames = array();
-					foreach ($this->getDataSets() as $table) {
-						$tableNames[$table['id']] = $table['name'];
-					}
-				}
-				$column['schemaReferenceName'] = $tableNames[$column['schemaReference']];
-			}
-		}
-
-		return $dataSet['columns'];
-	}
-
-
 
 	/**
 	 * Check if data set has connection point
@@ -723,7 +689,7 @@ class Configuration extends StorageApiConfiguration
 	}
 
 
-	public function getXml($tableId)
+	public function getDataSetDefinition($tableId)
 	{
 		$this->updateDataSetsFromSapi();
 		$this->updateDataSetFromSapi($tableId);
@@ -733,14 +699,12 @@ class Configuration extends StorageApiConfiguration
 		$dataSetName = !empty($gdDefinition['name']) ? $gdDefinition['name'] : $gdDefinition['id'];
 		$sourceTable = $this->getSapiTable($tableId);
 
-		$xml = new \DOMDocument();
-		$schema = $xml->createElement('schema');
-		$name = $xml->createElement('name', $dataSetName);
-		$schema->appendChild($name);
-		$columns = $xml->createElement('columns');
+		$result = array(
+			'name' => $dataSetName,
+			'columns' => array()
+		);
 
 		foreach ($sourceTable['columns'] as $columnName) {
-
 			if (!isset($gdDefinition['columns'][$columnName])) {
 				$columnDefinition = array(
 					'name' => $columnName,
@@ -752,44 +716,38 @@ class Configuration extends StorageApiConfiguration
 				$columnDefinition = $gdDefinition['columns'][$columnName];
 			}
 
-			$column = $xml->createElement('column');
-			$column->appendChild($xml->createElement('name', $columnName));
-			$column->appendChild($xml->createElement('title', (!empty($columnDefinition['gdName']) ? $columnDefinition['gdName']
-					: $columnName) . ' (' . $dataSetName . ')'));
-			$column->appendChild($xml->createElement('ldmType', !empty($columnDefinition['type']) ? $columnDefinition['type'] : 'IGNORE'));
-			if ($columnDefinition['type'] != 'FACT') {
-				$column->appendChild($xml->createElement('folder', $dataSetName));
-			}
-
+			$column = array(
+				'name' => $columnName,
+				'title' => (!empty($columnDefinition['gdName']) ? $columnDefinition['gdName'] : $columnName) . ' (' . $dataSetName . ')',
+				'type' => !empty($columnDefinition['type']) ? $columnDefinition['type'] : 'IGNORE'
+			);
 			if (!empty($columnDefinition['dataType'])) {
 				$dataType = $columnDefinition['dataType'];
 				if (!empty($columnDefinition['dataTypeSize'])) {
 					$dataType .= '(' . $columnDefinition['dataTypeSize'] . ')';
 				}
-				$column->appendChild($xml->createElement('dataType', $dataType));
+				$column['dataType'] = $dataType;
 			}
 
 			if (!empty($columnDefinition['type'])) switch($columnDefinition['type']) {
 				case 'ATTRIBUTE':
 					if (!empty($columnDefinition['sortLabel'])) {
-						$column->appendChild($xml->createElement('sortLabel', $columnDefinition['sortLabel']));
-						$column->appendChild($xml->createElement('sortOrder', !empty($columnDefinition['sortOrder'])
-							? $columnDefinition['sortOrder'] : 'ASC'));
+						$column['sortLabel'] = $columnDefinition['sortLabel'];
+						$column['sortOrder'] = !empty($columnDefinition['sortOrder']) ? $columnDefinition['sortOrder'] : 'ASC';
 					}
 					break;
 				case 'LABEL':
 				case 'HYPERLINK':
-					$column->appendChild($xml->createElement('reference', $columnDefinition['reference']));
+					$column['reference'] = $columnDefinition['reference'];
 					break;
 				case 'DATE':
 					if (!$dateDimensions) {
 						$dateDimensions = $this->getDateDimensions();
 					}
 					if (!empty($columnDefinition['dateDimension']) && isset($dateDimensions[$columnDefinition['dateDimension']])) {
-						$column->appendChild($xml->createElement('format', $columnDefinition['format']));
-						$column->appendChild($xml->createElement('datetime',
-							$dateDimensions[$columnDefinition['dateDimension']]['includeTime'] ? 'true' : 'false'));
-						$column->appendChild($xml->createElement('schemaReference', $columnDefinition['dateDimension']));
+						$column['format'] = $columnDefinition['format'];
+						$column['includeTime'] = (bool)$dateDimensions[$columnDefinition['dateDimension']]['includeTime'];
+						$column['schemaReference'] = $columnDefinition['dateDimension'];
 					} else {
 						throw new WrongConfigurationException("Date column '{$columnDefinition['name']}' does not have valid date dimension assigned");
 					}
@@ -804,7 +762,8 @@ class Configuration extends StorageApiConfiguration
 						}
 						if ($refTableDefinition) {
 							$refTableName = !empty($refTableDefinition['name']) ? $refTableDefinition['name'] : $refTableDefinition['id'];
-							$column->appendChild($xml->createElement('schemaReference', $refTableName));
+							$column['schemaReference'] = $refTableName;
+							$column['schemaReferenceId'] = $refTableDefinition['id'];
 							$reference = NULL;
 							foreach ($refTableDefinition['columns'] as $cName => $c) {
 								if ($c['type'] == 'CONNECTION_POINT') {
@@ -813,7 +772,7 @@ class Configuration extends StorageApiConfiguration
 								}
 							}
 							if ($reference) {
-								$column->appendChild($xml->createElement('reference', $reference));
+								$column['reference'] = $reference;
 							} else {
 								throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}' "
 									. "of column '{$columnName}' does not have connection point");
@@ -828,14 +787,70 @@ class Configuration extends StorageApiConfiguration
 
 					break;
 			}
-
-			$columns->appendChild($column);
+			$result['columns'][] = $column;
 		}
 
-		$schema->appendChild($columns);
-		$xml->appendChild($schema);
+		return $result;
+	}
 
-		return $xml->saveXML();
+	/**
+	 * Return data sets sorted according to their references
+	 */
+	public function getSortedDataSets()
+	{
+		$dataSets = array();
+		foreach ($this->getDataSets() as $dataSet) if (!empty($dataSet['export'])) {
+			try {
+				$definition = $this->getDataSetDefinition($dataSet['id']);
+			} catch (WrongConfigurationException $e) {
+				throw new WrongConfigurationException(sprintf('Wrong configuration of table \'%s\': %s', $dataSet['id'], $e->getMessage()));
+			}
+
+			$dataSets[$dataSet['id']] = array(
+				'tableId' => $dataSet['id'],
+				'title' => $definition['name'],
+				'definition' => $definition
+			);
+		}
+
+		// Sort tables for GD export according to their references
+		$unsorted = array();
+		$sorted = array();
+		$references = array();
+		$allIds = array_keys($dataSets);
+		foreach ($dataSets as $tableId => $tableConfig) {
+			$unsorted[$tableId] = $tableConfig;
+			foreach ($tableConfig['definition']['columns'] as $c) if ($c['type'] == 'REFERENCE' && !empty($c['schemaReferenceId'])) {
+				if (in_array($c['schemaReferenceId'], $allIds)) {
+					$references[$tableId][] = $c['schemaReferenceId'];
+				} else {
+					throw new WrongConfigurationException("Schema reference '{$c['schemaReferenceId']}' for table '{$tableId}'does not exist");
+				}
+			}
+		}
+
+		$ttl = 20;
+		while (count($unsorted)) {
+			foreach ($unsorted as $tableId => $tableConfig) {
+				$areSortedReferences = TRUE;
+				if (isset($references[$tableId])) foreach($references[$tableId] as $r) {
+					if (!array_key_exists($r, $sorted)) {
+						$areSortedReferences = FALSE;
+					}
+				}
+				if ($areSortedReferences) {
+					$sorted[$tableId] = $tableConfig;
+					unset($unsorted[$tableId]);
+				}
+			}
+			$ttl--;
+
+			if ($ttl <= 0) {
+				throw new WrongConfigurationException('Check of references failed with timeout. You probably have a recursion in references');
+			}
+		}
+
+		return $sorted;
 	}
 
 

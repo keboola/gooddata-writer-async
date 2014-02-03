@@ -739,12 +739,12 @@ class RestApi
 
 
 
-	public function updateDataSet($pid, $dataSetName, $columns)
+	public function updateDataSet($pid, $definition)
 	{
 		$model = $this->getProjectModel($pid);
 		foreach ($model['projectModel']['datasets'] as &$dataSet) {
-			if ($dataSet['dataset']['title'] == $dataSetName) {
-				$dataSet['dataset'] = $this->model->getLDM($dataSetName, $columns);
+			if ($dataSet['dataset']['title'] == $definition['name']) {
+				$dataSet['dataset'] = $this->model->getLDM($definition);
 				break;
 			}
 		}
