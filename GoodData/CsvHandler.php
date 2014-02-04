@@ -145,24 +145,35 @@ class CsvHandler
 
 		$this->command .= ' | ' . $command;
 
-		$process = new Process($this->command);
-		$process->setTimeout(null);
-		$process->run();
-		if (!$process->isSuccessful()) {
-			$message = 'CSV handling failed. ' . $process->getErrorOutput();
-			$e = new CsvHandlerException($message);
-			$e->setData(array('command' => $this->command));
-			if (!$process->getErrorOutput()) {
-				$e->setData(array(
-					'priority' => 'alert',
-					'command' => $this->command,
-					'error' => 'No error output'
-				));
+		$error = null;
+		for ($i = 0; $i < 5; $i++) {
+			$process = new Process($this->command);
+			$process->setTimeout(null);
+			$process->run();
+			if ($process->isSuccessful()) {
+				$this->command = null;
+				return;
+			} else {
+				$error = $process->getErrorOutput();
+				if (substr($error, 0, 10) != 'curl: (55)') {
+					break;
+				}
 			}
-			throw $e;
+
+			sleep($i * 60);
 		}
 
+		$e = new CsvHandlerException('CSV handling failed. ' . $error);
+		$e->setData(array('command' => $this->command));
+		if (!$error) {
+			$e->setData(array(
+				'priority' => 'alert',
+				'command' => $this->command,
+				'error' => 'No error output'
+			));
+		}
 		$this->command = null;
+		throw $e;
 	}
 
 }
