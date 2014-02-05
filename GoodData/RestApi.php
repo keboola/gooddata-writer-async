@@ -18,6 +18,44 @@ use stdClass;
 
 class RestApiException extends \Exception
 {
+	private $details;
+
+	public function __construct($message, $details = null, $code = 0, \Exception $previous = null)
+	{
+		if ($details) {
+			$this->setDetails($details);
+		}
+
+		parent::__construct($message, $code, $previous);
+	}
+
+	public function getDetails()
+	{
+		$result = array(
+			'error' => $this->getMessage(),
+			'source' => 'Rest API'
+		);
+		if (count($this->details)) {
+			$result['details'] = $this->details;
+		}
+		return $result;
+	}
+
+	public function setDetails($details)
+	{
+		if (!is_array($details)) {
+			$decode = json_decode($details, true);
+			$details = $decode ? $decode : array($details);
+		}
+
+		$details = RestApi::parseError($details);
+		foreach ($details as &$detail) {
+			$detail = RestApi::parseError($detail);
+		}
+
+		$this->details = $details;
+	}
+
 
 }
 
@@ -100,6 +138,15 @@ class RestApi
 			$baseUrl = 'https://' . $url;
 		}
 		$this->client->setBaseUrl($baseUrl);
+	}
+
+	public static function parseError($message)
+	{
+		if (isset($message['error']) && isset($message['error']['parameters']) && isset($message['error']['message'])) {
+			$message['error']['message'] = vsprintf($message['error']['message'], $message['error']['parameters']);
+			unset($message['error']['parameters']);
+		}
+		return $message;
 	}
 
 	/**
@@ -991,7 +1038,8 @@ class RestApi
 		} while (in_array($taskResponse['wTaskStatus']['status'], array('PREPARED', 'RUNNING')));
 
 		if ($taskResponse['wTaskStatus']['status'] == 'ERROR') {
-			throw new RestApiException('Task /ldm/manage2 finished with error');
+			$messages = isset($taskResponse['wTaskStatus']['messages']) ? $taskResponse['wTaskStatus']['messages'] : null;
+			throw new RestApiException('Task /ldm/manage2 finished with error', $messages);
 		}
 
 		return $taskResponse;
@@ -1299,7 +1347,7 @@ class RestApi
 				'headers' => $headers,
 				'exception' => $e
 			));
-			throw new RestApiException('Rest API: ' . $e->getMessage());
+			throw new RestApiException('Bad API response', $e->getMessage());
 		}
 	}
 
@@ -1337,7 +1385,7 @@ class RestApi
 					$request = $this->client->delete($uri, $headers);
 					break;
 				default:
-					throw new RestApiException('Unsupported request method');
+					throw new RestApiException('Unsupported request method "' . $method . '"');
 			}
 			if ($this->authSst) {
 				$request->addCookie('GDCAuthSST', $this->authSst);
@@ -1372,7 +1420,7 @@ class RestApi
 						}
 						$response = json_encode($responseJson);
 					}
-					throw new RestApiException($response);
+					throw new RestApiException('API error ' . $request->getResponse()->getStatusCode(), $response);
 				}
 			} catch (ServerErrorResponseException $e) {
 				$response = $request->getResponse()->getBody(true);
@@ -1388,15 +1436,16 @@ class RestApi
 		}
 
 		/** @var $response \Guzzle\Http\Message\Response */
+		$status = $request ? $request->getResponse()->getStatusCode() : null;
 		$this->log->alert('API error', array(
 			'uri' => $uri,
 			'method' => $method,
 			'params' => $jsonParams,
 			'headers' => $headers,
 			'response' => $response,
-			'status' => $request ? $request->getResponse()->getStatusCode() : null
+			'status' => $status
 		));
-		throw new RestApiException('API error: ' . $response);
+		throw new RestApiException('API error ' . $status, $response);
 	}
 
 	/**
@@ -1419,7 +1468,7 @@ class RestApi
 				)
 			), array(), true, false);
 		} catch (RestApiException $e) {
-			throw new RestApiException('Rest API Login failed');
+			throw new RestApiException('Rest API Login failed', $e->getMessage());
 		}
 
 		$this->authSst = $this->findCookie($response, 'GDCAuthSST');
@@ -1440,7 +1489,7 @@ class RestApi
 		try {
 			$response = $this->request('/gdc/account/token', 'GET', array(), array(), true, false);
 		} catch (RestApiException $e) {
-			throw new RestApiException('Rest refresh token failed');
+			throw new RestApiException('Refresh token failed', $e->getMessage());
 		}
 
 		$this->authTt = $this->findCookie($response, 'GDCAuthTT');

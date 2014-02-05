@@ -47,6 +47,6 @@ class DeleteWriter extends AbstractJob
 
 		$this->configuration->deleteWriter();
 
-		return $this->_prepareResult($job['id'], array(), null);
+		return array();
 	}
 }

@@ -43,6 +43,8 @@ abstract class AbstractJob
 	 */
 	public $log;
 
+	public $eventsLog;
+
 	public function __construct($configuration, $mainConfig, $sharedConfig, $restApi, $s3Client)
 	{
 		$this->configuration = $configuration;
@@ -56,32 +58,12 @@ abstract class AbstractJob
 
 	abstract function run($job, $params);
 
-
-	protected function _prepareResult($jobId, $data = array(), $log = null, $folderName = null)
-	{
-		$logUrl = null;
-		if ($log) {
-			if (!defined('JSON_PRETTY_PRINT')) {
-				// fallback for PHP <= 5.3
-				define('JSON_PRETTY_PRINT', 0);
-			}
-			$fileName = ($folderName ? $folderName : $jobId) . '/' . 'log.json';
-			$logUrl = $this->s3Client->uploadString($fileName, json_encode($log, JSON_PRETTY_PRINT));
-		}
-
-		if ($logUrl) {
-			$data['log'] = $logUrl;
-		}
-
-		return $data;
-	}
-
 	/**
 	 * @param array $params
 	 * @param array $required
 	 * @throws WrongConfigurationException
 	 */
-	protected function _checkParams($params, $required)
+	protected function checkParams($params, $required)
 	{
 		foreach($required as $k) {
 			if (empty($params[$k])) {

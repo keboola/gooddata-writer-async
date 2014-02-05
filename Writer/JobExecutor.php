@@ -11,7 +11,6 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
-	Keboola\GoodDataWriter\GoodData\UnauthorizedException,
 	Keboola\StorageApi\ClientException as StorageApiClientException;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
@@ -64,6 +63,11 @@ class JobExecutor
 		$this->sharedConfig = $sharedConfig;
 		$this->log = $container->get('logger');
 		$this->container = $container;
+
+		if (!defined('JSON_PRETTY_PRINT')) {
+			// fallback for PHP <= 5.3
+			define('JSON_PRETTY_PRINT', 0);
+		}
 	}
 
 	public function runBatch($batchId, $force = false)
@@ -295,12 +299,10 @@ class JobExecutor
 				$data = array();
 
 				if ($e instanceof RestApiException) {
-					$error = 'Rest API';
+					$error = $e->getDetails();
 				} elseif ($e instanceof CLToolApiErrorException) {
 					$error = 'CL Tool';
 					$data = $e->getData();
-				} elseif ($e instanceof UnauthorizedException) {
-					$error = 'Bad GoodData credentials';
 				} elseif ($e instanceof StorageApiClientException) {
 					$error = 'Storage API';
 				} elseif ($e instanceof ClientException) {
@@ -314,7 +316,7 @@ class JobExecutor
 
 				if ($error) {
 					$result['status'] = 'error';
-					$result['error'] = $error . ': ' . $e->getMessage();
+					$result['error'] = is_array($error) ? $error : array('error' => $error,  'details' => $e->getMessage());
 					$result['trace'] = $s3Client->uploadString($job['id'] . '/trace.txt', json_encode($e->getTraceAsString(), JSON_PRETTY_PRINT));
 				} else {
 					throw $e;
@@ -324,6 +326,13 @@ class JobExecutor
 				$sapiEvent->setDescription($result['error']);
 				$sapiEvent->setType(StorageApiEvent::TYPE_WARN);
 			}
+
+			$logUrl = null;
+			$log = count($command->eventsLog) ? $command->eventsLog : $restApi->callsLog();
+			if (count($log)) {
+				$result['log'] = $s3Client->uploadString($job['id'] . '/' . 'log.json', json_encode($log, JSON_PRETTY_PRINT));
+			}
+
 
 			$duration = time() - $time;
 			$sapiEvent

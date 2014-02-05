@@ -53,9 +53,9 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 				$pids[] = $project['pid'];
 				$output->writeln(sprintf('Project %s deleted', $project['pid']));
 			} catch (RestApiException $e) {
-				$log->alert('Could nor delete project', array(
+				$log->alert('Could not delete project', array(
 					'project' => $project,
-					'exception' => $e
+					'exception' => $e->getDetails()
 				));
 			}
 		}
@@ -70,9 +70,9 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 				$uids[] = $user['uid'];
 				$output->writeln(sprintf('User %s deleted', $user['uid']));
 			} catch (RestApiException $e) {
-				$log->alert('Could nor delete user', array(
+				$log->alert('Could not delete user', array(
 					'user' => $user,
-					'exception' => $e
+					'exception' => $e->getDetails()
 				));
 			}
 		}
