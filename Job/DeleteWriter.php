@@ -22,7 +22,7 @@ class DeleteWriter extends AbstractJob
 			throw new WrongConfigurationException('Writer has been already deleted.');
 		}
 
-		$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+		$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
 
 		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) {
 
@@ -31,14 +31,14 @@ class DeleteWriter extends AbstractJob
 			// Disable users in project
 			$projectUsers = $this->restApi->get(sprintf('/gdc/projects/%s/users', $project['pid']));
 			foreach ($projectUsers['users'] as $user) {
-				if ($user['user']['content']['email'] != $this->mainConfig['gd']['username']) {
+				if ($user['user']['content']['email'] != $this->appConfiguration->gd_username) {
 					$this->restApi->disableUserInProject($user['user']['links']['self'], $project['pid']);
 				}
 			}
 		}
 
 		// Remove only users created by Writer
-		$writerDomain = substr($this->mainConfig['gd']['user_email'], strpos($this->mainConfig['gd']['user_email'], '@'));
+		$writerDomain = substr($this->appConfiguration->gd_userEmailTemplate, strpos($this->appConfiguration->gd_userEmailTemplate, '@'));
 		foreach ($this->sharedConfig->getUsers($job['projectId'], $job['writerId']) as $user) {
 			if (strpos($user['email'], $writerDomain) !== false) {
 				$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid'], $user['email']);

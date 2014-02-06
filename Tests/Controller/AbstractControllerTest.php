@@ -6,6 +6,7 @@
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\GoodData\RestApiException;
+use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase,
 	Symfony\Bundle\FrameworkBundle\Console\Application,
 	Symfony\Component\Console\Tester\CommandTester;
@@ -37,7 +38,10 @@ abstract class AbstractControllerTest extends WebTestCase
 	 * @var CommandTester
 	 */
 	protected $commandTester;
-	protected $mainConfig;
+	/**
+	 * @var AppConfiguration
+	 */
+	protected $appConfiguration;
 
 
 	protected $bucketName;
@@ -66,14 +70,15 @@ abstract class AbstractControllerTest extends WebTestCase
 			'HTTP_X-StorageApi-Token' => $container->getParameter('storage_api.test.token')
 		));
 
-		$this->mainConfig = $container->getParameter('gooddata_writer');
+		$this->appConfiguration = $container->get('appConfiguration');
 		$this->storageApi = new \Keboola\StorageApi\Client($container->getParameter('storage_api.test.token'),
-			$this->httpClient->getContainer()->getParameter('storage_api.url'));
-		$this->restApi = new RestApi($container->get('logger'), $this->mainConfig['scripts_path']);
+			$container->getParameter('storage_api.url'));
+
+		$this->restApi = $container->get('restApi');
 
 		// Clear test environment
 		// Drop data tables from SAPI
-		$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+		$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
 		foreach ($this->storageApi->listBuckets() as $bucket) {
 			$isConfigBucket = substr($bucket['id'], 0, 22) == 'sys.c-wr-gooddata-test';
 			$isDataBucket = substr($bucket['id'], 0, 4) == 'out.';
@@ -122,13 +127,13 @@ abstract class AbstractControllerTest extends WebTestCase
 		$command = $application->find('gooddata-writer:execute-batch');
 		$this->commandTester = new CommandTester($command);
 
-		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->mainConfig['scripts_path']);
+		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->appConfiguration->scriptsPath);
 
 		// Init writer
 		$this->_processJob('/gooddata-writer/writers', array());
 
 		// Reset configuration
-		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->mainConfig['scripts_path']);
+		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->appConfiguration->scriptsPath);
 	}
 
 
@@ -210,7 +215,7 @@ abstract class AbstractControllerTest extends WebTestCase
 		));
 
 		// Reset configuration
-		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->mainConfig['scripts_path']);
+		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->appConfiguration->scriptsPath);
 	}
 
 

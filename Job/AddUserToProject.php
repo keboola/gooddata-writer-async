@@ -36,7 +36,7 @@ class AddUserToProject extends AbstractJob
 			$params['pid'] = $bucketAttributes['gd']['pid'];
 		}
 
-		$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+		$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
 
 		$gdWriteStartTime = date('c');
 		$userId = null;
@@ -48,7 +48,7 @@ class AddUserToProject extends AbstractJob
 			// user created by writer
 			$userId = $user['uid'];
 		} else {
-			$userId = $this->restApi->userId($params['email'], $this->mainConfig['gd']['domain']);
+			$userId = $this->restApi->userId($params['email'], $this->appConfiguration->gd_domain);
 			if ($userId) {
 				// user in domain
 				$this->configuration->saveUser($params['email'], $userId);
@@ -58,7 +58,7 @@ class AddUserToProject extends AbstractJob
 		if (!$userId) {
 			if (!empty($params['createUser'])) {
 				// try create new user in domain
-				$childJob = new CreateUser($this->configuration, $this->mainConfig, $this->sharedConfig, $this->restApi, $this->s3Client);
+				$childJob = new CreateUser($this->configuration, $this->appConfiguration, $this->sharedConfig, $this->restApi, $this->s3Client);
 
 				$childParams = array(
 					'email' => $params['email'],

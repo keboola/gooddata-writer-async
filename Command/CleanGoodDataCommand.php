@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\GoodDataWriter\GoodData\RestApiException;
+use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand,
 	Symfony\Component\Console\Input\InputInterface,
 	Symfony\Component\Console\Output\OutputInterface;
@@ -38,16 +39,22 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		}
 
 		$log = $this->getContainer()->get('logger');
-		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
-
+		/**
+		 * @var AppConfiguration $appConfiguration
+		 */
+		$appConfiguration = $this->getContainer()->get('appConfiguration');
 		$sharedConfig = new SharedConfig(
-			new StorageApiClient($mainConfig['shared_sapi']['token'], $mainConfig['shared_sapi']['url'])
+			new StorageApiClient($appConfiguration->sharedSapi_token, $appConfiguration->sharedSapi_url)
 		);
+
+		/**
+		 * @var RestApi
+		 */
+		$restApi = $this->getContainer()->get('restApi');
+		$restApi->login($appConfiguration->gd_username, $appConfiguration->gd_password);
 
 		$pids = array();
 		foreach ($sharedConfig->projectsToDelete() as $project) {
-			$restApi = new RestApi($log, $mainConfig['scripts_path']);
-			$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
 			try {
 				$restApi->dropProject($project['pid']);
 				$pids[] = $project['pid'];
@@ -61,8 +68,6 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		}
 		$sharedConfig->markProjectsDeleted($pids);
 
-		$restApi = new RestApi($log, $mainConfig['scripts_path']);
-		$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
 		$uids = array();
 		foreach ($sharedConfig->usersToDelete() as $user) {
 			try {

@@ -21,9 +21,9 @@ class CreateUser extends AbstractJob
 		$this->checkParams($params, array('email', 'password', 'firstName', 'lastName'));
 
 		$gdWriteStartTime = date('c');
-		$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
-		$ssoProvider = empty($params['ssoProvider']) ? $this->mainConfig['gd']['sso_provider'] : $params['ssoProvider'];
-		$userId = $this->restApi->createUser($this->mainConfig['gd']['domain'], $params['email'], $params['password'],
+		$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
+		$ssoProvider = empty($params['ssoProvider']) ? $this->appConfiguration->gd_ssoProvider : $params['ssoProvider'];
+		$userId = $this->restApi->createUser($this->appConfiguration->gd_domain, $params['email'], $params['password'],
 			$params['firstName'], $params['lastName'], $ssoProvider);
 
 		$this->configuration->saveUser($params['email'], $userId);

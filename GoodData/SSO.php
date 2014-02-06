@@ -7,6 +7,7 @@
  */
 namespace Keboola\GoodDataWriter\GoodData;
 
+use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Symfony\Component\HttpKernel\Kernel;
 
@@ -30,13 +31,13 @@ class SSO
 
 	protected $gooddataHost = 'secure.gooddata.com';
 
-	public function __construct(Configuration $configuration, array $mainConfig, $tmpPath)
+	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration)
 	{
-		$this->tmpPath = $tmpPath;
+		$this->tmpPath = $appConfiguration->tmpPath;
 
-		$this->ssoProvider = $mainConfig['sso_provider'];
-		$this->ssoUser = $mainConfig['username'];
-		$this->passphrase = $mainConfig['key_passphrase'];
+		$this->ssoProvider = $appConfiguration->gd_ssoProvider;
+		$this->ssoUser = $appConfiguration->gd_username;
+		$this->passphrase = $appConfiguration->gd_keyPassphrase;
 
 		if (!empty($configuration->backendUrl))
 			$this->gooddataHost = $configuration->backendUrl;

@@ -25,13 +25,13 @@ class CreateWriter extends AbstractJob
         $this->configuration->updateDataSetsFromSapi();
 
 		$gdWriteStartTime = date('c');
-		$username = sprintf($this->mainConfig['gd']['user_email'], $job['projectId'], $job['writerId'] . '-' . uniqid());
+		$username = sprintf($this->appConfiguration->gd_userEmailTemplate, $job['projectId'], $job['writerId'] . '-' . uniqid());
 		$password = md5(uniqid());
 
-		$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+		$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
 		$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
 
-		$userId = $this->restApi->createUser($this->mainConfig['gd']['domain'], $username, $password, 'KBC', 'Writer', $this->mainConfig['gd']['sso_provider']);
+		$userId = $this->restApi->createUser($this->appConfiguration->gd_domain, $username, $password, 'KBC', 'Writer', $this->appConfiguration->gd_ssoProvider);
 		$this->restApi->addUserToProject($userId, $projectPid, RestApi::$userRoles['admin']);
 
 		// Save data to configuration bucket

@@ -85,7 +85,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertTrue($userInProject, "Response for writer call '/project-users' should return tested user.");
 
 		// Case 2 - User exists in other domain
-		$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+		$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
 
 		$otherUser = null;
 		if (defined('WRITER_TEST_OTHER_DOMAIN_USER'))
@@ -93,7 +93,7 @@ class UsersTest extends AbstractControllerTest
 
 		$this->assertNotEmpty($otherUser, "User from other domain should be configured in tests config file.");
 
-		$otherUserId = $this->restApi->userId($otherUser, $this->mainConfig['gd']['domain']);
+		$otherUserId = $this->restApi->userId($otherUser, $this->appConfiguration->gd_domain);
 
 		$this->assertFalse($otherUserId, "Invited user for writer call '/project-users' should not exist in same domain.");
 
@@ -249,7 +249,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertFalse($userInProject, "Response for writer call '/project-users' should not return tested user.");
 
 		// Case 2 - User exists in other domain
-		$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+		$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
 
 		$otherUser = null;
 		if (defined('WRITER_TEST_OTHER_DOMAIN_USER'))
@@ -257,7 +257,7 @@ class UsersTest extends AbstractControllerTest
 
 		$this->assertNotEmpty($otherUser, "User from other domain should be configured in tests config file.");
 
-		$otherUserId = $this->restApi->userId($otherUser, $this->mainConfig['gd']['domain']);
+		$otherUserId = $this->restApi->userId($otherUser, $this->appConfiguration->gd_domain);
 
 		$this->assertFalse($otherUserId, "Invited user for writer call '/project-users' should not exist in same domain.");
 

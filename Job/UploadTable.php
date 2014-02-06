@@ -47,7 +47,7 @@ class UploadTable extends AbstractJob
 
 		// Init
 		$tmpFolderName = basename($this->tmpDir);
-		$this->goodDataModel = new Model($this->scriptsPath);
+		$this->goodDataModel = new Model($this->appConfiguration);
 		$this->csvHandler = new CsvHandler($this->scriptsPath, $this->s3Client, $this->tmpDir, $job['id']);
 		$projects = $this->configuration->getProjects();
 		$error = false;
@@ -215,11 +215,7 @@ class UploadTable extends AbstractJob
 
 		$clToolApi = null;
 		if (!$this->preRelease) {
-			$clPath = null;
-			if (!empty($this->mainConfig['cl_path'])) {
-				$clPath = $this->mainConfig['cl_path'];
-			}
-			$clToolApi = new CLToolApi($this->log, $clPath);
+			$clToolApi = new CLToolApi($this->log, $this->appConfiguration->clPath);
 			$clToolApi->s3client = $this->s3Client;
 			if (isset($bucketAttributes['gd']['backendUrl'])) {
 				$urlParts = parse_url($bucketAttributes['gd']['backendUrl']);
@@ -361,8 +357,8 @@ class UploadTable extends AbstractJob
 
 				$webDav->prepareFolder($webDavFolder);
 
-				$this->csvHandler->initDownload($params['tableId'], $job['token'], $this->mainConfig['storage_api.url'],
-					$this->mainConfig['user_agent'], $gdJob['incrementalLoad'], $gdJob['filterColumn'], $gdJob['pid']);
+				$this->csvHandler->initDownload($params['tableId'], $job['token'], $this->appConfiguration->storageApiUrl,
+					$this->appConfiguration->userAgent, $gdJob['incrementalLoad'], $gdJob['filterColumn'], $gdJob['pid']);
 				$this->csvHandler->prepareTransformation($definition);
 				$this->csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl, '/uploads/' . $webDavFolder);
 				if (!$webDav->fileExists($webDavFolder . '/data.csv')) {
@@ -524,7 +520,7 @@ class UploadTable extends AbstractJob
 			$backendUrl = (substr($bucketAttributes['gd']['backendUrl'], 0, 8) != 'https://'
 					? 'https://' : '') . $bucketAttributes['gd']['backendUrl'];
 			$this->restApi->setBaseUrl($backendUrl);
-			$this->restApi->login($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
+			$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
 			$webDavUrl = $this->restApi->getWebDavUrl();
 			if (!$webDavUrl) {
 				throw new JobProcessException(sprintf("Getting of WebDav url for backend '%s' failed.", $bucketAttributes['gd']['backendUrl']));

@@ -375,7 +375,7 @@ Commands for manipulation with GoodData project structure and data
 
 * **writerId** (required) - KBC id of writer
 * **incrementalLoad** (optional) - force incremental or full load
-* **sanitize** (optional) - force replacing or skipping null values in csv files
+* **pid** (optional) - filter rows from data table by filter column (see [Project clones](#projectclones))
 * **queue** (optional) - with value **secondary** will put job in secondary queue
 POST /upload-project
 > X-StorageApi-Token: your_token
@@ -393,7 +393,7 @@ POST /upload-project
 * **tableId** (required) - name of table to upload
 * **writerId** (required) - KBC id of writer
 * **incrementalLoad** (optional) - force incremental or full load
-* **sanitize** (optional) - force replacing or skipping null values in csv files
+* **pid** (optional) - filter rows from data table by filter column (see [Project clones](#projectclones))
 * **queue** (optional) - with value **secondary** will put job in secondary queue
 POST /upload-table
 > X-StorageApi-Token: your_token
