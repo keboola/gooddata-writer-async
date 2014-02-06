@@ -76,13 +76,18 @@ class GoodDataWriter extends Component
 		}
 
 		// Init main temp directory
-		$this->appConfiguration = $this->_container->get('appConfiguration');
+		if (!$this->appConfiguration) {
+			$this->appConfiguration = $this->_container->get('appConfiguration');
+		}
 		$this->configuration = new Configuration($this->_storageApi, $params['writerId'], $this->appConfiguration->scriptsPath, $migrate);
 	}
 
 	private function getS3Client()
 	{
 		if (!$this->s3Client) {
+			if (!$this->appConfiguration) {
+				$this->appConfiguration = $this->_container->get('appConfiguration');
+			}
 			$this->s3Client = new Service\S3Client(
 				$this->appConfiguration,
 				$this->configuration->projectId . '.' . $this->configuration->writerId
@@ -94,6 +99,9 @@ class GoodDataWriter extends Component
 	private function getQueue()
 	{
 		if (!$this->queue) {
+			if (!$this->appConfiguration) {
+				$this->appConfiguration = $this->_container->get('appConfiguration');
+			}
 			$sqsClient = SqsClient::factory(array(
 				'key' => $this->appConfiguration->aws_accessKey,
 				'secret' => $this->appConfiguration->aws_secretKey,
@@ -107,6 +115,9 @@ class GoodDataWriter extends Component
 	private function getSharedConfig()
 	{
 		if (!$this->sharedConfig) {
+			if (!$this->appConfiguration) {
+				$this->appConfiguration = $this->_container->get('appConfiguration');
+			}
 			$sharedStorageApi = new StorageApiClient(
 				$this->appConfiguration->sharedSapi_token,
 				$this->appConfiguration->sharedSapi_url,
@@ -138,6 +149,9 @@ class GoodDataWriter extends Component
 			$result['writer']['writer'] = $this->_name;
 			return $result;
 		} else {
+			if (!$this->appConfiguration) {
+				$this->appConfiguration = $this->_container->get('appConfiguration');
+			}
 			$this->configuration = new Configuration($this->_storageApi, null, $this->appConfiguration->scriptsPath);
 			return array('writers' => $this->configuration->getWriters());
 		}
