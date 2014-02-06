@@ -142,7 +142,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 		/**
 		 * @var AppConfiguration $appConfiguration
 		 */
-		$appConfiguration = $this->getContainer()->get('appConfiguration');
+		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
 		$sharedConfig = new SharedConfig(
 			new StorageApiClient(
 				$appConfiguration->sharedSapi_token,

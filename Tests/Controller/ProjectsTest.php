@@ -13,7 +13,7 @@ class ProjectsTest extends AbstractControllerTest
 {
 
 
-	public function testCreateProject()
+	public function testProjects()
 	{
 		/**
 		 * Create project

@@ -77,7 +77,7 @@ class GoodDataWriter extends Component
 
 		// Init main temp directory
 		if (!$this->appConfiguration) {
-			$this->appConfiguration = $this->_container->get('appConfiguration');
+			$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
 		}
 		$this->configuration = new Configuration($this->_storageApi, $params['writerId'], $this->appConfiguration->scriptsPath, $migrate);
 	}
@@ -86,7 +86,7 @@ class GoodDataWriter extends Component
 	{
 		if (!$this->s3Client) {
 			if (!$this->appConfiguration) {
-				$this->appConfiguration = $this->_container->get('appConfiguration');
+				$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
 			}
 			$this->s3Client = new Service\S3Client(
 				$this->appConfiguration,
@@ -100,7 +100,7 @@ class GoodDataWriter extends Component
 	{
 		if (!$this->queue) {
 			if (!$this->appConfiguration) {
-				$this->appConfiguration = $this->_container->get('appConfiguration');
+				$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
 			}
 			$sqsClient = SqsClient::factory(array(
 				'key' => $this->appConfiguration->aws_accessKey,
@@ -116,7 +116,7 @@ class GoodDataWriter extends Component
 	{
 		if (!$this->sharedConfig) {
 			if (!$this->appConfiguration) {
-				$this->appConfiguration = $this->_container->get('appConfiguration');
+				$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
 			}
 			$sharedStorageApi = new StorageApiClient(
 				$this->appConfiguration->sharedSapi_token,
@@ -150,7 +150,7 @@ class GoodDataWriter extends Component
 			return $result;
 		} else {
 			if (!$this->appConfiguration) {
-				$this->appConfiguration = $this->_container->get('appConfiguration');
+				$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
 			}
 			$this->configuration = new Configuration($this->_storageApi, null, $this->appConfiguration->scriptsPath);
 			return array('writers' => $this->configuration->getWriters());
@@ -672,7 +672,7 @@ class GoodDataWriter extends Component
 		/**
 		 * @var RestApi
 		 */
-		$restApi = $this->_container->get('restApi');
+		$restApi = $this->_container->get('gooddata_writer.rest_api');
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);

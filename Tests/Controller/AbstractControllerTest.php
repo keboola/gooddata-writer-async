@@ -70,11 +70,11 @@ abstract class AbstractControllerTest extends WebTestCase
 			'HTTP_X-StorageApi-Token' => $container->getParameter('storage_api.test.token')
 		));
 
-		$this->appConfiguration = $container->get('appConfiguration');
+		$this->appConfiguration = $container->get('gooddata_writer.app_configuration');
 		$this->storageApi = new \Keboola\StorageApi\Client($container->getParameter('storage_api.test.token'),
 			$container->getParameter('storage_api.url'));
 
-		$this->restApi = $container->get('restApi');
+		$this->restApi = $container->get('gooddata_writer.rest_api');
 
 		// Clear test environment
 		// Drop data tables from SAPI

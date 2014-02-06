@@ -42,7 +42,7 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		/**
 		 * @var AppConfiguration $appConfiguration
 		 */
-		$appConfiguration = $this->getContainer()->get('appConfiguration');
+		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
 		$sharedConfig = new SharedConfig(
 			new StorageApiClient($appConfiguration->sharedSapi_token, $appConfiguration->sharedSapi_url)
 		);
@@ -50,7 +50,7 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		/**
 		 * @var RestApi
 		 */
-		$restApi = $this->getContainer()->get('restApi');
+		$restApi = $this->getContainer()->get('gooddata_writer.rest_api');
 		$restApi->login($appConfiguration->gd_username, $appConfiguration->gd_password);
 
 		$pids = array();

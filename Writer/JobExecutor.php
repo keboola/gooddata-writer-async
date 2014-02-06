@@ -259,7 +259,7 @@ class JobExecutor
 			/**
 			 * @var AppConfiguration $appConfiguration
 			 */
-			$appConfiguration = $this->container->get('appConfiguration');
+			$appConfiguration = $this->container->get('gooddata_writer.app_configuration');
 			$appConfiguration->storageApiUrl = $this->container->getParameter('storage_api.url');
 
 			$tmpDir = sprintf('%s/%s', $appConfiguration->tmpPath, $job['id']);
@@ -274,7 +274,7 @@ class JobExecutor
 				$job['projectId'] . '.' . $job['writerId']
 			);
 
-			$restApi = $this->container->get('restApi');
+			$restApi = $this->container->get('gooddata_writer.rest_api');
 			$bucketAttributes = $configuration->bucketAttributes();
 			if (isset($bucketAttributes['gd']['backendUrl'])) {
 				$restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);

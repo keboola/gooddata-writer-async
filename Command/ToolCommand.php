@@ -42,12 +42,12 @@ class ToolCommand extends ContainerAwareCommand
 		/**
 		 * @var AppConfiguration $appConfiguration
 		 */
-		$appConfiguration = $this->getContainer()->get('appConfiguration');
+		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
 
 		/**
 		 * @var RestApi
 		 */
-		$restApi = $this->getContainer()->get('restApi');
+		$restApi = $this->getContainer()->get('gooddata_writer.rest_api');
 		$restApi->login($appConfiguration->gd_username, $appConfiguration->gd_password);
 
 
