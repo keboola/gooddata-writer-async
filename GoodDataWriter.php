@@ -720,41 +720,6 @@ class GoodDataWriter extends Component
 	}
 
 	/***********************
-	 * @section Reports
-	 */
-
-	public function getDownloadReport($params)
-	{
-		$this->init($params);
-		if (!$this->configuration->bucketId) {
-			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
-		}
-
-		if (!isset($params['uri'])) {
-			throw new WrongParametersException("Parameter 'url' is missing.");
-		}
-		$url = $params['uri'];
-
-		$restApi = new RestApi($this->_log, $this->mainConfig['scripts_path']);
-
-		$bucketAttributes = $this->configuration->bucketAttributes();
-		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-
-		$tempFileInfo = $this->getTemp()->createTmpFile('gooddata-report', true);
-
-		try {
-			$return = $restApi->exportReport($url, $tempFileInfo->getPathname());
-
-			return array(
-				'response' => $return
-			);
-		} catch (RestApiException $e) {
-			throw new WrongParametersException($e->getMessage(), $e);
-		}
-
-	}
-
-	/***********************
 	 * @section Filters
 	 */
 
@@ -1237,6 +1202,57 @@ class GoodDataWriter extends Component
 			}
 		}
 
+	}
+
+	public function postExportReport($params)
+	{
+		$command = 'exportReport';
+		$createdTime = time();
+
+		// Init parameters
+		if (empty($params['pid'])) {
+			throw new WrongParametersException("Parameter 'pid' is missing");
+		}
+
+		if (empty($params['report'])) {
+			throw new WrongParametersException("Parameter 'report' is missing");
+		}
+
+		if (empty($params['table'])) {
+			throw new WrongParametersException("Parameter 'table' is missing");
+		}
+
+		$this->init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$jobInfo = $this->_createJob(array(
+			'command' => $command,
+			'createdTime' => date('c', $createdTime),
+			'parameters' => array(
+				'pid'       => $params['pid'],
+				'report'    => $params['report'],
+				'table'     => $params['table'],
+				'token'     => $this->_storageApi->getTokenString()
+			),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
+		));
+
+		$this->_enqueue($jobInfo['batchId']);
+
+		if (empty($params['wait'])) {
+			return array('job' => (int)$jobInfo['id']);
+		} else {
+			$result = $this->_waitForJob($jobInfo['id'], $params['writerId']);
+			if (isset($result['job']['status']) && $result['job']['status'] == 'success') {
+				return array('message' => 'Report exported to SAPI');
+			} else {
+				$e = new JobProcessException('Job failed');
+				$e->setData(array('result' => $result['job']['result'], 'log' => $result['job']['log']));
+				throw $e;
+			}
+		}
 	}
 
 

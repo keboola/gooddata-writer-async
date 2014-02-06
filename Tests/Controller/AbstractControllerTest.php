@@ -309,4 +309,28 @@ abstract class AbstractControllerTest extends WebTestCase
 		$this->assertGreaterThanOrEqual(2, $usersList, "Response for writer call '/users' should return at least two GoodData users.");
 		return $usersList[count($usersList)-1];
 	}
+
+	protected function _getAttributes($pid)
+	{
+		$query = sprintf('/gdc/md/%s/query/attributes', $pid);
+
+		$result = $this->_getWriterApi('/gooddata-writer/proxy?writerId=' . $this->writerId . '&query=' . $query);
+
+		if (isset($result['response']['query']['entries'])) {
+			return $result['response']['query']['entries'];
+		} else {
+			throw new \Exception('Attributes in project could not be fetched');
+		}
+	}
+
+	protected function _getAttributeByTitle($pid, $title)
+	{
+		foreach ($this->_getAttributes($pid) as $attr) {
+			if ($attr['title'] == $title) {
+				$result = $this->_getWriterApi('/gooddata-writer/proxy?writerId=' . $this->writerId . '&query=' . $attr['link']);
+				return $result['response'];
+			}
+		}
+		return false;
+	}
 }

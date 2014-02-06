@@ -14,6 +14,7 @@ use Guzzle\Http\Client,
 	Guzzle\Common\Exception\RuntimeException,
 	Guzzle\Http\Message\Header;
 use Guzzle\Http\Curl\CurlHandle;
+use Guzzle\Stream\PhpStreamRequestFactory;
 use stdClass;
 
 class RestApiException extends \Exception
@@ -868,6 +869,20 @@ class RestApi
 		));
 	}
 
+	/**
+	 * @param string $pid
+	 * @param string $uri - Report Definition URI
+	 * @return \Guzzle\Http\EntityBodyInterface|\Guzzle\Http\Message\Response|null|string
+	 */
+	public function executeReportRaw($pid, $uri)
+	{
+		return $this->request(sprintf('/gdc/app/projects/%s/execute/raw/', $pid), 'POST', array(
+			"report_req" => array(
+				"reportDefinition" => $uri
+			)
+		))->json();
+	}
+
 	public function getUploadMessage($pid, $datasetName)
 	{
 		$datasets = $this->get(sprintf('/gdc/md/%s/data/sets', $pid));
@@ -1246,39 +1261,6 @@ class RestApi
 		}
 	}
 
-	public function exportReport($uri, $filename)
-	{
-		$request = $this->client->get($uri, array(
-			'accept' => 'application/json',
-			'accept-charset' => 'utf-8'
-		));
-
-		if ($this->authSst) {
-			$request->addCookie('GDCAuthSST', $this->authSst);
-		}
-		if ($this->authTt) {
-			$request->addCookie('GDCAuthTT', $this->authTt);
-		}
-
-		$tries = 0;
-		while (true) {
-			$request->setResponseBody($filename);
-			$response = $request->send();
-
-			if ($response->getStatusCode() == 200) {
-				return $filename;
-			}
-			if ($tries > 20) {
-				throw new RestApiException("Unable to download report from url '" . $uri . "'");
-			}
-
-			sleep(5);
-			$tries++;
-		}
-
-		return null;
-	}
-
 	/**
 	 * Poll task uri and wait for its finish
 	 * @param $uri
@@ -1333,6 +1315,79 @@ class RestApi
 				'exception' => $e
 			));
 			throw new RestApiException('Rest API: ' . $e->getMessage());
+		}
+	}
+
+	public function getStream($uri)
+	{
+		if (!$this->authTt) {
+			$this->refreshToken();
+		}
+
+		$request = $this->client->get($uri);
+
+		if ($this->authSst) {
+			$request->addCookie('GDCAuthSST', $this->authSst);
+		}
+		if ($this->authTt) {
+			$request->addCookie('GDCAuthTT', $this->authTt);
+		}
+
+		$streamFactory = new PhpStreamRequestFactory();
+		$stream = $streamFactory->fromRequest($request);
+
+		return $stream;
+	}
+
+	public function getToFile($uri, $filename)
+	{
+		if (!$this->authTt) {
+			$this->refreshToken();
+		}
+		$startTime = microtime();
+
+		$request = $this->client->get($this->apiUrl . $uri, array(
+			'accept' => 'application/json',
+			'accept-charset' => 'utf-8'
+		));
+
+		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
+			if ($this->authSst) {
+				$request->addCookie('GDCAuthSST', $this->authSst);
+			}
+			if ($this->authTt) {
+				$request->addCookie('GDCAuthTT', $this->authTt);
+			}
+
+			$request->setResponseBody($filename);
+
+			try {
+				$response = $request->send();
+
+				$this->logCall($uri, 'GET', array("filename" => $filename), $response->getBody(true), abs(microtime() - $startTime) * 1000);
+
+				if ($response->getStatusCode() == 200) {
+					return $filename;
+				}
+			} catch (ClientErrorResponseException $e) {
+				$response = $request->getResponse();
+				$this->logCall($uri, 'GET', array("filename" => $filename), $response->getBody(true), abs(microtime() - $startTime) * 1000);
+
+				if ($request->getResponse()->getStatusCode() == 201) {
+
+					// file not ready yet do nothing
+
+				} elseif ($request->getResponse()->getStatusCode() == 401) {
+
+					// TT token expired
+					$this->refreshToken();
+
+				} else {
+					throw new RestApiException("Error occured while downloading file. Status code ". $response->getStatusCode(), 500, $e);
+				}
+			}
+
+			sleep(self::BACKOFF_INTERVAL * ($i + 1));
 		}
 	}
 
