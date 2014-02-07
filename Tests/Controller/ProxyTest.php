@@ -45,7 +45,7 @@ class ProxyTest extends AbstractControllerTest
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$pid = $bucketAttributes['gd']['pid'];
 
-		$attr = $this->getAttributeByTitle($pid, 'Id (Categories)');
+		$attr = $this->_getAttributeByTitle($pid, 'Id (Categories)');
 
 		$attrUri = $attr['attribute']['meta']['uri'];
 
@@ -59,29 +59,5 @@ class ProxyTest extends AbstractControllerTest
 		$jobStatus = $this->_getWriterApi('/gooddata-writer/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
 
 		$this->assertEquals('success', $jobStatus['job']['result']['status']);
-	}
-
-	protected function getAttributes($pid)
-	{
-		$query = sprintf('/gdc/md/%s/query/attributes', $pid);
-
-		$result = $this->_getWriterApi('/gooddata-writer/proxy?writerId=' . $this->writerId . '&query=' . $query);
-
-		if (isset($result['response']['query']['entries'])) {
-			return $result['response']['query']['entries'];
-		} else {
-			throw new \Exception('Attributes in project could not be fetched');
-		}
-	}
-
-	public function getAttributeByTitle($pid, $title)
-	{
-		foreach ($this->getAttributes($pid) as $attr) {
-			if ($attr['title'] == $title) {
-				$result = $this->_getWriterApi('/gooddata-writer/proxy?writerId=' . $this->writerId . '&query=' . $attr['link']);
-				return $result['response'];
-			}
-		}
-		return false;
 	}
 }
