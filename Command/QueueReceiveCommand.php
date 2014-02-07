@@ -1,6 +1,7 @@
 <?php
 namespace Keboola\GoodDataWriter\Command;
 
+use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -138,14 +139,18 @@ class QueueReceiveCommand extends ContainerAwareCommand
 
 	protected function _errorMaximumRetriesExceeded($batchId)
 	{
-		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
+		/**
+		 * @var AppConfiguration $appConfiguration
+		 */
+		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
 		$sharedConfig = new SharedConfig(
 			new StorageApiClient(
-				$mainConfig['shared_sapi']['token'],
-				$mainConfig['shared_sapi']['url'],
-				$mainConfig['user_agent']
+				$appConfiguration->sharedSapi_token,
+				$appConfiguration->sharedSapi_url,
+				$appConfiguration->userAgent
 			)
 		);
+
 		$batch = $sharedConfig->fetchBatch($batchId);
 		if (!$batch) {
 			return;

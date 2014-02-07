@@ -11,14 +11,12 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
-	Keboola\GoodDataWriter\GoodData\UnauthorizedException,
 	Keboola\StorageApi\ClientException as StorageApiClientException;
+use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Exception as StorageApiException;
-use Keboola\GoodDataWriter\Service\S3Client,
-	Keboola\GoodDataWriter\GoodData\RestApi,
-	Keboola\GoodDataWriter\Service\Lock;
+use Keboola\GoodDataWriter\Service\Lock;
 use Monolog\Logger;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -64,6 +62,11 @@ class JobExecutor
 		$this->sharedConfig = $sharedConfig;
 		$this->log = $container->get('logger');
 		$this->container = $container;
+
+		if (!defined('JSON_PRETTY_PRINT')) {
+			// fallback for PHP <= 5.3
+			define('JSON_PRETTY_PRINT', 0);
+		}
 	}
 
 	public function runBatch($batchId, $force = false)
@@ -253,26 +256,25 @@ class JobExecutor
 				throw new WrongConfigurationException(sprintf('Command %s does not exist', $commandName));
 			}
 
-			$mainConfig = $this->container->getParameter('gooddata_writer');
-			$mainConfig['storage_api.url'] = $this->container->getParameter('storage_api.url');
+			/**
+			 * @var AppConfiguration $appConfiguration
+			 */
+			$appConfiguration = $this->container->get('gooddata_writer.app_configuration');
+			$appConfiguration->storageApiUrl = $this->container->getParameter('storage_api.url');
 
-			$tmpDir = sprintf('%s/%s', $mainConfig['tmp_path'], $job['id']);
-            if (!file_exists($mainConfig['tmp_path'])) mkdir($mainConfig['tmp_path']);
+			$tmpDir = sprintf('%s/%s', $appConfiguration->tmpPath, $job['id']);
+            if (!file_exists($appConfiguration->tmpPath)) mkdir($appConfiguration->tmpPath);
             if (!file_exists($tmpDir)) mkdir($tmpDir);
 
 			// Do not migrate (migration had to be performed at least when the job was created)
-			$configuration = new Configuration($this->storageApiClient, $job['writerId'], $mainConfig['scripts_path'], false);
+			$configuration = new Configuration($this->storageApiClient, $job['writerId'], $appConfiguration->scriptsPath, false);
 
 			$s3Client = new S3Client(
-				\Aws\S3\S3Client::factory(array(
-					'key' => $mainConfig['aws']['access_key'],
-					'secret' => $mainConfig['aws']['secret_key'])
-				),
-				$mainConfig['aws']['s3_bucket'],
+				$appConfiguration,
 				$job['projectId'] . '.' . $job['writerId']
 			);
 
-			$restApi = new RestApi($this->log, $mainConfig['scripts_path']);
+			$restApi = $this->container->get('gooddata_writer.rest_api');
 			$bucketAttributes = $configuration->bucketAttributes();
 			if (isset($bucketAttributes['gd']['backendUrl'])) {
 				$restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
@@ -281,9 +283,9 @@ class JobExecutor
 			/**
 			 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 			 */
-			$command = new $commandClass($configuration, $mainConfig, $this->sharedConfig, $restApi, $s3Client);
+			$command = new $commandClass($configuration, $appConfiguration, $this->sharedConfig, $restApi, $s3Client);
 			$command->tmpDir = $tmpDir;
-			$command->scriptsPath = $mainConfig['scripts_path'];
+			$command->scriptsPath = $appConfiguration->scriptsPath;
 			$command->log = $this->log;
 
 			$token = $this->storageApiClient->getLogData();
@@ -295,12 +297,10 @@ class JobExecutor
 				$data = array();
 
 				if ($e instanceof RestApiException) {
-					$error = 'Rest API';
+					$error = $e->getDetails();
 				} elseif ($e instanceof CLToolApiErrorException) {
 					$error = 'CL Tool';
 					$data = $e->getData();
-				} elseif ($e instanceof UnauthorizedException) {
-					$error = 'Bad GoodData credentials';
 				} elseif ($e instanceof StorageApiClientException) {
 					$error = 'Storage API';
 				} elseif ($e instanceof ClientException) {
@@ -314,7 +314,7 @@ class JobExecutor
 
 				if ($error) {
 					$result['status'] = 'error';
-					$result['error'] = $error . ': ' . $e->getMessage();
+					$result['error'] = is_array($error) ? $error : array('error' => $error,  'details' => $e->getMessage());
 					$result['trace'] = $s3Client->uploadString($job['id'] . '/trace.txt', json_encode($e->getTraceAsString(), JSON_PRETTY_PRINT));
 				} else {
 					throw $e;
@@ -324,6 +324,13 @@ class JobExecutor
 				$sapiEvent->setDescription($result['error']);
 				$sapiEvent->setType(StorageApiEvent::TYPE_WARN);
 			}
+
+			$logUrl = null;
+			$log = count($command->eventsLog) ? $command->eventsLog : $restApi->callsLog();
+			if (count($log)) {
+				$result['log'] = $s3Client->uploadString($job['id'] . '/' . 'log.json', json_encode($log, JSON_PRETTY_PRINT));
+			}
+
 
 			$duration = time() - $time;
 			$sapiEvent

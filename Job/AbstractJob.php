@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\Writer\SharedConfig,
 	Keboola\GoodDataWriter\GoodData\RestApi,
@@ -19,9 +20,9 @@ abstract class AbstractJob
 	 */
 	public $configuration;
 	/**
-	 * @var array
+	 * @var AppConfiguration
 	 */
-	public $mainConfig;
+	public $appConfiguration;
 	/**
 	 * @var SharedConfig
 	 */
@@ -43,10 +44,12 @@ abstract class AbstractJob
 	 */
 	public $log;
 
-	public function __construct($configuration, $mainConfig, $sharedConfig, $restApi, $s3Client)
+	public $eventsLog;
+
+	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, $sharedConfig, $restApi, $s3Client)
 	{
 		$this->configuration = $configuration;
-		$this->mainConfig = $mainConfig;
+		$this->appConfiguration = $appConfiguration;
 		$this->sharedConfig = $sharedConfig;
 		$this->s3Client = $s3Client;
 
@@ -56,32 +59,12 @@ abstract class AbstractJob
 
 	abstract function run($job, $params);
 
-
-	protected function _prepareResult($jobId, $data = array(), $log = null, $folderName = null)
-	{
-		$logUrl = null;
-		if ($log) {
-			if (!defined('JSON_PRETTY_PRINT')) {
-				// fallback for PHP <= 5.3
-				define('JSON_PRETTY_PRINT', 0);
-			}
-			$fileName = ($folderName ? $folderName : $jobId) . '/' . 'log.json';
-			$logUrl = $this->s3Client->uploadString($fileName, json_encode($log, JSON_PRETTY_PRINT));
-		}
-
-		if ($logUrl) {
-			$data['log'] = $logUrl;
-		}
-
-		return $data;
-	}
-
 	/**
 	 * @param array $params
 	 * @param array $required
 	 * @throws WrongConfigurationException
 	 */
-	protected function _checkParams($params, $required)
+	protected function checkParams($params, $required)
 	{
 		foreach($required as $k) {
 			if (empty($params[$k])) {

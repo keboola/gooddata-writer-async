@@ -8,8 +8,7 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException,
 	Keboola\GoodDataWriter\Exception\WrongConfigurationException,
-	Keboola\GoodDataWriter\GoodData\RestApiException,
-	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
+	Keboola\GoodDataWriter\GoodData\RestApiException;
 
 class ExecuteReports extends AbstractJob
 {
@@ -49,41 +48,29 @@ class ExecuteReports extends AbstractJob
 
 		$gdWriteStartTime = date('c');
 
-		try {
-			$bucketAttributes = $this->configuration->bucketAttributes();
-			$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-			foreach ($pids as $pid) {
-				if (!empty($params['pid']) && !empty($params['reports'])) {
-					// specified reports
-					foreach ($params['reports'] as $reportLink) {
-						$this->restApi->executeReport($reportLink);
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		foreach ($pids as $pid) {
+			if (!empty($params['pid']) && !empty($params['reports'])) {
+				// specified reports
+				foreach ($params['reports'] as $reportLink) {
+					$this->restApi->executeReport($reportLink);
+				}
+			} else {
+				// all reports
+				$reports = $this->restApi->get(sprintf('/gdc/md/%s/query/reports', $pid));
+				if (isset($reports['query']['entries'])) {
+					foreach ($reports['query']['entries'] as $report) {
+						$this->restApi->executeReport($report['link']);
 					}
 				} else {
-					// all reports
-					$reports = $this->restApi->get(sprintf('/gdc/md/%s/query/reports', $pid));
-					if (isset($reports['query']['entries'])) {
-						foreach ($reports['query']['entries'] as $report) {
-							$this->restApi->executeReport($report['link']);
-						}
-					} else {
-						throw new RestApiException('Bad format of response, missing query.entries key.');
-					}
+					throw new RestApiException('Bad format of response, missing query.entries key.');
 				}
 			}
-
-			return $this->_prepareResult($job['id'], array(
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->restApi->callsLog());
-
-		} catch (UnauthorizedException $e) {
-			throw new WrongConfigurationException('Rest API Login failed');
-		} catch (RestApiException $e) {
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => $e->getMessage(),
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->restApi->callsLog());
 		}
 
+		return array(
+			'gdWriteStartTime' => $gdWriteStartTime
+		);
 	}
 }

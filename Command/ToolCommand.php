@@ -3,6 +3,7 @@ namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\WebDav;
+use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -38,30 +39,36 @@ class ToolCommand extends ContainerAwareCommand
 	{
 		$this->output->writeln('- Loading time dimension ' . $dimensionName);
 
-		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
+		/**
+		 * @var AppConfiguration $appConfiguration
+		 */
+		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
 
-		$restApi = new RestApi(null, $this->getContainer()->get('logger'), $mainConfig['scripts_path']);
-		$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
+		/**
+		 * @var RestApi
+		 */
+		$restApi = $this->getContainer()->get('gooddata_writer.rest_api');
+		$restApi->login($appConfiguration->gd_username, $appConfiguration->gd_password);
 
 
-		$webDav = new WebDav($mainConfig['gd']['username'], $mainConfig['gd']['password']);
+		$webDav = new WebDav($appConfiguration->gd_username, $appConfiguration->gd_password);
 
 		$tmpFolderName = 'tool-'.uniqid();
-		$tmpDir = $mainConfig['tmp_path'] . '/' . $tmpFolderName;
+		$tmpDir = $appConfiguration->tmpPath . '/' . $tmpFolderName;
 		mkdir($tmpDir);
 		$dimensionName = Model::getId($dimensionName);
 		$tmpFolderDimension = $tmpDir . '/' . $dimensionName;
 		$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
 
 		mkdir($tmpFolderDimension);
-		$manifest = file_get_contents($mainConfig['scripts_path'] . '/time-dimension-manifest.json');
+		$manifest = file_get_contents($appConfiguration->scriptsPath . '/time-dimension-manifest.json');
 		$timeDimensionManifest = str_replace('%NAME%', $dimensionName, $manifest);
 		file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
-		copy($mainConfig['scripts_path'] . '/time-dimension.csv', $tmpFolderDimension . '/data.csv');
+		copy($appConfiguration->scriptsPath . '/time-dimension.csv', $tmpFolderDimension . '/data.csv');
 		$webDav->upload($tmpFolderDimension, $tmpFolderNameDimension, $tmpFolderDimension . '/upload_info.json', $tmpFolderDimension . '/data.csv');
 
 
-		$restApi->loadData($pid, $tmpFolderNameDimension);
+		$restApi->loadData($pid, $tmpFolderNameDimension, $dimensionName);
 	}
 
 

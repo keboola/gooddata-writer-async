@@ -8,7 +8,6 @@
 
 namespace Keboola\GoodDataWriter;
 
-use Aws\S3\S3Client;
 use Aws\Sqs\SqsClient;
 use Guzzle\Common\Exception\InvalidArgumentException;
 use Guzzle\Http\Url;
@@ -21,6 +20,7 @@ use Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\WrongParametersException;
+use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Syrup\ComponentBundle\Component\Component;
 use Monolog\Logger;
 use Symfony\Component\HttpFoundation\Response;
@@ -42,9 +42,9 @@ class GoodDataWriter extends Component
 	public $sharedConfig;
 
 	/**
-	 * @var array
+	 * @var AppConfiguration
 	 */
-	private $mainConfig;
+	private $appConfiguration;
 	/**
 	 * @var Service\S3Client
 	 */
@@ -76,19 +76,20 @@ class GoodDataWriter extends Component
 		}
 
 		// Init main temp directory
-		$this->mainConfig = $this->_container->getParameter('gooddata_writer');
-		$this->configuration = new Configuration($this->_storageApi, $params['writerId'], $this->mainConfig['scripts_path'], $migrate);
+		if (!$this->appConfiguration) {
+			$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
+		}
+		$this->configuration = new Configuration($this->_storageApi, $params['writerId'], $this->appConfiguration->scriptsPath, $migrate);
 	}
 
 	private function getS3Client()
 	{
 		if (!$this->s3Client) {
+			if (!$this->appConfiguration) {
+				$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
+			}
 			$this->s3Client = new Service\S3Client(
-				S3Client::factory(array(
-						'key' => $this->mainConfig['aws']['access_key'],
-						'secret' => $this->mainConfig['aws']['secret_key'])
-				),
-				$this->mainConfig['aws']['s3_bucket'],
+				$this->appConfiguration,
 				$this->configuration->projectId . '.' . $this->configuration->writerId
 			);
 		}
@@ -98,12 +99,15 @@ class GoodDataWriter extends Component
 	private function getQueue()
 	{
 		if (!$this->queue) {
+			if (!$this->appConfiguration) {
+				$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
+			}
 			$sqsClient = SqsClient::factory(array(
-				'key' => $this->mainConfig['aws']['access_key'],
-				'secret' => $this->mainConfig['aws']['secret_key'],
-				'region' => $this->mainConfig['aws']['region']
+				'key' => $this->appConfiguration->aws_accessKey,
+				'secret' => $this->appConfiguration->aws_secretKey,
+				'region' => $this->appConfiguration->aws_region
 			));
-			$this->queue = new Service\Queue($sqsClient, $this->mainConfig['aws']['queue_url']);
+			$this->queue = new Service\Queue($sqsClient, $this->appConfiguration->aws_jobsSqsUrl);
 		}
 		return $this->queue;
 	}
@@ -111,10 +115,13 @@ class GoodDataWriter extends Component
 	private function getSharedConfig()
 	{
 		if (!$this->sharedConfig) {
+			if (!$this->appConfiguration) {
+				$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
+			}
 			$sharedStorageApi = new StorageApiClient(
-				$this->mainConfig['shared_sapi']['token'],
-				$this->mainConfig['shared_sapi']['url'],
-				$this->mainConfig['user_agent']
+				$this->appConfiguration->sharedSapi_token,
+				$this->appConfiguration->sharedSapi_url,
+				$this->appConfiguration->userAgent
 			);
 			$this->sharedConfig = new Writer\SharedConfig($sharedStorageApi);
 		}
@@ -142,7 +149,10 @@ class GoodDataWriter extends Component
 			$result['writer']['writer'] = $this->_name;
 			return $result;
 		} else {
-			$this->configuration = new Configuration($this->_storageApi, null, $this->mainConfig['scripts_path']);
+			if (!$this->appConfiguration) {
+				$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
+			}
+			$this->configuration = new Configuration($this->_storageApi, null, $this->appConfiguration->scriptsPath);
 			return array('writers' => $this->configuration->getWriters());
 		}
 	}
@@ -171,8 +181,8 @@ class GoodDataWriter extends Component
 
 		$this->configuration->createWriter($params['writerId'], isset($params['backendUrl']) ? $params['backendUrl'] : null);
 
-		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->mainConfig['gd']['access_token'];
-		$projectName = sprintf($this->mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
+		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->appConfiguration->gd_accessToken;
+		$projectName = sprintf($this->appConfiguration->gd_projectNameTemplate, $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 
 
 		$batchId = $this->_storageApi->generateId();
@@ -301,9 +311,9 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->mainConfig['gd']['access_token'];
+		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->appConfiguration->gd_accessToken;
 		$projectName = !empty($params['name']) ? $params['name']
-			: sprintf($this->mainConfig['gd']['project_name'], $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
+			: sprintf($this->appConfiguration->gd_projectNameTemplate, $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 		$this->configuration->checkBucketAttributes();
 		$this->configuration->checkProjectsTable();
 
@@ -608,7 +618,7 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("User " . $user . " doesn't exist in writer");
 		}
 
-		$sso = new SSO($this->configuration, $this->mainConfig['gd'], $this->mainConfig['tmp_path']);
+		$sso = new SSO($this->configuration, $this->appConfiguration);
 
 		$targetUrl = '/#s=/gdc/projects/' . $params['pid'];
 		if (isset($params['targetUrl'])) {
@@ -659,7 +669,10 @@ class GoodDataWriter extends Component
 			throw new WrongParametersException("Wrong value for 'query' parameter given");
 		}
 
-		$restApi = new RestApi($this->_log, $this->mainConfig['scripts_path']);
+		/**
+		 * @var RestApi
+		 */
+		$restApi = $this->_container->get('gooddata_writer.rest_api');
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);

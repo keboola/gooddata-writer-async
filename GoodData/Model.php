@@ -8,6 +8,7 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
+use Keboola\GoodDataWriter\Writer\AppConfiguration;
 
 class Model
 {
@@ -15,10 +16,10 @@ class Model
 	const TIME_DIMENSION_MANIFEST = 'time-dimension-manifest.json';
 	const TIME_DIMENSION_MODEL = 'time-dimension-ldm.json';
 
-	public function __construct($scriptsPath)
+	public function __construct(AppConfiguration $appConfiguration)
 	{
-		$this->timeDimensionManifestPath = $scriptsPath . '/' . self::TIME_DIMENSION_MANIFEST;
-		$this->timeDimensionModelPath = $scriptsPath . '/' . self::TIME_DIMENSION_MODEL;
+		$this->timeDimensionManifestPath = $appConfiguration->scriptsPath . '/' . self::TIME_DIMENSION_MANIFEST;
+		$this->timeDimensionModelPath = $appConfiguration->scriptsPath . '/' . self::TIME_DIMENSION_MODEL;
 	}
 
 	/**

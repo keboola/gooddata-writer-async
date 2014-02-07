@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\GoodDataWriter\GoodData\RestApiException;
+use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand,
 	Symfony\Component\Console\Input\InputInterface,
 	Symfony\Component\Console\Output\OutputInterface;
@@ -38,31 +39,35 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		}
 
 		$log = $this->getContainer()->get('logger');
-		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
-
+		/**
+		 * @var AppConfiguration $appConfiguration
+		 */
+		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
 		$sharedConfig = new SharedConfig(
-			new StorageApiClient($mainConfig['shared_sapi']['token'], $mainConfig['shared_sapi']['url'])
+			new StorageApiClient($appConfiguration->sharedSapi_token, $appConfiguration->sharedSapi_url)
 		);
+
+		/**
+		 * @var RestApi
+		 */
+		$restApi = $this->getContainer()->get('gooddata_writer.rest_api');
+		$restApi->login($appConfiguration->gd_username, $appConfiguration->gd_password);
 
 		$pids = array();
 		foreach ($sharedConfig->projectsToDelete() as $project) {
-			$restApi = new RestApi($log, $mainConfig['scripts_path']);
-			$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
 			try {
 				$restApi->dropProject($project['pid']);
 				$pids[] = $project['pid'];
 				$output->writeln(sprintf('Project %s deleted', $project['pid']));
 			} catch (RestApiException $e) {
-				$log->alert('Could nor delete project', array(
+				$log->alert('Could not delete project', array(
 					'project' => $project,
-					'exception' => $e
+					'exception' => $e->getDetails()
 				));
 			}
 		}
 		$sharedConfig->markProjectsDeleted($pids);
 
-		$restApi = new RestApi($log, $mainConfig['scripts_path']);
-		$restApi->login($mainConfig['gd']['username'], $mainConfig['gd']['password']);
 		$uids = array();
 		foreach ($sharedConfig->usersToDelete() as $user) {
 			try {
@@ -70,9 +75,9 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 				$uids[] = $user['uid'];
 				$output->writeln(sprintf('User %s deleted', $user['uid']));
 			} catch (RestApiException $e) {
-				$log->alert('Could nor delete user', array(
+				$log->alert('Could not delete user', array(
 					'user' => $user,
-					'exception' => $e
+					'exception' => $e->getDetails()
 				));
 			}
 		}

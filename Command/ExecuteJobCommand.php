@@ -1,6 +1,7 @@
 <?php
 namespace Keboola\GoodDataWriter\Command;
 
+use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\GoodDataWriter\Writer\JobExecutor;
 use Keboola\GoodDataWriter\Writer\SharedConfig;
@@ -30,12 +31,15 @@ class ExecuteJobCommand extends ContainerAwareCommand
 	{
 		$this->getContainer()->get('syrup.monolog.json_formatter')->setComponentName('gooddata-writer');
 
-		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
+		/**
+		 * @var AppConfiguration $appConfiguration
+		 */
+		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
 		$sharedConfig = new SharedConfig(
 			new StorageApiClient(
-				$mainConfig['shared_sapi']['token'],
-				$mainConfig['shared_sapi']['url'],
-				$mainConfig['user_agent']
+				$appConfiguration->sharedSapi_token,
+				$appConfiguration->sharedSapi_url,
+				$appConfiguration->userAgent
 			)
 		);
 
