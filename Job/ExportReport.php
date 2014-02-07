@@ -16,6 +16,7 @@ use Keboola\GoodDataWriter\Exception\WrongParametersException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 use Aws\Common\Client as AwsClient;
+use Keboola\StorageApi\Table;
 
 class ExportReport extends AbstractJob
 {
@@ -42,7 +43,8 @@ class ExportReport extends AbstractJob
 			if (!isset($report['report']['content']['definitions'][0])) {
 				throw new RestApiException("Report definition not found");
 			}
-			$reportDefinitionUri = $report['report']['content']['definitions'][0];
+			$reportDefinitions = $report['report']['content']['definitions'];
+			$reportDefinitionUri = array_pop($reportDefinitions);
 
 			$response = $this->restApi->executeReportRaw($bucketAttributes['gd']['pid'], $reportDefinitionUri);
 			$csvUri = $response['uri'];
@@ -77,7 +79,9 @@ class ExportReport extends AbstractJob
 
 	protected function uploadToSapi($filename, $tableId, $token)
 	{
-		$csvFile = new CsvFile($filename);
+		$normalizedCsv = $this->normalizeCsv($filename);
+
+		$csvFile = new CsvFile($normalizedCsv);
 
 		$sapi = new \Keboola\StorageApi\Client($token, null, 'gooddata-writer');
 
@@ -87,6 +91,32 @@ class ExportReport extends AbstractJob
 		} catch (\Exception $e) {
 			$sapi->writeTableAsync($tableId, $csvFile);
 		}
+	}
+
+	protected function normalizeCsv($filePath)
+	{
+		$fr = fopen($filePath, 'r');
+
+		$destPath = str_replace('.csv', '-normalized.csv', $filePath);
+
+		$fw = fopen($destPath, 'w');
+
+		$cnt = 0;
+		$header = null;
+
+		while ($line = fgets($fr)) {
+			if ($cnt == 0) {
+				$header = Table::csvStringToArray($line);
+				$line = implode(',', Table::normalizeHeader($header[0])) . PHP_EOL;
+			}
+			fwrite($fw, $line);
+			$cnt++;
+		}
+
+		fclose($fw);
+		fclose($fr);
+
+		return $destPath;
 	}
 
 	protected function uploadToS3($stream)
