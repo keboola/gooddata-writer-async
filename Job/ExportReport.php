@@ -23,8 +23,7 @@ class ExportReport extends AbstractJob
 	/**
 	 * @param $job
 	 * @param $params
-	 * @throws WrongConfigurationException
-	 * @throws WrongParametersException
+	 * @throws \Keboola\GoodDataWriter\GoodData\RestApiException
 	 * @return array
 	 */
 	public function run($job, $params)
@@ -34,47 +33,34 @@ class ExportReport extends AbstractJob
 
 		$gdWriteStartTime = date('c');
 
-		try {
-			$bucketAttributes = $this->configuration->bucketAttributes();
-			$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
-			$report = $this->restApi->get($params['report']);
+		$report = $this->restApi->get($params['report']);
 
-			if (!isset($report['report']['content']['definitions'][0])) {
-				throw new RestApiException("Report definition not found");
-			}
-			$reportDefinitions = $report['report']['content']['definitions'];
-			$reportDefinitionUri = array_pop($reportDefinitions);
-
-			$response = $this->restApi->executeReportRaw($bucketAttributes['gd']['pid'], $reportDefinitionUri);
-			$csvUri = $response['uri'];
-
-			/** @TODO Streamed import to SAPI
-			$stream = $this->restApi->getStream($csvUri);
-			$this->uploadToS3($stream->getStream());
-			 */
-
-			$filename = $this->mainConfig['tmp_path'] . '/' . uniqid("report-export", true) .'.csv';
-
-			$this->restApi->getToFile($csvUri, $filename);
-
-			$this->uploadToSapi($filename, $params['table'], $params['token']);
-
-
-			return $this->_prepareResult($job['id'], array(
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->restApi->callsLog());
-
-		} catch (UnauthorizedException $e) {
-			throw new WrongConfigurationException('Rest API Login failed');
-		} catch (RestApiException $e) {
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => $e->getMessage(),
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->restApi->callsLog());
+		if (!isset($report['report']['content']['definitions'][0])) {
+			throw new RestApiException("Report definition not found");
 		}
+		$reportDefinitions = $report['report']['content']['definitions'];
+		$reportDefinitionUri = array_pop($reportDefinitions);
 
+		$response = $this->restApi->executeReportRaw($bucketAttributes['gd']['pid'], $reportDefinitionUri);
+		$csvUri = $response['uri'];
+
+		/** @TODO Streamed import to SAPI
+		$stream = $this->restApi->getStream($csvUri);
+		$this->uploadToS3($stream->getStream());
+		 */
+
+		$filename = $this->appConfiguration->tmpPath . '/' . uniqid("report-export", true) .'.csv';
+
+		$this->restApi->getToFile($csvUri, $filename);
+
+		$this->uploadToSapi($filename, $params['table'], $params['token']);
+
+		return array(
+			'gdWriteStartTime' => $gdWriteStartTime
+		);
 	}
 
 	protected function uploadToSapi($filename, $tableId, $token)
@@ -122,15 +108,15 @@ class ExportReport extends AbstractJob
 	protected function uploadToS3($stream)
 	{
 		$client = S3Client::factory(array(
-			'key'    => $this->mainConfig['aws']['access_key'],
-			'secret' => $this->mainConfig['aws']['secret_key']
+			'key'    => $this->appConfiguration->aws_accessKey,
+			'secret' => $this->appConfiguration->aws_secretKey
 		));
 
 		/** @var AbstractTransfer $uploader */
 		$uploader = UploadBuilder::newInstance()
 			->setClient($client)
 			->setSource($stream)
-			->setBucket($this->mainConfig['aws']['s3_bucket'])
+			->setBucket($this->appConfiguration->aws_s3Bucket)
 			->setKey('gooddata-report-export-text.csv')
 //			->setOption('Metadata', array('Foo' => 'Bar'))
 //			->setOption('CacheControl', 'max-age=3600')
