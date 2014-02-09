@@ -91,10 +91,20 @@ class ExportReport extends AbstractJob
 		$header = null;
 
 		while ($line = fgets($fr)) {
+
+			$lineArr = Table::csvStringToArray($line);
+			$lineArr = $lineArr[0];
+
 			if ($cnt == 0) {
-				$header = Table::csvStringToArray($line);
-				$line = implode(',', Table::normalizeHeader($header[0])) . PHP_EOL;
+				$lineArr = Table::normalizeHeader($lineArr);
 			}
+
+			foreach ($lineArr as $k => $v) {
+				$lineArr[$k] = '"' . $v . '"';
+			}
+
+			$line = implode(',', $lineArr) . PHP_EOL;
+
 			fwrite($fw, $line);
 			$cnt++;
 		}

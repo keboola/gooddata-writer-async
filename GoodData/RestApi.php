@@ -1403,7 +1403,7 @@ class RestApi
 		$startTime = microtime();
 
 		$request = $this->client->get($this->apiUrl . $uri, array(
-			'accept' => 'application/json',
+			'accept' => 'text/csv',
 			'accept-charset' => 'utf-8'
 		));
 
