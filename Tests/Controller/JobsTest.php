@@ -51,7 +51,7 @@ class JobsTest extends AbstractControllerTest
 		$responseJson = $this->_getWriterApi('/gooddata-writer/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
 		$this->assertArrayHasKey('batch', $responseJson, "Response for GoodData API call '/batch' should contain 'batch' key.");
 		$this->assertArrayHasKey('jobs', $responseJson['batch'], "Response for GoodData API call '/batch' should contain 'batch.jobs' key.");
-		$this->assertCount(3, $responseJson['batch']['jobs'], "Response for GoodData API call '/batch' should contain three jobs.");
+		$this->assertCount(4, $responseJson['batch']['jobs'], "Response for GoodData API call '/batch' should contain four jobs.");
 
 		$uploadCategoriesFound = false;
 		$uploadProductsFound = false;
