@@ -1040,6 +1040,7 @@ class GoodDataWriter extends Component
 		$jobInfo = $this->_createJob(array(
 			'command' => 'UploadDateDimension',
 			'createdTime' => date('c', $createdTime),
+			'dataset' => $params['name'],
 			'parameters' => array(
 				'name' => $params['name'],
 				'includeTime' => $dateDimensions[$params['name']]['includeTime']
@@ -1074,18 +1075,51 @@ class GoodDataWriter extends Component
 		}
 
 		$this->configuration->checkBucketAttributes();
-		$this->configuration->getDateDimensions();
 
 		$batchId = $this->_storageApi->generateId();
 
 		$definition = $this->configuration->getDataSetDefinition($params['tableId']);
 
 
-		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
+		// Create date dimensions
+		$dateDimensionsToLoad = array();
+		$dateDimensions = array();
+		if ($definition['columns']) foreach ($definition['columns'] as $column) if ($column['type'] == 'DATE') {
+			if (!$dateDimensions) {
+				$dateDimensions = $this->configuration->getDateDimensions();
+			}
+
+			$dimension = $column['schemaReference'];
+			if (!isset($dateDimensions[$dimension])) {
+				throw new WrongParametersException(sprintf("Date dimension '%s' defined for column '%s' does not exist in configuration", $dimension, $column['name']));
+			}
+
+			if (!$dateDimensions[$dimension]['isExported'] && !in_array($dimension, $dateDimensionsToLoad)) {
+				$dateDimensionsToLoad[] = $dimension;
+
+				$jobData = array(
+					'batchId' => $batchId,
+					'command' => 'uploadDateDimension',
+					'dataset' => $dimension,
+					'createdTime' => date('c', $createdTime),
+					'parameters' => array(
+						'name' => $dimension,
+						'includeTime' => $dateDimensions[$dimension]['includeTime']
+					),
+					'queue' => isset($params['queue']) ? $params['queue'] : null
+				);
+				if (isset($params['pid'])) {
+					$jobData['parameters']['pid'] = $params['pid'];
+				}
+				$this->_createJob($jobData);
+			}
+		}
+
+		$tableConfiguration = $this->configuration->getDataSet($params['tableId']);
 		$jobData = array(
 			'batchId' => $batchId,
 			'command' => 'uploadTable',
-			'dataset' => !empty($tableDefinition['name']) ? $tableDefinition['name'] : $tableDefinition['id'],
+			'dataset' => !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'],
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
 				'tableId' => $params['tableId']
@@ -1098,9 +1132,6 @@ class GoodDataWriter extends Component
 		if (isset($params['incrementalLoad'])) {
 			$jobData['parameters']['incrementalLoad'] = $params['incrementalLoad'];
 		}
-		if (isset($params['sanitize'])) {
-			$jobData['parameters']['sanitize'] = $params['sanitize'];
-		}
 		$jobInfo = $this->_createJob($jobData);
 
 
@@ -1108,7 +1139,7 @@ class GoodDataWriter extends Component
 			'xmlFile' => $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $params['tableId']), json_encode($definition))
 		));
 
-		$this->_enqueue($jobInfo['batchId']);
+		$this->_enqueue($batchId);
 
 
 		if (empty($params['wait'])) {
@@ -1140,8 +1171,46 @@ class GoodDataWriter extends Component
 		$runId = $this->_storageApi->getRunId();
 		$batchId = $this->_storageApi->generateId();
 
+		$sortedDataSets = $this->configuration->getSortedDataSets();
 
-		foreach ($this->configuration->getSortedDataSets() as $dataSet) {
+
+		// Create date dimensions
+		$dateDimensionsToLoad = array();
+		$dateDimensions = array();
+		foreach ($sortedDataSets as $dataSet) {
+			if ($dataSet['definition']['columns']) foreach ($dataSet['definition']['columns'] as $column) if ($column['type'] == 'DATE') {
+				if (!$dateDimensions) {
+					$dateDimensions = $this->configuration->getDateDimensions();
+				}
+
+				$dimension = $column['schemaReference'];
+				if (!isset($dateDimensions[$dimension])) {
+					throw new WrongParametersException(sprintf("Date dimension '%s' defined for table '%s' and column '%s' does not exist in configuration", $dimension, $dataSet['tableId'], $column['name']));
+				}
+
+				if (!$dateDimensions[$dimension]['isExported'] && !in_array($dimension, $dateDimensionsToLoad)) {
+					$dateDimensionsToLoad[] = $dimension;
+
+					$jobData = array(
+						'batchId' => $batchId,
+						'command' => 'uploadDateDimension',
+						'dataset' => $dimension,
+						'createdTime' => date('c', $createdTime),
+						'parameters' => array(
+							'name' => $dimension,
+							'includeTime' => $dateDimensions[$dimension]['includeTime']
+						),
+						'queue' => isset($params['queue']) ? $params['queue'] : null
+					);
+					if (isset($params['pid'])) {
+						$jobData['parameters']['pid'] = $params['pid'];
+					}
+					$this->_createJob($jobData);
+				}
+			}
+		}
+
+		foreach ($sortedDataSets as $dataSet) {
 			$jobData = array(
 				'batchId' => $batchId,
 				'runId' => $runId,

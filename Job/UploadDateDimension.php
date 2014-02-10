@@ -91,8 +91,6 @@ class UploadDateDimension extends AbstractJob
 				);
 			}
 
-			$this->configuration->setDateDimensionIsExported($params['name']);
-
 			if ($includeTime) {
 				// Upload to WebDav
 				$webDavUrl = $this->getWebDavUrl($bucketAttributes);
@@ -175,6 +173,10 @@ class UploadDateDimension extends AbstractJob
 		}
 		if (!empty($gdWriteStartTime)) {
 			$result['gdWriteStartTime'] = $gdWriteStartTime;
+		}
+
+		if ($result['status'] == 'success') {
+			$this->configuration->setDateDimensionIsExported($params['name']);
 		}
 
 		return $result;

@@ -52,7 +52,6 @@ class UploadTable extends AbstractJob
 		$error = false;
 		$debug = array();
 
-		$createDateJobs = array();
 		$updateModelJobs = array();
 		$loadDataJobs = array();
 
@@ -142,46 +141,8 @@ class UploadTable extends AbstractJob
 		}
 
 
-		// Find out new date dimensions and enqueue them for creation
-		$dateDimensions = null;
-		$dateDimensionsToLoad = array();
-		$newDimensions = array();
-		if ($definition['columns']) foreach ($definition['columns'] as $column) if ($column['type'] == 'DATE') {
-			if (!$dateDimensions) {
-				$dateDimensions = $this->configuration->getDateDimensions();
-			}
-
-			$dimension = $column['schemaReference'];
-			if (!isset($dateDimensions[$dimension])) {
-				throw new WrongConfigurationException("Date dimension '$dimension' does not exist");
-			}
-
-			if (!in_array($dimension, array_keys($dateDimensionsToLoad))) {
-				$dateDimensionsToLoad[$dimension] = array(
-					'name' => $dimension,
-					'gdName' => Model::getId($dimension),
-					'includeTime' => !empty($dateDimensions[$dimension]['includeTime'])
-				);
-				if (!$dateDimensions[$dimension]['isExported']) {
-					$newDimensions[$dimension] = null;
-				}
-			}
-		}
-		$newDimensions = array_keys($newDimensions);
-
 		// Enqueue jobs for creation/update of dataSet and load data
 		foreach ($projectsToLoad as $project) {
-			foreach ($dateDimensionsToLoad as $dimension) {
-				if (!in_array(Model::getDateDimensionId($dimension['gdName']), array_keys($project['existingDataSets']))) {
-					$createDateJobs[] = array(
-						'pid' => $project['pid'],
-						'name' => $dimension['name'],
-						'includeTime' => $dimension['includeTime'],
-						'mainProject' => !empty($project['main'])
-					);
-				}
-			}
-
 			$dataSetExists = in_array($dataSetId, array_keys($project['existingDataSets']));
 			if ($dataSetExists) {
 				if (!empty($tableDefinition['lastChangeDate'])
@@ -230,29 +191,6 @@ class UploadTable extends AbstractJob
 
 
 		try {
-
-			// Create date dimensions
-			foreach ($createDateJobs as $gdJob) {
-				$stopWatchId = 'createDimension-' . $gdJob['name'] . '-' . $gdJob['pid'];
-				$stopWatch->start($stopWatchId);
-				$this->restApi->callsLog = array();
-				$this->restApi->createDateDimension($gdJob['pid'], $gdJob['name'], $gdJob['includeTime']);
-
-				if (in_array($gdJob['name'], $newDimensions)) {
-					// Save export status to definition
-					$this->configuration->setDateDimensionIsExported($gdJob['name']);
-					unset($newDimensions[$gdJob['name']]);
-				}
-
-				$e = $stopWatch->stop($stopWatchId);
-				$this->eventsLog[$stopWatchId] = array(
-					'duration' => $e->getDuration(),
-					'time' => date('c'),
-					'restApi' => $this->restApi->callsLog
-				);
-			}
-
-
 			// Update model
 			foreach ($updateModelJobs as $gdJob) {
 				$stopWatchId = $gdJob['command'] . 'DataSet'.'-'.$gdJob['pid'];
@@ -313,39 +251,6 @@ class UploadTable extends AbstractJob
 
 			// Upload to WebDav
 			$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl);
-
-
-			// Upload time dimensions data
-			$dimensionsToUpload = array();
-			foreach ($createDateJobs as $gdJob) {
-				if ($gdJob['includeTime']) {
-					// Upload csv to WebDav only once for all projects
-					if (in_array($gdJob['name'], $dimensionsToUpload)) {
-						continue;
-					}
-
-					$stopWatchId = 'uploadTimeDimensionData-' . $gdJob['name'];
-					$stopWatch->start($stopWatchId);
-
-					$dimensionName = Model::getId($gdJob['name']);
-					$tmpFolderDimension = $this->tmpDir . '/' . $dimensionName;
-					$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
-
-					mkdir($tmpFolderDimension);
-					$timeDimensionManifest = $this->goodDataModel->getTimeDimensionDataLoadManifest($gdJob['name']);
-					file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
-					copy($this->scriptsPath . '/time-dimension.csv', $tmpFolderDimension . '/data.csv');
-					$webDav->prepareFolder($tmpFolderNameDimension);
-					$webDav->upload($tmpFolderDimension . '/upload_info.json', $tmpFolderNameDimension);
-					$webDav->upload($tmpFolderDimension . '/data.csv', $tmpFolderNameDimension);
-					$dimensionsToUpload[] = $gdJob['name'];
-
-					$e = $stopWatch->stop($stopWatchId);
-					$this->eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'),
-						'url' => $webDav->url, 'folder' => '/uploads/' . $tmpFolderNameDimension);
-				}
-			}
-
 			if (!$webDavUrl) $webDavUrl = $webDav->url;
 
 			// Upload dataSets
@@ -380,44 +285,6 @@ class UploadTable extends AbstractJob
 
 			// Run ETL tasks
 			$gdWriteStartTime = date('c');
-
-
-			// Run ETL task of time dimensions
-			foreach ($createDateJobs as $gdJob) {
-				if ($gdJob['includeTime']) {
-					$stopWatchId = sprintf('runEtlTimeDimension-%s-%s', $gdJob['name'], $gdJob['pid']);
-					$stopWatch->start($stopWatchId);
-
-					$dimensionName = Model::getId($gdJob['name']);
-					$dataSetName = 'time.' . $dimensionName;
-					$tmpFolderDimension = $this->tmpDir . '/' . $dimensionName;
-					$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
-
-					try {
-						$this->restApi->loadData($gdJob['pid'], $tmpFolderNameDimension, $dataSetName);
-					} catch (RestApiException $e) {
-						$debugFile = $tmpFolderDimension . '/' . $gdJob['pid'] . '-etl.log';
-						$taskName = 'Dimension ' . $gdJob['name'];
-						$webDav->saveLogs($tmpFolderDimension, $debugFile);
-						$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $gdJob['pid'], $dataSetName));
-						if ($gdJob['mainProject']) {
-							$debug[$taskName] = $logUrl;
-						} else {
-							$debug[$gdJob['pid']][$taskName] = $logUrl;
-						}
-
-						throw new RestApiException('ETL load failed', $e->getMessage());
-					}
-
-					$e = $stopWatch->stop($stopWatchId);
-					$this->eventsLog[$stopWatchId] = array(
-						'duration' => $e->getDuration(),
-						'time' => date('c'),
-						'restApi' => $this->restApi->callsLog
-					);
-				}
-			}
-
 
 			// Run ETL task of dataSets
 			foreach ($loadDataJobs as $gdJob) {
