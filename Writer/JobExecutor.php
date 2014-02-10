@@ -288,12 +288,12 @@ class JobExecutor
 			$command->scriptsPath = $appConfiguration->scriptsPath;
 			$command->log = $this->log;
 
+			$error = null;
 			$token = $this->storageApiClient->getLogData();
 			$command->preRelease = !empty($token['owner']['features']) && in_array('rc-writer', $token['owner']['features']);
 			try {
 				$result = $command->run($job, $parameters);
 			} catch (\Exception $e) {
-				$error = null;
 				$data = array();
 
 				if ($e instanceof RestApiException) {
@@ -321,7 +321,12 @@ class JobExecutor
 				}
 			}
 			if (!empty($result['error'])) {
-				$sapiEvent->setDescription($result['error']);
+				if (isset($result['error']['error'])) {
+					if (is_array($result['error']['error'])) {
+						$result['error']['error'] = json_encode($result['error']['error']);
+					}
+					$sapiEvent->setDescription($result['error']['error']);
+				}
 				$sapiEvent->setType(StorageApiEvent::TYPE_WARN);
 			}
 

@@ -11,7 +11,6 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\GoodData\CLToolApi,
-	Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\GoodData\CsvHandler,
 	Keboola\GoodDataWriter\GoodData\CsvHandlerException,
 	Keboola\GoodDataWriter\GoodData\WebDav;
@@ -173,7 +172,7 @@ class UploadTable extends AbstractJob
 		// Enqueue jobs for creation/update of dataSet and load data
 		foreach ($projectsToLoad as $project) {
 			foreach ($dateDimensionsToLoad as $dimension) {
-				if (!in_array(Model::getDimensionId($dimension['gdName']), array_keys($project['existingDataSets']))) {
+				if (!in_array(Model::getDateDimensionId($dimension['gdName']), array_keys($project['existingDataSets']))) {
 					$createDateJobs[] = array(
 						'pid' => $project['pid'],
 						'name' => $dimension['name'],
@@ -316,7 +315,7 @@ class UploadTable extends AbstractJob
 			$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl);
 
 
-			// Upload time dimensions
+			// Upload time dimensions data
 			$dimensionsToUpload = array();
 			foreach ($createDateJobs as $gdJob) {
 				if ($gdJob['includeTime']) {
@@ -325,7 +324,7 @@ class UploadTable extends AbstractJob
 						continue;
 					}
 
-					$stopWatchId = 'uploadTimeDimension-' . $gdJob['name'] . '-' . $gdJob['pid'];
+					$stopWatchId = 'uploadTimeDimensionData-' . $gdJob['name'];
 					$stopWatch->start($stopWatchId);
 
 					$dimensionName = Model::getId($gdJob['name']);
@@ -386,7 +385,7 @@ class UploadTable extends AbstractJob
 			// Run ETL task of time dimensions
 			foreach ($createDateJobs as $gdJob) {
 				if ($gdJob['includeTime']) {
-					$stopWatchId = 'runEtlTimeDimension-' . $gdJob['name'];
+					$stopWatchId = sprintf('runEtlTimeDimension-%s-%s', $gdJob['name'], $gdJob['pid']);
 					$stopWatch->start($stopWatchId);
 
 					$dimensionName = Model::getId($gdJob['name']);
@@ -509,24 +508,6 @@ class UploadTable extends AbstractJob
 			}
 		}
 		return $filterColumn;
-	}
-
-	private function getWebDavUrl($bucketAttributes)
-	{
-		$webDavUrl = null;
-		if (isset($bucketAttributes['gd']['backendUrl']) && $bucketAttributes['gd']['backendUrl'] != RestApi::DEFAULT_BACKEND_URL) {
-
-			// Get WebDav url for non-default backend
-			$backendUrl = (substr($bucketAttributes['gd']['backendUrl'], 0, 8) != 'https://'
-					? 'https://' : '') . $bucketAttributes['gd']['backendUrl'];
-			$this->restApi->setBaseUrl($backendUrl);
-			$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
-			$webDavUrl = $this->restApi->getWebDavUrl();
-			if (!$webDavUrl) {
-				throw new JobProcessException(sprintf("Getting of WebDav url for backend '%s' failed.", $bucketAttributes['gd']['backendUrl']));
-			}
-		}
-		return $webDavUrl;
 	}
 
 }

@@ -1013,6 +1013,48 @@ class GoodDataWriter extends Component
 	}
 
 	/**
+	 * Upload configured date dimension to GoodData
+	 */
+	public function postUploadDateDimension($params)
+	{
+		$createdTime = time();
+
+		// Init parameters
+		if (empty($params['tableId'])) {
+			throw new WrongParametersException("Parameter 'tableId' is missing");
+		}
+		if (empty($params['name'])) {
+			throw new WrongParametersException("Parameter 'name' is missing");
+		}
+		$this->init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$this->configuration->checkBucketAttributes();
+		$dateDimensions = $this->configuration->getDateDimensions();
+		if (!in_array($params['name'], array_keys($dateDimensions))) {
+			throw new WrongParametersException(sprintf("Date dimension '%s' does not exist in configuration", $params['name']));
+		}
+
+		$jobInfo = $this->_createJob(array(
+			'command' => 'UploadDateDimension',
+			'createdTime' => date('c', $createdTime),
+			'parameters' => array(
+				'name' => $params['name'],
+				'includeTime' => $dateDimensions[$params['name']]['includeTime']
+			),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
+		));
+		if (isset($params['pid'])) {
+			$jobData['parameters']['pid'] = $params['pid'];
+		}
+
+		$this->_enqueue($jobInfo['batchId']);
+		return array('job' => (int)$jobInfo['id']);
+	}
+
+	/**
 	 * @param $params
 	 * @return array
 	 * @throws Exception\JobProcessException

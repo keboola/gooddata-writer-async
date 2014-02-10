@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\Configuration,
@@ -71,5 +72,23 @@ abstract class AbstractJob
 				throw new WrongConfigurationException("Parameter '" . $k . "' is missing");
 			}
 		}
+	}
+
+	protected function getWebDavUrl($bucketAttributes)
+	{
+		$webDavUrl = null;
+		if (isset($bucketAttributes['gd']['backendUrl']) && $bucketAttributes['gd']['backendUrl'] != RestApi::DEFAULT_BACKEND_URL) {
+
+			// Get WebDav url for non-default backend
+			$backendUrl = (substr($bucketAttributes['gd']['backendUrl'], 0, 8) != 'https://'
+					? 'https://' : '') . $bucketAttributes['gd']['backendUrl'];
+			$this->restApi->setBaseUrl($backendUrl);
+			$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
+			$webDavUrl = $this->restApi->getWebDavUrl();
+			if (!$webDavUrl) {
+				throw new JobProcessException(sprintf("Getting of WebDav url for backend '%s' failed.", $bucketAttributes['gd']['backendUrl']));
+			}
+		}
+		return $webDavUrl;
 	}
 }

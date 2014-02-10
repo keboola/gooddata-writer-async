@@ -952,10 +952,15 @@ class RestApi
 
 	public function createDateDimension($pid, $name, $includeTime = false)
 	{
-		$identifier = str_replace(' ', '', strtolower($name));
-		$maql = sprintf('INCLUDE TEMPLATE "URN:GOODDATA:DATE" MODIFY (IDENTIFIER "%s", TITLE "%s");', $identifier, $name);
+		$identifier = Model::getId($name);
+		$dataSets = $this->getDataSets($pid);
 
-		if ($includeTime) {
+		$maql = '';
+		if (!in_array(Model::getDateDimensionId($name), $dataSets)) {
+			$maql .= sprintf('INCLUDE TEMPLATE "URN:GOODDATA:DATE" MODIFY (IDENTIFIER "%s", TITLE "%s");', $identifier, $name);
+		}
+
+		if ($includeTime && !in_array(Model::getTimeDimensionId($name), $dataSets)) {
 			$maql .= 'CREATE DATASET {dataset.time.%ID%} VISUAL(TITLE "Time (%NAME%)");';
 			$maql .= 'CREATE FOLDER {dim.time.%ID%} VISUAL(TITLE "Time dimension (%NAME%)") TYPE ATTRIBUTE;';
 			$maql .= 'CREATE FOLDER {ffld.time.%ID%} VISUAL(TITLE "Time dimension (%NAME%)") TYPE FACT;';
@@ -1006,7 +1011,9 @@ class RestApi
 			$maql = str_replace('%NAME%', $name, $maql);
 		}
 
-		$this->executeMaql($pid, $maql);
+		if ($maql) {
+			$this->executeMaql($pid, $maql);
+		}
 	}
 
 

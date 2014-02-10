@@ -5,6 +5,7 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
+use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\WebDav;
 
 class DatasetsTest extends AbstractControllerTest
@@ -309,7 +310,7 @@ class DatasetsTest extends AbstractControllerTest
 		 */
 		$jobId = $this->_processJob('/gooddata-writer/upload-table', array('tableId' => $tableId));
 		$response = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
-		$this->assertArrayHasKey('job', $response, "Response for writer call '/batch?batchId=' should contain key 'job'.");
+		$this->assertArrayHasKey('job', $response, "Response for writer call '/jobs?jobId=' should contain key 'job'.");
 		$this->assertArrayHasKey('status', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.status'.");
 		$this->assertEquals('success', $response['job']['status'], "Result of request /upload-table should be 'success'.");
 
@@ -320,23 +321,56 @@ class DatasetsTest extends AbstractControllerTest
 		//@TODO get, delete, post
 
 		// Create dimension
+		$dimensionName = 'TestDate';
 		$this->_postWriterApi('/gooddata-writer/date-dimensions', array(
 			'writerId' => $this->writerId,
-			'name' => 'TestDate'
+			'name' => $dimensionName,
+			'includeTime' => true
 		));
 
 		// Get dimensions
 		$responseJson = $this->_getWriterApi('/gooddata-writer/date-dimensions?writerId=' . $this->writerId . '&usage');
 		$this->assertArrayHasKey('dimensions', $responseJson, "Response for writer call '/date-dimensions' should contain 'dimensions' key.");
 		$this->assertCount(2, $responseJson['dimensions'], "Response for writer call '/date-dimensions' should contain two dimensions.");
-		$this->assertArrayHasKey('TestDate', $responseJson['dimensions'], "Response for writer call '/date-dimensions' should contain dimension 'TestDate'.");
+		$this->assertArrayHasKey($dimensionName, $responseJson['dimensions'], "Response for writer call '/date-dimensions' should contain dimension 'TestDate'.");
 		$this->assertArrayHasKey('ProductDate', $responseJson['dimensions'], "Response for writer call '/date-dimensions' should contain dimension 'ProductDate'.");
 		$this->assertArrayHasKey('usedIn', $responseJson['dimensions']['ProductDate'], "Response for writer call '/date-dimensions' should contain key 'usedIn' for dimension 'ProductDate'.");
 		$this->assertCount(1, $responseJson['dimensions']['ProductDate']['usedIn'], "Response for writer call '/date-dimensions' should contain usage of dimension 'ProductDate'.");
 		$this->assertEquals($this->dataBucketId . '.products', $responseJson['dimensions']['ProductDate']['usedIn'][0], "Response for writer call '/date-dimensions' should contain usage of dimension 'ProductDate' in dataset 'Products'.");
 
+
+		// Upload created date do GoodData
+		$jobId = $this->_processJob('/gooddata-writer/upload-date-dimension', array('tableId' => $tableId, 'name' => $dimensionName));
+		$response = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
+		$this->assertArrayHasKey('job', $response, "Response for writer call '/jobs?jobId=' should contain key 'job'.");
+		$this->assertArrayHasKey('status', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.status'.");
+		$this->assertEquals('success', $response['job']['status'], "Result of request /upload-table should be 'success'.");
+
+		$data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
+		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
+		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
+
+		$dateFound = false;
+		$dateTimeFound = false;
+		$dateTimeDataLoad = false;
+		foreach ($data['dataSetsInfo']['sets'] as $d) {
+			if ($d['meta']['identifier'] == Model::getTimeDimensionId($dimensionName)) {
+				$dateTimeFound = true;
+				if ($d['lastUpload']['dataUploadShort']['status'] == 'OK') {
+					$dateTimeDataLoad = true;
+				}
+			}
+			if ($d['meta']['identifier'] == Model::getDateDimensionId($dimensionName)) {
+				$dateFound = true;
+			}
+		}
+		$this->assertTrue($dateFound, sprintf("Date dimension '%' has not been found in GoodData", $dimensionName));
+		$this->assertTrue($dateTimeFound, sprintf("Time dimension '%' has not been found in GoodData", $dimensionName));
+		$this->assertTrue($dateTimeDataLoad, sprintf("Time dimension '%' has not been successfully loaded to GoodData", $dimensionName));
+
+
 		// Drop dimension
-		$this->_callWriterApi('/gooddata-writer/date-dimensions?writerId=' . $this->writerId . '&name=TestDate', 'DELETE');
+		$this->_callWriterApi('/gooddata-writer/date-dimensions?writerId=' . $this->writerId . '&name=' . $dimensionName, 'DELETE');
 		$responseJson = $this->_getWriterApi('/gooddata-writer/date-dimensions?writerId=' . $this->writerId);
 		$this->assertCount(1, $responseJson['dimensions'], "Response for writer call '/date-dimensions' should contain one dimension.");
 		$this->assertArrayNotHasKey('TestDate', $responseJson['dimensions'], "Response for writer call '/date-dimensions' should not contain dimension 'TestDate'.");
