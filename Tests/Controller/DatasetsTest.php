@@ -105,7 +105,7 @@ class DatasetsTest extends AbstractControllerTest
 		$response = $this->_getWriterApi('/gooddata-writer/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
 		$this->assertArrayHasKey('batch', $response, "Response for writer call '/batch?batchId=' should contain key 'batch'.");
 		$this->assertArrayHasKey('status', $response['batch'], "Response for writer call '/jobs?jobId=' should contain key 'batch.status'.");
-		$this->assertEquals('success', $response['batch']['status'], "Result of second /upload-project should be 'success'.");
+		$this->assertEquals('success', $response['batch']['status'], "Result of request /upload-project should be 'success'.");
 
 
 		// Check validity of foreign keys (including time dimension during daylight saving switch values)
@@ -165,7 +165,7 @@ class DatasetsTest extends AbstractControllerTest
 		/**
 		 * Change table definition
 		 */
-		$tableId = $this->dataBucketId . '.products';
+		$tableId = $this->dataBucketId . '.categories';
 		$testName = uniqid('test-name');
 
 		// Change gdName of table
@@ -212,9 +212,18 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertNotEquals($lastChangeDate, $lastChangeDateAfterUpdate, 'Last change date should be changed after update');
 
 
+		// Change gdName back
+		$this->_postWriterApi('/gooddata-writer/tables', array(
+			'writerId' => $this->writerId,
+			'tableId' => $tableId,
+			'name' => 'categories'
+		));
+
+
 		/**
 		 * Change column definition
 		 */
+		$tableId = $this->dataBucketId . '.products';
 		$columnName = 'id';
 		$newGdName = 'test' . uniqid();
 		$this->_postWriterApi('/gooddata-writer/tables', array(
@@ -282,7 +291,6 @@ class DatasetsTest extends AbstractControllerTest
 		/**
 		 * Remove column from out table
 		 */
-		$tableId = $this->dataBucketId . '.products';
 		$nowTime = date('c');
 
 		// Remove column and test if lastChangeDate changed
@@ -294,6 +302,16 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertArrayHasKey('lastChangeDate', $responseJson['table'], "Response for writer call '/tables&tableId=' should contain 'table.lastChangeDate' key.");
 		$this->assertGreaterThan($nowTime, $responseJson['table']['lastChangeDate'], "Response for writer call '/tables&tableId=' should have 'table.lastChangeDate' updated.");
 
+
+
+		/**
+		 * Upload table with model changes
+		 */
+		$jobId = $this->_processJob('/gooddata-writer/upload-table', array('tableId' => $tableId));
+		$response = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
+		$this->assertArrayHasKey('job', $response, "Response for writer call '/batch?batchId=' should contain key 'job'.");
+		$this->assertArrayHasKey('status', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.status'.");
+		$this->assertEquals('success', $response['job']['status'], "Result of request /upload-table should be 'success'.");
 
 
 		/**
