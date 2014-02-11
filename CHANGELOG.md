@@ -1,5 +1,6 @@
 ## 2014-02-11 (v 5.6)
 - uploading of date dimensions separated as single job
+- added POST API call `upload-date-dimension`
 
 ## 2014-01-31 (v 5.5)
 - added parameters `status` and `tokenId` to filter jobs list (API call `jobs`)

@@ -26,7 +26,7 @@ class UploadDateDimension extends AbstractJob
 
 	public function run($job, $params)
 	{
-		$this->checkParams($params, array('name', 'includeTime'));
+		$this->checkParams($params, array('name'));
 
 		$this->eventsLog = array();
 		$this->eventsLog['start'] = array('duration' => 0, 'time' => date('c'));
