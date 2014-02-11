@@ -123,6 +123,7 @@ class UploadDateDimension extends AbstractJob
 				foreach ($projectsToLoad as $pid) {
 					$stopWatchId = sprintf('runEtlTimeDimension-%s-%s', $params['name'], $pid);
 					$stopWatch->start($stopWatchId);
+					$this->restApi->callsLog = array();
 
 					$dataSetName = 'time.' . $dimensionName;
 					try {

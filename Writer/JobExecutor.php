@@ -275,6 +275,7 @@ class JobExecutor
 			);
 
 			$restApi = $this->container->get('gooddata_writer.rest_api');
+			$restApi->callsLog = array();
 			$bucketAttributes = $configuration->bucketAttributes();
 			if (isset($bucketAttributes['gd']['backendUrl'])) {
 				$restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
