@@ -404,30 +404,23 @@ POST /upload-table
 { "status": "ok", "batch": "batch_id", "jobs": {"job1_id", "job2_id" } }
 
 
-### Get dataset xml
+### Upload date dimension
 
-GET /xml?writerId={writerId}&tableId={tableId}
+Selectively upload date dimension (must be already configured in Writer)
+
+#### Parameters
+
+* **name** (required) - name of date dimension
+* **writerId** (required) - KBC id of writer
+* **pid** (optional) - filter rows from data table by filter column (see [Project clones](#projectclones))
+* **queue** (optional) - with value **secondary** will put job in secondary queue
+POST /upload-date-dimension
 > X-StorageApi-Token: your_token
+> Accept: application/json
+{ "name": "ProductDate", "writerId": "123" }
 < 200
-< Content-Type: application/xml
-<?xml version="1.0"?>
-<schema>
-    <name>Categories</name>
-    <columns>
-        <column>
-            <name>id</name>
-            <title>id (Categories)</title>
-            <ldmType>CONNECTION_POINT</ldmType>
-            <folder>Categories</folder>
-        </column>
-        <column>
-            <name>name</name>
-            <title>name (Categories)</title>
-            <ldmType>ATTRIBUTE</ldmType>
-            <folder>Categories</folder>
-        </column>
-    </columns>
-</schema>
+< Content-Type: application/json
+{ "status": "ok", "job": "job_id" }
 
 
 ### Execute reports
