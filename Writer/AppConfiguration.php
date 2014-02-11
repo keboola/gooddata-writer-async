@@ -39,11 +39,15 @@ class AppConfiguration
 	public $aws_s3Bucket;
 	public $aws_jobsSqsUrl;
 
+	public $appName;
 	public $storageApiUrl;
 	public $clPath;
 
-	public function __construct($mainConfig)
+	public function __construct($appName, $mainConfig, $storageApiUrl)
 	{
+		$this->appName = $appName;
+		$this->storageApiUrl = $storageApiUrl;
+
 		$this->userAgent = $mainConfig['user_agent'];
 		$this->tmpPath = $mainConfig['tmp_path'];
 		$this->scriptsPath = $mainConfig['scripts_path'];

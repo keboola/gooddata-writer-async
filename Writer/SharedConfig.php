@@ -37,12 +37,13 @@ class SharedConfig extends StorageApiConfiguration
 	const SECONDARY_QUEUE = 'secondary';
 
 
-	/**
-	 * @param StorageApiClient $storageApiClient
-	 */
-	public function __construct($storageApiClient)
+	public function __construct(AppConfiguration $appConfiguration)
 	{
-		$this->_storageApiClient = $storageApiClient;
+		$this->_storageApiClient = new StorageApiClient(
+			$appConfiguration->sharedSapi_token,
+			$appConfiguration->sharedSapi_url,
+			$appConfiguration->userAgent
+		);
 	}
 
 

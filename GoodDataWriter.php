@@ -8,7 +8,6 @@
 
 namespace Keboola\GoodDataWriter;
 
-use Aws\Sqs\SqsClient;
 use Guzzle\Common\Exception\InvalidArgumentException;
 use Guzzle\Http\Url;
 use Keboola\GoodDataWriter\GoodData\CLToolApi;
@@ -16,8 +15,7 @@ use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\GoodData\SSO,
 	Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\GoodDataWriter\Writer\SharedConfig,
-	Keboola\StorageApi\Client as StorageApiClient;
+	Keboola\GoodDataWriter\Writer\SharedConfig;
 use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
@@ -102,12 +100,7 @@ class GoodDataWriter extends Component
 			if (!$this->appConfiguration) {
 				$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
 			}
-			$sqsClient = SqsClient::factory(array(
-				'key' => $this->appConfiguration->aws_accessKey,
-				'secret' => $this->appConfiguration->aws_secretKey,
-				'region' => $this->appConfiguration->aws_region
-			));
-			$this->queue = new Service\Queue($sqsClient, $this->appConfiguration->aws_jobsSqsUrl);
+			$this->queue = $this->_container->get('gooddata_writer.queue');
 		}
 		return $this->queue;
 	}
@@ -117,13 +110,8 @@ class GoodDataWriter extends Component
 		if (!$this->sharedConfig) {
 			if (!$this->appConfiguration) {
 				$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
-			}
-			$sharedStorageApi = new StorageApiClient(
-				$this->appConfiguration->sharedSapi_token,
-				$this->appConfiguration->sharedSapi_url,
-				$this->appConfiguration->userAgent
-			);
-			$this->sharedConfig = new Writer\SharedConfig($sharedStorageApi);
+			}print_r($this->appConfiguration);die();
+			$this->sharedConfig = $this->_container->get('gooddata_writer.shared_config');
 		}
 		return $this->sharedConfig;
 	}

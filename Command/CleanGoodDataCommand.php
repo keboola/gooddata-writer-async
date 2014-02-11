@@ -11,9 +11,7 @@ use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand,
 	Symfony\Component\Console\Input\InputInterface,
 	Symfony\Component\Console\Output\OutputInterface;
-use Keboola\GoodDataWriter\GoodData\RestApi,
-	Keboola\StorageApi\Client as StorageApiClient,
-	Keboola\GoodDataWriter\Writer\SharedConfig;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Service\Lock;
 
 class CleanGoodDataCommand extends ContainerAwareCommand
@@ -31,21 +29,19 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 	{
 		$this->getContainer()->get('syrup.monolog.json_formatter')->setComponentName('gooddata-writer');
 
-		$gdWriterParams = $this->getContainer()->getParameter('gooddata_writer');
-		$lock = new Lock(new \PDO(sprintf('mysql:host=%s;dbname=%s', $gdWriterParams['db']['host'], $gdWriterParams['db']['name']),
-			$gdWriterParams['db']['user'], $gdWriterParams['db']['password']), 'CleanGoodDataCommand');
+		/**
+		 * @var AppConfiguration $appConfiguration
+		 */
+		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
+
+		$lock = new Lock(new \PDO(sprintf('mysql:host=%s;dbname=%s', $appConfiguration->db_host, $appConfiguration->db_name),
+			$appConfiguration->db_user, $appConfiguration->db_password), 'CleanGoodDataCommand');
 		if (!$lock->lock()) {
 			return;
 		}
 
 		$log = $this->getContainer()->get('logger');
-		/**
-		 * @var AppConfiguration $appConfiguration
-		 */
-		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
-		$sharedConfig = new SharedConfig(
-			new StorageApiClient($appConfiguration->sharedSapi_token, $appConfiguration->sharedSapi_url)
-		);
+		$sharedConfig = $this->getContainer()->get('gooddata_writer.shared_config');
 
 		/**
 		 * @var RestApi

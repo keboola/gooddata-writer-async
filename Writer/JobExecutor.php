@@ -12,6 +12,7 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\StorageApi\ClientException as StorageApiClientException;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
@@ -29,39 +30,39 @@ class JobCannotBeExecutedNowException extends \Exception
 
 class JobExecutor
 {
-
+	/**
+	 * @var AppConfiguration
+	 */
+	protected $appConfiguration;
 	/**
 	 * @var SharedConfig
 	 */
 	protected $sharedConfig;
 	/**
+	 * @var RestApi
+	 */
+	protected $restApi;
+	/**
 	 * @var Logger
 	 */
-	protected $log;
-	/**
-	 * Current job
-	 * @var
-	 */
-	protected $job = null;
+	protected $logger;
+
 	/**
 	 * @var StorageApiClient
 	 */
 	protected $storageApiClient = null;
-	/**
-	 * @var ContainerInterface
-	 */
-	protected $container;
 
 
 	/**
 	 * @param SharedConfig $sharedConfig
 	 * @param ContainerInterface $container
 	 */
-	public function __construct(SharedConfig $sharedConfig, ContainerInterface $container)
+	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, Logger $logger)
 	{
+		$this->appConfiguration = $appConfiguration;
 		$this->sharedConfig = $sharedConfig;
-		$this->log = $container->get('logger');
-		$this->container = $container;
+		$this->restApi = $restApi;
+		$this->logger = $logger;
 
 		if (!defined('JSON_PRETTY_PRINT')) {
 			// fallback for PHP <= 5.3
@@ -75,17 +76,15 @@ class JobExecutor
 		if (!count($jobs)) {
 			throw new JobProcessException("Batch {$batchId} not found");
 		}
-
 		$batch = $this->sharedConfig->batchToApiResponse($batchId);
-		$gdWriterParams = $this->container->getParameter('gooddata_writer');
 
 		// Batch already executed?
 		if (!$force && SharedConfig::isJobFinished($batch['status'])) {
 			return;
 		}
 
-		$lock = new Lock(new \PDO(sprintf('mysql:host=%s;dbname=%s', $gdWriterParams['db']['host'], $gdWriterParams['db']['name']),
-			$gdWriterParams['db']['user'], $gdWriterParams['db']['password']), $batch['queueId']);
+		$lock = new Lock(new \PDO(sprintf('mysql:host=%s;dbname=%s', $this->appConfiguration->db_host, $this->appConfiguration->db_name),
+			$this->appConfiguration->db_user, $this->appConfiguration->db_password), $batch['queueId']);
 
 		if (!$lock->lock()) {
 			throw new JobCannotBeExecutedNowException("Batch {$batchId} cannot be executed now, another job already in progress on same writer.");
@@ -107,9 +106,7 @@ class JobExecutor
 	 */
 	public function runJob($jobId, $force = false)
 	{
-		$job = $this->job = $this->sharedConfig->fetchJob($jobId);
-
-		// Job not found?
+		$job = $this->sharedConfig->fetchJob($jobId);
 		if (!$job) {
 			throw new JobProcessException("Job $jobId not found");
 		}
@@ -119,14 +116,11 @@ class JobExecutor
 			return;
 		}
 
-		$gdWriterParams = $this->container->getParameter('gooddata_writer');
-
-
 		try {
 			$this->storageApiClient = new StorageApiClient(
 				$job['token'],
-				$this->container->getParameter('storage_api.url'),
-				$gdWriterParams['user_agent']
+				$this->appConfiguration->storageApiUrl,
+				$this->appConfiguration->userAgent
 			);
 			$this->storageApiClient->setRunId($jobId);
 
@@ -136,7 +130,128 @@ class JobExecutor
 				'startTime' => date('c', time()),
 			));
 
-			$result = $this->executeJob($job);
+			$time = time();
+			$sapiEvent = $this->prepareSapiEventForJob($job);
+			$sapiEvent->setMessage("Job $job[id] start");
+			$this->logEvent($job, $sapiEvent);
+
+			try {
+				if ($job['parameters']) {
+					$parameters = json_decode($job['parameters'], true);
+					if ($parameters === false) {
+						throw new WrongConfigurationException("Parameters decoding failed");
+					}
+				} else {
+					$parameters = array();
+				}
+
+				$commandName = ucfirst($job['command']);
+				$commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
+				if (!class_exists($commandClass)) {
+					throw new WrongConfigurationException(sprintf('Command %s does not exist', $commandName));
+				}
+
+				$tmpDir = sprintf('%s/%s', $this->appConfiguration->tmpPath, $job['id']);
+				if (!file_exists($this->appConfiguration->tmpPath)) mkdir($this->appConfiguration->tmpPath);
+				if (!file_exists($tmpDir)) mkdir($tmpDir);
+
+				// Do not migrate (migration had to be performed at least when the job was created)
+				$configuration = new Configuration($this->storageApiClient, $job['writerId'], $this->appConfiguration->scriptsPath, false);
+
+				$s3Client = new S3Client(
+					$this->appConfiguration,
+					$job['projectId'] . '.' . $job['writerId']
+				);
+
+				$this->restApi->callsLog = array();
+				$bucketAttributes = $configuration->bucketAttributes();
+				if (isset($bucketAttributes['gd']['backendUrl'])) {
+					$this->restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
+				}
+
+				/**
+				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
+				 */
+				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedConfig, $this->restApi, $s3Client);
+				$command->tmpDir = $tmpDir;
+				$command->scriptsPath = $this->appConfiguration->scriptsPath;
+				$command->log = $this->logger;
+
+				$error = null;
+				$token = $this->storageApiClient->getLogData();
+				$command->preRelease = !empty($token['owner']['features']) && in_array('rc-writer', $token['owner']['features']);
+				try {
+					$result = $command->run($job, $parameters);
+				} catch (\Exception $e) {
+					$data = array();
+
+					if ($e instanceof RestApiException) {
+						$error = $e->getDetails();
+					} elseif ($e instanceof CLToolApiErrorException) {
+						$error = 'CL Tool';
+						$data = $e->getData();
+					} elseif ($e instanceof StorageApiClientException) {
+						$error = 'Storage API';
+					} elseif ($e instanceof ClientException) {
+						$error = 'Error';
+						$data = $e->getData();
+					}
+
+					if (count($data)) {
+						$result['data'] = $s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($data));
+					}
+
+					if ($error) {
+						$result['status'] = 'error';
+						$result['error'] = is_array($error) ? $error : array('error' => $error,  'details' => $e->getMessage());
+						$result['trace'] = $s3Client->uploadString($job['id'] . '/trace.txt', json_encode($e->getTraceAsString(), JSON_PRETTY_PRINT));
+					} else {
+						throw $e;
+					}
+				}
+				if (!empty($result['error'])) {
+					if (isset($result['error']['error'])) {
+						if (is_array($result['error']['error'])) {
+							$result['error']['error'] = json_encode($result['error']['error']);
+						}
+						$sapiEvent->setDescription($result['error']['error']);
+					}
+					$sapiEvent->setType(StorageApiEvent::TYPE_WARN);
+				}
+
+				$logUrl = null;
+				$log = count($command->eventsLog) ? $command->eventsLog : $this->restApi->callsLog();
+				if (count($log)) {
+					$result['log'] = $s3Client->uploadString($job['id'] . '/' . 'log.json', json_encode($log, JSON_PRETTY_PRINT));
+				}
+
+
+				$duration = time() - $time;
+				$sapiEvent
+					->setMessage("Job $job[id] end")
+					->setDuration($duration)
+					->setResults($result);
+				$this->logEvent($job, $sapiEvent);
+				if (empty($result['status'])) $result['status'] = 'success';
+
+			} catch (\Exception $e) {
+				$duration = $time - time();
+
+				$this->logger->alert('Job execution error', array(
+					'jobId' => $job,
+					'exception' => $e,
+					'runId' => $this->storageApiClient->getRunId()
+				));
+
+				$sapiEvent
+					->setMessage("Job $job[id] end")
+					->setType(StorageApiEvent::TYPE_WARN)
+					->setDescription($e->getMessage())
+					->setDuration($duration);
+				$this->logEvent($job, $sapiEvent);
+
+				$result = array('status' => 'error', 'error' => 'Application error');
+			}
 
 		} catch(StorageApiException $e) {
 			$result = array('status' => 'error', 'error' => "Storage API error: " . $e->getMessage());
@@ -172,7 +287,7 @@ class JobExecutor
 	{
 		$event = new StorageApiEvent();
 		$event
-			->setComponent($this->container->getParameter('app_name'))
+			->setComponent($this->appConfiguration->appName)
 			->setConfigurationId($job['writerId'])
 			->setRunId($job['id']);
 
@@ -183,11 +298,11 @@ class JobExecutor
 	 * Log event to client SAPI and to system log
 	 * @param StorageApiEvent $event
 	 */
-	protected function logEvent(StorageApiEvent $event)
+	protected function logEvent($job, StorageApiEvent $event)
 	{
 		$event->setParams(array_merge($event->getParams(), array(
-			'jobId' => $this->job['id'],
-			'writerId' => $this->job['writerId']
+			'jobId' => $job['id'],
+			'writerId' => $job['writerId']
 		)));
 		$this->storageApiClient->createEvent($event);
 
@@ -204,7 +319,7 @@ class JobExecutor
 		}
 
 		$logData = array(
-			'jobId' => $this->job['id'],
+			'jobId' => $job['id'],
 			'writerId' => $event->getConfigurationId()
 		);
 		$description = $event->getDescription();
@@ -224,147 +339,7 @@ class JobExecutor
 			$logData['duration'] = $duration;
 		}
 
-		$this->log->log($priority, $event->getMessage(), $logData);
+		$this->logger->log($priority, $event->getMessage(), $logData);
 	}
 
-	/**
-	 * Excecute task and returns task execution result
-	 * @param $job
-	 * @throws WrongConfigurationException
-	 * @return array
-	 */
-	protected function executeJob($job)
-	{
-		$time = time();
-		$sapiEvent = $this->prepareSapiEventForJob($job);
-		$sapiEvent->setMessage("Job $job[id] start");
-		$this->logEvent($sapiEvent);
-
-		try {
-			if ($job['parameters']) {
-				$parameters = json_decode($job['parameters'], true);
-				if ($parameters === false) {
-					throw new WrongConfigurationException("Parameters decoding failed");
-				}
-			} else {
-				$parameters = array();
-			}
-
-			$commandName = ucfirst($job['command']);
-			$commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
-			if (!class_exists($commandClass)) {
-				throw new WrongConfigurationException(sprintf('Command %s does not exist', $commandName));
-			}
-
-			/**
-			 * @var AppConfiguration $appConfiguration
-			 */
-			$appConfiguration = $this->container->get('gooddata_writer.app_configuration');
-			$appConfiguration->storageApiUrl = $this->container->getParameter('storage_api.url');
-
-			$tmpDir = sprintf('%s/%s', $appConfiguration->tmpPath, $job['id']);
-            if (!file_exists($appConfiguration->tmpPath)) mkdir($appConfiguration->tmpPath);
-            if (!file_exists($tmpDir)) mkdir($tmpDir);
-
-			// Do not migrate (migration had to be performed at least when the job was created)
-			$configuration = new Configuration($this->storageApiClient, $job['writerId'], $appConfiguration->scriptsPath, false);
-
-			$s3Client = new S3Client(
-				$appConfiguration,
-				$job['projectId'] . '.' . $job['writerId']
-			);
-
-			$restApi = $this->container->get('gooddata_writer.rest_api');
-			$restApi->callsLog = array();
-			$bucketAttributes = $configuration->bucketAttributes();
-			if (isset($bucketAttributes['gd']['backendUrl'])) {
-				$restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
-			}
-
-			/**
-			 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
-			 */
-			$command = new $commandClass($configuration, $appConfiguration, $this->sharedConfig, $restApi, $s3Client);
-			$command->tmpDir = $tmpDir;
-			$command->scriptsPath = $appConfiguration->scriptsPath;
-			$command->log = $this->log;
-
-			$error = null;
-			$token = $this->storageApiClient->getLogData();
-			$command->preRelease = !empty($token['owner']['features']) && in_array('rc-writer', $token['owner']['features']);
-			try {
-				$result = $command->run($job, $parameters);
-			} catch (\Exception $e) {
-				$data = array();
-
-				if ($e instanceof RestApiException) {
-					$error = $e->getDetails();
-				} elseif ($e instanceof CLToolApiErrorException) {
-					$error = 'CL Tool';
-					$data = $e->getData();
-				} elseif ($e instanceof StorageApiClientException) {
-					$error = 'Storage API';
-				} elseif ($e instanceof ClientException) {
-					$error = 'Error';
-					$data = $e->getData();
-				}
-
-				if (count($data)) {
-					$result['data'] = $s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($data));
-				}
-
-				if ($error) {
-					$result['status'] = 'error';
-					$result['error'] = is_array($error) ? $error : array('error' => $error,  'details' => $e->getMessage());
-					$result['trace'] = $s3Client->uploadString($job['id'] . '/trace.txt', json_encode($e->getTraceAsString(), JSON_PRETTY_PRINT));
-				} else {
-					throw $e;
-				}
-			}
-			if (!empty($result['error'])) {
-				if (isset($result['error']['error'])) {
-					if (is_array($result['error']['error'])) {
-						$result['error']['error'] = json_encode($result['error']['error']);
-					}
-					$sapiEvent->setDescription($result['error']['error']);
-				}
-				$sapiEvent->setType(StorageApiEvent::TYPE_WARN);
-			}
-
-			$logUrl = null;
-			$log = count($command->eventsLog) ? $command->eventsLog : $restApi->callsLog();
-			if (count($log)) {
-				$result['log'] = $s3Client->uploadString($job['id'] . '/' . 'log.json', json_encode($log, JSON_PRETTY_PRINT));
-			}
-
-
-			$duration = time() - $time;
-			$sapiEvent
-				->setMessage("Job $job[id] end")
-				->setDuration($duration)
-				->setResults($result);
-			$this->logEvent($sapiEvent);
-			if (empty($result['status'])) $result['status'] = 'success';
-
-			return $result;
-
-		} catch (\Exception $e) {
-			$duration = $time - time();
-
-			$this->log->alert('Job execution error', array(
-				'jobId' => $job,
-				'exception' => $e,
-				'runId' => $this->storageApiClient->getRunId()
-			));
-
-			$sapiEvent
-				->setMessage("Job $job[id] end")
-				->setType(StorageApiEvent::TYPE_WARN)
-				->setDescription($e->getMessage())
-				->setDuration($duration);
-			$this->logEvent($sapiEvent);
-
-			return array('status' => 'error', 'error' => 'Application error');
-		}
-	}
 }

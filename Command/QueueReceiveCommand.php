@@ -3,16 +3,10 @@ namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-use Keboola\StorageApi\Client as StorageApiClient;
-use Keboola\GoodDataWriter\Writer\JobExecutor,
-	Keboola\GoodDataWriter\Writer\SharedConfig,
-	Keboola\GoodDataWriter\Service\Lock,
-	Keboola\GoodDataWriter\Service\Queue,
+use Keboola\GoodDataWriter\Service\Queue,
 	Keboola\GoodDataWriter\Service\QueueMessage;
 use Keboola\GoodDataWriter\Writer\JobCannotBeExecutedNowException;
 
@@ -25,12 +19,12 @@ class QueueReceiveCommand extends ContainerAwareCommand
 	/**
 	 * @var Queue
 	 */
-	protected $_queue;
+	protected $queue;
 
 	/**
 	 * @var OutputInterface
 	 */
-	protected $_output;
+	protected $output;
 
 
 	/**
@@ -48,18 +42,12 @@ class QueueReceiveCommand extends ContainerAwareCommand
 	{
 		$this->getContainer()->get('syrup.monolog.json_formatter')->setComponentName('gooddata-writer');
 
-		$params = $this->getContainer()->getParameter('gooddata_writer');
-		$sqsClient = \Aws\Sqs\SqsClient::factory(array(
-			'key' => $params['aws']['access_key'],
-			'secret' => $params['aws']['secret_key'],
-			'region' => $params['aws']['region']
-		));
-		$this->_queue = new Queue($sqsClient, $params['aws']['queue_url']);
+		$this->queue = $this->getContainer()->get('gooddata_writer.queue');
 
-		$this->_output = $output;
+		$this->output = $output;
 		$startTime = time();
 		do {
-			foreach ($this->_queue->receive() as $message) {
+			foreach ($this->queue->receive() as $message) {
 				$this->_processMessage($message);
 			}
 		} while ((time() - $startTime) < self::MAX_RUN_TIME);
@@ -78,7 +66,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 		);
 
 		try {
-			$this->_output->writeln(sprintf('Received message: %s { batch: %s, project: %s, writer: %s }', $message->getId()
+			$this->output->writeln(sprintf('Received message: %s { batch: %s, project: %s, writer: %s }', $message->getId()
 				, $message->getBody()->batchId, $message->getBody()->projectId, $message->getBody()->writerId));
 			$log->info("Received message", $logData);
 			$command = $this->getApplication()->find('gooddata-writer:execute-batch');
@@ -87,12 +75,12 @@ class QueueReceiveCommand extends ContainerAwareCommand
 				$command->getName(),
 				'batchId' => $message->getBody()->batchId,
 			));
-			$command->run($input, $this->_output);
+			$command->run($input, $this->output);
 
 		} catch (JobCannotBeExecutedNowException $e) {
 			// enqueue again
 			$delaySecs = 60;
-			$newMessageId = $this->_queue->enqueue(array(
+			$newMessageId = $this->queue->enqueue(array(
 				'projectId' => $message->getBody()->projectId,
 				'writerId' => $message->getBody()->writerId,
 				'batchId' => $message->getBody()->batchId
@@ -100,7 +88,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 			$log->info("Batch execution postponed", array_merge($logData, array(
 				'newMessageId' => $newMessageId
 			)));
-			$this->_output->writeln(sprintf("<info>%s</info>", $e->getMessage()));
+			$this->output->writeln(sprintf("<info>%s</info>", $e->getMessage()));
 		} catch(\Exception $e) {
 			$message->incrementRetries();
 			if ($message->getRetryCount() > self::MAX_EXECUTION_RETRIES) {
@@ -113,7 +101,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 			} else {
 				// enqueue again
 				$delaySecs = 60 * pow(2, $message->getRetryCount());
-				$newMessageId = $this->_queue->enqueue(array(
+				$newMessageId = $this->queue->enqueue(array(
 					'projectId' => $message->getBody()->projectId,
 					'writerId' => $message->getBody()->writerId,
 					'batchId' => $message->getBody()->batchId
@@ -126,9 +114,9 @@ class QueueReceiveCommand extends ContainerAwareCommand
 					'exception' => $e
 				)));
 			}
-			$this->_output->writeln(sprintf("<error>%s</error>", $e->getMessage()));
+			$this->output->writeln(sprintf("<error>%s</error>", $e->getMessage()));
 		}
-		$this->_queue->deleteMessage($message);
+		$this->queue->deleteMessage($message);
 		$log->info("Deleted message", array(
 			'messagedId' => $message->getId(),
 			'batchId' => $message->getBody()->batchId,
@@ -139,17 +127,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 
 	protected function _errorMaximumRetriesExceeded($batchId)
 	{
-		/**
-		 * @var AppConfiguration $appConfiguration
-		 */
-		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
-		$sharedConfig = new SharedConfig(
-			new StorageApiClient(
-				$appConfiguration->sharedSapi_token,
-				$appConfiguration->sharedSapi_url,
-				$appConfiguration->userAgent
-			)
-		);
+		$sharedConfig = $this->getContainer()->get('gooddata_writer.shared_config');
 
 		$batch = $sharedConfig->fetchBatch($batchId);
 		if (!$batch) {

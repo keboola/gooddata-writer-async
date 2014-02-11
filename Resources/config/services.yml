@@ -1,27 +1,40 @@
 parameters:
 
 services:
-    gooddata_writer.app_configuration:
-        class: Keboola\GoodDataWriter\Writer\AppConfiguration
-        arguments: [%gooddata_writer%]
-    gooddata_writer.gooddata_model:
-        class: Keboola\GoodDataWriter\GoodData\Model
-        arguments: [@gooddata_writer.app_configuration]
-    gooddata_writer.rest_api.s3_client:
-        class: Keboola\GoodDataWriter\Service\S3Client
-        arguments: [@gooddata_writer.app_configuration, "RestAPI"]
-    gooddata_writer.rest_api.log_formatter:
-        class: Keboola\GoodDataWriter\Service\RestAPILogFormatter
-        arguments: [@gooddata_writer.rest_api.s3_client]
-    gooddata_writer.rest_api.syslog_handler:
-        class: Monolog\Handler\SyslogHandler
-        arguments: [%app_name%]
-    gooddata_writer.rest_api.logger:
-        class: Monolog\Logger
-        arguments: ["restApi"]
-    gooddata_writer.rest_api.logger_factory:
-        class: Keboola\GoodDataWriter\GoodData\RestApiLoggerFactory
-        arguments: [@gooddata_writer.rest_api.logger, @gooddata_writer.rest_api.syslog_handler, @gooddata_writer.rest_api.log_formatter]
-    gooddata_writer.rest_api:
-        class: Keboola\GoodDataWriter\GoodData\RestApi
-        arguments: [@gooddata_writer.gooddata_model, @logger, @gooddata_writer.rest_api.logger_factory]
+  gooddata_writer.app_configuration:
+    class: Keboola\GoodDataWriter\Writer\AppConfiguration
+    arguments: [%app_name%, %gooddata_writer%, %storage_api.url%]
+  gooddata_writer.gooddata_model:
+    class: Keboola\GoodDataWriter\GoodData\Model
+    arguments: [@gooddata_writer.app_configuration]
+
+  gooddata_writer.rest_api.s3_client:
+    class: Keboola\GoodDataWriter\Service\S3Client
+    arguments: [@gooddata_writer.app_configuration, "RestAPI"]
+  gooddata_writer.rest_api.log_formatter:
+    class: Keboola\GoodDataWriter\Service\RestAPILogFormatter
+    arguments: [@gooddata_writer.rest_api.s3_client]
+  gooddata_writer.rest_api.syslog_handler:
+    class: Monolog\Handler\SyslogHandler
+    arguments: [%app_name%]
+  gooddata_writer.rest_api.logger:
+    class: Monolog\Logger
+    arguments: ["restApi"]
+  gooddata_writer.rest_api.logger_factory:
+    class: Keboola\GoodDataWriter\GoodData\RestApiLoggerFactory
+    arguments: [@gooddata_writer.rest_api.logger, @gooddata_writer.rest_api.syslog_handler, @gooddata_writer.rest_api.log_formatter]
+  gooddata_writer.rest_api:
+    class: Keboola\GoodDataWriter\GoodData\RestApi
+    arguments: [@gooddata_writer.gooddata_model, @logger, @gooddata_writer.rest_api.logger_factory]
+
+  gooddata_writer.shared_config:
+    class: Keboola\StorageApi\Client
+    arguments: [@gooddata_writer.app_configuration]
+
+  gooddata_writer.job_executor:
+    class: Keboola\GoodDataWriter\Writer\JobExecutor
+    arguments: [@gooddata_writer.app_configuration, @gooddata_writer.shared_config, @gooddata_writer.rest_api, @logger]
+
+  gooddata_writer.queue:
+    class: Keboola\GoodDataWriter\Service\Queue
+    arguments: [@gooddata_writer.app_configuration]
