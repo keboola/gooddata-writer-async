@@ -956,11 +956,11 @@ class RestApi
 		$dataSets = $this->getDataSets($pid);
 
 		$maql = '';
-		if (!in_array(Model::getDateDimensionId($name), $dataSets)) {
+		if (!in_array(Model::getDateDimensionId($name), array_keys($dataSets))) {
 			$maql .= sprintf('INCLUDE TEMPLATE "URN:GOODDATA:DATE" MODIFY (IDENTIFIER "%s", TITLE "%s");', $identifier, $name);
 		}
 
-		if ($includeTime && !in_array(Model::getTimeDimensionId($name), $dataSets)) {
+		if ($includeTime && !in_array(Model::getTimeDimensionId($name), array_keys($dataSets))) {
 			$maql .= 'CREATE DATASET {dataset.time.%ID%} VISUAL(TITLE "Time (%NAME%)");';
 			$maql .= 'CREATE FOLDER {dim.time.%ID%} VISUAL(TITLE "Time dimension (%NAME%)") TYPE ATTRIBUTE;';
 			$maql .= 'CREATE FOLDER {ffld.time.%ID%} VISUAL(TITLE "Time dimension (%NAME%)") TYPE FACT;';
@@ -1676,7 +1676,7 @@ class RestApi
 
 		$clearFromLog = $this->clearFromLog;
 		$sanitize = function(&$value) use($clearFromLog) {
-			if (in_array($value, $clearFromLog)) {
+			if ($value && in_array((string)$value, $clearFromLog)) {
 				$value = '***';
 			}
 		};
