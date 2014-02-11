@@ -51,7 +51,7 @@ class UploadDateDimension extends AbstractJob
 		// Choose projects to load
 		$projectsToLoad = array();
 		foreach ($this->configuration->getProjects() as $project) if ($project['active']) {
-			if (in_array($project['pid'], array_keys($projectsToLoad))) {
+			if (in_array($project['pid'], $projectsToLoad)) {
 				throw new WrongConfigurationException("Project '" . $project['pid'] . "' is duplicated in configuration");
 			}
 
