@@ -82,11 +82,12 @@ class UploadTable extends AbstractJob
 			$process = new Process($command);
 			$process->setTimeout(null);
 			$process->run();
-			if (!$process->isSuccessful()) {
+			$error = $process->getErrorOutput();
+			if (!$process->isSuccessful() || $error) {
 				$e = new ClientException('Definition download from S3 failed.');
 				$e->setData(array(
 					'command' => $command,
-					'error' => $process->getErrorOutput(),
+					'error' => $error,
 					'output' => $process->getOutput()
 				));
 				throw $e;
@@ -346,8 +347,7 @@ class UploadTable extends AbstractJob
 		}
 
 		$result = array(
-			'status' => !empty($error) ? 'error' : 'success',
-			'debug' => json_encode($debug),
+			'debug' => $debug,
 			'incrementalLoad' => (int) $incrementalLoad
 		);
 		if (!empty($error)) {

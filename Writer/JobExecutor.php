@@ -128,6 +128,7 @@ class JobExecutor
 		));
 
 		$jobData = array('result' => array());
+		$logParams = $job['parameters'];
 		try {
 			$this->storageApiClient = new StorageApiClient(
 				$job['token'],
@@ -146,6 +147,7 @@ class JobExecutor
 				} else {
 					$parameters = array();
 				}
+				$logParams = $parameters;
 
 				$commandName = ucfirst($job['command']);
 				$commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
@@ -238,7 +240,7 @@ class JobExecutor
 		$this->sharedConfig->saveJob($jobId, $jobData);
 
 		$this->storageApiEvent->setDuration(time() - $startTime);
-		$this->logEvent('end', $job, array('params' => $job['params'], 'result' => $jobData['result']));
+		$this->logEvent('end', $job, array('command' => $job['command'], 'params' => $logParams, 'result' => $jobData['result']));
 	}
 
 

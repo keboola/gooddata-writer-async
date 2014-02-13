@@ -68,10 +68,9 @@ class AddUserToProject extends AbstractJob
 				);
 
 				$result = $childJob->run($job, $childParams);
-				if (empty($result['status'])) $result['status'] = 'success';
-
-				if ($result['status'] == 'success')
+				if (!empty($result['uid'])) {
 					$userId = $result['uid'];
+				}
 			}
 		}
 

@@ -165,19 +165,17 @@ class UploadDateDimension extends AbstractJob
 			}
 		}
 
-		$result = array(
-			'status' => !empty($error) ? 'error' : 'success',
-			'debug' => json_encode($debug)
-		);
-		if (!empty($error)) {
+		$result = array();
+		if (count($debug)) {
+			$result['debug'] = $debug;
+		}
+		if (empty($error)) {
+			$this->configuration->setDateDimensionIsExported($params['name']);
+		} else {
 			$result['error'] = $error;
 		}
 		if (!empty($gdWriteStartTime)) {
 			$result['gdWriteStartTime'] = $gdWriteStartTime;
-		}
-
-		if ($result['status'] == 'success') {
-			$this->configuration->setDateDimensionIsExported($params['name']);
 		}
 
 		return $result;
