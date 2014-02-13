@@ -14,8 +14,9 @@ use Guzzle\Http\Client,
 	Guzzle\Common\Exception\RuntimeException,
 	Guzzle\Http\Message\Header;
 use Guzzle\Http\Curl\CurlHandle;
+use Guzzle\Http\Exception\CurlException;
 use Guzzle\Stream\PhpStreamRequestFactory;
-use Guzzle\Http\Message\Request;
+use Guzzle\Http\Message\RequestInterface;
 use Monolog\Logger;
 use stdClass;
 
@@ -1452,6 +1453,8 @@ class RestApi
 
 			sleep(self::BACKOFF_INTERVAL * ($i + 1));
 		}
+
+		return false;
 	}
 
 
@@ -1508,43 +1511,41 @@ class RestApi
 					return $response;
 				}
 
-			} catch (ClientErrorResponseException $e) {
+			} catch (\Exception $e) {
+				$duration = abs(microtime() - $startTime) * 1000;
 				$response = $request->getResponse()->getBody(true);
 
-				$duration = abs(microtime() - $startTime) * 1000;
 				if ($logCall) $this->logCall($uri, $method, $params, $response, $duration);
 				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
 
-				if ($request->getResponse()->getStatusCode() == 401) {
-
-					// TT token expired
-					$this->refreshToken();
-
-				} else {
-					$responseJson = json_decode($response, true);
-					if ($responseJson !== false) {
-						// Include parameters directly to error message
-						if (isset($responseJson['error']) && isset($responseJson['error']['parameters']) && isset($responseJson['error']['message'])) {
-							$responseJson['error']['message'] = vsprintf($responseJson['error']['message'], $responseJson['error']['parameters']);
-							unset($responseJson['error']['parameters']);
+				if ($e instanceof ClientErrorResponseException) {
+					if ($request->getResponse()->getStatusCode() == 401) {
+						// TT token expired
+						$this->refreshToken();
+					} else {
+						$responseJson = json_decode($response, true);
+						if ($responseJson !== false) {
+							// Include parameters directly to error message
+							if (isset($responseJson['error']) && isset($responseJson['error']['parameters']) && isset($responseJson['error']['message'])) {
+								$responseJson['error']['message'] = vsprintf($responseJson['error']['message'], $responseJson['error']['parameters']);
+								unset($responseJson['error']['parameters']);
+							}
+							$response = json_encode($responseJson);
 						}
-						$response = json_encode($responseJson);
+						throw new RestApiException('API error ' . $request->getResponse()->getStatusCode(), $response);
 					}
-					throw new RestApiException('API error ' . $request->getResponse()->getStatusCode(), $response);
+				} elseif ($e instanceof ServerErrorResponseException) {
+					if ($request->getResponse()->getStatusCode() == 503) {
+						// Wait indefinitely due to GD maintenance
+						$i--;
+						$backOffInterval = 10 * 60;
+					}
+				} elseif ($e instanceof CurlException) {
+					// Just retry according to backoff algorithm
+				} else {
+					throw $e;
 				}
-			} catch (ServerErrorResponseException $e) {
-				$response = $request->getResponse()->getBody(true);
 
-				$duration = abs(microtime() - $startTime) * 1000;
-				if ($logCall) $this->logCall($uri, $method, $params, $response, $duration);
-				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
-
-				// BackOff
-				if ($request->getResponse()->getStatusCode() == 503) {
-					// Wait indefinitely due to GD maintenance
-					$i--;
-					$backOffInterval = 10 * 60;
-				}
 			}
 
 			sleep($backOffInterval * ($i + 1));
@@ -1560,10 +1561,10 @@ class RestApi
 			'response' => $response,
 			'status' => $status
 		));
-		throw new RestApiException('API error ' . $status, $response);
+		throw new RestApiException('GoodData API error ' . $status, $response);
 	}
 
-	protected function logUsage($uri, $method, $params, $headers, Request $request, $duration)
+	protected function logUsage($uri, $method, $params, $headers, RequestInterface $request, $duration)
 	{
 		if (!$this->usageLogger) {
 			return;
