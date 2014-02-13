@@ -238,14 +238,14 @@ class JobExecutor
 		$this->sharedConfig->saveJob($jobId, $jobData);
 
 		$this->storageApiEvent->setDuration(time() - $startTime);
-		$this->logEvent('end', $job);
+		$this->logEvent('end', $job, array('params' => $job['params'], 'result' => $jobData['result']));
 	}
 
 
 	/**
 	 * Log event to client SAPI and to system log
 	 */
-	protected function logEvent($message, $job)
+	protected function logEvent($message, $job, $data = null)
 	{
 		if (!$this->storageApiEvent) {
 			$this->storageApiEvent = new StorageApiEvent();
@@ -263,6 +263,9 @@ class JobExecutor
 			'jobId' => $job['id'],
 			'writerId' => $job['writerId']
 		);
+		if ($data) {
+			$logData = array_merge($logData, $data);
+		}
 		$this->logger->log($priority, sprintf('Job %s %d', $message, $job['id']), $logData);
 	}
 
