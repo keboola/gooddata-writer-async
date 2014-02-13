@@ -43,7 +43,7 @@ class AppConfiguration
 	public $storageApiUrl;
 	public $clPath;
 
-	public function __construct($appName, $mainConfig, $storageApiUrl)
+	public function __construct($appName, $storageApiUrl, $mainConfig)
 	{
 		$this->appName = $appName;
 		$this->storageApiUrl = $storageApiUrl;

@@ -11,7 +11,6 @@ namespace Keboola\GoodDataWriter\GoodData;
 use Guzzle\Http\Client,
 	Guzzle\Http\Exception\ServerErrorResponseException,
 	Guzzle\Http\Exception\ClientErrorResponseException,
-	Guzzle\Common\Exception\RuntimeException,
 	Guzzle\Http\Message\Header;
 use Guzzle\Http\Curl\CurlHandle;
 use Guzzle\Http\Exception\CurlException;
@@ -108,7 +107,8 @@ class RestApi
 	protected $authSst;
 	protected $authTt;
 
-	public  $callsLog;
+	public $jobId;
+	public $callsLog;
 	private $clearFromLog;
 
 	private $username;
@@ -116,11 +116,11 @@ class RestApi
 
 
 
-	public function __construct(Model $model, Logger $logger, RestApiLoggerFactory $usageLoggerFactory)
+	public function __construct(Model $model, Logger $logger, Logger $usageLogger)
 	{
 		$this->model = $model;
 		$this->logger = $logger;
-		$this->usageLogger = $usageLoggerFactory->get();
+		$this->usageLogger = $usageLogger;
 
 		$this->client = new Client(self::API_URL, array(
 			'curl.options' => array(
@@ -1368,18 +1368,7 @@ class RestApi
 	 */
 	protected function jsonRequest($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true)
 	{
-		try {
-			return $this->request($uri, $method, $params, $headers, $logCall)->json();
-		} catch (RuntimeException $e) {
-			$this->logger->alert('API error - bad response', array(
-				'uri' => $uri,
-				'method' => $method,
-				'params' => $params,
-				'headers' => $headers,
-				'exception' => $e
-			));
-			throw new RestApiException('Bad API response', $e->getMessage());
-		}
+		return $this->request($uri, $method, $params, $headers, $logCall)->json();
 	}
 
 	public function getStream($uri)
@@ -1553,13 +1542,14 @@ class RestApi
 
 		/** @var $response \Guzzle\Http\Message\Response */
 		$status = $request ? $request->getResponse()->getStatusCode() : null;
-		$this->logger->alert('API error', array(
+		$this->logger->alert('GoodData API error', array(
 			'uri' => $uri,
 			'method' => $method,
 			'params' => $jsonParams,
 			'headers' => $headers,
 			'response' => $response,
-			'status' => $status
+			'status' => $status,
+			'jobId' => $this->jobId
 		));
 		throw new RestApiException('GoodData API error ' . $status, $response);
 	}

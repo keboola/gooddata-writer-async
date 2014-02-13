@@ -42,7 +42,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 	{
 		$this->getContainer()->get('syrup.monolog.json_formatter')->setComponentName('gooddata-writer');
 
-		$this->queue = $this->getContainer()->get('gooddata_writer.queue');
+		$this->queue = $this->getContainer()->get('gooddata_writer.jobs_queue');
 
 		$this->output = $output;
 		$startTime = time();

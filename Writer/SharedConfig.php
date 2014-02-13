@@ -441,25 +441,4 @@ class SharedConfig extends StorageApiConfiguration
 		$this->_updateTableRow(self::USERS_TO_DELETE_TABLE_ID, 'uid', $data);
 	}
 
-
-	/**
-	 * @param $writerId
-	 * @param $runId
-	 * @param $message
-	 * @param array $params
-	 * @param array $results
-	 */
-	public function logEvent($writerId, $runId, $message, $params = array(), $results = array())
-	{
-		$event = new StorageApiEvent();
-		$event
-			->setComponent(self::WRITER_NAME)
-			->setConfigurationId($writerId)
-			->setRunId($runId)
-			->setParams($params)
-			->setResults($results)
-			->setMessage($message);
-		$this->_storageApiClient->createEvent($event);
-	}
-
 }

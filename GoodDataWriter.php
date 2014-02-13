@@ -100,7 +100,7 @@ class GoodDataWriter extends Component
 			if (!$this->appConfiguration) {
 				$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
 			}
-			$this->queue = $this->_container->get('gooddata_writer.queue');
+			$this->queue = $this->_container->get('gooddata_writer.jobs_queue');
 		}
 		return $this->queue;
 	}
@@ -110,7 +110,7 @@ class GoodDataWriter extends Component
 		if (!$this->sharedConfig) {
 			if (!$this->appConfiguration) {
 				$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
-			}print_r($this->appConfiguration);die();
+			}
 			$this->sharedConfig = $this->_container->get('gooddata_writer.shared_config');
 		}
 		return $this->sharedConfig;
@@ -1777,16 +1777,10 @@ class GoodDataWriter extends Component
 
 		$this->getSharedConfig()->saveJob($jobId, $jobInfo);
 
-		$message = "Job $jobId created";
-		$results = array('jobId' => $jobId);
-		$this->getSharedConfig()->logEvent($this->configuration->writerId, $jobInfo['runId'], $message, $params, $results);
-
-		$this->_log->log(Logger::INFO, $message, array(
-			'token' => $this->_storageApi->getLogData(),
-			'configurationId' => $this->configuration->writerId,
+		$this->_log->log(Logger::INFO, 'Job created ' . $jobId, array(
+			'writerId' => $this->configuration->writerId,
 			'runId' => $jobInfo['runId'],
-			'params' => $params,
-			'results' => $results
+			'params' => $params
 		));
 
 		return $jobInfo;

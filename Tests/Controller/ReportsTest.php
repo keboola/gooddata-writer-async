@@ -116,7 +116,7 @@ class ReportsTest extends AbstractControllerTest
 		), 'POST');
 		$jobStatus = $this->_getWriterApi('/gooddata-writer/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
 
-		$this->assertEquals('success', $jobStatus['job']['result']['status'], "Error posting report definition to project");
+		$this->assertEquals('success', $jobStatus['job']['status'], "Error posting report definition to project");
 		$reportDefinitionUri = $jobStatus['job']['result']['response']['uri'];
 
 		// Post report
@@ -141,7 +141,7 @@ class ReportsTest extends AbstractControllerTest
 		), 'POST');
 		$jobStatus = $this->_getWriterApi('/gooddata-writer/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
 
-		$this->assertEquals('success', $jobStatus['job']['result']['status'], "Error exporting report.");
+		$this->assertEquals('success', $jobStatus['job']['status'], "Error exporting report.");
 	}
 
 } 

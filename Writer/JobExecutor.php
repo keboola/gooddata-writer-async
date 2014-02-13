@@ -50,7 +50,11 @@ class JobExecutor
 	/**
 	 * @var StorageApiClient
 	 */
-	protected $storageApiClient = null;
+	protected $storageApiClient;
+	/**
+	 * @var StorageApiEvent
+	 */
+	protected $storageApiEvent;
 
 
 	/**
@@ -116,6 +120,13 @@ class JobExecutor
 			return;
 		}
 
+		$startTime = time();
+		$this->sharedConfig->saveJob($jobId, array(
+			'status' => 'processing',
+			'startTime' => date('c', $startTime),
+		));
+
+		$jobData = array('result' => array());
 		try {
 			$this->storageApiClient = new StorageApiClient(
 				$job['token'],
@@ -123,17 +134,7 @@ class JobExecutor
 				$this->appConfiguration->userAgent
 			);
 			$this->storageApiClient->setRunId($jobId);
-
-			// start work on job
-			$this->sharedConfig->saveJob($jobId, array(
-				'status' => 'processing',
-				'startTime' => date('c', time()),
-			));
-
-			$time = time();
-			$sapiEvent = $this->prepareSapiEventForJob($job);
-			$sapiEvent->setMessage("Job $job[id] start");
-			$this->logEvent($job, $sapiEvent);
+			$this->logEvent('start', $job);
 
 			try {
 				if ($job['parameters']) {
@@ -168,6 +169,7 @@ class JobExecutor
 				if (isset($bucketAttributes['gd']['backendUrl'])) {
 					$this->restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
 				}
+				$this->restApi->jobId = $job['id'];
 
 				/**
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
@@ -181,165 +183,85 @@ class JobExecutor
 				$token = $this->storageApiClient->getLogData();
 				$command->preRelease = !empty($token['owner']['features']) && in_array('rc-writer', $token['owner']['features']);
 				try {
-					$result = $command->run($job, $parameters);
+					$jobData['result'] = $command->run($job, $parameters);
 				} catch (\Exception $e) {
 					$data = array();
 
 					if ($e instanceof RestApiException) {
-						$error = $e->getDetails();
+						$jobData['result']['error'] = 'Rest API Error';
+						$data['details'] = $e->getDetails();
 					} elseif ($e instanceof CLToolApiErrorException) {
-						$error = 'CL Tool';
-						$data = $e->getData();
+						$jobData['result']['error'] = 'CL Tool Error';
+						$data['details'] = $e->getData();
 					} elseif ($e instanceof StorageApiClientException) {
-						$error = 'Storage API';
+						$jobData['result']['error'] = 'Storage API Error';
 					} elseif ($e instanceof ClientException) {
-						$error = 'Error';
-						$data = $e->getData();
-					}
-
-					if (count($data)) {
-						$result['data'] = $s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($data));
-					}
-
-					if ($error) {
-						$result['status'] = 'error';
-						$result['error'] = is_array($error) ? $error : array('error' => $error,  'details' => $e->getMessage());
-						$result['trace'] = $s3Client->uploadString($job['id'] . '/trace.txt', json_encode($e->getTraceAsString(), JSON_PRETTY_PRINT));
+						$jobData['result']['error'] = $e->getMessage();
+						$data['details'] = $e->getData();
 					} else {
 						throw $e;
 					}
-				}
-				if (!empty($result['error'])) {
-					if (isset($result['error']['error'])) {
-						if (is_array($result['error']['error'])) {
-							$result['error']['error'] = json_encode($result['error']['error']);
-						}
-						$sapiEvent->setDescription($result['error']['error']);
-					}
-					$sapiEvent->setType(StorageApiEvent::TYPE_WARN);
+
+					$data['message'] = $e->getMessage();
+					$data['trace'] = $e->getTrace();
+					$jobData['result']['details'] = $s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($data));
 				}
 
 				$logUrl = null;
 				$log = count($command->eventsLog) ? $command->eventsLog : $this->restApi->callsLog();
 				if (count($log)) {
-					$result['log'] = $s3Client->uploadString($job['id'] . '/' . 'log.json', json_encode($log, JSON_PRETTY_PRINT));
+					$jobData['log'] = $s3Client->uploadString($job['id'] . '/' . 'log.json', json_encode($log, JSON_PRETTY_PRINT));
 				}
 
-
-				$duration = time() - $time;
-				$sapiEvent
-					->setMessage("Job $job[id] end")
-					->setDuration($duration)
-					->setResults($result);
-				$this->logEvent($job, $sapiEvent);
-				if (empty($result['status'])) $result['status'] = 'success';
-
 			} catch (\Exception $e) {
-				$duration = $time - time();
-
 				$this->logger->alert('Job execution error', array(
 					'jobId' => $job,
 					'exception' => $e,
 					'runId' => $this->storageApiClient->getRunId()
 				));
-
-				$sapiEvent
-					->setMessage("Job $job[id] end")
-					->setType(StorageApiEvent::TYPE_WARN)
-					->setDescription($e->getMessage())
-					->setDuration($duration);
-				$this->logEvent($job, $sapiEvent);
-
-				$result = array('status' => 'error', 'error' => 'Application error');
+				$jobData['result']['error'] = 'Application error';
 			}
 
 		} catch(StorageApiException $e) {
-			$result = array('status' => 'error', 'error' => "Storage API error: " . $e->getMessage());
+			$jobData['result']['error'] = "Storage API error: " . $e->getMessage();
 		}
 
-		$jobStatus = ($result['status'] === 'error') ? StorageApiEvent::TYPE_ERROR : StorageApiEvent::TYPE_SUCCESS;
+		$jobData['status'] = empty($jobData['result']['error']) ? StorageApiEvent::TYPE_SUCCESS : StorageApiEvent::TYPE_ERROR;
+		$jobData['endTime'] = date('c');
 
-		// end work on job
-		$jobInfo = array(
-			'status' => $jobStatus,
-			'endTime' => date('c'),
-		);
+		if (isset($jobData['result']['gdWriteStartTime'])) {
+			$jobData['gdWriteStartTime'] = $jobData['result']['gdWriteStartTime'];
+			unset($jobData['gdWriteStartTime']);
+		}
+		$this->sharedConfig->saveJob($jobId, $jobData);
 
-		if (isset($result['gdWriteStartTime'])) {
-			$jobInfo['gdWriteStartTime'] = $result['gdWriteStartTime'];
-			unset($result['gdWriteStartTime']);
-		}
-		if (isset($result['gdWriteBytes'])) {
-			$jobInfo['gdWriteBytes'] = $result['gdWriteBytes'];
-			unset($result['gdWriteBytes']);
-		}
-		if (isset($result['log'])) {
-			$jobInfo['log'] = $result['log'];
-			unset($result['log']);
-		}
-		$jobInfo['result'] = $result;
-		$this->sharedConfig->saveJob($jobId, $jobInfo);
+		$this->storageApiEvent->setDuration(time() - $startTime);
+		$this->logEvent('end', $job);
 	}
 
-
-
-	protected function prepareSapiEventForJob($job)
-	{
-		$event = new StorageApiEvent();
-		$event
-			->setComponent($this->appConfiguration->appName)
-			->setConfigurationId($job['writerId'])
-			->setRunId($job['id']);
-
-		return $event;
-	}
 
 	/**
 	 * Log event to client SAPI and to system log
-	 * @param StorageApiEvent $event
 	 */
-	protected function logEvent($job, StorageApiEvent $event)
+	protected function logEvent($message, $job)
 	{
-		$event->setParams(array_merge($event->getParams(), array(
-			'jobId' => $job['id'],
-			'writerId' => $job['writerId']
-		)));
-		$this->storageApiClient->createEvent($event);
-
-		// convert priority
-		switch ($event->getType()) {
-			case StorageApiEvent::TYPE_ERROR:
-				$priority = Logger::ERROR;
-				break;
-			case StorageApiEvent::TYPE_WARN:
-				$priority = Logger::WARNING;
-				break;
-			default:
-				$priority = Logger::INFO;
+		if (!$this->storageApiEvent) {
+			$this->storageApiEvent = new StorageApiEvent();
 		}
+		$this->storageApiEvent
+			->setMessage(sprintf('Job %d %s', $job['id'], $message))
+			->setComponent($this->appConfiguration->appName)
+			->setConfigurationId($job['writerId'])
+			->setRunId($job['runId']);
 
+		$this->storageApiClient->createEvent($this->storageApiEvent);
+
+		$priority = $this->storageApiEvent->getType() == StorageApiEvent::TYPE_ERROR ? Logger::ERROR : Logger::INFO;
 		$logData = array(
 			'jobId' => $job['id'],
-			'writerId' => $event->getConfigurationId()
+			'writerId' => $job['writerId']
 		);
-		$description = $event->getDescription();
-		if (!empty($description)) {
-			$logData['description'] = $description;
-		}
-		$params = $event->getParams();
-		if (count($params)) {
-			$logData['params'] = $params;
-		}
-		$result = $event->getResults();
-		if (count($result)) {
-			$logData['result'] = $result;
-		}
-		$duration = $event->getDuration();
-		if (!empty($duration)) {
-			$logData['duration'] = $duration;
-		}
-
-		$this->logger->log($priority, $event->getMessage(), $logData);
+		$this->logger->log($priority, sprintf('Job %s %d', $message, $job['id']), $logData);
 	}
 
 }

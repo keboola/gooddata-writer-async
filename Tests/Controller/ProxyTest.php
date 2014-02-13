@@ -58,6 +58,6 @@ class ProxyTest extends AbstractControllerTest
 
 		$jobStatus = $this->_getWriterApi('/gooddata-writer/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
 
-		$this->assertEquals('success', $jobStatus['job']['result']['status']);
+		$this->assertEquals('success', $jobStatus['job']['status']);
 	}
 }
