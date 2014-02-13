@@ -111,7 +111,7 @@ class GoodDataWriter extends Component
 			if (!$this->appConfiguration) {
 				$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
 			}
-			$this->sharedConfig = $this->_container->get('gooddata_writer.shared_config');
+			$this->sharedConfig = new SharedConfig($this->appConfiguration);
 		}
 		return $this->sharedConfig;
 	}
