@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
+use Monolog\Logger;
 use Symfony\Component\Process\Process;
 use Keboola\GoodDataWriter\Exception\ClientException;
 
@@ -25,14 +26,16 @@ class CsvHandler
 	 * @var \Keboola\GoodDataWriter\Service\S3Client
 	 */
 	private $s3Client;
+	private $logger;
 
 
-	public function __construct($scriptsPath, $s3Client, $tmpDir, $jobId)
+	public function __construct($scriptsPath, $s3Client, $tmpDir, $jobId, Logger $logger)
 	{
 		$this->scriptPath = $scriptsPath . '/convert_csv.php';
 		$this->s3Client = $s3Client;
 		$this->tmpDir = $tmpDir;
 		$this->jobId = $jobId;
+		$this->logger = $logger;
 	}
 
 	/**
@@ -156,8 +159,8 @@ class CsvHandler
 				$this->command = null;
 				return;
 			} else {
-				if (substr($error, 0, 10) != 'curl: (55)') {
-					// Rerun for curl 55 error only
+				if (substr($error, 0, 10) != 'curl: (55)' && substr($error, 0, 10) != 'curl: (18)') {
+					// Rerun for curl 18 (CURLE_PARTIAL_FILE) and 55 (CURLE_SEND_ERROR) error only
 					break;
 				}
 			}
@@ -166,10 +169,14 @@ class CsvHandler
 		}
 
 		$e = new CsvHandlerException('CSV handling failed. ' . $error);
-		$e->setData(array('command' => $this->command));
+		if ($error && substr($error, 0, 7) == 'curl: (') {
+			$this->logger->alert('Curl error during csv handling', array(
+				'command' => $this->command,
+				'error' => $error
+			));
+		}
 		if (!$error) {
-			$e->setData(array(
-				'priority' => 'alert',
+			$this->logger->alert('Curl error during csv handling', array(
 				'command' => $this->command,
 				'error' => 'No error output'
 			));

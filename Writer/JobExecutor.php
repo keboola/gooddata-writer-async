@@ -12,6 +12,7 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\StorageApi\ClientException as StorageApiClientException;
+use Keboola\GoodDataWriter\GoodData\CsvHandlerException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\StorageApi\Client as StorageApiClient,
