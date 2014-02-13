@@ -150,12 +150,14 @@ class CsvHandler
 			$process = new Process($this->command);
 			$process->setTimeout(null);
 			$process->run();
-			if ($process->isSuccessful()) {
+			$error = $process->getErrorOutput();
+
+			if ($process->isSuccessful() && !$error) {
 				$this->command = null;
 				return;
 			} else {
-				$error = $process->getErrorOutput();
 				if (substr($error, 0, 10) != 'curl: (55)') {
+					// Rerun for curl 55 error only
 					break;
 				}
 			}
