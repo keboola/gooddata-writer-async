@@ -11,10 +11,7 @@ use Aws\S3\Model\MultipartUpload\AbstractTransfer;
 use Aws\S3\Model\MultipartUpload\UploadBuilder;
 use Aws\S3\S3Client;
 use Keboola\Csv\CsvFile;
-use Keboola\GoodDataWriter\Exception\WrongParametersException,
-	Keboola\GoodDataWriter\Exception\WrongConfigurationException,
-	Keboola\GoodDataWriter\GoodData\RestApiException,
-	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
+use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Aws\Common\Client as AwsClient;
 use Keboola\StorageApi\Table;
 
@@ -69,13 +66,11 @@ class ExportReport extends AbstractJob
 
 		$csvFile = new CsvFile($normalizedCsv);
 
-		$sapi = new \Keboola\StorageApi\Client($token, null, 'gooddata-writer');
-
 		list($stage, $bucket, $tableName) = explode('.', $tableId);
 		try {
-			$sapi->createTableAsync($stage . '.'. $bucket, $tableName, $csvFile);
+			$this->storageApiClient->createTableAsync($stage . '.'. $bucket, $tableName, $csvFile);
 		} catch (\Exception $e) {
-			$sapi->writeTableAsync($tableId, $csvFile);
+			$this->storageApiClient->writeTableAsync($tableId, $csvFile);
 		}
 	}
 

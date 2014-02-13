@@ -178,6 +178,7 @@ class JobExecutor
 				$command->tmpDir = $tmpDir;
 				$command->scriptsPath = $this->appConfiguration->scriptsPath;
 				$command->log = $this->logger;
+				$command->storageApiClient = $this->storageApiClient;
 
 				$error = null;
 				$token = $this->storageApiClient->getLogData();

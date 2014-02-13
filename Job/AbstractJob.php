@@ -12,7 +12,8 @@ use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\Writer\SharedConfig,
 	Keboola\GoodDataWriter\GoodData\RestApi,
-	Keboola\GoodDataWriter\Service\S3Client;
+	Keboola\GoodDataWriter\Service\S3Client,
+	Keboola\StorageApi\Client as StorageApiClient;
 
 abstract class AbstractJob
 {
@@ -28,6 +29,10 @@ abstract class AbstractJob
 	 * @var SharedConfig
 	 */
 	public $sharedConfig;
+	/**
+	 * @var StorageApiClient
+	 */
+	public $storageApiClient;
 	/**
 	 * @var RestApi
 	 */
