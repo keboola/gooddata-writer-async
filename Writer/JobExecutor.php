@@ -124,6 +124,7 @@ class JobExecutor
 		$this->sharedConfig->saveJob($jobId, array(
 			'status' => 'processing',
 			'startTime' => date('c', $startTime),
+			'endTime' => null
 		));
 
 		$jobData = array('result' => array());

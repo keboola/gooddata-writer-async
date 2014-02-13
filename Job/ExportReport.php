@@ -53,14 +53,14 @@ class ExportReport extends AbstractJob
 
 		$this->restApi->getToFile($csvUri, $filename);
 
-		$this->uploadToSapi($filename, $params['table'], $params['token']);
+		$this->uploadToSapi($filename, $params['table']);
 
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);
 	}
 
-	protected function uploadToSapi($filename, $tableId, $token)
+	protected function uploadToSapi($filename, $tableId)
 	{
 		$normalizedCsv = $this->normalizeCsv($filename);
 

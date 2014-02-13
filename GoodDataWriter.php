@@ -1345,8 +1345,7 @@ class GoodDataWriter extends Component
 			'parameters' => array(
 				'pid'       => $params['pid'],
 				'report'    => $params['report'],
-				'table'     => $params['table'],
-				'token'     => $this->_storageApi->getTokenString()
+				'table'     => $params['table']
 			),
 			'queue' => isset($params['queue']) ? $params['queue'] : null
 		));

@@ -30,10 +30,6 @@ abstract class AbstractJob
 	 */
 	public $sharedConfig;
 	/**
-	 * @var StorageApiClient
-	 */
-	public $storageApiClient;
-	/**
 	 * @var RestApi
 	 */
 	public $restApi;
@@ -41,6 +37,12 @@ abstract class AbstractJob
 	 * @var S3Client
 	 */
 	public $s3Client;
+
+	/**
+	 * @var StorageApiClient $storageApiClient
+	 */
+	public $storageApiClient;
+
 	public $tmpDir;
 	public $rootPath;
 	public $scriptsPath;
@@ -52,14 +54,13 @@ abstract class AbstractJob
 
 	public $eventsLog;
 
-	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, $sharedConfig, $restApi, $s3Client)
+	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, S3Client $s3Client)
 	{
 		$this->configuration = $configuration;
 		$this->appConfiguration = $appConfiguration;
 		$this->sharedConfig = $sharedConfig;
-		$this->s3Client = $s3Client;
-
 		$this->restApi = $restApi;
+		$this->s3Client = $s3Client;
 	}
 
 
