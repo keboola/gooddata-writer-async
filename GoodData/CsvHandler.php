@@ -28,14 +28,26 @@ class CsvHandler
 	private $s3Client;
 	private $logger;
 
+	private $jobId;
+	private $runId;
 
-	public function __construct($scriptsPath, $s3Client, $tmpDir, $jobId, Logger $logger)
+
+	public function __construct($scriptsPath, $s3Client, $tmpDir, Logger $logger)
 	{
 		$this->scriptPath = $scriptsPath . '/convert_csv.php';
 		$this->s3Client = $s3Client;
 		$this->tmpDir = $tmpDir;
-		$this->jobId = $jobId;
 		$this->logger = $logger;
+	}
+
+	public function setJobId($id)
+	{
+		$this->jobId = $id;
+	}
+
+	public function setRunId($id)
+	{
+		$this->runId = $id;
 	}
 
 	/**
@@ -49,7 +61,7 @@ class CsvHandler
 		$sapiUrl = sprintf('%s/v2/storage/tables/%s/export?format=escaped%s%s', $sapiUrl, $tableId, $incrementalLoad, $filter);
 		$this->command = sprintf('curl -s -S -f --header %s --header %s --header %s --user-agent %s --retry 12 %s | gzip -d',
 			escapeshellarg('Accept-encoding: gzip'), escapeshellarg('X-StorageApi-Token: ' . $token),
-			escapeshellarg('X-KBC-RunId: ' . $this->jobId), escapeshellarg($userAgent), escapeshellarg($sapiUrl));
+			escapeshellarg('X-KBC-RunId: ' . $this->runId), escapeshellarg($userAgent), escapeshellarg($sapiUrl));
 	}
 
 
@@ -159,6 +171,13 @@ class CsvHandler
 				$this->command = null;
 				return;
 			} else {
+				$this->logger->error('Curl error during csv handling', array(
+					'command' => $this->command,
+					'error' => $error ? $error : 'No error output',
+					'jobId' => $this->jobId,
+					'runId' => $this->runId,
+				));
+
 				if (substr($error, 0, 10) != 'curl: (55)' && substr($error, 0, 10) != 'curl: (18)') {
 					// Rerun for curl 18 (CURLE_PARTIAL_FILE) and 55 (CURLE_SEND_ERROR) error only
 					break;
@@ -172,13 +191,17 @@ class CsvHandler
 		if ($error && substr($error, 0, 7) == 'curl: (') {
 			$this->logger->alert('Curl error during csv handling', array(
 				'command' => $this->command,
-				'error' => $error
+				'error' => $error,
+				'jobId' => $this->jobId,
+				'runId' => $this->runId,
 			));
 		}
 		if (!$error) {
 			$this->logger->alert('Curl error during csv handling', array(
 				'command' => $this->command,
-				'error' => 'No error output'
+				'error' => 'No error output',
+				'jobId' => $this->jobId,
+				'runId' => $this->runId,
 			));
 		}
 		$this->command = null;

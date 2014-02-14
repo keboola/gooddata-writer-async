@@ -10,8 +10,7 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException;
-use Keboola\GoodDataWriter\GoodData\CsvHandler,
-	Keboola\GoodDataWriter\GoodData\WebDav;
+use Keboola\GoodDataWriter\GoodData\WebDav;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\WebDavException;
 use Symfony\Component\Stopwatch\Stopwatch;
@@ -19,7 +18,7 @@ use Symfony\Component\Stopwatch\Stopwatch;
 class UploadDateDimension extends AbstractJob
 {
 	/**
-	 * @var CsvHandler
+	 * @var Model
 	 */
 	private $goodDataModel;
 	public $eventsLog;

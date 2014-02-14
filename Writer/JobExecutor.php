@@ -137,7 +137,6 @@ class JobExecutor
 				$this->appConfiguration->userAgent
 			);
 			$this->storageApiClient->setRunId($jobId);
-			$this->logEvent('start', $job);
 
 			try {
 				if ($job['parameters']) {
@@ -149,6 +148,7 @@ class JobExecutor
 					$parameters = array();
 				}
 				$logParams = $parameters;
+				$this->logEvent('start', $job, array('command' => $job['command'], 'params' => $logParams));
 
 				$commandName = ucfirst($job['command']);
 				$commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
@@ -264,7 +264,8 @@ class JobExecutor
 		$priority = $this->storageApiEvent->getType() == StorageApiEvent::TYPE_ERROR ? Logger::ERROR : Logger::INFO;
 		$logData = array(
 			'jobId' => $job['id'],
-			'writerId' => $job['writerId']
+			'writerId' => $job['writerId'],
+			'runId' => $job['runId']
 		);
 		if ($data) {
 			$logData = array_merge($logData, $data);

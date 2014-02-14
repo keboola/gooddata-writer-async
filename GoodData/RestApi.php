@@ -1436,7 +1436,7 @@ class RestApi
 					$this->refreshToken();
 
 				} else {
-					throw new RestApiException("Error occured while downloading file. Status code ". $response->getStatusCode(), 500, $e);
+					throw new RestApiException("Error occurred while downloading file. Status code ". $response->getStatusCode(), 500, $e);
 				}
 			}
 
