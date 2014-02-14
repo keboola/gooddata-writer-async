@@ -53,7 +53,7 @@ abstract class StorageApiConfiguration
 	 * @param array $options
 	 * @return array
 	 */
-	protected function _fetchTableRows($tableId, $whereColumn = null, $whereValue = null, $options = array())
+	protected function _fetchTableRows($tableId, $whereColumn = null, $whereValue = null, $options = array(), $cache = true)
 	{
 		$exportOptions = array();
 		if ($whereColumn) {
@@ -65,7 +65,7 @@ abstract class StorageApiConfiguration
 		if (count($options)) {
 			$exportOptions = array_merge($exportOptions, $options);
 		}
-		return $this->sapi_exportTable($tableId, $exportOptions);
+		return $this->sapi_exportTable($tableId, $exportOptions, $cache);
 	}
 
 	/**
@@ -338,7 +338,7 @@ abstract class StorageApiConfiguration
 	}
 
 
-	public function sapi_exportTable($tableId, $options = array())
+	public function sapi_exportTable($tableId, $options = array(), $cache = true)
 	{
 		$cacheKey = 'exportTable.' . $tableId;
 		if (count($options)) {
@@ -348,7 +348,7 @@ abstract class StorageApiConfiguration
 			}
 			$cacheKey .=  '.' . implode(':', array_keys($keyOptions)) . '.' . implode(':', array_values($keyOptions));
 		}
-		if (!isset($this->_cache[$cacheKey])) {
+		if (!isset($this->_cache[$cacheKey]) || !$cache) {
 			$csv = $this->_storageApiClient->exportTable($tableId, null, $options);
 			$this->_cache[$cacheKey] = StorageApiClient::parseCsv($csv, true);
 		}

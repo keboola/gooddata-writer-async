@@ -111,7 +111,7 @@ class GoodDataWriter extends Component
 			if (!$this->appConfiguration) {
 				$this->appConfiguration = $this->_container->get('gooddata_writer.app_configuration');
 			}
-			$this->sharedConfig = new SharedConfig($this->appConfiguration);
+			$this->sharedConfig = $this->_container->get('gooddata_writer.shared_config');
 		}
 		return $this->sharedConfig;
 	}
@@ -1804,7 +1804,6 @@ class GoodDataWriter extends Component
 		$i = 1;
 		do {
 			$jobInfo = $this->getJobs(array('jobId' => $jobId, 'writerId' => $writerId));
-			$this->sharedConfig = null; // Workaround of cache bug
 			if (isset($jobInfo['job']['status']) && !in_array($jobInfo['job']['status'], array('waiting', 'processing'))) {
 				$jobFinished = true;
 			}
@@ -1827,7 +1826,6 @@ class GoodDataWriter extends Component
 		$i = 1;
 		do {
 			$jobsInfo = $this->getBatch(array('batchId' => $batchId, 'writerId' => $writerId));
-			$this->sharedConfig = null; // Workaround of cache bug
 			if (isset($jobsInfo['batch']['status']) && !in_array($jobsInfo['batch']['status'], array('waiting', 'processing'))) {
 				$jobsFinished = true;
 			}

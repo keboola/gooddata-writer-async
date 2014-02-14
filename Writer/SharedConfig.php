@@ -7,7 +7,6 @@
 namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\StorageApi\Client as StorageApiClient,
-	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\Service\StorageApiConfiguration;
 
@@ -62,7 +61,7 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function fetchJob($jobId, $writerId = null, $projectId = null)
 	{
-		$job = $this->_fetchTableRows(self::JOBS_TABLE_ID, 'id', $jobId);
+		$job = $this->_fetchTableRows(self::JOBS_TABLE_ID, 'id', $jobId, array(), false);
 		$job = reset($job);
 
 		if ((!$writerId || $job['writerId'] == $writerId) && (!$projectId || $job['projectId'] == $projectId)) {
@@ -78,7 +77,7 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function fetchBatch($batchId)
 	{
-		return $this->_fetchTableRows(self::JOBS_TABLE_ID, 'batchId', $batchId);
+		return $this->_fetchTableRows(self::JOBS_TABLE_ID, 'batchId', $batchId, array(), false);
 	}
 
 	/**
