@@ -46,7 +46,7 @@ class DeleteWriter extends AbstractJob
 		}
 
 		$this->configuration->deleteWriter();
-
+		$this->logEvent('deleteFilter', array(), $this->restApi->getLogPath());
 		return array();
 	}
 }

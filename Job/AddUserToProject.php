@@ -58,7 +58,8 @@ class AddUserToProject extends AbstractJob
 		if (!$userId) {
 			if (!empty($params['createUser'])) {
 				// try create new user in domain
-				$childJob = new CreateUser($this->configuration, $this->appConfiguration, $this->sharedConfig, $this->restApi, $this->s3Client);
+				$childJob = new CreateUser($this->configuration, $this->appConfiguration, $this->sharedConfig,
+					$this->restApi, $this->s3Client, $this->tempServiceFactory);
 
 				$childParams = array(
 					'email' => $params['email'],
@@ -84,6 +85,9 @@ class AddUserToProject extends AbstractJob
 			$this->configuration->saveProjectInvite($params['pid'], $params['email'], $params['role']);
 		}
 
+		$this->logEvent('addUserToProject', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);

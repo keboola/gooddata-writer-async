@@ -42,6 +42,9 @@ class InviteUserToProject extends AbstractJob
 
 		$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role']);
 
+		$this->logEvent('inviteUserToProject', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);

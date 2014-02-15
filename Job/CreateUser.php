@@ -29,7 +29,9 @@ class CreateUser extends AbstractJob
 		$this->configuration->saveUser($params['email'], $userId);
 		$this->sharedConfig->saveUser($userId, $params['email'], $job);
 
-
+		$this->logEvent('createUser', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
 		return array(
 			'uid' => $userId,
 			'gdWriteStartTime' => $gdWriteStartTime

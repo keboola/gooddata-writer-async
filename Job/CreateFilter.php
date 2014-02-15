@@ -44,6 +44,9 @@ class createFilter extends AbstractJob
 
 		$this->configuration->saveFiltersProjects($params['name'], $params['pid']);
 
+		$this->logEvent('createFilter', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
 		return array(
 			'uri' => $filterUri,
 			'gdWriteStartTime' => $gdWriteStartTime

@@ -69,6 +69,9 @@ class ExecuteReports extends AbstractJob
 			}
 		}
 
+		$this->logEvent('executeReports', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);

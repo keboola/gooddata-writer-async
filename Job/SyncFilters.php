@@ -73,6 +73,9 @@ class SyncFilters extends AbstractJob {
 			}
 		}
 
+		$this->logEvent('syncFilters', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
 		return array(
 			'gdWriteStartTime'  => $gdWriteStartTime
 		);

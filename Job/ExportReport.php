@@ -55,6 +55,9 @@ class ExportReport extends AbstractJob
 
 		$this->uploadToSapi($filename, $params['table']);
 
+		$this->logEvent('exportReport', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);

@@ -34,6 +34,9 @@ class DeleteDataSet extends AbstractJob
 		}
 
 		$this->configuration->updateDataSetDefinition($params['tableId'], 'lastExportDate', '');
+		$this->logEvent('deleteDataSet', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);

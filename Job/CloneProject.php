@@ -41,8 +41,11 @@ class CloneProject extends AbstractJob
 		$this->restApi->addUserToProject($bucketAttributes['gd']['uid'], $projectPid);
 
 		$this->configuration->saveProject($projectPid);
-		$this->sharedConfig->saveProject($projectPid, $params['accessToken'], $this->restApi->apiUrl, $job);
+		$this->sharedConfig->saveProject($projectPid, $params['accessToken'], $this->restApi->getApiUrl(), $job);
 
+		$this->logEvent('cloneProject', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
 		return array(
 			'pid' => $projectPid,
 			'gdWriteStartTime' => $gdWriteStartTime

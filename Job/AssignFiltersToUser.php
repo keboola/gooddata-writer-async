@@ -39,6 +39,9 @@ class assignFiltersToUser extends AbstractJob
 
 		$this->configuration->saveFilterUser($filterUris, $params['userEmail']);
 
+		$this->logEvent('assignFilterToUser', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);

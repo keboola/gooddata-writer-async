@@ -18,6 +18,8 @@ use Guzzle\Stream\PhpStreamRequestFactory;
 use Guzzle\Http\Message\RequestInterface;
 use Monolog\Logger;
 use stdClass;
+use Syrup\ComponentBundle\Filesystem\TempService;
+use Syrup\ComponentBundle\Filesystem\TempServiceFactory;
 
 class RestApiException extends \Exception
 {
@@ -78,8 +80,6 @@ class RestApi
 	const API_URL = 'https://na1.secure.gooddata.com';
 	const DEFAULT_BACKEND_URL = 'na1.secure.gooddata.com';
 
-	public $apiUrl;
-
 	public static $userRoles = array(
 		'admin' => 'adminRole',
 		'editor' => 'editorRole',
@@ -103,29 +103,44 @@ class RestApi
 	 * @var Logger
 	 */
 	private $usageLogger;
+	/**
+	 * @var TempService
+	 */
+	private $tempService;
+
+	/**
+	 * @var \SplFileObject
+	 */
+	private $logFile;
 
 	protected $authSst;
 	protected $authTt;
 
-	public $jobId;
-	public $callsLog;
+	private $jobId;
 	private $clearFromLog;
 
+	private $apiUrl;
 	private $username;
 	private $password;
 
 
 
-	public function __construct(Model $model, Logger $logger, Logger $usageLogger)
+	public function __construct(Model $model, Logger $logger, Logger $usageLogger, TempServiceFactory $tempServiceFactory)
 	{
+		if (!defined('JSON_PRETTY_PRINT')) {
+			// fallback for PHP <= 5.3
+			define('JSON_PRETTY_PRINT', 0);
+		}
+
+
 		$this->model = $model;
 		$this->logger = $logger;
 		$this->usageLogger = $usageLogger;
 
 		$this->client = new Client(self::API_URL, array(
 			'curl.options' => array(
-                CURLOPT_CONNECTTIMEOUT => 600,
-                CURLOPT_TIMEOUT => 600
+				CURLOPT_CONNECTTIMEOUT => 600,
+				CURLOPT_TIMEOUT => 600
 			)
 		));
 		$this->client->setSslVerification(false);
@@ -134,8 +149,15 @@ class RestApi
 			'content-type' => 'application/json; charset=utf-8'
 		));
 
-		$this->callsLog = array();
+		$this->tempService = $tempServiceFactory->get('gooddata_writer');
 		$this->clearFromLog = array();
+
+		$this->initLog();
+	}
+
+	public function setJobId($jobId)
+	{
+		$this->jobId = $jobId;
 	}
 
 	public function setBaseUrl($url)
@@ -148,6 +170,11 @@ class RestApi
 			$baseUrl = 'https://' . $url;
 		}
 		$this->client->setBaseUrl($baseUrl);
+	}
+
+	public function getApiUrl()
+	{
+		return $this->apiUrl;
 	}
 
 	public static function parseError($message)
@@ -1095,10 +1122,10 @@ class RestApi
 		if (is_array($element)) {
 			$elementArr = array();
 			foreach ($element as $e) {
-			$elementArr[] = '[' . $this->getElementUriByTitle(
-				$gdAttribute['content']['displayForms'][0]['links']['elements'],
-				$e
-				) . ']';
+				$elementArr[] = '[' . $this->getElementUriByTitle(
+						$gdAttribute['content']['displayForms'][0]['links']['elements'],
+						$e
+					) . ']';
 			}
 
 			$elementsUri = implode(',', $elementArr);
@@ -1417,14 +1444,14 @@ class RestApi
 			try {
 				$response = $request->send();
 
-				$this->logCall($uri, 'GET', array("filename" => $filename), $response->getBody(true), abs(microtime() - $startTime) * 1000);
+				$this->log($uri, 'GET', array("filename" => $filename), $response->getBody(true), abs(microtime() - $startTime) * 1000);
 
 				if ($response->getStatusCode() == 200) {
 					return $filename;
 				}
 			} catch (ClientErrorResponseException $e) {
 				$response = $request->getResponse();
-				$this->logCall($uri, 'GET', array("filename" => $filename), $response->getBody(true), abs(microtime() - $startTime) * 1000);
+				$this->log($uri, 'GET', array("filename" => $filename), $response->getBody(true), abs(microtime() - $startTime) * 1000);
 
 				if ($request->getResponse()->getStatusCode() == 201) {
 
@@ -1493,7 +1520,7 @@ class RestApi
 				$response = $request->send();
 
 				$duration = abs(microtime() - $startTime) * 1000;
-				if ($logCall) $this->logCall($uri, $method, $params, $response->getBody(true), $duration);
+				if ($logCall) $this->log($uri, $method, $params, $response->getBody(true), $duration);
 
 				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
 				if ($response->isSuccessful()) {
@@ -1504,7 +1531,7 @@ class RestApi
 				$duration = abs(microtime() - $startTime) * 1000;
 				$response = $request->getResponse()->getBody(true);
 
-				if ($logCall) $this->logCall($uri, $method, $params, $response, $duration);
+				if ($logCall) $this->log($uri, $method, $params, $response, $duration);
 				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
 
 				if ($e instanceof ClientErrorResponseException) {
@@ -1658,7 +1685,7 @@ class RestApi
 		}
 	}
 
-	protected function logCall($uri, $method, $params, $response, $duration)
+	protected function log($uri, $method, $params, $response, $duration)
 	{
 		$decodedResponse = json_decode($response, true);
 		if (!$decodedResponse) {
@@ -1674,19 +1701,26 @@ class RestApi
 		array_walk_recursive($params, $sanitize);
 		array_walk_recursive($decodedResponse, $sanitize);
 
-		$this->callsLog[] = array(
+		$this->logFile->fwrite(json_encode(array(
 			'duration' => $duration,
 			'time' => date('c'),
 			'uri' => $this->client->getBaseUrl() . $uri,
 			'method' => $method,
 			'params' => $params,
 			'response' => $decodedResponse
-		);
+		), JSON_PRETTY_PRINT) . ',');
 	}
 
-	public function callsLog()
+	public function initLog()
 	{
-		return $this->callsLog;
+		$this->logFile = $this->tempService->createTmpFile('.json')->openFile('a');
+		$this->logFile->fwrite('[');
+	}
+
+	public function getLogPath()
+	{
+		$this->logFile->fwrite('null]');
+		return $this->logFile->getRealPath();
 	}
 
 }

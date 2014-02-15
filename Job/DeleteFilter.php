@@ -31,6 +31,9 @@ class DeleteFilter extends AbstractJob {
 
 		$this->configuration->deleteFilter($params['uri']);
 
+		$this->logEvent('deleteFilter', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);

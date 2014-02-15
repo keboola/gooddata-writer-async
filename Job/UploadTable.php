@@ -27,12 +27,12 @@ class UploadTable extends AbstractJob
 	 */
 	private $csvHandler;
 	private $goodDataModel;
-	public $eventsLog;
 
 	public function run($job, $params)
 	{
-		$this->eventsLog = array();
-		$this->eventsLog['start'] = array('duration' => 0, 'time' => date('c'));
+		$this->logEvent('start', array(
+			'duration' => 0
+		));
 		$stopWatch = new Stopwatch();
 		$stopWatchId = 'prepareJob';
 		$stopWatch->start($stopWatchId);
@@ -47,11 +47,10 @@ class UploadTable extends AbstractJob
 		// Init
 		$tmpFolderName = basename($this->tmpDir);
 		$this->goodDataModel = new Model($this->appConfiguration);
-		$this->csvHandler = new CsvHandler($this->scriptsPath, $this->s3Client, $this->tmpDir, $this->log);
+		$this->csvHandler = new CsvHandler($this->scriptsPath, $this->s3Client, $this->tmpDir, $this->logger);
 		$this->csvHandler->setJobId($job['id']);
 		$this->csvHandler->setRunId($job['runId']);
 		$projects = $this->configuration->getProjects();
-		$error = false;
 		$debug = array();
 
 		$updateModelJobs = array();
@@ -66,12 +65,10 @@ class UploadTable extends AbstractJob
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$e = $stopWatch->stop($stopWatchId);
-		$this->eventsLog[$stopWatchId] = array(
-			'duration' => $e->getDuration(),
-			'time' => date('c'),
-			'restApi' => $this->restApi->callsLog
-		);
-		$this->restApi->callsLog = array();
+		$this->logEvent($stopWatchId, array(
+			'duration' => $e->getDuration()
+		), $this->restApi->getLogPath());
+		$this->restApi->initLog();
 
 		// Get definition
 		$stopWatchId = 'getDefinition';
@@ -97,7 +94,7 @@ class UploadTable extends AbstractJob
 			$definition = json_decode($process->getOutput(), true);
 
 		} catch (CsvHandlerException $e) {
-			$this->log->warn('Download of definition failed', array(
+			$this->logger->warn('Download of definition failed', array(
 				'exception' => $e->getMessage(),
 				'trace' => $e->getTraceAsString(),
 				'job' => $job,
@@ -106,7 +103,10 @@ class UploadTable extends AbstractJob
 			throw new JobProcessException('Download of definition failed');
 		}
 		$e = $stopWatch->stop($stopWatchId);
-		$this->eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'), 'definition' => $definitionUrl);
+		$this->logEvent($stopWatchId, array(
+			'duration' => $e->getDuration(),
+			'definition' => $definitionUrl
+		));
 
 		$dataSetName = !empty($tableDefinition['name']) ? $tableDefinition['name'] : $tableDefinition['id'];
 		$dataSetId = Model::getDatasetId($dataSetName);
@@ -119,7 +119,10 @@ class UploadTable extends AbstractJob
 		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
 		$debug['manifest'] = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
 		$e = $stopWatch->stop($stopWatchId);
-		$this->eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'), 'manifest' => $debug['manifest']);
+		$this->logEvent($stopWatchId, array(
+			'duration' => $e->getDuration(),
+			'manifest' => $debug['manifest']
+		));
 
 
 		$stopWatchId = 'prepareLoads';
@@ -178,7 +181,7 @@ class UploadTable extends AbstractJob
 
 		$clToolApi = null;
 		if (!$this->preRelease) {
-			$clToolApi = new CLToolApi($this->log, $this->appConfiguration->clPath);
+			$clToolApi = new CLToolApi($this->logger, $this->appConfiguration->clPath);
 			$clToolApi->s3client = $this->s3Client;
 			if (isset($bucketAttributes['gd']['backendUrl'])) {
 				$urlParts = parse_url($bucketAttributes['gd']['backendUrl']);
@@ -189,7 +192,9 @@ class UploadTable extends AbstractJob
 			$clToolApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		}
 		$e = $stopWatch->stop($stopWatchId);
-		$this->eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));
+		$this->logEvent($stopWatchId, array(
+			'duration' => $e->getDuration()
+		));
 
 
 
@@ -200,19 +205,17 @@ class UploadTable extends AbstractJob
 				$stopWatch->start($stopWatchId);
 
 				if ($this->preRelease) {
-					$this->restApi->callsLog = array();
+					$this->restApi->initLog();
 
 					$this->restApi->updateDataSet($gdJob['pid'], $definition);
 
 					$e = $stopWatch->stop($stopWatchId);
-					$this->eventsLog[$stopWatchId] = array(
-						'duration' => $e->getDuration(),
-						'time' => date('c'),
-						'restApi' => $this->restApi->callsLog
-					);
+					$this->logEvent($stopWatchId, array(
+						'duration' => $e->getDuration()
+					), $this->restApi->getLogPath());
 				} else {
 					$clToolApi->debugLogUrl = null;
-					$this->restApi->callsLog = array();
+					$this->restApi->initLog();
 					$clToolApi->s3Dir = $tmpFolderName . '/' . $gdJob['pid'];
 					$clToolApi->tmpDir = $this->tmpDir . '/' . $gdJob['pid'];
 					if (!file_exists($clToolApi->tmpDir)) mkdir($clToolApi->tmpDir);
@@ -240,12 +243,10 @@ class UploadTable extends AbstractJob
 						$clToolApi->debugLogUrl = null;
 					}
 					$e = $stopWatch->stop($stopWatchId);
-					$this->eventsLog[$stopWatchId] = array(
+					$this->logEvent($stopWatchId, array(
 						'duration' => $e->getDuration(),
-						'time' => date('c'),
-						'clTool' => $clToolApi->output,
-						'restApi' => $this->restApi->callsLog
-					);
+						'clTool' => $clToolApi->output
+					), $this->restApi->getLogPath());
 				}
 
 			}
@@ -273,15 +274,20 @@ class UploadTable extends AbstractJob
 				}
 
 				$e = $stopWatch->stop($stopWatchId);
-				$this->eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'));
+				$this->logEvent($stopWatchId, array(
+					'duration' => $e->getDuration()
+				));
 
 				$stopWatchId = 'uploadManifest-' . $gdJob['pid'];
 				$stopWatch->start($stopWatchId);
 
 				$webDav->upload($this->tmpDir . '/upload_info.json', $webDavFolder);
 				$e = $stopWatch->stop($stopWatchId);
-				$this->eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'),
-					'url' => $webDavUrl, 'folder' => '/uploads/' . $webDavFolder);
+				$this->logEvent($stopWatchId, array(
+					'duration' => $e->getDuration(),
+					'url' => $webDavUrl,
+					'folder' => '/uploads/' . $webDavFolder
+				));
 			}
 
 
@@ -293,7 +299,7 @@ class UploadTable extends AbstractJob
 			foreach ($loadDataJobs as $gdJob) {
 				$stopWatchId = 'runEtl-' . $gdJob['pid'];
 				$stopWatch->start($stopWatchId);
-				$this->restApi->callsLog = array();
+				$this->restApi->initLog();
 				$dataTmpDir = $this->tmpDir . '/' . $gdJob['pid'];
 				if (!file_exists($dataTmpDir)) mkdir($dataTmpDir);
 				$webDavFolder = $tmpFolderName . '-' . $gdJob['pid'];
@@ -314,36 +320,35 @@ class UploadTable extends AbstractJob
 					throw new RestApiException('ETL load failed', $e->getMessage());
 				}
 				$e = $stopWatch->stop($stopWatchId);
-				$this->eventsLog[$stopWatchId] = array(
-					'duration' => $e->getDuration(),
-					'time' => date('c'),
-					'restApi' => $this->restApi->callsLog
-				);
+				$this->logEvent($stopWatchId, array(
+					'duration' => $e->getDuration()
+				), $this->restApi->getLogPath());
 			}
 		} catch (\Exception $e) {
 			$error = $e->getMessage();
 			$event = $stopWatch->stop($stopWatchId);
-			$this->eventsLog[$stopWatchId] = array(
-				'duration' => $event->getDuration(),
-				'time' => date('c')
-			);
 
+			$restApiLogPath = null;
+			$eventDetails = array(
+				'duration' => $event->getDuration()
+			);
 			if ($e instanceof CLToolApiErrorException) {
 				if ($clToolApi->debugLogUrl) {
 					$debug[(count($debug) + 1) . ': CL tool'] = $clToolApi->debugLogUrl;
 					$clToolApi->debugLogUrl = null;
 				}
-				$this->eventsLog[$stopWatchId]['clTool'] = $clToolApi->output;
+				$eventDetails['clTool'] = $clToolApi->output;
 				$data = $e->getData();
 				if (count($data)) {
 					$debug[(count($debug) + 1) . ': debug data'] = $this->s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($data));
 				}
 			} elseif ($e instanceof RestApiException) {
 				$error = $e->getDetails();
-				$this->eventsLog[$stopWatchId]['restApi'] = $this->restApi->callsLog;
-			} elseif ($e instanceof WebDavException) {
-				// Do nothing
-			} else {
+				$restApiLogPath = $this->restApi->getLogPath();
+			}
+			$this->logEvent($stopWatchId, $eventDetails, $restApiLogPath);
+
+			if (!($e instanceof CLToolApiErrorException) && !($e instanceof RestApiException) && !($e instanceof WebDavException)) {
 				throw $e;
 			}
 		}

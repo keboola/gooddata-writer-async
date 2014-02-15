@@ -41,10 +41,13 @@ class CreateWriter extends AbstractJob
 		$this->configuration->updateWriter('gd.uid', $userId);
 
 
-		$this->sharedConfig->saveProject($projectPid, $params['accessToken'], $this->restApi->apiUrl, $job);
+		$this->sharedConfig->saveProject($projectPid, $params['accessToken'], $this->restApi->getApiUrl(), $job);
 		$this->sharedConfig->saveUser($userId, $username, $job);
 
 
+		$this->logEvent('createUser', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
 		return array(
 			'uid' => $userId,
 			'pid' => $projectPid,

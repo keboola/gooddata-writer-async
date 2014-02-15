@@ -14,57 +14,133 @@ use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\StorageApi\Client as StorageApiClient;
+use Syrup\ComponentBundle\Filesystem\TempServiceFactory;
 
 abstract class AbstractJob
 {
 	/**
 	 * @var Configuration
 	 */
-	public $configuration;
+	protected $configuration;
 	/**
 	 * @var AppConfiguration
 	 */
-	public $appConfiguration;
+	protected $appConfiguration;
 	/**
 	 * @var SharedConfig
 	 */
-	public $sharedConfig;
+	protected $sharedConfig;
 	/**
 	 * @var RestApi
 	 */
-	public $restApi;
+	protected $restApi;
 	/**
 	 * @var S3Client
 	 */
-	public $s3Client;
+	protected $s3Client;
+	/**
+	 * @var \Monolog\Logger
+	 */
+	protected $logger;
+	/**
+	 * @var TempServiceFactory
+	 */
+	protected $tempServiceFactory;
 
 	/**
 	 * @var StorageApiClient $storageApiClient
 	 */
-	public $storageApiClient;
+	protected $storageApiClient;
 
-	public $tmpDir;
-	public $rootPath;
-	public $scriptsPath;
-	public $preRelease;
+	protected $tmpDir;
+	protected $rootPath;
+	protected $scriptsPath;
+	protected $preRelease;
+
 	/**
-	 * @var \Monolog\Logger
+	 * @var \Syrup\ComponentBundle\Filesystem\TempService
 	 */
-	public $log;
+	private $tempService;
+	/**
+	 * @var \SplFileObject
+	 */
+	private $logFile;
 
-	public $eventsLog;
-
-	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, S3Client $s3Client)
+	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedConfig $sharedConfig,
+								RestApi $restApi, S3Client $s3Client, TempServiceFactory $tempServiceFactory)
 	{
+		if (!defined('JSON_PRETTY_PRINT')) {
+			// fallback for PHP <= 5.3
+			define('JSON_PRETTY_PRINT', 0);
+		}
+
 		$this->configuration = $configuration;
 		$this->appConfiguration = $appConfiguration;
 		$this->sharedConfig = $sharedConfig;
 		$this->restApi = $restApi;
 		$this->s3Client = $s3Client;
+		$this->tempServiceFactory = $tempServiceFactory;
+		$this->tempService = $tempServiceFactory->get('gooddata_writer');
+
+		$this->initLog();
 	}
 
 
 	abstract function run($job, $params);
+
+
+
+	public function setTmpDir($tmpDir)
+	{
+		$this->tmpDir = $tmpDir;
+	}
+
+	public function setScriptsPath($scriptsPath)
+	{
+		$this->scriptsPath = $scriptsPath;
+	}
+
+	public function setLogger($logger)
+	{
+		$this->logger = $logger;
+	}
+
+	public function setStorageApiClient($storageApiClient)
+	{
+		$this->storageApiClient = $storageApiClient;
+	}
+
+	public function setPreRelease($preRelease)
+	{
+		$this->preRelease = $preRelease;
+	}
+
+
+	public function initLog()
+	{
+		$this->logFile = $this->tempService->createTmpFile('.json')->openFile('a');
+		$this->logFile->fwrite('[');
+	}
+
+	public function getLogPath()
+	{
+		$this->logFile->fwrite('null]');
+		return $this->logFile->getRealPath();
+	}
+
+	protected function logEvent($event, $details, $restApiLogPath = null)
+	{
+		$this->logFile->fwrite('{"' . $event . '": ');
+		$details = json_encode(array_merge(array('time' => date('c')), $details), JSON_PRETTY_PRINT);
+		if ($restApiLogPath && file_exists($restApiLogPath)) {
+			$this->logFile->fwrite(rtrim($details, '}') . ', "restApi": ');
+			shell_exec(sprintf('cat %s >> %s', escapeshellarg($restApiLogPath), escapeshellarg($this->logFile->getRealPath())));
+			$this->logFile->fwrite('}');
+		} else {
+			$this->logFile->fwrite($details);
+		}
+		$this->logFile->fwrite('},');
+	}
 
 	/**
 	 * @param array $params

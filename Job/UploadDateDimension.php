@@ -27,8 +27,9 @@ class UploadDateDimension extends AbstractJob
 	{
 		$this->checkParams($params, array('name'));
 
-		$this->eventsLog = array();
-		$this->eventsLog['start'] = array('duration' => 0, 'time' => date('c'));
+		$this->logEvent('start', array(
+			'duration' => 0
+		));
 		$stopWatch = new Stopwatch();
 		$stopWatchId = 'prepareJob';
 		$stopWatch->start($stopWatchId);
@@ -65,12 +66,10 @@ class UploadDateDimension extends AbstractJob
 		$includeTime = $dateDimensions[$params['name']]['includeTime'];
 
 		$e = $stopWatch->stop($stopWatchId);
-		$this->eventsLog[$stopWatchId] = array(
-			'duration' => $e->getDuration(),
-			'time' => date('c'),
-			'restApi' => $this->restApi->callsLog
-		);
-		$this->restApi->callsLog = array();
+		$this->logEvent($stopWatchId, array(
+			'duration' => $e->getDuration()
+		), $this->restApi->getLogPath());
+		$this->restApi->initLog();
 
 
 		try {
@@ -78,16 +77,14 @@ class UploadDateDimension extends AbstractJob
 			foreach ($projectsToLoad as $pid) {
 				$stopWatchId = 'createDimension-' . $params['name'] . '-' . $pid;
 				$stopWatch->start($stopWatchId);
-				$this->restApi->callsLog = array();
+				$this->restApi->initLog();
 
 				$this->restApi->createDateDimension($pid, $params['name'], $includeTime);
 
 				$e = $stopWatch->stop($stopWatchId);
-				$this->eventsLog[$stopWatchId] = array(
-					'duration' => $e->getDuration(),
-					'time' => date('c'),
-					'restApi' => $this->restApi->callsLog
-				);
+				$this->logEvent($stopWatchId, array(
+					'duration' => $e->getDuration()
+				), $this->restApi->getLogPath());
 			}
 
 			if ($includeTime) {
@@ -113,8 +110,11 @@ class UploadDateDimension extends AbstractJob
 				$dimensionsToUpload[] = $params['name'];
 
 				$e = $stopWatch->stop($stopWatchId);
-				$this->eventsLog[$stopWatchId] = array('duration' => $e->getDuration(), 'time' => date('c'),
-					'url' => $webDav->url, 'folder' => '/uploads/' . $tmpFolderNameDimension);
+				$this->logEvent($stopWatchId, array(
+					'duration' => $e->getDuration(),
+					'url' => $webDav->url,
+					'folder' => '/uploads/' . $tmpFolderNameDimension)
+				);
 
 
 				// Run ETL task of time dimensions
@@ -122,7 +122,7 @@ class UploadDateDimension extends AbstractJob
 				foreach ($projectsToLoad as $pid) {
 					$stopWatchId = sprintf('runEtlTimeDimension-%s-%s', $params['name'], $pid);
 					$stopWatch->start($stopWatchId);
-					$this->restApi->callsLog = array();
+					$this->restApi->initLog();
 
 					$dataSetName = 'time.' . $dimensionName;
 					try {
@@ -138,28 +138,27 @@ class UploadDateDimension extends AbstractJob
 					}
 
 					$e = $stopWatch->stop($stopWatchId);
-					$this->eventsLog[$stopWatchId] = array(
-						'duration' => $e->getDuration(),
-						'time' => date('c'),
-						'restApi' => $this->restApi->callsLog
-					);
+					$this->logEvent($stopWatchId, array(
+						'duration' => $e->getDuration()
+					), $this->restApi->getLogPath());
 				}
 			}
 
 		} catch (\Exception $e) {
 			$error = $e->getMessage();
 			$event = $stopWatch->stop($stopWatchId);
-			$this->eventsLog[$stopWatchId] = array(
-				'duration' => $event->getDuration(),
-				'time' => date('c')
-			);
 
+			$restApiLogPath = null;
+			$eventDetail = array(
+				'duration' => $event->getDuration()
+			);
 			if ($e instanceof RestApiException) {
 				$error = $e->getDetails();
-				$this->eventsLog[$stopWatchId]['restApi'] = $this->restApi->callsLog;
-			} elseif ($e instanceof WebDavException) {
-				// Do nothing
-			} else {
+				$restApiLogPath = $this->restApi->getLogPath();
+			}
+			$this->logEvent($stopWatchId, $eventDetail, $restApiLogPath);
+
+			if (!($e instanceof RestApiException) && !($e instanceof WebDavException)) {
 				throw $e;
 			}
 		}

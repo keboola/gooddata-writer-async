@@ -59,6 +59,9 @@ class RemoveUserFromProject extends AbstractJob
 		$this->configuration->removeProjectUserInvite($params['pid'], $params['email']);
 		$this->configuration->removeProjectUserAdd($params['pid'], $params['email']);
 
+		$this->logEvent('removeUserFromProject', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);

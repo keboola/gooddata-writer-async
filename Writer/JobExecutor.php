@@ -12,7 +12,6 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\StorageApi\ClientException as StorageApiClientException;
-use Keboola\GoodDataWriter\GoodData\CsvHandlerException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\StorageApi\Client as StorageApiClient,
@@ -21,6 +20,7 @@ use Keboola\StorageApi\Client as StorageApiClient,
 use Keboola\GoodDataWriter\Service\Lock;
 use Monolog\Logger;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Syrup\ComponentBundle\Filesystem\TempServiceFactory;
 
 
 class JobCannotBeExecutedNowException extends \Exception
@@ -47,6 +47,10 @@ class JobExecutor
 	 * @var Logger
 	 */
 	protected $logger;
+	/**
+	 * @var \Syrup\ComponentBundle\Filesystem\TempServiceFactory
+	 */
+	protected $tempServiceFactory;
 
 	/**
 	 * @var StorageApiClient
@@ -62,17 +66,18 @@ class JobExecutor
 	 * @param SharedConfig $sharedConfig
 	 * @param ContainerInterface $container
 	 */
-	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, Logger $logger)
+	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, Logger $logger, TempServiceFactory $tempServiceFactory)
 	{
-		$this->appConfiguration = $appConfiguration;
-		$this->sharedConfig = $sharedConfig;
-		$this->restApi = $restApi;
-		$this->logger = $logger;
-
 		if (!defined('JSON_PRETTY_PRINT')) {
 			// fallback for PHP <= 5.3
 			define('JSON_PRETTY_PRINT', 0);
 		}
+
+		$this->appConfiguration = $appConfiguration;
+		$this->sharedConfig = $sharedConfig;
+		$this->restApi = $restApi;
+		$this->logger = $logger;
+		$this->tempServiceFactory = $tempServiceFactory;
 	}
 
 	public function runBatch($batchId, $force = false)
@@ -168,25 +173,25 @@ class JobExecutor
 					$job['projectId'] . '.' . $job['writerId']
 				);
 
-				$this->restApi->callsLog = array();
 				$bucketAttributes = $configuration->bucketAttributes();
 				if (isset($bucketAttributes['gd']['backendUrl'])) {
 					$this->restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
 				}
-				$this->restApi->jobId = $job['id'];
+				$this->restApi->setJobId($job['id']);
+				$token = $this->storageApiClient->getLogData();
 
 				/**
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 				 */
-				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedConfig, $this->restApi, $s3Client);
-				$command->tmpDir = $tmpDir;
-				$command->scriptsPath = $this->appConfiguration->scriptsPath;
-				$command->log = $this->logger;
-				$command->storageApiClient = $this->storageApiClient;
+				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedConfig, $this->restApi, $s3Client, $this->tempServiceFactory);
+				$command->setTmpDir($tmpDir);
+				$command->setScriptsPath($this->appConfiguration->scriptsPath);
+				$command->setLogger($this->logger);
+				$command->setStorageApiClient($this->storageApiClient);
+				$command->setPreRelease(!empty($token['owner']['features']) && in_array('rc-writer', $token['owner']['features']));
 
 				$error = null;
-				$token = $this->storageApiClient->getLogData();
-				$command->preRelease = !empty($token['owner']['features']) && in_array('rc-writer', $token['owner']['features']);
+
 				try {
 					$jobData['result'] = $command->run($job, $parameters);
 				} catch (\Exception $e) {
@@ -209,14 +214,10 @@ class JobExecutor
 
 					$data['message'] = $e->getMessage();
 					$data['trace'] = $e->getTrace();
-					$jobData['result']['details'] = $s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($data));
+					$jobData['result']['details'] = $s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($data, JSON_PRETTY_PRINT));
 				}
 
-				$logUrl = null;
-				$log = count($command->eventsLog) ? $command->eventsLog : $this->restApi->callsLog();
-				if (count($log)) {
-					$jobData['log'] = $s3Client->uploadString($job['id'] . '/' . 'log.json', json_encode($log, JSON_PRETTY_PRINT));
-				}
+				$jobData['log'] = $s3Client->uploadFile($command->getLogPath(), 'text/plain', $job['id'] . '/log.json');
 
 			} catch (\Exception $e) {
 				$this->logger->alert('Job execution error', array(
