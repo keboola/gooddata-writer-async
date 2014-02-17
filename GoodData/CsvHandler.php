@@ -178,8 +178,15 @@ class CsvHandler
 					'runId' => $this->runId,
 				));
 
-				if (substr($error, 0, 10) != 'curl: (55)' && substr($error, 0, 10) != 'curl: (18)') {
-					// Rerun for curl 18 (CURLE_PARTIAL_FILE) and 55 (CURLE_SEND_ERROR) error only
+				$retry = false;
+				if (substr($error, 0, 7) == 'curl: (') {
+					$curlErrorNumber = substr($error, 7, strpos($error, ')') - 7);
+					if (in_array((int)$curlErrorNumber, array(18, 52, 55))) {
+						// Retry for curl 18 (CURLE_PARTIAL_FILE), 52 (CURLE_GOT_NOTHING) and 55 (CURLE_SEND_ERROR)
+						$retry = true;
+					}
+				}
+				if (!$retry) {
 					break;
 				}
 			}

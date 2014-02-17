@@ -54,21 +54,40 @@ class WebDav
 	 */
 	protected function request($uri, $method = null, $arguments = null, $prepend = null, $append = null)
 	{
-		$url = 'https://' . $this->url . '/uploads/' . $uri;
-		if ($method) {
-			$arguments .= ' -X ' . escapeshellarg($method);
-		}
-		$command = sprintf('curl -s -S -f --retry 15 --user %s:%s %s %s', escapeshellarg($this->username),
-			escapeshellarg($this->password), $arguments, escapeshellarg($url));
+		$error = null;
+		for ($i = 0; $i < 5; $i++) {
+			$url = 'https://' . $this->url . '/uploads/' . $uri;
+			if ($method) {
+				$arguments .= ' -X ' . escapeshellarg($method);
+			}
+			$command = sprintf('curl -s -S -f --retry 15 --user %s:%s %s %s', escapeshellarg($this->username),
+				escapeshellarg($this->password), $arguments, escapeshellarg($url));
 
-		$process = new Process($prepend . $command . $append);
-		$process->setTimeout(5 * 60 * 60);
-		$process->run();
-		if (!$process->isSuccessful()) {
-			throw new WebDavException($process->getErrorOutput());
+			$process = new Process($prepend . $command . $append);
+			$process->setTimeout(5 * 60 * 60);
+			$process->run();
+			$error = $process->getErrorOutput();
+
+			if (!$process->isSuccessful() || $error) {
+				$retry = false;
+				if (substr($error, 0, 7) == 'curl: (') {
+					$curlErrorNumber = substr($error, 7, strpos($error, ')') - 7);
+					if (in_array((int)$curlErrorNumber, array(18, 52, 55))) {
+						// Retry for curl 18 (CURLE_PARTIAL_FILE), 52 (CURLE_GOT_NOTHING) and 55 (CURLE_SEND_ERROR)
+						$retry = true;
+					}
+				}
+				if (!$retry) {
+					break;
+				}
+			} else {
+				return $process->getOutput();
+			}
+
+			sleep($i * 60);
 		}
 
-		return $process->getOutput();
+		throw new WebDavException($error);
 	}
 
 
