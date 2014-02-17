@@ -1489,6 +1489,7 @@ class RestApi
 		$backOffInterval = self::BACKOFF_INTERVAL;
 		$request = null;
 		$response = null;
+		$exception = null;
 		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
 
 			switch ($method) {
@@ -1516,6 +1517,7 @@ class RestApi
 				$request->addCookie('GDCAuthTT', $this->authTt);
 			}
 
+			$exception = null;
 			try {
 				$response = $request->send();
 
@@ -1528,6 +1530,7 @@ class RestApi
 				}
 
 			} catch (\Exception $e) {
+				$exception = $e;
 				$duration = abs(microtime() - $startTime) * 1000;
 				$response = $request->getResponse()->getBody(true);
 
@@ -1576,7 +1579,8 @@ class RestApi
 			'headers' => $headers,
 			'response' => $response,
 			'status' => $status,
-			'jobId' => $this->jobId
+			'jobId' => $this->jobId,
+			'exception' => $exception
 		));
 		throw new RestApiException('GoodData API error ' . $status, $response);
 	}
