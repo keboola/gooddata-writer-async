@@ -1489,6 +1489,10 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function migrateConfiguration()
 	{
+		if ($this->_storageApiClient->tableExists(self::DATA_SETS_TABLE_NAME)) {
+			return;
+		}
+		
 		$this->_createConfigTable(self::DATA_SETS_TABLE_NAME);
 
 		foreach ($this->sapi_listTables($this->bucketId) as $table) {
