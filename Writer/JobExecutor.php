@@ -237,7 +237,7 @@ class JobExecutor
 
 		if (isset($jobData['result']['gdWriteStartTime'])) {
 			$jobData['gdWriteStartTime'] = $jobData['result']['gdWriteStartTime'];
-			unset($jobData['gdWriteStartTime']);
+			unset($jobData['result']['gdWriteStartTime']);
 		}
 		$this->sharedConfig->saveJob($jobId, $jobData);
 

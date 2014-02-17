@@ -9,10 +9,10 @@
 date_default_timezone_set('UTC');
 
 $fh = fopen('php://stdin', 'r');
-$stderr = fopen('php://stderr', 'w');
-$stdout = fopen('php://stdout', 'w');
+$stdErr = fopen('php://stderr', 'w');
+$stdOut = fopen('php://stdout', 'w');
 if (!$fh) {
-	fwrite($stderr, "Error in reading file");
+	fwrite($stdErr, "Error in reading file");
 	die(1);
 }
 
@@ -31,7 +31,7 @@ if (isset($options['i'])) {
 	$ignoredColumns = explode(',', $options['i']);
 }
 
-$startDate = new DateTime('1900-01-01');
+$startDate = new DateTime('1900-01-01 00:00:00');
 
 $rowNumber = 1;
 while ($line = fgetcsv($fh)) {
@@ -43,9 +43,15 @@ while ($line = fgetcsv($fh)) {
 				try {
 					$columnDate = new DateTime($column);
 				} catch(Exception $e) {
-					fwrite($stderr, sprintf('Error in date column value: "%s" on row %d', $column, $rowNumber));
+					fwrite($stdErr, sprintf('Error in date column value: "%s" on row %d', $column, $rowNumber));
 					die(1);
 				}
+
+				if ($startDate > $columnDate) {
+					fwrite($stdErr, sprintf('Error in date column value: "%s" on row %d', $column, $rowNumber));
+					die(1);
+				}
+
 				$resultLine[] = $column;
 				$resultLine[] = (int)$columnDate->diff($startDate)->format('%a') + 1;
 
@@ -68,7 +74,7 @@ while ($line = fgetcsv($fh)) {
 		}
 		print implode(',', $return) . "\n";
 	} else {
-		fputcsv($stdout, explode(',', $options['h']));
+		fputcsv($stdOut, explode(',', $options['h']));
 	}
 	$rowNumber++;
 }
