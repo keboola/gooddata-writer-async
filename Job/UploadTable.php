@@ -68,7 +68,6 @@ class UploadTable extends AbstractJob
 		$this->logEvent($stopWatchId, array(
 			'duration' => $e->getDuration()
 		), $this->restApi->getLogPath());
-		$this->restApi->initLog();
 
 		// Get definition
 		$stopWatchId = 'getDefinition';

@@ -547,10 +547,10 @@ class Configuration extends StorageApiConfiguration
 		if (empty($data['type'])) {
 			$data['type'] = 'IGNORE';
 		}
-		if ($data['type'] != 'ATTRIBUTE' && isset($data['sortLabel'])) {
+		if (($data['type'] != 'ATTRIBUTE' && $data['type'] != 'CONNECTION_POINT') && isset($data['sortLabel'])) {
 			unset($data['sortLabel']);
 		}
-		if ($data['type'] != 'ATTRIBUTE' && isset($data['sortOrder'])) {
+		if (($data['type'] != 'ATTRIBUTE' && $data['type'] != 'CONNECTION_POINT') && isset($data['sortOrder'])) {
 			unset($data['sortOrder']);
 		}
 		if ($data['type'] != 'REFERENCE' && isset($data['schemaReference'])) {
