@@ -14,7 +14,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 {
 
 	const MAX_RUN_TIME = 300;
-	const MAX_EXECUTION_RETRIES = 4;
+	const MAX_EXECUTION_RETRIES = 50;
 
 	/**
 	 * @var Queue
@@ -48,14 +48,14 @@ class QueueReceiveCommand extends ContainerAwareCommand
 		$startTime = time();
 		do {
 			foreach ($this->queue->receive() as $message) {
-				$this->_processMessage($message);
+				$this->processMessage($message);
 			}
 		} while ((time() - $startTime) < self::MAX_RUN_TIME);
 	}
 
 
 
-	protected function _processMessage(QueueMessage $message)
+	protected function processMessage(QueueMessage $message)
 	{
 		$log = $this->getContainer()->get('logger');
 		$logData = array(
@@ -92,7 +92,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 		} catch(\Exception $e) {
 			$message->incrementRetries();
 			if ($message->getRetryCount() > self::MAX_EXECUTION_RETRIES) {
-				$this->_errorMaximumRetriesExceeded($message->getBody()->batchId);
+				$this->errorMaximumRetriesExceeded($message->getBody()->batchId);
 				$log->alert("Queue process error (Maximum retries exceeded)", array_merge($logData, array(
 					'retryCount' => $message->getRetryCount(),
 					'message' => $message->toArray(),
@@ -125,7 +125,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 		));
 	}
 
-	protected function _errorMaximumRetriesExceeded($batchId)
+	protected function errorMaximumRetriesExceeded($batchId)
 	{
 		$sharedConfig = $this->getContainer()->get('gooddata_writer.shared_config');
 

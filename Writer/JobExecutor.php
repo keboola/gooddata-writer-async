@@ -8,7 +8,6 @@ namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\ClientException,
-	Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\StorageApi\ClientException as StorageApiClientException;
@@ -127,11 +126,6 @@ class JobExecutor
 		}
 
 		$startTime = time();
-		$this->sharedConfig->saveJob($jobId, array(
-			'status' => 'processing',
-			'startTime' => date('c', $startTime),
-			'endTime' => null
-		));
 
 		$jobData = array('result' => array());
 		$logParams = $job['parameters'];
@@ -147,18 +141,10 @@ class JobExecutor
 				if ($job['parameters']) {
 					$parameters = json_decode($job['parameters'], true);
 					if ($parameters === false) {
-						throw new WrongConfigurationException("Parameters decoding failed");
+						throw new JobProcessException("Parameters decoding failed");
 					}
 				} else {
 					$parameters = array();
-				}
-				$logParams = $parameters;
-				$this->logEvent('start', $job, array('command' => $job['command'], 'params' => $logParams));
-
-				$commandName = ucfirst($job['command']);
-				$commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
-				if (!class_exists($commandClass)) {
-					throw new WrongConfigurationException(sprintf('Command %s does not exist', $commandName));
 				}
 
 				$tmpDir = sprintf('%s/%s', $this->appConfiguration->tmpPath, $job['id']);
@@ -166,13 +152,30 @@ class JobExecutor
 				if (!file_exists($tmpDir)) mkdir($tmpDir);
 
 				$configuration = new Configuration($this->storageApiClient, $job['writerId'], $this->appConfiguration->scriptsPath);
+				$bucketAttributes = $configuration->bucketAttributes();
+				if (!empty($bucketAttributes['maintenance'])) {
+					throw new JobCannotBeExecutedNowException('Writer is undergoing maintenance');
+				}
+
+				$this->sharedConfig->saveJob($jobId, array(
+					'status' => 'processing',
+					'startTime' => date('c', $startTime),
+					'endTime' => null
+				));
+				$logParams = $parameters;
+				$this->logEvent('start', $job, array('command' => $job['command'], 'params' => $logParams));
+
+				$commandName = ucfirst($job['command']);
+				$commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
+				if (!class_exists($commandClass)) {
+					throw new JobProcessException(sprintf('Command %s does not exist', $commandName));
+				}
 
 				$s3Client = new S3Client(
 					$this->appConfiguration,
 					$job['projectId'] . '.' . $job['writerId']
 				);
 
-				$bucketAttributes = $configuration->bucketAttributes();
 				if (isset($bucketAttributes['gd']['backendUrl'])) {
 					$this->restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
 				}
