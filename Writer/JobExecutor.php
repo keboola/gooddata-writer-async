@@ -165,8 +165,7 @@ class JobExecutor
 				if (!file_exists($this->appConfiguration->tmpPath)) mkdir($this->appConfiguration->tmpPath);
 				if (!file_exists($tmpDir)) mkdir($tmpDir);
 
-				// Do not migrate (migration had to be performed at least when the job was created)
-				$configuration = new Configuration($this->storageApiClient, $job['writerId'], $this->appConfiguration->scriptsPath, false);
+				$configuration = new Configuration($this->storageApiClient, $job['writerId'], $this->appConfiguration->scriptsPath);
 
 				$s3Client = new S3Client(
 					$this->appConfiguration,
