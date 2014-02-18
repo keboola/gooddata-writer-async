@@ -177,6 +177,7 @@ class JobExecutor
 					$this->restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
 				}
 				$this->restApi->setJobId($job['id']);
+				$this->restApi->initLog();
 				$token = $this->storageApiClient->getLogData();
 
 				/**

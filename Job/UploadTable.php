@@ -73,34 +73,33 @@ class UploadTable extends AbstractJob
 		$stopWatchId = 'getDefinition';
 		$stopWatch->start($stopWatchId);
 		$definitionFile = $job['xmlFile'];
-		try {
-			$definitionUrl = $this->s3Client->url($definitionFile);
 
-			$command = 'curl -sS -L --retry 12 ' . escapeshellarg($definitionUrl);
-			$process = new Process($command);
-			$process->setTimeout(null);
-			$process->run();
-			$error = $process->getErrorOutput();
-			if (!$process->isSuccessful() || $error) {
-				$e = new ClientException('Definition download from S3 failed.');
-				$e->setData(array(
-					'command' => $command,
-					'error' => $error,
-					'output' => $process->getOutput()
-				));
-				throw $e;
-			}
-			$definition = json_decode($process->getOutput(), true);
-
-		} catch (CsvHandlerException $e) {
-			$this->logger->warn('Download of definition failed', array(
-				'exception' => $e->getMessage(),
-				'trace' => $e->getTraceAsString(),
-				'job' => $job,
-				'params' => $params
+		$definitionUrl = $this->s3Client->url($definitionFile);
+		$command = 'curl -sS -L --retry 12 ' . escapeshellarg($definitionUrl);
+		$process = new Process($command);
+		$process->setTimeout(null);
+		$process->run();
+		$error = $process->getErrorOutput();
+		if (!$process->isSuccessful() || $error) {
+			$e = new JobProcessException('Definition download from S3 failed.');
+			$e->setData(array(
+				'command' => $command,
+				'error' => $error,
+				'output' => $process->getOutput()
 			));
-			throw new JobProcessException('Download of definition failed');
+			throw $e;
 		}
+		$definition = json_decode($process->getOutput(), true);
+		if (!$definition) {
+			$e = new JobProcessException('Definition download from S3 failed.');
+			$e->setData(array(
+				'command' => $command,
+				'error' => $error,
+				'output' => $process->getOutput()
+			));
+			throw $e;
+		}
+
 		$e = $stopWatch->stop($stopWatchId);
 		$this->logEvent($stopWatchId, array(
 			'duration' => $e->getDuration(),
