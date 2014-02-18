@@ -130,9 +130,11 @@ class UploadDateDimension extends AbstractJob
 					} catch (RestApiException $e) {
 						$debugFile = $tmpFolderDimension . '/' . $pid . '-etl.log';
 						$taskName = 'Dimension ' . $params['name'];
-						$webDav->saveLogs($tmpFolderDimension, $debugFile);
-						$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $pid, $dataSetName));
-						$debug[$taskName] = $logUrl;
+						$logSaved = $webDav->saveLogs($tmpFolderDimension, $debugFile);
+						if ($logSaved) {
+							$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $pid, $dataSetName));
+							$debug[$taskName] = $logUrl;
+						}
 
 						throw new RestApiException('ETL load failed', $e->getMessage());
 					}

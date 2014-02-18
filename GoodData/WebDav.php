@@ -185,17 +185,17 @@ class WebDav
 
 	/**
 	 * Save logs of processed csv to file
-	 * @param $folderName
-	 * @param $logFile
-	 * @throws WebDavException
 	 */
 	public function saveLogs($folderName, $logFile)
 	{
-		foreach ($this->listFiles($folderName, true, array('json', 'log')) as $file) {
+		$result = false;
+		foreach ($this->listFiles($folderName, true, array('json', 'log')) as $file) if ($file != 'upload_info.json') {
 			$result = $this->get($folderName . '/' . $file);
 			file_put_contents($logFile, $file . PHP_EOL, FILE_APPEND);
 			file_put_contents($logFile, print_r($result, true) . PHP_EOL . PHP_EOL . PHP_EOL, FILE_APPEND);
+			$result = true;
 		}
+		return $result;
 	}
 
 

@@ -307,12 +307,14 @@ class UploadTable extends AbstractJob
 				} catch (RestApiException $e) {
 					$debugFile = $dataTmpDir . '/etl.log';
 					$taskName = 'Data load';
-					$webDav->saveLogs($webDavFolder, $debugFile);
-					$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $gdJob['pid'], $dataSetName));
-					if ($gdJob['mainProject']) {
-						$debug[$taskName] = $logUrl;
-					} else {
-						$debug[$gdJob['pid']][$taskName] = $logUrl;
+					$logSaved = $webDav->saveLogs($webDavFolder, $debugFile);
+					if ($logSaved) {
+						$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $gdJob['pid'], $dataSetName));
+						if ($gdJob['mainProject']) {
+							$debug[$taskName] = $logUrl;
+						} else {
+							$debug[$gdJob['pid']][$taskName] = $logUrl;
+						}
 					}
 
 					throw new RestApiException('ETL load failed', $e->getMessage());
