@@ -223,12 +223,16 @@ class JobExecutor
 				$jobData['log'] = $s3Client->uploadFile($command->getLogPath(), 'text/plain', $job['id'] . '/log.json');
 
 			} catch (\Exception $e) {
-				$this->logger->alert('Job execution error', array(
-					'jobId' => $job,
-					'exception' => $e,
-					'runId' => $this->storageApiClient->getRunId()
-				));
-				$jobData['result']['error'] = 'Application error';
+				if ($e instanceof JobCannotBeExecutedNowException) {
+					throw $e;
+				} else {
+					$this->logger->alert('Job execution error', array(
+						'jobId' => $job,
+						'exception' => $e,
+						'runId' => $this->storageApiClient->getRunId()
+					));
+					$jobData['result']['error'] = 'Application error';
+				}
 			}
 
 		} catch(StorageApiException $e) {
