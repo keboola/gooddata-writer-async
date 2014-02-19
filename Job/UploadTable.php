@@ -12,11 +12,9 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\GoodData\CLToolApi,
 	Keboola\GoodDataWriter\GoodData\CsvHandler,
-	Keboola\GoodDataWriter\GoodData\CsvHandlerException,
 	Keboola\GoodDataWriter\GoodData\WebDav;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\WebDavException;
-use Keboola\GoodDataWriter\Exception\ClientException;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Stopwatch\Stopwatch;
 
@@ -60,6 +58,7 @@ class UploadTable extends AbstractJob
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
 		$filterColumn = $this->getFilterColumn($params['tableId'], $tableDefinition, $bucketAttributes);
+		$ldmChange = false;
 
 		$webDavUrl = $this->getWebDavUrl($bucketAttributes);
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -247,6 +246,7 @@ class UploadTable extends AbstractJob
 					), $this->restApi->getLogPath());
 				}
 
+				$ldmChange = true;
 			}
 
 
@@ -355,7 +355,8 @@ class UploadTable extends AbstractJob
 
 		$result = array(
 			'debug' => $debug,
-			'incrementalLoad' => (int) $incrementalLoad
+			'incrementalLoad' => (int) $incrementalLoad,
+			'ldmChange' => (bool) $ldmChange,
 		);
 		if (!empty($error)) {
 			$result['error'] = $error;
