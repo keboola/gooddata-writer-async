@@ -1540,13 +1540,18 @@ class RestApi
 			} catch (\Exception $e) {
 				$exception = $e;
 				$duration = abs(microtime() - $startTime) * 1000;
-				$response = $request->getResponse()->getBody(true);
+
+				$responseObject = $request->getResponse();
+				if ($responseObject) {
+					$response = $request->getResponse()->getBody(true);
+				}
 
 				if ($logCall) $this->logCall($uri, $method, $params, $response, $duration);
 				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
 
 				if ($e instanceof ClientErrorResponseException) {
-					if ($request->getResponse()->getStatusCode() == 401) {
+					$statusCode = $responseObject ? $responseObject->getStatusCode() : null;
+					if ($statusCode == 401) {
 						// TT token expired
 						$this->refreshToken();
 					} else {
@@ -1559,7 +1564,7 @@ class RestApi
 							}
 							$response = json_encode($responseJson);
 						}
-						throw new RestApiException('API error ' . $request->getResponse()->getStatusCode(), $response);
+						throw new RestApiException('API error ' . $statusCode, $response);
 					}
 				} elseif ($e instanceof ServerErrorResponseException) {
 					if ($request->getResponse()->getStatusCode() == 503) {
@@ -1579,17 +1584,17 @@ class RestApi
 		}
 
 		/** @var $response \Guzzle\Http\Message\Response */
-		$status = $request ? $request->getResponse()->getStatusCode() : null;
+		$statusCode = $request ? $request->getResponse()->getStatusCode() : null;
 		$this->logAlert('GoodData API error', array(
 			'uri' => $uri,
 			'method' => $method,
 			'params' => $jsonParams,
 			'headers' => $headers,
 			'response' => $response,
-			'status' => $status,
+			'status' => $statusCode,
 			'exception' => $exception
 		));
-		throw new RestApiException('GoodData API error ' . $status, $response);
+		throw new RestApiException('GoodData API error ' . $statusCode, $response);
 	}
 
 	protected function logUsage($uri, $method, $params, $headers, RequestInterface $request, $duration)

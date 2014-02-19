@@ -77,6 +77,8 @@ class JobExecutor
 		$this->restApi = $restApi;
 		$this->logger = $logger;
 		$this->tempServiceFactory = $tempServiceFactory;
+
+		$this->storageApiEvent = new StorageApiEvent();
 	}
 
 	public function runBatch($batchId, $force = false)
@@ -258,9 +260,6 @@ class JobExecutor
 	 */
 	protected function logEvent($message, $job, $data = null)
 	{
-		if (!$this->storageApiEvent) {
-			$this->storageApiEvent = new StorageApiEvent();
-		}
 		$this->storageApiEvent
 			->setMessage(sprintf('Job %d %s', $job['id'], $message))
 			->setComponent($this->appConfiguration->appName)
