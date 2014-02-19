@@ -133,13 +133,27 @@ class Configuration extends StorageApiConfiguration
 				$bucketAttributes = $this->parseAttributes($bucket['attributes']);
 
 				if (isset($bucketAttributes['writer']) && $bucketAttributes['writer'] == self::WRITER_NAME && isset($bucketAttributes['writerId'])) {
-					$bucketAttributes['id'] = $bucketAttributes['writerId'];
-					$bucketAttributes['bucket'] = $bucket['id'];
-					$writers[] = $bucketAttributes;
+					$writers[] = $this->formatWriterAttributes($bucket['id'], $bucketAttributes);
 				}
 			}
 		}
 		return $writers;
+	}
+
+	public function formatWriterAttributes($bucketId, $attributes)
+	{
+		foreach ($attributes as $key => &$value) {
+			if (in_array($key, array('maintenance', 'toDelete'))) {
+				$value = (bool) $value;
+			}
+		}
+		if (!isset($attributes['writer']))
+			$attributes['writer'] = self::WRITER_NAME;
+		if (!isset($attributes['id']))
+			$attributes['id'] = $attributes['writerId'];
+		$attributes['bucket'] = $bucketId;
+
+		return $attributes;
 	}
 
 

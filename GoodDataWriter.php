@@ -132,9 +132,10 @@ class GoodDataWriter extends Component
 				throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 			}
 
-			$result = array('writer' => $this->configuration->bucketAttributes());
-			$result['writer']['writerId'] = $this->configuration->writerId;
-			$result['writer']['writer'] = $this->_name;
+			$result = array(
+				'writer' => $this->configuration->formatWriterAttributes($this->configuration->bucketId, $this->configuration->bucketAttributes())
+			);
+
 			return $result;
 		} else {
 			if (!$this->appConfiguration) {
