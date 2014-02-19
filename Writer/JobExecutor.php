@@ -22,7 +22,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 use Syrup\ComponentBundle\Filesystem\TempServiceFactory;
 
 
-class JobCannotBeExecutedNowException extends \Exception
+class QueueUnavailableException extends \Exception
 {
 
 }
@@ -96,7 +96,7 @@ class JobExecutor
 			$this->appConfiguration->db_user, $this->appConfiguration->db_password), $batch['queueId']);
 
 		if (!$lock->lock()) {
-			throw new JobCannotBeExecutedNowException("Batch {$batchId} cannot be executed now, another job already in progress on same writer.");
+			throw new QueueUnavailableException("Batch {$batchId} cannot be executed, another job already in progress in the same queue.");
 		}
 
 		foreach ($jobs as $job) {
@@ -154,7 +154,7 @@ class JobExecutor
 				$configuration = new Configuration($this->storageApiClient, $job['writerId'], $this->appConfiguration->scriptsPath);
 				$bucketAttributes = $configuration->bucketAttributes();
 				if (!empty($bucketAttributes['maintenance'])) {
-					throw new JobCannotBeExecutedNowException('Writer is undergoing maintenance');
+					throw new QueueUnavailableException('Writer is undergoing maintenance');
 				}
 
 				$this->sharedConfig->saveJob($jobId, array(
@@ -223,7 +223,7 @@ class JobExecutor
 				$jobData['log'] = $s3Client->uploadFile($command->getLogPath(), 'text/plain', $job['id'] . '/log.json');
 
 			} catch (\Exception $e) {
-				if ($e instanceof JobCannotBeExecutedNowException) {
+				if ($e instanceof QueueUnavailableException) {
 					throw $e;
 				} else {
 					$this->logger->alert('Job execution error', array(

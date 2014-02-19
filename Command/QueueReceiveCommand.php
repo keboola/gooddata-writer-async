@@ -1,20 +1,20 @@
 <?php
 namespace Keboola\GoodDataWriter\Command;
 
-use Keboola\GoodDataWriter\Writer\AppConfiguration;
+use Keboola\GoodDataWriter\Writer\QueueUnavailableException;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 use Keboola\GoodDataWriter\Service\Queue,
 	Keboola\GoodDataWriter\Service\QueueMessage;
-use Keboola\GoodDataWriter\Writer\JobCannotBeExecutedNowException;
+
 
 class QueueReceiveCommand extends ContainerAwareCommand
 {
 
 	const MAX_RUN_TIME = 300;
-	const MAX_EXECUTION_RETRIES = 50;
+	const MAX_EXECUTION_RETRIES = 5;
 
 	/**
 	 * @var Queue
@@ -77,7 +77,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 			));
 			$command->run($input, $this->output);
 
-		} catch (JobCannotBeExecutedNowException $e) {
+		} catch (QueueUnavailableException $e) {
 			// enqueue again
 			$delaySecs = 60;
 			$newMessageId = $this->queue->enqueue(array(
