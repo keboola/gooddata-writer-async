@@ -739,6 +739,7 @@ class Configuration extends StorageApiConfiguration
 			}
 
 			if (!empty($columnDefinition['type'])) switch($columnDefinition['type']) {
+				case 'CONNECTION_POINT':
 				case 'ATTRIBUTE':
 					if (!empty($columnDefinition['sortLabel'])) {
 						$column['sortLabel'] = $columnDefinition['sortLabel'];
