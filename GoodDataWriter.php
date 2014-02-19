@@ -1405,15 +1405,19 @@ class GoodDataWriter extends Component
 				);
 
 				$definition = $this->configuration->getDataSet($dataSet['id']);
+				$dimensions = array();
 				foreach ($definition['columns'] as $c) {
 					if ($c['type'] == 'DATE' && $c['dateDimension']) {
 
-						$result['nodes'][] = array(
-							'node' => 'dim.' . $c['dateDimension'],
-							'label' => $c['dateDimension'],
-							'type' => 'dimension',
-							'link' => $dimensionsUrl
-						);
+						if (!in_array($c['dateDimension'], $dimensions)) {
+							$result['nodes'][] = array(
+								'node' => 'dim.' . $c['dateDimension'],
+								'label' => $c['dateDimension'],
+								'type' => 'dimension',
+								'link' => $dimensionsUrl
+							);
+							$dimensions[] = $c['dateDimension'];
+						}
 						$result['transitions'][] = array(
 							'source' => $dataSet['id'],
 							'target' => 'dim.' . $c['dateDimension'],
