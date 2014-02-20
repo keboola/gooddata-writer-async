@@ -136,9 +136,18 @@ class CLToolApi
             $process = new Process($runCommand);
             $process->setTimeout(null);
             $process->run();
-            if (!$process->isSuccessful()) {
-                $message = $process->getErrorOutput() ? $process->getErrorOutput() : 'No output';
-                throw new \Exception('CL tool Error: ' . $message);
+			if (!$process->isSuccessful() || $process->getErrorOutput() || substr($process->getOutput(), 0, 9) == 'Exception') {
+				$message = null;
+				if ($process->getOutput()) {
+					$message .= $process->getOutput() . "\n";
+				}
+				if ($process->getErrorOutput()) {
+					$message .= $process->getErrorOutput();
+				}
+				if (!$message) {
+					$message = 'No output';
+				}
+                throw new CLToolApiErrorException($message);
             }
 
 			// Test output for server error
