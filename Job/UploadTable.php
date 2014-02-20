@@ -242,6 +242,7 @@ class UploadTable extends AbstractJob
 					$e = $stopWatch->stop($stopWatchId);
 					$this->logEvent($stopWatchId, array(
 						'duration' => $e->getDuration(),
+						'xml' => $xml,
 						'clTool' => $clToolApi->output
 					), $this->restApi->getLogPath());
 				}
