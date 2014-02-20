@@ -1492,4 +1492,74 @@ class Configuration extends StorageApiConfiguration
 	}
 
 
+	/**
+	 * Migrate from old configuration if applicable
+	 */
+	public function migrateConfiguration()
+	{
+		if ($this->_storageApiClient->tableExists(self::DATA_SETS_TABLE_NAME)) {
+			return;
+		}
+
+		$this->_createConfigTable(self::DATA_SETS_TABLE_NAME);
+
+		foreach ($this->sapi_listTables($this->bucketId) as $table) {
+			if ($table['name'] == 'dateDimensions') {
+				if (!$this->sapi_tableExists($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME)) {
+					$this->_createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
+					$data = array();
+					foreach ($this->_fetchTableRows($table['id']) as $row) {
+						$data[] = array('name' => $row['name'], 'includeTime' => $row['includeTime']);
+					}
+					$this->_updateConfigTable(self::DATE_DIMENSIONS_TABLE_NAME, $data, false);
+					//@TODO $this->_storageApiClient->dropTable($table['id']);
+				}
+			}
+			if (!in_array($table['name'], array_keys($this->tables)) && $table['name'] != 'dateDimensions') {
+				$configTable = $this->getSapiTable($table['id']);
+				$dataSetRow = array(
+					'id' => null,
+					'name' => null,
+					'export' => null,
+					'isExported' => null,
+					'lastChangeDate' => null,
+					'incrementalLoad' => null,
+					'ignoreFilter' => null,
+					'definition' => null
+				);
+				if (count($configTable['attributes'])) foreach ($configTable['attributes'] as $attribute) {
+					if ($attribute['name'] == 'tableId') {
+						$dataSetRow['id'] = $attribute['value'];
+					}
+					if ($attribute['name'] == 'gdName') {
+						$dataSetRow['name'] = $attribute['value'];
+					}
+					if ($attribute['name'] == 'export') {
+						$dataSetRow['export'] = empty($attribute['value']) ? 0 : 1;
+					}
+					if ($attribute['name'] == 'lastExportDate') {
+						$dataSetRow['isExported'] = empty($attribute['value']) ? 0 : 1;
+					}
+					if ($attribute['name'] == 'lastChangeDate') {
+						$dataSetRow['lastChangeDate'] = $attribute['value'];
+					}
+					if ($attribute['name'] == 'incrementalLoad') {
+						$dataSetRow['incrementalLoad'] = (int)$attribute['value'];
+					}
+					if ($attribute['name'] == 'ignoreFilter') {
+						$dataSetRow['ignoreFilter'] = empty($attribute['value']) ? 0 : 1;
+					}
+				}
+				$columns = array();
+				foreach ($this->_fetchTableRows($table['id']) as $colDef) {
+					$colName = $colDef['name'];
+					unset($colDef['name']);
+					$columns[$colName] = $this->_cleanColumnDefinition($colDef);
+				}
+				$dataSetRow['definition'] = json_encode($columns);
+				$this->_updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $dataSetRow);
+				//@TODO $this->_storageApiClient->dropTable($table['id']);
+			}
+		}
+	}
 }

@@ -1720,6 +1720,12 @@ class GoodDataWriter extends Component
 		return array();
 	}
 
+	public function postMigrateConfiguration($params)
+	{
+		$this->init($params);
+		$this->configuration->migrateConfiguration();
+	}
+
 	/**
 	 * Get Batch
 	 * @param $params
