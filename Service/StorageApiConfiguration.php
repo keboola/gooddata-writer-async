@@ -9,6 +9,7 @@ namespace Keboola\GoodDataWriter\Service;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable;
+use Keboola\StorageApi\ClientException;
 
 abstract class StorageApiConfiguration
 {
@@ -231,11 +232,17 @@ abstract class StorageApiConfiguration
 	{
 		if (!isset($this->tables[$tableName])) return false;
 
-		$tableId = $this->bucketId . '.' . $tableName;
-		if (!$this->_storageApiClient->tableExists($tableId)) {
-			$this->_createConfigTable($tableName);
+		try {
+			$table = $this->_fetchTableRows($this->bucketId . '.' . $tableName);
+		} catch (ClientException $e) {
+			if ($e->getCode() == 404) {
+				$this->_createConfigTable($tableName);
+				$table = array();
+			} else {
+				throw $e;
+			}
 		}
-		$table = $this->_fetchTableRows($tableId);
+
 		if (count($table)) {
 			$this->_checkConfigTable($tableName, array_keys(current($table)));
 		}
