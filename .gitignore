@@ -1,7 +1,6 @@
 parameters.yml.dist
 *.log
 .idea
-composer.lock
 composer.phar
 console
 tmp
