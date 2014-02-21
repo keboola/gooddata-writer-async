@@ -106,15 +106,17 @@ abstract class StorageApiConfiguration
 	}
 
 	/**
-	 * @param $tableId
-	 * @param $primaryKey
-	 * @param $headers
-	 * @param array $indices
-	 * @return \Keboola\StorageApi\Table
+	 * Try to create table, ignore if already exists
 	 */
 	protected function _createTable($tableId, $primaryKey, $headers, $indices = array())
 	{
-		return $this->_saveTable($tableId, $primaryKey, $headers, array(), false, false, $indices);
+		try {
+			$this->_saveTable($tableId, $primaryKey, $headers, array(), false, false, $indices);
+		} catch (ClientException $e) {
+			if ($e->getCode() != 404) {
+				throw $e;
+			}
+		}
 	}
 
 	/**
@@ -164,7 +166,7 @@ abstract class StorageApiConfiguration
 		if (!isset($this->tables[$tableName]) || $this->_storageApiClient->tableExists($tableId))
 			return false;
 
-		return $this->_createTable(
+		$this->_createTable(
 			$tableId,
 			$this->tables[$tableName]['primaryKey'],
 			$this->tables[$tableName]['columns'],
