@@ -171,22 +171,19 @@ class CsvHandler
 				$this->command = null;
 				return;
 			} else {
-				$this->logger->error('Curl error during csv handling', array(
-					'command' => $this->command,
-					'error' => $error ? $error : 'No error output',
-					'jobId' => $this->jobId,
-					'runId' => $this->runId,
-				));
-
 				$retry = false;
 				if (substr($error, 0, 7) == 'curl: (') {
-					$curlErrorNumber = substr($error, 7, strpos($error, ')') - 7);
-					if (in_array((int)$curlErrorNumber, array(18, 52, 55))) {
-						// Retry for curl 18 (CURLE_PARTIAL_FILE), 52 (CURLE_GOT_NOTHING) and 55 (CURLE_SEND_ERROR)
-						$retry = true;
-					}
+					// Retry after any curl error
+					$retry = true;
 				}
-				if (!$retry) {
+				if ($retry) {
+					$this->logger->error('Curl error during csv handling, will be retried', array(
+						'command' => $this->command,
+						'error' => $error ? $error : 'No error output',
+						'jobId' => $this->jobId,
+						'runId' => $this->runId,
+					));
+				} else {
 					break;
 				}
 			}
@@ -195,18 +192,10 @@ class CsvHandler
 		}
 
 		$e = new CsvHandlerException('CSV handling failed. ' . $error);
-		if ($error && substr($error, 0, 7) == 'curl: (') {
+		if (!$error || substr($error, 0, 7) == 'curl: (') {
 			$this->logger->alert('Curl error during csv handling', array(
 				'command' => $this->command,
-				'error' => $error,
-				'jobId' => $this->jobId,
-				'runId' => $this->runId,
-			));
-		}
-		if (!$error) {
-			$this->logger->alert('Curl error during csv handling', array(
-				'command' => $this->command,
-				'error' => 'No error output',
+				'error' => $error? $error : 'No error output',
 				'jobId' => $this->jobId,
 				'runId' => $this->runId,
 			));
