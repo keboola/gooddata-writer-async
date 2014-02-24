@@ -960,16 +960,16 @@
         },
         {
             "name": "keboola/storage-api-client",
-            "version": "2.8.30",
+            "version": "2.8.31",
             "source": {
                 "type": "git",
                 "url": "https://github.com/keboola/storage-api-php-client.git",
-                "reference": "03eef30c51e88f5781bd99546f56a5f8ea59cba5"
+                "reference": "0a1e7dd76b7d613ff2f42c7545d7c7d408c0f9af"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/keboola/storage-api-php-client/zipball/03eef30c51e88f5781bd99546f56a5f8ea59cba5",
-                "reference": "03eef30c51e88f5781bd99546f56a5f8ea59cba5",
+                "url": "https://api.github.com/repos/keboola/storage-api-php-client/zipball/0a1e7dd76b7d613ff2f42c7545d7c7d408c0f9af",
+                "reference": "0a1e7dd76b7d613ff2f42c7545d7c7d408c0f9af",
                 "shasum": ""
             },
             "require": {
@@ -992,7 +992,7 @@
             ],
             "description": "Keboola Storage API PHP CLient",
             "homepage": "http://keboola.com",
-            "time": "2014-01-31 14:47:32"
+            "time": "2014-02-21 12:20:03"
         },
         {
             "name": "kriswallsmith/assetic",
@@ -1679,6 +1679,57 @@
             "time": "2013-08-21 18:09:35"
         },
         {
+            "name": "swiftmailer/swiftmailer",
+            "version": "v5.0.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/swiftmailer/swiftmailer.git",
+                "reference": "32edc3b0de0fdc1b10f5c4912e8677b3f411a230"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/swiftmailer/swiftmailer/zipball/32edc3b0de0fdc1b10f5c4912e8677b3f411a230",
+                "reference": "32edc3b0de0fdc1b10f5c4912e8677b3f411a230",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.2.4"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "5.1-dev"
+                }
+            },
+            "autoload": {
+                "files": [
+                    "lib/swift_required.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Fabien Potencier",
+                    "email": "fabien@symfony.com",
+                    "homepage": "http://fabien.potencier.org",
+                    "role": "Lead Developer"
+                },
+                {
+                    "name": "Chris Corbyn"
+                }
+            ],
+            "description": "Swiftmailer, free feature-rich PHP mailer",
+            "homepage": "http://swiftmailer.org",
+            "keywords": [
+                "mail",
+                "mailer"
+            ],
+            "time": "2013-12-03 13:33:24"
+        },
+        {
             "name": "symfony/assetic-bundle",
             "version": "v2.3.0",
             "target-dir": "Symfony/Bundle/AsseticBundle",
@@ -1847,6 +1898,63 @@
             "time": "2013-05-27 18:06:55"
         },
         {
+            "name": "symfony/swiftmailer-bundle",
+            "version": "v2.3.5",
+            "target-dir": "Symfony/Bundle/SwiftmailerBundle",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/symfony/SwiftmailerBundle.git",
+                "reference": "fcefa9dbd5a1ed20547b0f8a2afd5ad6837ea321"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/symfony/SwiftmailerBundle/zipball/fcefa9dbd5a1ed20547b0f8a2afd5ad6837ea321",
+                "reference": "fcefa9dbd5a1ed20547b0f8a2afd5ad6837ea321",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.3.2",
+                "swiftmailer/swiftmailer": ">=4.2.0,<5.1-dev",
+                "symfony/swiftmailer-bridge": "~2.1"
+            },
+            "require-dev": {
+                "symfony/config": "~2.1",
+                "symfony/dependency-injection": "~2.1",
+                "symfony/http-kernel": "~2.1",
+                "symfony/yaml": "~2.1"
+            },
+            "type": "symfony-bundle",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "2.2-dev"
+                }
+            },
+            "autoload": {
+                "psr-0": {
+                    "Symfony\\Bundle\\SwiftmailerBundle": ""
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Fabien Potencier",
+                    "email": "fabien@symfony.com",
+                    "homepage": "http://fabien.potencier.org",
+                    "role": "Lead Developer"
+                },
+                {
+                    "name": "Symfony Community",
+                    "homepage": "http://symfony.com/contributors"
+                }
+            ],
+            "description": "Symfony SwiftmailerBundle",
+            "homepage": "http://symfony.com",
+            "time": "2013-11-21 12:29:01"
+        },
+        {
             "name": "symfony/symfony",
             "version": "v2.3.10",
             "source": {
@@ -1958,17 +2066,17 @@
         },
         {
             "name": "syrup/component-bundle",
-            "version": "1.3.10",
+            "version": "1.3.11",
             "target-dir": "Syrup/ComponentBundle",
             "source": {
                 "type": "git",
                 "url": "https://github.com/keboola/syrup-component-bundle.git",
-                "reference": "d25a691d140a2ce8c342666af164fe2bed0bb41f"
+                "reference": "986f96297282b1c8e7b18a5bb0f3e0d37a62231e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/keboola/syrup-component-bundle/zipball/d25a691d140a2ce8c342666af164fe2bed0bb41f",
-                "reference": "d25a691d140a2ce8c342666af164fe2bed0bb41f",
+                "url": "https://api.github.com/repos/keboola/syrup-component-bundle/zipball/986f96297282b1c8e7b18a5bb0f3e0d37a62231e",
+                "reference": "986f96297282b1c8e7b18a5bb0f3e0d37a62231e",
                 "shasum": ""
             },
             "require": {
@@ -2009,20 +2117,20 @@
                 }
             ],
             "description": "Syrup ComponentBundle",
-            "time": "2014-02-10 17:14:37"
+            "time": "2014-02-17 10:05:44"
         },
         {
             "name": "syrup/development-bundle",
-            "version": "1.1.11",
+            "version": "1.1.12",
             "source": {
                 "type": "git",
                 "url": "https://github.com/keboola/syrup-development-bundle.git",
-                "reference": "d092ca0727c82cb9b0a1e75e58acc41f23e52667"
+                "reference": "7f802522f11e11a56d2cd73981a9e8f6d234d0c5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/keboola/syrup-development-bundle/zipball/d092ca0727c82cb9b0a1e75e58acc41f23e52667",
-                "reference": "d092ca0727c82cb9b0a1e75e58acc41f23e52667",
+                "url": "https://api.github.com/repos/keboola/syrup-development-bundle/zipball/7f802522f11e11a56d2cd73981a9e8f6d234d0c5",
+                "reference": "7f802522f11e11a56d2cd73981a9e8f6d234d0c5",
                 "shasum": ""
             },
             "require": {
@@ -2035,6 +2143,7 @@
                 "sensio/generator-bundle": "2.3.*",
                 "symfony/assetic-bundle": "2.3.*",
                 "symfony/monolog-bundle": "2.3.*",
+                "symfony/swiftmailer-bundle": "2.3.*",
                 "symfony/symfony": "2.3.*"
             },
             "type": "project",
@@ -2059,20 +2168,20 @@
                 "MIT"
             ],
             "description": "Syrup wrapper clone for bundle development",
-            "time": "2013-12-09 10:05:07"
+            "time": "2014-02-17 13:56:37"
         },
         {
             "name": "twig/twig",
-            "version": "v1.15.0",
+            "version": "v1.15.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/fabpot/Twig.git",
-                "reference": "85e4ff98000157ff753d934b9f13659a953f5666"
+                "reference": "1fb5784662f438d7d96a541e305e28b812e2eeed"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/fabpot/Twig/zipball/85e4ff98000157ff753d934b9f13659a953f5666",
-                "reference": "85e4ff98000157ff753d934b9f13659a953f5666",
+                "url": "https://api.github.com/repos/fabpot/Twig/zipball/1fb5784662f438d7d96a541e305e28b812e2eeed",
+                "reference": "1fb5784662f438d7d96a541e305e28b812e2eeed",
                 "shasum": ""
             },
             "require": {
@@ -2096,11 +2205,19 @@
             "authors": [
                 {
                     "name": "Fabien Potencier",
-                    "email": "fabien@symfony.com"
+                    "email": "fabien@symfony.com",
+                    "homepage": "http://fabien.potencier.org",
+                    "role": "Lead Developer"
                 },
                 {
                     "name": "Armin Ronacher",
-                    "email": "armin.ronacher@active-4.com"
+                    "email": "armin.ronacher@active-4.com",
+                    "role": "Project Founder"
+                },
+                {
+                    "name": "Twig Team",
+                    "homepage": "https://github.com/fabpot/Twig/graphs/contributors",
+                    "role": "Contributors"
                 }
             ],
             "description": "Twig, the flexible, fast, and secure template language for PHP",
@@ -2108,7 +2225,7 @@
             "keywords": [
                 "templating"
             ],
-            "time": "2013-12-06 07:47:10"
+            "time": "2014-02-13 10:19:29"
         }
     ],
     "aliases": [
