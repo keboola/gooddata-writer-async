@@ -1392,9 +1392,9 @@ class GoodDataWriter extends Component
 				'nodes' => array(),
 				'transitions' => array()
 			);
-			$dimensionsUrl = sprintf('%s/admin/gooddata/dates/project/%s/writer/%s',
+			$dimensionsUrl = sprintf('%s/admin/projects-new/%s/gooddata?config=%s#/date-dimensions',
 				$this->_container->getParameter('storage_api.url'), $this->configuration->projectId, $this->configuration->writerId);
-			$tableUrl = sprintf('%s/admin/gooddata/columns/project/%s/writer/%s/table/',
+			$tableUrl = sprintf('%s/admin/projects-new/%s/gooddata?config=%s#/table/',
 				$this->_container->getParameter('storage_api.url'), $this->configuration->projectId, $this->configuration->writerId);
 			foreach ($this->configuration->getDataSets() as $dataSet) if (!empty($dataSet['export'])) {
 
