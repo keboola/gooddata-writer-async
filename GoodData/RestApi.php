@@ -1610,8 +1610,8 @@ class RestApi
 				'headers' => $headers
 			),
 			'response' => array(
-				'status' => $response->getStatusCode(),
-				'body' => $response->getBody(true)
+				'status' => $response? $response->getStatusCode() : null,
+				'body' => $response? $response->getBody(true) : null
 			),
 			'duration' => $duration
 		));
