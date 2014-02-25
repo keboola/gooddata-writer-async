@@ -69,11 +69,6 @@ abstract class AbstractJob
 	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedConfig $sharedConfig,
 								RestApi $restApi, S3Client $s3Client, TempServiceFactory $tempServiceFactory)
 	{
-		if (!defined('JSON_PRETTY_PRINT')) {
-			// fallback for PHP <= 5.3
-			define('JSON_PRETTY_PRINT', 0);
-		}
-
 		$this->configuration = $configuration;
 		$this->appConfiguration = $appConfiguration;
 		$this->sharedConfig = $sharedConfig;

@@ -127,12 +127,6 @@ class RestApi
 
 	public function __construct(Model $model, Logger $logger, Logger $usageLogger, TempServiceFactory $tempServiceFactory)
 	{
-		if (!defined('JSON_PRETTY_PRINT')) {
-			// fallback for PHP <= 5.3
-			define('JSON_PRETTY_PRINT', 0);
-		}
-
-
 		$this->model = $model;
 		$this->logger = $logger;
 		$this->usageLogger = $usageLogger;
@@ -1605,13 +1599,14 @@ class RestApi
 
 		$response = $request->getResponse();
 		$this->usageLogger->debug($method . ' ' . $uri, array(
+			'jobId' => $this->jobId,
 			'request' => array(
 				'params' => $params,
-				'headers' => $headers
-			),
-			'response' => array(
-				'status' => $response? $response->getStatusCode() : null,
-				'body' => $response? $response->getBody(true) : null
+				'headers' => $headers,
+				'response' => array(
+					'status' => $response? $response->getStatusCode() : null,
+					'body' => $response? $response->getBody(true) : null
+				)
 			),
 			'duration' => $duration
 		));

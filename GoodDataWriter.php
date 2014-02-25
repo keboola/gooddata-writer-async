@@ -60,6 +60,10 @@ class GoodDataWriter extends Component
 	 */
 	private function init($params)
 	{
+		if (!defined('JSON_PRETTY_PRINT')) {
+			// fallback for PHP <= 5.3
+			define('JSON_PRETTY_PRINT', 0);
+		}
 		/*StorageApiClient::setLogger(function($message, $data) {
 			echo $message . PHP_EOL . PHP_EOL;
 		});*/

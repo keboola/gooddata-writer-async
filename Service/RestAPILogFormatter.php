@@ -9,15 +9,15 @@
 namespace Keboola\GoodDataWriter\Service;
 
 use Monolog\Formatter\JsonFormatter;
+use Keboola\GoodDataWriter\Service\S3Client;
 
 class RestAPILogFormatter extends JsonFormatter
 {
+	private $uploader;
 
-
-
-	public function __construct()
+	public function __construct(S3Client $uploader)
 	{
-
+		$this->uploader = $uploader;
 	}
 
 	public function format(array $record)
@@ -44,10 +44,10 @@ class RestAPILogFormatter extends JsonFormatter
 			$record = array_merge($record, $context);
 		}
 
-		if (isset($record['response']['body'])) {
-			$decodedBody = json_decode($record['response']['body'], true);
+		if (isset($record['request']['response']['body'])) {
+			$decodedBody = json_decode($record['request']['response']['body'], true);
 			if ($decodedBody) {
-				$record['response']['body'] = $decodedBody;
+				$record['request']['response']['body'] = $decodedBody;
 			}
 		}
 
@@ -60,6 +60,8 @@ class RestAPILogFormatter extends JsonFormatter
 		if (isset($record['request']['params']['accountSetting']['verifyPassword'])) {
 			$record['request']['params']['accountSetting']['verifyPassword'] = '***';
 		}
+
+		$record['request'] = $this->uploader->uploadString(sprintf('%s/%s.json', $record['jobId'], microtime()) , json_encode($record['request'], JSON_PRETTY_PRINT));
 
 		return json_encode($record);
 	}
