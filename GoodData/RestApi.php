@@ -1547,7 +1547,8 @@ class RestApi
 					$statusCode = $responseObject ? $responseObject->getStatusCode() : null;
 					if ($statusCode == 401) {
 						// TT token expired
-						$this->refreshToken();
+						//$this->refreshToken();
+						$this->login($this->username, $this->password);
 					} else {
 						$responseJson = json_decode($response, true);
 						if ($responseJson !== false) {

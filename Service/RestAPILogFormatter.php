@@ -9,7 +9,7 @@
 namespace Keboola\GoodDataWriter\Service;
 
 use Monolog\Formatter\JsonFormatter;
-use Keboola\GoodDataWriter\Service\S3Client;
+
 
 class RestAPILogFormatter extends JsonFormatter
 {
@@ -61,7 +61,14 @@ class RestAPILogFormatter extends JsonFormatter
 			$record['request']['params']['accountSetting']['verifyPassword'] = '***';
 		}
 
-		$record['request'] = $this->uploader->uploadString(sprintf('%s/%s.json', $record['jobId'], microtime()) , json_encode($record['request'], JSON_PRETTY_PRINT));
+		$jsonRequest = json_encode($record['request'], JSON_PRETTY_PRINT);
+		if (strlen($jsonRequest) > 1000) {
+			$s3file = null;
+			if ($record['jobId'])
+				$s3file .= $record['jobId'] . '/';
+			$s3file .= time() . '-' . uniqid() . '.json';
+			$record['request'] = $this->uploader->url($this->uploader->uploadString($s3file , $jsonRequest));
+		}
 
 		return json_encode($record);
 	}
