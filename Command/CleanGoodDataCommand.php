@@ -53,14 +53,14 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		foreach ($sharedConfig->projectsToDelete() as $project) {
 			try {
 				$restApi->dropProject($project['pid']);
-				$pids[] = $project['pid'];
 				$output->writeln(sprintf('Project %s deleted', $project['pid']));
 			} catch (RestApiException $e) {
-				$log->alert('Could not delete project', array(
+				$log->info('Could not delete project', array(
 					'project' => $project,
 					'exception' => $e->getDetails()
 				));
 			}
+			$pids[] = $project['pid'];
 		}
 		$sharedConfig->markProjectsDeleted($pids);
 
@@ -68,14 +68,14 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		foreach ($sharedConfig->usersToDelete() as $user) {
 			try {
 				$restApi->dropUser($user['uid']);
-				$uids[] = $user['uid'];
 				$output->writeln(sprintf('User %s deleted', $user['uid']));
 			} catch (RestApiException $e) {
-				$log->alert('Could not delete user', array(
+				$log->info('Could not delete user', array(
 					'user' => $user,
 					'exception' => $e->getDetails()
 				));
 			}
+			$uids[] = $user['uid'];
 		}
 		$sharedConfig->markUsersDeleted($uids);
 

@@ -28,12 +28,13 @@ class ResetProject extends AbstractJob
 		$this->restApi->addUserToProject($userId, $newPid, 'adminRole');
 
 
-		//$this->restApi->disableUserInProject($userId, $oldPid);
+		$this->restApi->disableUserInProject($userId, $oldPid);
 		$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $oldPid);
 
 		if ($removeClones) {
 			foreach ($this->configuration->getProjects() as $p) {
 				if (empty($p['main'])) {
+					$this->restApi->disableUserInProject($userId, $p['pid']);
 					$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $p['pid']);
 				}
 			}
