@@ -8,6 +8,8 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\GoodData\RestApi;
+
 class ResetProject extends AbstractJob
 {
 	function run($job, $params)
@@ -28,13 +30,13 @@ class ResetProject extends AbstractJob
 		$this->restApi->addUserToProject($userId, $newPid, 'adminRole');
 
 
-		$this->restApi->disableUserInProject($userId, $oldPid);
+		$this->restApi->disableUserInProject(RestApi::getUserUri($userId), $oldPid);
 		$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $oldPid);
 
 		if ($removeClones) {
 			foreach ($this->configuration->getProjects() as $p) {
 				if (empty($p['main'])) {
-					$this->restApi->disableUserInProject($userId, $p['pid']);
+					$this->restApi->disableUserInProject(RestApi::getUserUri($userId), $p['pid']);
 					$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $p['pid']);
 				}
 			}

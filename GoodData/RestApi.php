@@ -180,6 +180,11 @@ class RestApi
 		return $message;
 	}
 
+	public static function getUserUri($uid)
+	{
+		return '/gdc/account/profile/' . $uid;
+	}
+
 	/**
 	 * Get project info
 	 *
