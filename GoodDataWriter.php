@@ -98,7 +98,7 @@ class GoodDataWriter extends Component
 		return $this->s3Client;
 	}
 
-	private function getQueue()
+	private function getWriterQueue()
 	{
 		if (!$this->queue) {
 			if (!$this->appConfiguration) {
@@ -1836,7 +1836,7 @@ class GoodDataWriter extends Component
 	 */
 	protected function _enqueue($batchId)
 	{
-		$this->getQueue()->enqueue(array(
+		$this->getWriterQueue()->enqueue(array(
 			'projectId' => $this->configuration->projectId,
 			'writerId' => $this->configuration->writerId,
 			'batchId' => $batchId
