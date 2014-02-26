@@ -1587,6 +1587,37 @@ class GoodDataWriter extends Component
 
 
 	/**
+	 * Reset GoodData project
+	 * @param $params
+	 * @return array
+	 * @throws Exception\WrongParametersException
+	 */
+	public function postResetProject($params)
+	{
+		$command = 'resetProject';
+		$createdTime = time();
+
+		$this->init($params);
+		if (!$this->configuration->bucketId) {
+			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$jobInfo = $this->_createJob(array(
+			'command' => $command,
+			'createdTime' => date('c', $createdTime),
+			'parameters' => array(
+				'removeClones' => isset($params['removeClones'])? (bool)$params['removeClones'] : false
+			),
+			'queue' => isset($params['queue']) ? $params['queue'] : null
+		));
+
+		$this->_enqueue($jobInfo['batchId']);
+
+		return array('job' => (int)$jobInfo['id']);
+	}
+
+
+	/**
 	 *
 	 * @param $params
 	 * @return array

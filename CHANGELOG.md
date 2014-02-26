@@ -1,3 +1,9 @@
+## 2014-02-26 (v 5.8)
+- added POST call `reset-project` which deletes GoodData project and creates new one
+
+## 2014-02-18 (v 5.7)
+- attribute `maintenance` for postponing of Writer's jobs process
+
 ## 2014-02-11 (v 5.6)
 - uploading of date dimensions separated as single job
 - added POST API call `upload-date-dimension`

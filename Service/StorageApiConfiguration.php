@@ -173,6 +173,15 @@ abstract class StorageApiConfiguration
 			$this->tables[$tableName]['indices']);
 	}
 
+	public function resetConfigTable($tableName)
+	{
+		if (!isset($this->tables[$tableName])) return false;
+
+		$this->_saveTable($this->bucketId . '.' . $tableName,
+			$this->tables[$tableName]['primaryKey'], $this->tables[$tableName]['columns'], array(), false, false,
+			$this->tables[$tableName]['indices']);
+	}
+
 	protected function _updateConfigTable($tableName, $data, $incremental = true)
 	{
 		if (!isset($this->tables[$tableName])) return false;

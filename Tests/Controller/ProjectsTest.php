@@ -201,6 +201,22 @@ class ProjectsTest extends AbstractControllerTest
 			if ($row) $rowsNumber++;
 		}
 		$this->assertEquals(2, $rowsNumber, "Csv of cloned project should contain only one row with header.");
+
+
+		/**
+		 * reset project
+		 */
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$oldPid = $bucketAttributes['gd']['pid'];
+
+		$this->_processJob('/gooddata-writer/reset-project');
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$newPid = $bucketAttributes['gd']['pid'];
+		$this->assertNotEquals($newPid, $oldPid, 'Project reset failed');
+
+		$this->_processJob('/gooddata-writer/reset-project', array('removeClones' => true));
+		$allProjects = $this->configuration->getProjects();
+		$this->assertCount(1, $allProjects, 'Reset of project clones failed');
 	}
 
 }

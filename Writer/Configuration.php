@@ -946,6 +946,15 @@ class Configuration extends StorageApiConfiguration
 		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
 	}
 
+	public function setDateDimensionIsNotExported($name)
+	{
+		$data = array(
+			'name' => $name,
+			'isExported' => null
+		);
+		$this->_updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
+	}
+
 
 	/**
 	 * Delete date dimension
@@ -1006,6 +1015,12 @@ class Configuration extends StorageApiConfiguration
 			$table = $this->getSapiTable($tableId);
 			$this->_checkConfigTable(self::PROJECTS_TABLE_NAME, $table['columns']);
 		}
+	}
+
+	public function resetProjectsTable()
+	{
+		$this->resetConfigTable(self::PROJECTS_TABLE_NAME);
+		$this->_cache = array();
 	}
 
 
