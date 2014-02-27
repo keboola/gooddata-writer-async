@@ -143,7 +143,7 @@ class RestApi
 			'content-type' => 'application/json; charset=utf-8'
 		));
 
-		$this->tempService = $tempServiceFactory->get('gooddata_writer');
+		$this->tempService = $tempServiceFactory->get('gooddata-writer');
 		$this->clearFromLog = array();
 
 		$this->initLog();

@@ -27,9 +27,6 @@ class Queue
 
 
 	/**
-	 * @param array $body
-	 * @param int $delay
-	 * @return
 	 */
 	public function enqueue($body, $delay = 0)
 	{
