@@ -759,7 +759,7 @@ class Configuration extends StorageApiConfiguration
 						$column['includeTime'] = (bool)$dateDimensions[$columnDefinition['dateDimension']]['includeTime'];
 						$column['schemaReference'] = $columnDefinition['dateDimension'];
 					} else {
-						throw new WrongConfigurationException("Date column '{$columnDefinition['name']}' does not have valid date dimension assigned");
+						throw new WrongConfigurationException("Date column '{$columnName}' does not have valid date dimension assigned");
 					}
 					break;
 				case 'REFERENCE':
@@ -768,7 +768,7 @@ class Configuration extends StorageApiConfiguration
 							$refTableDefinition = $this->getDataSet($columnDefinition['schemaReference']);
 						} catch (WrongConfigurationException $e) {
 							throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}'"
-								. " of column '{$columnDefinition['name']}' does not exist");
+								. " of column '{$columnName}' does not exist");
 						}
 						if ($refTableDefinition) {
 							$refTableName = !empty($refTableDefinition['name']) ? $refTableDefinition['name'] : $refTableDefinition['id'];
@@ -892,9 +892,6 @@ class Configuration extends StorageApiConfiguration
 				$data[$row['name']] = $row;
 			}
 
-			if (count($data)) {
-				$this->_checkConfigTable(self::DATE_DIMENSIONS_TABLE_NAME, array_keys(current($data)));
-			}
 			return $data;
 		}
 	}

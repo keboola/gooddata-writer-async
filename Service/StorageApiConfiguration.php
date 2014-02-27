@@ -227,7 +227,7 @@ abstract class StorageApiConfiguration
 	{
 		if (!isset($this->tables[$tableName])) return false;
 
-		if ($columns != $this->tables[$tableName]['columns']) {
+		if (array_intersect($columns, $this->tables[$tableName]['columns']) != $this->tables[$tableName]['columns']) {
 			throw new WrongConfigurationException(sprintf("Table '%s' appears to be wrongly configured. Contains columns: '%s' but should contain columns: '%s'",
 				$tableName, implode(',', $columns), implode(',', $this->tables[$tableName]['columns'])));
 		}
