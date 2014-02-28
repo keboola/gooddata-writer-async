@@ -1048,12 +1048,6 @@ class GoodDataWriter extends Component
 		return array('job' => (int)$jobInfo['id']);
 	}
 
-	/**
-	 * @param $params
-	 * @return array
-	 * @throws Exception\JobProcessException
-	 * @throws Exception\WrongParametersException
-	 */
 	public function postUploadTable($params)
 	{
 		$createdTime = time();
@@ -1400,6 +1394,7 @@ class GoodDataWriter extends Component
 				$this->_container->getParameter('storage_api.url'), $this->configuration->projectId, $this->configuration->writerId);
 			$tableUrl = sprintf('%s/admin/projects-new/%s/gooddata?config=%s#/table/',
 				$this->_container->getParameter('storage_api.url'), $this->configuration->projectId, $this->configuration->writerId);
+			$dimensions = array();
 			foreach ($this->configuration->getDataSets() as $dataSet) if (!empty($dataSet['export'])) {
 
 				$result['nodes'][] = array(
@@ -1410,7 +1405,6 @@ class GoodDataWriter extends Component
 				);
 
 				$definition = $this->configuration->getDataSet($dataSet['id']);
-				$dimensions = array();
 				foreach ($definition['columns'] as $c) {
 					if ($c['type'] == 'DATE' && $c['dateDimension']) {
 
