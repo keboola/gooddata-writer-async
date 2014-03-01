@@ -9,6 +9,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\GoodData\RestApiException;
 
 class ResetProject extends AbstractJob
 {
@@ -31,7 +32,8 @@ class ResetProject extends AbstractJob
 		// All users from old project add to the new one with the same role
 		$oldRoles = array();
 		foreach($this->restApi->usersInProject($oldPid) as $user) {
-			if ($user['user']['content']['email'] == $this->appConfiguration->gd_username) continue;
+			$userEmail = $user['user']['content']['email'];
+			if ($userEmail == $this->appConfiguration->gd_username) continue;
 
 			$userId = RestApi::getUserId($user['user']['links']['self']);
 			if (isset($user['user']['content']['userRoles'])) foreach ($user['user']['content']['userRoles'] as $roleUri) {
@@ -41,9 +43,14 @@ class ResetProject extends AbstractJob
 						$oldRoles[$roleUri] = $role['projectRole']['meta']['identifier'];
 				}
 				if (isset($oldRoles[$roleUri])) {
-					$this->restApi->addUserToProject($userId, $newPid, $oldRoles[$roleUri]);
+					try {
+						$this->restApi->addUserToProject($userId, $newPid, $oldRoles[$roleUri]);
+					} catch (RestApiException $e) {
+						$this->restApi->inviteUserToProject($userEmail, $newPid, $oldRoles[$roleUri]);
+					}
 				}
 			}
+
 			$this->restApi->disableUserInProject($user['user']['links']['self'], $oldPid);
 		}
 
