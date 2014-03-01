@@ -185,6 +185,11 @@ class RestApi
 		return '/gdc/account/profile/' . $uid;
 	}
 
+	public static function getUserId($uri)
+	{
+		return substr($uri, strrpos($uri, '/')+1);
+	}
+
 	/**
 	 * Get project info
 	 *
@@ -542,8 +547,17 @@ class RestApi
 	 */
 	public function usersInProject($pid)
 	{
+		$users = array();
+
+		// first page
 		$result = $this->jsonRequest(sprintf('/gdc/projects/%s/users', $pid));
-		return isset($result['users']) ? $result['users'] : array();
+
+		//@TODO paging?
+
+		if (isset($result['users']))
+			$users = array_merge($users, $result['users']);
+
+		return $users;
 	}
 
 	/**
@@ -1629,6 +1643,10 @@ class RestApi
 		$this->password = $password;
 		$this->clearFromLog[] = $password;
 
+		if (!$this->username || !$this->password) {
+			throw new RestApiException('Rest API login failed, missing username or password');
+		}
+
 		try {
 			$response = $this->request('/gdc/account/login', 'POST', array(
 				'postUserLogin' => array(
@@ -1647,7 +1665,7 @@ class RestApi
 				'response' => $response->getBody(true),
 				'status' => $response->getStatusCode()
 			));
-			throw new RestApiException('Rest API Login failed');
+			throw new RestApiException('Rest API login failed');
 		}
 
 		$this->refreshToken();

@@ -203,13 +203,13 @@ class JobExecutor
 					$data = array();
 
 					if ($e instanceof RestApiException) {
-						$jobData['result']['error'] = 'Rest API Error';
+						$jobData['result']['error'] = 'Rest API Error. ' . $e->getMessage();
 						$data['details'] = $e->getDetails();
 					} elseif ($e instanceof CLToolApiErrorException) {
-						$jobData['result']['error'] = 'CL Tool Error';
+						$jobData['result']['error'] = 'CL Tool Error. ' . $e->getMessage();
 						$data['details'] = $e->getData();
 					} elseif ($e instanceof StorageApiClientException) {
-						$jobData['result']['error'] = 'Storage API Error';
+						$jobData['result']['error'] = 'Storage API Error. ' . $e->getMessage();
 					} elseif ($e instanceof ClientException) {
 						$jobData['result']['error'] = $e->getMessage();
 						$data['details'] = $e->getData();

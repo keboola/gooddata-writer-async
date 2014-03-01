@@ -27,10 +27,26 @@ class ResetProject extends AbstractJob
 
 		$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
 		$newPid = $this->restApi->createProject($projectName, $accessToken);
-		$this->restApi->addUserToProject($userId, $newPid, 'adminRole');
 
+		// All users from old project add to the new one with the same role
+		$oldRoles = array();
+		foreach($this->restApi->usersInProject($oldPid) as $user) {
+			if ($user['user']['content']['email'] == $this->appConfiguration->gd_username) continue;
 
-		$this->restApi->disableUserInProject(RestApi::getUserUri($userId), $oldPid);
+			$userId = RestApi::getUserId($user['user']['links']['self']);
+			if (isset($user['user']['content']['userRoles'])) foreach ($user['user']['content']['userRoles'] as $roleUri) {
+				if (!in_array($roleUri, array_keys($oldRoles))) {
+					$role = $this->restApi->get($roleUri);
+					if (isset($role['projectRole']['meta']['identifier']))
+						$oldRoles[$roleUri] = $role['projectRole']['meta']['identifier'];
+				}
+				if (isset($oldRoles[$roleUri])) {
+					$this->restApi->addUserToProject($userId, $newPid, $oldRoles[$roleUri]);
+				}
+			}
+			$this->restApi->disableUserInProject($user['user']['links']['self'], $oldPid);
+		}
+
 		$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $oldPid);
 
 		if ($removeClones) {
