@@ -842,13 +842,24 @@ class RestApi
 
 	public function updateDataSet($pid, $definition)
 	{
+		$dataSetModel = $this->model->getLDM($definition);
 		$model = $this->getProjectModel($pid);
+
+		if (!isset($model['projectModel']['datasets']))
+			$model['projectModel']['datasets'] = array();
+		$dataSetFound = false;
 		foreach ($model['projectModel']['datasets'] as &$dataSet) {
 			if ($dataSet['dataset']['title'] == $definition['name']) {
-				$dataSet['dataset'] = $this->model->getLDM($definition);
+				$dataSetFound = true;
+				$dataSet['dataset'] = $dataSetModel;
 				break;
 			}
 		}
+
+		if (!$dataSetFound) {
+			$model['projectModel']['datasets'][] = array('dataset' => $dataSetModel);
+		}
+
 		$resultMaql = $this->generateUpdateProjectMaql($pid, $model);
 		if ($resultMaql) {
 			$this->executeMaql($pid, $resultMaql);

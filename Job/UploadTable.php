@@ -176,6 +176,7 @@ class UploadTable extends AbstractJob
 		}
 
 
+		//@TODO REMOVE WITH CL TOOL
 		$clToolApi = null;
 		if (!$this->preRelease) {
 			$clToolApi = new CLToolApi($this->logger, $this->appConfiguration->clPath);
@@ -188,6 +189,8 @@ class UploadTable extends AbstractJob
 			}
 			$clToolApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		}
+		//@TODO REMOVE WITH CL TOOL
+
 		$e = $stopWatch->stop($stopWatchId);
 		$this->logEvent($stopWatchId, array(
 			'duration' => $e->getDuration()
@@ -210,6 +213,8 @@ class UploadTable extends AbstractJob
 					$this->logEvent($stopWatchId, array(
 						'duration' => $e->getDuration()
 					), $this->restApi->getLogPath());
+
+				//@TODO REMOVE WITH CL TOOL
 				} else {
 					$clToolApi->debugLogUrl = null;
 					$this->restApi->initLog();
@@ -246,6 +251,7 @@ class UploadTable extends AbstractJob
 						'clTool' => $clToolApi->output
 					), $this->restApi->getLogPath());
 				}
+				//@TODO REMOVE WITH CL TOOL
 
 				$ldmChange = true;
 			}
