@@ -90,7 +90,7 @@ class JobExecutor
 		$batch = $this->sharedConfig->batchToApiResponse($batchId);
 
 		// Batch already executed?
-		if (!$force && SharedConfig::isJobFinished($batch['status'])) {
+		if (!$force && $batch['status'] != SharedConfig::JOB_STATUS_WAITING) {
 			return;
 		}
 
@@ -123,7 +123,7 @@ class JobExecutor
 		}
 
 		// Job already executed?
-		if (!$force && SharedConfig::isJobFinished($job['status'])) {
+		if (!$force && $job['status'] != SharedConfig::JOB_STATUS_WAITING) {
 			return;
 		}
 

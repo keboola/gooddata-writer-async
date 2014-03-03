@@ -119,19 +119,6 @@ class SharedConfig extends StorageApiConfiguration
 	}
 
 	/**
-	 * @param $status
-	 * @return bool
-	 */
-	public static function isJobFinished($status)
-	{
-		return in_array($status, array(
-			self::JOB_STATUS_SUCCESS,
-			self::JOB_STATUS_ERROR,
-			self::JOB_STATUS_CANCELLED
-		));
-	}
-
-	/**
 	 * @param array $job
 	 * @param S3Client $s3Client
 	 * @return array
