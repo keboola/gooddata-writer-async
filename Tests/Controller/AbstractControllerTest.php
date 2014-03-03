@@ -57,6 +57,9 @@ abstract class AbstractControllerTest extends WebTestCase
 	 */
 	protected function setUp()
 	{
+		$this->httpClient = static::createClient();
+		$container = $this->httpClient->getContainer();
+
 		$uniqueIndex = uniqid();
 		$this->writerId = 'test' . $uniqueIndex;
 		$this->bucketName = 'wr-gooddata-test' . $uniqueIndex;
@@ -68,8 +71,6 @@ abstract class AbstractControllerTest extends WebTestCase
 			$this->storageApiToken = $container->getParameter('storage_api.test.token');
 
 
-		$this->httpClient = static::createClient();
-		$container = $this->httpClient->getContainer();
 		$this->httpClient->setServerParameters(array(
 			'HTTP_X-StorageApi-Token' => $this->storageApiToken
 		));
