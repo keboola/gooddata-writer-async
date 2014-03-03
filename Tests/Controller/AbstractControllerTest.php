@@ -18,6 +18,7 @@ use Keboola\GoodDataWriter\Command\ExecuteBatchCommand,
 
 abstract class AbstractControllerTest extends WebTestCase
 {
+	protected $storageApiToken;
 	/**
 	 * @var \Keboola\StorageApi\Client
 	 */
@@ -63,15 +64,18 @@ abstract class AbstractControllerTest extends WebTestCase
 		$this->dataBucketName = 'test' . $uniqueIndex;
 		$this->dataBucketId = 'out.c-test' . $uniqueIndex;
 
+		if (!$this->storageApiToken)
+			$this->storageApiToken = $container->getParameter('storage_api.test.token');
+
 
 		$this->httpClient = static::createClient();
 		$container = $this->httpClient->getContainer();
 		$this->httpClient->setServerParameters(array(
-			'HTTP_X-StorageApi-Token' => $container->getParameter('storage_api.test.token')
+			'HTTP_X-StorageApi-Token' => $this->storageApiToken
 		));
 
 		$this->appConfiguration = $container->get('gooddata_writer.app_configuration');
-		$this->storageApi = new \Keboola\StorageApi\Client($container->getParameter('storage_api.test.token'),
+		$this->storageApi = new \Keboola\StorageApi\Client($this->storageApiToken,
 			$container->getParameter('storage_api.url'));
 
 		$this->restApi = $container->get('gooddata_writer.rest_api');
