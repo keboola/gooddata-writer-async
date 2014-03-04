@@ -249,7 +249,7 @@ class Model
 					$manifest['dataSetSLIManifest']['parts'][] = array(
 						'columnName' => $column['name'],
 						'populates' => array(
-							sprintf('%s.date.mmddyyyy', $dimensionName)
+							sprintf('%s.date.mmddyyyy', $dimensionName . (!empty($column['template']) ? '.' . strtolower($column['template']) : null))
 						),
 						'constraints' => array(
 							'date' => (string)$column['format']

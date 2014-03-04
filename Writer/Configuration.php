@@ -758,6 +758,9 @@ class Configuration extends StorageApiConfiguration
 						$column['format'] = $columnDefinition['format'];
 						$column['includeTime'] = (bool)$dateDimensions[$columnDefinition['dateDimension']]['includeTime'];
 						$column['schemaReference'] = $columnDefinition['dateDimension'];
+						if (!empty($dateDimensions[$columnDefinition['dateDimension']]['template'])) {
+							$column['template'] = $dateDimensions[$columnDefinition['dateDimension']]['template'];
+						}
 					} else {
 						throw new WrongConfigurationException("Date column '{$columnName}' does not have valid date dimension assigned");
 					}
