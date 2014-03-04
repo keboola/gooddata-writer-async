@@ -20,6 +20,16 @@ class createFilter extends AbstractJob
 	{
 		$this->checkParams($params, array('name', 'attribute', 'element', 'pid', 'operator'));
 
+		$attr = explode('.', $params['attribute']);
+		if (count($attr) != 4) {
+			throw new WrongConfigurationException("Parameter 'attribute' should contain identifier of column in Storage API, e.g. out.c-main.table.column");
+		}
+		$tableId = sprintf('%s.%s.%s', $attr[0], $attr[1], $attr[2]);
+		$sapiTable = $this->configuration->getSapiTable($tableId);
+		if (!in_array($attr[3], $sapiTable['columns'])) {
+			throw new WrongConfigurationException(sprintf("Column '%s' of parameter 'attribute' does not exist in table '%s'", $attr[3], $tableId));
+		}
+
 		$attrId = $this->configuration->translateAttributeName($params['attribute']);
 
 		$bucketAttributes = $this->configuration->bucketAttributes();

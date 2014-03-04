@@ -54,9 +54,6 @@ class GoodDataWriter extends Component
 
 	/**
 	 * Init Writer
-	 * @param $params
-	 * @param bool $migrate
-	 * @throws Exception\WrongParametersException
 	 */
 	private function init($params)
 	{
@@ -791,6 +788,16 @@ class GoodDataWriter extends Component
 		$this->init($params);
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
+		}
+
+		$attr = explode('.', $params['attribute']);
+		if (count($attr) != 4) {
+			throw new WrongParametersException("Parameter 'attribute' should contain identifier of column in Storage API, e.g. out.c-main.table.column");
+		}
+		$tableId = sprintf('%s.%s.%s', $attr[0], $attr[1], $attr[2]);
+		$sapiTable = $this->configuration->getSapiTable($tableId);
+		if (!in_array($attr[3], $sapiTable['columns'])) {
+			throw new WrongParametersException(sprintf("Column '%s' of parameter 'attribute' does not exist in table '%s'", $attr[3], $tableId));
 		}
 
 		$jobInfo = $this->_createJob(array(

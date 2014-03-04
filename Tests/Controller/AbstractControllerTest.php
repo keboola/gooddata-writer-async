@@ -78,6 +78,8 @@ abstract class AbstractControllerTest extends WebTestCase
 		$this->appConfiguration = $container->get('gooddata_writer.app_configuration');
 		$this->storageApi = new \Keboola\StorageApi\Client($this->storageApiToken,
 			$container->getParameter('storage_api.url'));
+
+		// Log Storage API calls
 		$className = get_called_class();
 		if (preg_match('@\\\\([\w]+)$@', $className, $matches)) {
 			$className = $matches[1];
