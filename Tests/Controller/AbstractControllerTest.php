@@ -78,6 +78,15 @@ abstract class AbstractControllerTest extends WebTestCase
 		$this->appConfiguration = $container->get('gooddata_writer.app_configuration');
 		$this->storageApi = new \Keboola\StorageApi\Client($this->storageApiToken,
 			$container->getParameter('storage_api.url'));
+		$className = get_called_class();
+		if (preg_match('@\\\\([\w]+)$@', $className, $matches)) {
+			$className = $matches[1];
+		}
+		$logFile = sprintf('%s/sapi-logs/%s-%s.txt', $this->appConfiguration->tmpPath, time(), $className);
+		if (!file_exists($this->appConfiguration->tmpPath . '/sapi-logs')) mkdir($this->appConfiguration->tmpPath . '/sapi-logs');
+		StorageApiClient::setLogger(function($message, $data) use($logFile) {
+			file_put_contents($logFile, $message . PHP_EOL, FILE_APPEND);
+		});
 
 		$this->restApi = $container->get('gooddata_writer.rest_api');
 

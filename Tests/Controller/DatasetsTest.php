@@ -292,6 +292,7 @@ class DatasetsTest extends AbstractControllerTest
 		/**
 		 * Remove column from out table
 		 */
+		$tableId = $this->dataBucketId . '.products';
 		$nowTime = date('c');
 
 		// Remove column and test if lastChangeDate changed
@@ -313,6 +314,30 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertArrayHasKey('job', $response, "Response for writer call '/jobs?jobId=' should contain key 'job'.");
 		$this->assertArrayHasKey('status', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.status'.");
 		$this->assertEquals('success', $response['job']['status'], "Result of request /upload-table should be 'success'.");
+
+
+		/**
+		 * Reset table and remove dataset from GoodData
+		 */
+		$tableId = $this->dataBucketId . '.products';
+		$this->_processJob('/gooddata-writer/reset-table', array('tableId' => $tableId));
+		$data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
+		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
+		$this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
+
+		$productsFound = false;
+		foreach ($data['dataSetsInfo']['sets'] as $d) {
+			if ($d['meta']['identifier'] == 'dataset.products') {
+				$productsFound = true;
+			}
+		}
+		$this->assertFalse($productsFound, "Dataset products was not removed from GoodData");
+		$responseJson = $this->_getWriterApi('/gooddata-writer/tables?writerId=' . $this->writerId . '&tableId=' . $tableId);
+
+		$this->assertArrayHasKey('table', $responseJson, "Response for writer call '/tables&tableId=' should contain 'table' key.");
+		$this->assertArrayHasKey('isExported', $responseJson['table'], "Response for writer call '/tables&tableId=' should contain 'table.isExported' key.");
+		$this->assertFalse((bool)$responseJson['table']['isExported'], "IsExported flag of reset table should be false.");
+
 
 
 		/**

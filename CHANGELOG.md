@@ -1,3 +1,6 @@
+## 2014-03-04 (v 5.9)
+- added POST call `reset-table` which deletes dataset in GoodData project belonging to the table
+
 ## 2014-02-26 (v 5.8)
 - added POST call `reset-project` which deletes GoodData project and creates new one
 

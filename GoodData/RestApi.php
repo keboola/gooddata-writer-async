@@ -955,19 +955,25 @@ class RestApi
 
 
 	/**
-	 * Drop dataset
-	 * @param $pid
-	 * @param $dataset
-	 * @return string
+	 * Drop dataset with it's folders
 	 */
-	public function dropDataset($pid, $dataset)
+	public function dropDataSet($pid, $dataSetName)
 	{
-		//@TODO Find dataset identificator
-		$maql  = sprintf('DROP IF EXISTS {dim.%s};', $dataset);
-		$maql .= sprintf('DROP IF EXISTS {ffld.%s};', $dataset);
-		$maql .= sprintf('DROP ALL IN IF EXISTS {dataset.%s};', $dataset);
+		$dataSetId = Model::getId($dataSetName);
+		$model = $this->getProjectModel($pid);
+		if (isset($model['projectModel']['datasets'])) foreach ($model['projectModel']['datasets'] as $i => $dataSet) {
+			if ($dataSet['dataset']['title'] == $dataSetName) {
+				unset($model['projectModel']['datasets'][$i]);
+				break;
+			}
+		}
+		$model['projectModel']['datasets'] = array_values($model['projectModel']['datasets']);
+		$maql  = $this->generateUpdateProjectMaql($pid, $model);
+		$maql .= sprintf('DROP IF EXISTS {dim.%s};', $dataSetId);
+		$maql .= sprintf('DROP IF EXISTS {ffld.%s};', $dataSetId);
 
-		return $this->executeMaql($pid, $maql);
+		if ($maql)
+			$this->executeMaql($pid, $maql);
 	}
 
 

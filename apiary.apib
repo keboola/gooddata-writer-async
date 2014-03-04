@@ -426,6 +426,27 @@ POST /upload-table
 { "status": "ok", "batch": "batch_id", "jobs": {"job1_id", "job2_id" } }
 
 
+### Reset table
+Remove dataset in GoodData project belonging to the table and reset it's export status
+
+#### Parameters
+
+* **tableId** (required) - name of table to reset
+* **writerId** (required)
+* **queue** (optional) - with value **secondary** will put job in secondary queue
+POST /reset-table
+> X-StorageApi-Token: your_token
+> Accept: application/json
+{ "writerId": "writer1", "tableId": "out.c-main.table" }
+< 200
+< Content-Type: application/json
+{ 
+    "status": "ok", 
+    "duration": 2.89, 
+    "job": job_id 
+}
+
+
 ### Upload date dimension
 
 Selectively upload date dimension (must be already configured in Writer)
