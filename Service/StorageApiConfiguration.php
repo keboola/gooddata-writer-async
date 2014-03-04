@@ -113,7 +113,7 @@ abstract class StorageApiConfiguration
 		try {
 			$this->_saveTable($tableId, $primaryKey, $headers, array(), false, false, $indices);
 		} catch (ClientException $e) {
-			if ($e->getCode() != 404) {
+			if (!in_array($e->getCode(), array(400, 404))) {
 				throw $e;
 			}
 		}
