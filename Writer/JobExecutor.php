@@ -111,9 +111,6 @@ class JobExecutor
 	/**
 	 * Job execution
 	 * Performs execution of job tasks and logging
-	 * @param $jobId
-	 * @param bool $force
-	 * @throws \Keboola\GoodDataWriter\Exception\JobProcessException
 	 */
 	public function runJob($jobId, $force = false)
 	{
@@ -210,6 +207,7 @@ class JobExecutor
 						$data['details'] = $e->getData();
 					} elseif ($e instanceof StorageApiClientException) {
 						$jobData['result']['error'] = 'Storage API Error. ' . $e->getMessage();
+						$data['exception'] = $s3Client->uploadString($job['id'] . '/sapi-exception.txt', $e->getPrevious());
 					} elseif ($e instanceof ClientException) {
 						$jobData['result']['error'] = $e->getMessage();
 						$data['details'] = $e->getData();
