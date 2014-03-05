@@ -115,20 +115,32 @@ abstract class AbstractControllerTest extends WebTestCase
 			}
 
 			if ($isConfigBucket || $isDataBucket) {
+				/**
+				 * @var \Monolog\Logger $logger
+				 */
+				$logger = $container->get('logger');
 				foreach ($this->storageApi->listTables($bucket['id']) as $table) {
 					if ($isConfigBucket && $table['id'] == $bucket['id'] . '.projects') {
-						$csv = $this->storageApi->exportTable($table['id']);
-						foreach(StorageApiClient::parseCsv($csv) as $project) {
-							try {
-								$this->restApi->dropProject($project['pid']);
-							} catch (RestApiException $e) {}
+						try {
+							$csv = $this->storageApi->exportTable($table['id']);
+							foreach(StorageApiClient::parseCsv($csv) as $project) {
+								try {
+									$this->restApi->dropProject($project['pid']);
+								} catch (RestApiException $e) {}
+							}
+						} catch (\Exception $e) {
+							$logger->alert('Storage API error during writers cleanup', array('exception' => $e));
 						}
 					} elseif ($isConfigBucket && $table['id'] == $bucket['id'] . '.users') {
-						$csv = $this->storageApi->exportTable($table['id']);
-						foreach(StorageApiClient::parseCsv($csv) as $user) {
-							try {
-								$this->restApi->dropUser($user['uid']);
-							} catch (RestApiException $e) {}
+						try {
+							$csv = $this->storageApi->exportTable($table['id']);
+							foreach(StorageApiClient::parseCsv($csv) as $user) {
+								try {
+									$this->restApi->dropUser($user['uid']);
+								} catch (RestApiException $e) {}
+							}
+						} catch (\Exception $e) {
+							$logger->alert('Storage API error during writers cleanup', array('exception' => $e));
 						}
 					}
 					$this->storageApi->dropTable($table['id']);
