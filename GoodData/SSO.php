@@ -9,6 +9,7 @@ namespace Keboola\GoodDataWriter\GoodData;
 
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\Configuration;
+use Keboola\GoodDataWriter\Writer\SharedConfig;
 use Symfony\Component\HttpKernel\Kernel;
 
 class GoodDataSSOException extends \Exception
