@@ -30,7 +30,7 @@ services:
 
   gooddata_writer.shared_config:
     class: Keboola\GoodDataWriter\Writer\SharedConfig
-    arguments: [@gooddata_writer.app_configuration]
+    arguments: [@gooddata_writer.app_configuration, @syrup.encryptor_factory]
 
   gooddata_writer.job_executor:
     class: Keboola\GoodDataWriter\Writer\JobExecutor

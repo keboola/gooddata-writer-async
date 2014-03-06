@@ -22,7 +22,7 @@ class DeleteWriter extends AbstractJob
 			throw new WrongConfigurationException('Writer has been already deleted.');
 		}
 
-		$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
+		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
 
 		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) {
 
@@ -31,7 +31,7 @@ class DeleteWriter extends AbstractJob
 			// Disable users in project
 			$projectUsers = $this->restApi->get(sprintf('/gdc/projects/%s/users', $project['pid']));
 			foreach ($projectUsers['users'] as $user) {
-				if ($user['user']['content']['email'] != $this->appConfiguration->gd_username) {
+				if ($user['user']['content']['email'] != $this->domainUser->username) {
 					$this->restApi->disableUserInProject($user['user']['links']['self'], $project['pid']);
 				}
 			}

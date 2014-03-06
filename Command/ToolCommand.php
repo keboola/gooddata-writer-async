@@ -43,15 +43,18 @@ class ToolCommand extends ContainerAwareCommand
 		 * @var AppConfiguration $appConfiguration
 		 */
 		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
+		$sharedConfig = $this->getContainer()->get('gooddata_writer.shared_config');
+
+		$domainUser = $sharedConfig->getDomainUser($appConfiguration->gd_domain);
 
 		/**
 		 * @var RestApi
 		 */
 		$restApi = $this->getContainer()->get('gooddata_writer.rest_api');
-		$restApi->login($appConfiguration->gd_username, $appConfiguration->gd_password);
+		$restApi->login($domainUser->username, $domainUser->password);
 
 
-		$webDav = new WebDav($appConfiguration->gd_username, $appConfiguration->gd_password);
+		$webDav = new WebDav($domainUser->username, $domainUser->password);
 
 		$tmpFolderName = 'tool-'.uniqid();
 		$tmpDir = $appConfiguration->tmpPath . '/' . $tmpFolderName;

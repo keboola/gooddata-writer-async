@@ -26,14 +26,14 @@ class ResetProject extends AbstractJob
 		$oldPid = $bucketAttributes['gd']['pid'];
 		$userId = $bucketAttributes['gd']['uid'];
 
-		$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
+		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
 		$newPid = $this->restApi->createProject($projectName, $accessToken);
 
 		// All users from old project add to the new one with the same role
 		$oldRoles = array();
 		foreach($this->restApi->usersInProject($oldPid) as $user) {
 			$userEmail = $user['user']['content']['email'];
-			if ($userEmail == $this->appConfiguration->gd_username) continue;
+			if ($userEmail == $this->domainUser->username) continue;
 
 			$userId = RestApi::getUserId($user['user']['links']['self']);
 			if (isset($user['user']['content']['userRoles'])) foreach ($user['user']['content']['userRoles'] as $roleUri) {

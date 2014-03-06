@@ -23,8 +23,6 @@ class AppConfiguration
 	public $gd_domain;
 	public $gd_ssoProvider;
 	public $gd_keyPassphrase;
-	public $gd_username;
-	public $gd_password;
 	public $gd_userEmailTemplate;
 	public $gd_projectNameTemplate;
 
@@ -61,8 +59,6 @@ class AppConfiguration
 		$this->gd_domain = $mainConfig['gd']['domain'];
 		$this->gd_ssoProvider = $mainConfig['gd']['sso_provider'];
 		$this->gd_keyPassphrase = $mainConfig['gd']['key_passphrase'];
-		$this->gd_username = $mainConfig['gd']['username'];
-		$this->gd_password = $mainConfig['gd']['password'];
 		$this->gd_userEmailTemplate = $mainConfig['gd']['user_email'];
 		$this->gd_projectNameTemplate = $mainConfig['gd']['project_name'];
 

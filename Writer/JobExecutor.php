@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Writer;
 
+use Guzzle\Http\Exception\CurlException;
 use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\ClientException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
@@ -207,7 +208,11 @@ class JobExecutor
 						$data['details'] = $e->getData();
 					} elseif ($e instanceof StorageApiClientException) {
 						$jobData['result']['error'] = 'Storage API Error. ' . $e->getMessage();
-						$data['exception'] = $s3Client->uploadString($job['id'] . '/sapi-exception.txt', $e->getPrevious());
+						if ($e->getPrevious() instanceof CurlException) {
+							/* @var CurlException $curlException */
+							$curlException = $e->getPrevious();
+							$data['curl'] = print_r($curlException->getCurlInfo(), true);
+						}
 					} elseif ($e instanceof ClientException) {
 						$jobData['result']['error'] = $e->getMessage();
 						$data['details'] = $e->getData();

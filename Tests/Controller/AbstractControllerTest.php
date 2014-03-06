@@ -43,6 +43,7 @@ abstract class AbstractControllerTest extends WebTestCase
 	 * @var AppConfiguration
 	 */
 	protected $appConfiguration;
+	protected $domainUser;
 
 
 	protected $bucketName;
@@ -79,6 +80,9 @@ abstract class AbstractControllerTest extends WebTestCase
 		$this->storageApi = new \Keboola\StorageApi\Client($this->storageApiToken,
 			$container->getParameter('storage_api.url'));
 
+		$sharedConfig = $container->get('gooddata_writer.shared_config');
+		$this->domainUser = $sharedConfig->getDomainUser($this->appConfiguration->gd_domain);
+
 		// Log Storage API calls
 		$className = get_called_class();
 		if (preg_match('@\\\\([\w]+)$@', $className, $matches)) {
@@ -94,7 +98,7 @@ abstract class AbstractControllerTest extends WebTestCase
 
 		// Clear test environment
 		// Drop data tables from SAPI
-		$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
+		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
 		foreach ($this->storageApi->listBuckets() as $bucket) {
 			$isConfigBucket = substr($bucket['id'], 0, 22) == 'sys.c-wr-gooddata-test';
 			$isDataBucket = substr($bucket['id'], 0, 4) == 'out.';

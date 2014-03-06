@@ -47,7 +47,8 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		 * @var RestApi
 		 */
 		$restApi = $this->getContainer()->get('gooddata_writer.rest_api');
-		$restApi->login($appConfiguration->gd_username, $appConfiguration->gd_password);
+		$domainUser = $sharedConfig->getDomainUser($appConfiguration->gd_domain);
+		$restApi->login($domainUser->username, $domainUser->password);
 
 		$pids = array();
 		foreach ($sharedConfig->projectsToDelete() as $project) {

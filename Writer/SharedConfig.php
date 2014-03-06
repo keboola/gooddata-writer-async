@@ -6,9 +6,11 @@
 
 namespace Keboola\GoodDataWriter\Writer;
 
+use Keboola\GoodDataWriter\GoodData\User;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\Service\StorageApiConfiguration;
+use Syrup\ComponentBundle\Service\Encryption\EncryptorFactory;
 
 
 class SharedConfigException extends \Exception
@@ -20,6 +22,7 @@ class SharedConfigException extends \Exception
 class SharedConfig extends StorageApiConfiguration
 {
 	const WRITER_NAME = 'gooddata_writer';
+	const DOMAINS_TABLE_ID = 'in.c-wr-gooddata.domains';
 	const JOBS_TABLE_ID = 'in.c-wr-gooddata.jobs';
 	const PROJECTS_TABLE_ID = 'in.c-wr-gooddata.projects';
 	const USERS_TABLE_ID = 'in.c-wr-gooddata.users';
@@ -35,14 +38,31 @@ class SharedConfig extends StorageApiConfiguration
 	const PRIMARY_QUEUE = 'primary';
 	const SECONDARY_QUEUE = 'secondary';
 
+	private $encryptor;
 
-	public function __construct(AppConfiguration $appConfiguration)
+
+	public function __construct(AppConfiguration $appConfiguration, EncryptorFactory $encryptorFactory)
 	{
 		$this->_storageApiClient = new StorageApiClient(
 			$appConfiguration->sharedSapi_token,
 			$appConfiguration->sharedSapi_url,
 			$appConfiguration->userAgent
 		);
+		$this->encryptor = $encryptorFactory->get('gooddata-writer'); //@TODO component name
+	}
+
+	public function getDomainUser($domain)
+	{
+		$result = $this->_fetchTableRows(self::DOMAINS_TABLE_ID, 'name', $domain);
+		$result = reset($result);
+		if (!$result) throw new SharedConfigException(sprintf("User for domain '%s' does not exist", $domain));
+
+		$user = new User();
+		$user->domain = $result['name'];
+		$user->username = $result['username'];
+		$user->password = $this->encryptor->decrypt($result['password']);
+
+		return $user;
 	}
 
 

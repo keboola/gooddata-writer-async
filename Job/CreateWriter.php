@@ -28,7 +28,7 @@ class CreateWriter extends AbstractJob
 		$username = sprintf($this->appConfiguration->gd_userEmailTemplate, $job['projectId'], $job['writerId'] . '-' . uniqid());
 		$password = md5(uniqid());
 
-		$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
+		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
 		$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
 
 		$userId = $this->restApi->createUser($this->appConfiguration->gd_domain, $username, $password, 'KBC', 'Writer', $this->appConfiguration->gd_ssoProvider);

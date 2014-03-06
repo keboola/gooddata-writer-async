@@ -85,7 +85,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertTrue($userInProject, "Response for writer call '/project-users' should return tested user.");
 
 		// Case 2 - User exists in other domain
-		$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
+		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
 
 		$otherUser = null;
 		if (defined('WRITER_TEST_OTHER_DOMAIN_USER'))
@@ -249,7 +249,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertFalse($userInProject, "Response for writer call '/project-users' should not return tested user.");
 
 		// Case 2 - User exists in other domain
-		$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
+		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
 
 		$otherUser = null;
 		if (defined('WRITER_TEST_OTHER_DOMAIN_USER'))
