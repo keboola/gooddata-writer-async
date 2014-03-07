@@ -55,7 +55,8 @@ class SharedConfig extends StorageApiConfiguration
 	{
 		$result = $this->_fetchTableRows(self::DOMAINS_TABLE_ID, 'name', $domain);
 		$result = reset($result);
-		if (!$result) throw new SharedConfigException(sprintf("User for domain '%s' does not exist", $domain));
+		if (!$result || !isset($result['name']))
+			throw new SharedConfigException(sprintf("User for domain '%s' does not exist", $domain));
 
 		$user = new User();
 		$user->domain = $result['name'];
@@ -63,6 +64,15 @@ class SharedConfig extends StorageApiConfiguration
 		$user->password = $this->encryptor->decrypt($result['password']);
 
 		return $user;
+	}
+
+	public function saveDomain($name, $username, $password)
+	{
+		$this->_updateTableRow(self::DOMAINS_TABLE_ID, 'name', array(
+			'name' => $name,
+			'username' => $username,
+			'password' => $this->encryptor->encrypt($password)
+		));
 	}
 
 

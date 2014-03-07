@@ -183,6 +183,10 @@ class JobExecutor
 				$this->restApi->initLog();
 				$token = $this->storageApiClient->getLogData();
 
+				if (!empty($token['owner']['features']) && in_array('writer-domain-academy', $token['owner']['features'])) {
+					$this->appConfiguration->gd_domain = 'keboola-academy';
+				}
+
 				/**
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 				 */
@@ -211,7 +215,7 @@ class JobExecutor
 						if ($e->getPrevious() instanceof CurlException) {
 							/* @var CurlException $curlException */
 							$curlException = $e->getPrevious();
-							$data['curl'] = print_r($curlException->getCurlInfo(), true);
+							$data['curl'] = $curlException->getCurlInfo();
 						}
 					} elseif ($e instanceof ClientException) {
 						$jobData['result']['error'] = $e->getMessage();
