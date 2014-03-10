@@ -69,19 +69,28 @@ class Graph
 		// Merge tables and dimensions
 		$data["nodes"] = array_merge($this->getTables($configuration), $this->getDimensions($configuration));
 		// Get transitions
-		$transitions = $this->getTransitions($configuration);
+		$model = $this->getTransitions($configuration);
+
 		// Compute transitivity
-		$transitivePaths = $this->getTransitivePaths($transitions);
+		$transitions = array();
+		foreach($model as $transition) {
+			$transitions[] = array(
+				"tSource" => $transition["source"],
+				"tTarget" => $transition["target"]
+			);
+		}
+		$transitivePaths = $this->getTransitiveTransitions($transitions);
+
 		// Apply transitivity flag to paths
-		foreach($transitions as $key => $transition) {
+		foreach($model as $key => $transition) {
 			foreach($transitivePaths as $transitivePath) {
-				if ($transition["source"] == $transitivePath["source"]
-					&& $transition["target"] == $transitivePath["target"]) {
-					$transitions[$key]['transitive'] = true;
+				if ($transition["source"] == $transitivePath["tSource"]
+					&& $transition["target"] == $transitivePath["tTarget"]) {
+					$model[$key]['transitive'] = true;
 				}
 			}
 		}
-		$data["transitions"] = $transitions;
+		$data["transitions"] = $model;
 		return $data;
 	}
 
@@ -183,7 +192,7 @@ class Graph
 	 * @param array $transitions
 	 * @return array
 	 */
-	public function getTransitivePaths($transitions)
+	public function getTransitiveTransitions($transitions)
 	{
 		$endPoints = $this->getEndPoints($transitions);
 
@@ -192,7 +201,6 @@ class Graph
 		foreach($endPoints as $endPoint) {
 			$paths = [];
 			$this->findRoutes($endPoint, $transitions, $paths);
-
 			// Remove partials
 			foreach($paths as $key => $path) {
 				if ($path["partial"]) {
@@ -208,22 +216,22 @@ class Graph
 						$transitionIds = array();
 						$transitionIds2 = array();
 						foreach($path["path"] as $transition) {
-							$transitionIds[] = $transition['source'] . '|' . $transition['target'];
+							$transitionIds[] = $transition['tSource'] . '|' . $transition['tTarget'];
 						}
 						foreach($path2["path"] as $transition) {
-							$transitionIds2[] = $transition['source'] . '|' . $transition['target'];
+							$transitionIds2[] = $transition['tSource'] . '|' . $transition['tTarget'];
 						}
 						$commonTransitions = array_intersect($transitionIds, $transitionIds2);
 
 						// Add only paths, that are not shared in the two routes
 						foreach($path["path"] as $transition) {
-							$transitionId = $transition['source'] . '|' . $transition['target'];
+							$transitionId = $transition['tSource'] . '|' . $transition['tTarget'];
 							if (!in_array($transitionId, $commonTransitions)) {
 								$allTransitivePaths[] = $transition;
 							}
 						}
 						foreach($path2["path"] as $transition) {
-							$transitionId = $transition['source'] . '|' . $transition['target'];
+							$transitionId = $transition['tSource'] . '|' . $transition['tTarget'];
 							if (!in_array($transitionId, $commonTransitions)) {
 								$allTransitivePaths[] = $transition;
 							}
@@ -237,7 +245,7 @@ class Graph
 		$uniqueTransitivePaths = array();
 		$uniqueTransitivePathIds = array();
 		foreach ($allTransitivePaths as $transitivePath) {
-			$transitionId = $transitivePath['source'] . '|' . $transitivePath['target'];
+			$transitionId = $transitivePath['tSource'] . '|' . $transitivePath['tTarget'];
 			if (!in_array($transitionId, $uniqueTransitivePathIds)) {
 				$uniqueTransitivePathIds[] = $transitionId;
 				$uniqueTransitivePaths[] = $transitivePath;
@@ -265,8 +273,8 @@ class Graph
 			throw new GraphTtlException("TTL exceeded. Model not computable.");
 		}
 		foreach($transitions as $transition) {
-			if ($transition["target"] == $node) {
-				$this->addTransition($paths, $transition["source"], $transition["target"]);
+			if ($transition["tTarget"] == $node) {
+				$this->addTransition($paths, $transition["tSource"], $transition["tTarget"]);
 			}
 		}
 		$startPoints = $this->getStartPoints($transitions);
@@ -304,8 +312,8 @@ class Graph
 				$paths[$key]["partial"] = true;
 				$pathPieces = $path["path"];
 				$pathPieces[] = array(
-					"source" => $source,
-					"target" => $target
+					"tSource" => $source,
+					"tTarget" => $target
 				);
 				$paths[] = array(
 					"source" => $source,
@@ -327,8 +335,8 @@ class Graph
 				"partial" => false,
 				"path" => array(
 					array(
-						"source" => $source,
-						"target" => $target
+						"tSource" => $source,
+						"tTarget" => $target
 					)
 				)
 			);
@@ -347,12 +355,12 @@ class Graph
 	{
 		$startPoints = [];
 		foreach($transitions as $transition) {
-			$startPoints[] = $transition["source"];
+			$startPoints[] = $transition["tSource"];
 		}
 		$startPoints = array_unique($startPoints);
 		foreach($transitions as $transition) {
-			if (in_array($transition["target"], $startPoints)) {
-				unset($startPoints[array_search($transition["target"], $startPoints)]);
+			if (in_array($transition["tTarget"], $startPoints)) {
+				unset($startPoints[array_search($transition["tTarget"], $startPoints)]);
 			}
 		}
 		sort($startPoints);
@@ -370,12 +378,12 @@ class Graph
 	{
 		$endPoints = [];
 		foreach($transitions as $transition) {
-			$endPoints[] = $transition["target"];
+			$endPoints[] = $transition["tTarget"];
 		}
 		$endPoints = array_unique($endPoints);
 		foreach($transitions as $transition) {
-			if (in_array($transition["source"], $endPoints)) {
-				unset($endPoints[array_search($transition["source"], $endPoints)]);
+			if (in_array($transition["tSource"], $endPoints)) {
+				unset($endPoints[array_search($transition["tSource"], $endPoints)]);
 			}
 		}
 		sort($endPoints);
