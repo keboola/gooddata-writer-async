@@ -73,14 +73,14 @@ class Model
 					$connectionPoint = $column['name'];
 					$dataSet['anchor'] = array(
 						'attribute' => array(
-							'identifier' => 'attr.' . $dataSetId . '.' . $columnIdentifier,
+							'identifier' => sprintf('attr.%s.%s', $dataSetId, $columnIdentifier),
 							'title' => $column['title'],
 							'folder' => $tableDefinition['name']
 						)
 					);
 					$labels[$column['name']][] = array(
 						'label' => array(
-							'identifier' => 'label.' . $dataSetId . '.' . $columnIdentifier,
+							'identifier' => sprintf('label.%s.%s', $dataSetId, $columnIdentifier),
 							'title' => $column['title'],
 							'type' => 'GDC.' . ($column['type'] == 'HYPERLINK' ? 'link' : 'text')
 						)
@@ -89,7 +89,7 @@ class Model
 				case 'FACT' :
 					$fact = array(
 						'fact' => array(
-							'identifier' => 'fact.' . $dataSetId . '.' . $columnIdentifier,
+							'identifier' => sprintf('fact.%s.%s', $dataSetId, $columnIdentifier),
 							'title' => $column['title'],
 						)
 					);
@@ -102,16 +102,27 @@ class Model
 					$facts[] = $fact;
 					break;
 				case 'ATTRIBUTE' :
-					$attributes[$column['name']] = array(
-						'attribute' => array(
-							'identifier' => 'attr.' . $dataSetId . '.' . $columnIdentifier,
-							'title' => $column['title'],
-							'folder' => $tableDefinition['name']
-						)
+					$defaultLabelId = sprintf('label.%s.%s', $dataSetId, $columnIdentifier);
+					$attribute = array(
+						'identifier' => sprintf('attr.%s.%s', $dataSetId, $columnIdentifier),
+						'title' => $column['title'],
+						'defaultLabel' => $defaultLabelId,
+						'folder' => $tableDefinition['name']
 					);
+
+					if (!empty($column['sortLabel'])) {
+						$attribute['sortOrder'] = array(
+							'attributeSortOrder' => array(
+								'label' => sprintf('label.%s.%s.%s', $dataSetId, $columnIdentifier, self::getId($column['sortLabel'])),
+								'direction' => (!empty($column['sortOrder']) && $column['sortOrder'] == 'DESC') ? 'DESC' : 'ASC'
+							)
+						);
+					}
+					$attributes[$column['name']] = array('attribute' => $attribute);
+
 					$labels[$column['name']][] = array(
 						'label' => array(
-							'identifier' => 'label.' . $dataSetId . '.' . $columnIdentifier,
+							'identifier' => $defaultLabelId,
 							'title' => $column['title'],
 							'type' => 'GDC.' . ($column['type'] == 'HYPERLINK' ? 'link' : 'text')
 						)
@@ -124,7 +135,7 @@ class Model
 					}
 					$labels[$column['reference']][] = array(
 						'label' => array(
-							'identifier' => 'label.' . $dataSetId . '.' . self::getId($column['reference']) . '.' . $columnIdentifier,
+							'identifier' => sprintf('label.%s.%s.%s', $dataSetId, self::getId($column['reference']), $columnIdentifier),
 							'title' => $column['title'],
 							'type' => 'GDC.' . ($column['type'] == 'HYPERLINK' ? 'link' : 'text')
 						)
@@ -139,14 +150,14 @@ class Model
 						$references[] = 'dataset.time.' . self::getId($column['schemaReference']);
 						$facts[] = array(
 							'fact' => array(
-								'identifier' => 'dt.' . $dataSetId . '.' . $columnIdentifier,
+								'identifier' => sprintf('dt.%s.%s', $dataSetId, $columnIdentifier),
 								'title' => sprintf('%s Date', $column['title'], $tableDefinition['name']),
 								'dataType' => 'INT'
 							)
 						);
 						$facts[] = array(
 							'fact' => array(
-								'identifier' => 'tm.dt.' . $dataSetId . '.' . $columnIdentifier,
+								'identifier' => sprintf('tm.dt.%s.%s', $dataSetId, $columnIdentifier),
 								'title' => sprintf('%s Time', $column['title'], $tableDefinition['name']),
 								'dataType' => 'INT'
 							)
