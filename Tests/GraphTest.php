@@ -39,16 +39,17 @@ class GraphTest extends WebTestCase
 						array (
 							0 =>
 								array (
-									'source' => 'A',
-									'target' => 'B',
+									'tSource' => 'A',
+									'tTarget' => 'B',
 								),
 						),
 				),
 		);
 		$this->assertEquals($expected, $paths);
 		$graph->addTransition($paths, 'A', 'D');
-		$graph->addTransition($paths, 'A', 'C');
 		$graph->addTransition($paths, 'C', 'D');
+		$graph->addTransition($paths, 'A', 'C');
+
 		$expected = array (
 			0 =>
 				array (
@@ -60,27 +61,12 @@ class GraphTest extends WebTestCase
 						array (
 							0 =>
 								array (
-									'source' => 'A',
-									'target' => 'B',
+									'tSource' => 'A',
+									'tTarget' => 'B',
 								),
 						),
 				),
 			1 =>
-				array (
-					'source' => 'C',
-					'target' => 'D',
-					'final' => false,
-					'partial' => true,
-					'path' =>
-						array (
-							0 =>
-								array (
-									'source' => 'C',
-									'target' => 'D',
-								),
-						),
-				),
-			2 =>
 				array (
 					'source' => 'A',
 					'target' => 'D',
@@ -90,8 +76,23 @@ class GraphTest extends WebTestCase
 						array (
 							0 =>
 								array (
-									'source' => 'A',
-									'target' => 'D',
+									'tSource' => 'A',
+									'tTarget' => 'D',
+								),
+						),
+				),
+			2 =>
+				array (
+					'source' => 'C',
+					'target' => 'D',
+					'final' => false,
+					'partial' => true,
+					'path' =>
+						array (
+							0 =>
+								array (
+									'tSource' => 'C',
+									'tTarget' => 'D',
 								),
 						),
 				),
@@ -105,13 +106,13 @@ class GraphTest extends WebTestCase
 						array (
 							0 =>
 								array (
-									'source' => 'C',
-									'target' => 'D',
+									'tSource' => 'C',
+									'tTarget' => 'D',
 								),
 							1 =>
 								array (
-									'source' => 'A',
-									'target' => 'C',
+									'tSource' => 'A',
+									'tTarget' => 'C',
 								),
 						),
 				),
@@ -125,21 +126,21 @@ class GraphTest extends WebTestCase
 		$graph = new Graph();
 		$transitions = array(
 			array (
-				'source' => 'C',
-				'target' => 'D',
+				'tSource' => 'C',
+				'tTarget' => 'D',
 			),
 			array (
-				'source' => 'A',
-				'target' => 'C',
+				'tSource' => 'A',
+				'tTarget' => 'D',
 			),
 			array (
-				'source' => 'A',
-				'target' => 'D',
+				'tSource' => 'C',
+				'tTarget' => 'D',
 			),
 			array (
-				'source' => 'C',
-				'target' => 'D',
-			)
+				'tSource' => 'A',
+				'tTarget' => 'C',
+			),
 		);
 		$this->assertEquals(array('A'), $graph->getStartPoints($transitions));
 	}
@@ -149,17 +150,17 @@ class GraphTest extends WebTestCase
 		$graph = new Graph();
 		$transitions = array(
 			array (
-				'source' => 'A',
-				'target' => 'C',
+				'tSource' => 'C',
+				'tTarget' => 'D',
 			),
 			array (
-				'source' => 'A',
-				'target' => 'D',
+				'tSource' => 'A',
+				'tTarget' => 'C',
 			),
 			array (
-				'source' => 'C',
-				'target' => 'D',
-			)
+				'tSource' => 'A',
+				'tTarget' => 'D',
+			),
 		);
 		$this->assertEquals(array('D'), $graph->getEndPoints($transitions));
 	}
@@ -167,32 +168,52 @@ class GraphTest extends WebTestCase
 	public function testTransitivePaths()
 	{
 		$graph = new Graph();
-		$paths = array();
-		$graph->addTransition($paths, '0', 'A');
-		$graph->addTransition($paths, 'A', 'B');
-		$graph->addTransition($paths, 'A', 'C');
-		$graph->addTransition($paths, 'A', 'D');
-		$graph->addTransition($paths, 'C', 'D');
-		$graph->addTransition($paths, 'D', 'E');
-		$transitivePaths = $graph->getTransitivePaths($paths);
+		$transitions = array(
+			array (
+				'tSource' => 'D',
+				'tTarget' => 'E',
+			),
+			array (
+				'tSource' => 'A',
+				'tTarget' => 'D',
+			),
+			array (
+				'tSource' => 'C',
+				'tTarget' => 'D',
+			),
+			array (
+				'tSource' => 'A',
+				'tTarget' => 'C',
+			),
+			array (
+				'tSource' => '0',
+				'tTarget' => 'A',
+			),
+			array (
+				'tSource' => 'A',
+				'tTarget' => 'B',
+			),
+		);
+
+		$transitiveTransitions = $graph->getTransitiveTransitions($transitions);
 		$expected = array (
 			0 =>
 				array (
-					'source' => 'A',
-					'target' => 'D',
+					'tSource' => 'A',
+					'tTarget' => 'D',
 				),
 			1 =>
 				array (
-					'source' => 'C',
-					'target' => 'D',
+					'tSource' => 'C',
+					'tTarget' => 'D',
 				),
 			2 =>
 				array (
-					'source' => 'A',
-					'target' => 'C',
+					'tSource' => 'A',
+					'tTarget' => 'C',
 				),
 		);
-		$this->assertEquals($expected, $transitivePaths);
+		$this->assertEquals($expected, $transitiveTransitions);
 	}
 
 	public function testFindRoutes()
@@ -201,20 +222,20 @@ class GraphTest extends WebTestCase
 		$paths = array();
 		$transitions = array(
 			array (
-				'source' => 'A',
-				'target' => 'B',
+				'tSource' => 'A',
+				'tTarget' => 'B',
 			),
 			array (
-				'source' => 'A',
-				'target' => 'C',
+				'tSource' => 'A',
+				'tTarget' => 'C',
 			),
 			array (
-				'source' => 'A',
-				'target' => 'D',
+				'tSource' => 'A',
+				'tTarget' => 'D',
 			),
 			array (
-				'source' => 'C',
-				'target' => 'D',
+				'tSource' => 'C',
+				'tTarget' => 'D',
 			),
 		);
 		$graph->findRoutes('B', $transitions, $paths);
@@ -229,8 +250,8 @@ class GraphTest extends WebTestCase
 						array (
 							0 =>
 								array (
-									'source' => 'A',
-									'target' => 'B',
+									'tSource' => 'A',
+									'tTarget' => 'B',
 								),
 						),
 				),
@@ -249,8 +270,8 @@ class GraphTest extends WebTestCase
 						array (
 							0 =>
 								array (
-									'source' => 'A',
-									'target' => 'D',
+									'tSource' => 'A',
+									'tTarget' => 'D',
 								),
 						),
 				),
@@ -264,8 +285,8 @@ class GraphTest extends WebTestCase
 						array (
 							0 =>
 								array (
-									'source' => 'C',
-									'target' => 'D',
+									'tSource' => 'C',
+									'tTarget' => 'D',
 								),
 						),
 				),
@@ -279,13 +300,13 @@ class GraphTest extends WebTestCase
 						array (
 							0 =>
 								array (
-									'source' => 'C',
-									'target' => 'D',
+									'tSource' => 'C',
+									'tTarget' => 'D',
 								),
 							1 =>
 								array (
-									'source' => 'A',
-									'target' => 'C',
+									'tSource' => 'A',
+									'tTarget' => 'C',
 								),
 						),
 				),
@@ -302,20 +323,20 @@ class GraphTest extends WebTestCase
 		$paths = array();
 		$transitions = array(
 			array (
-				'source' => 'A',
-				'target' => 'B',
+				'tSource' => 'A',
+				'tTarget' => 'B',
 			),
 			array (
-				'source' => 'A',
-				'target' => 'C',
+				'tSource' => 'A',
+				'tTarget' => 'C',
 			),
 			array (
-				'source' => 'A',
-				'target' => 'D',
+				'tSource' => 'A',
+				'tTarget' => 'D',
 			),
 			array (
-				'source' => 'C',
-				'target' => 'D',
+				'tSource' => 'C',
+				'tTarget' => 'D',
 			),
 		);
 		$graph->findRoutes('D', $transitions, $paths, 1);
