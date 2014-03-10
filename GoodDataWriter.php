@@ -10,6 +10,7 @@ namespace Keboola\GoodDataWriter;
 
 use Guzzle\Common\Exception\InvalidArgumentException;
 use Guzzle\Http\Url;
+use Keboola\GoodDataWriter\Exception\GraphTtlException;
 use Keboola\GoodDataWriter\GoodData\CLToolApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\GoodData\RestApi,
@@ -18,7 +19,10 @@ use Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\Writer\SharedConfig;
 use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\WrongParametersException;
+use Keboola\GoodDataWriter\Model\Graph;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
+use Symfony\Component\Config\Definition\Exception\Exception;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Syrup\ComponentBundle\Component\Component;
 use Monolog\Logger;
 use Symfony\Component\HttpFoundation\Response;
@@ -1390,55 +1394,18 @@ class GoodDataWriter extends Component
 		if (!$this->configuration->bucketId) {
 			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $params['writerId']));
 		}
-
-		// @TODO move the code somewhere else
-		$result = array(
-			'nodes' => array(),
-			'transitions' => array()
-		);
+		$model = new Graph();
 		$dimensionsUrl = sprintf('%s/admin/projects-new/%s/gooddata?config=%s#/date-dimensions',
 			$this->_container->getParameter('storage_api.url'), $this->configuration->projectId, $this->configuration->writerId);
 		$tableUrl = sprintf('%s/admin/projects-new/%s/gooddata?config=%s#/table/',
 			$this->_container->getParameter('storage_api.url'), $this->configuration->projectId, $this->configuration->writerId);
-		$dimensions = array();
-		foreach ($this->configuration->getDataSets() as $dataSet) if (!empty($dataSet['export'])) {
+		$model->setTableUrl($tableUrl);
+		$model->setDimensionsUrl($dimensionsUrl);
 
-			$result['nodes'][] = array(
-				'node' => $dataSet['id'],
-				'label' => !empty($dataSet['name']) ? $dataSet['name'] : $dataSet['id'],
-				'type' => 'dataset',
-				'link' => $tableUrl . $dataSet['id']
-			);
-
-			$definition = $this->configuration->getDataSet($dataSet['id']);
-			foreach ($definition['columns'] as $c) {
-				if ($c['type'] == 'DATE' && $c['dateDimension']) {
-
-					if (!in_array($c['dateDimension'], $dimensions)) {
-						$result['nodes'][] = array(
-							'node' => 'dim.' . $c['dateDimension'],
-							'label' => $c['dateDimension'],
-							'type' => 'dimension',
-							'link' => $dimensionsUrl
-						);
-						$dimensions[] = $c['dateDimension'];
-					}
-					$result['transitions'][] = array(
-						'source' => $dataSet['id'],
-						'target' => 'dim.' . $c['dateDimension'],
-						'type' => 'dimension'
-					);
-
-				}
-				if ($c['type'] == 'REFERENCE' && $c['schemaReference']) {
-
-					$result['transitions'][] = array(
-						'source' => $dataSet['id'],
-						'target' => $c['schemaReference'],
-						'type' => 'dataset'
-					);
-				}
-			}
+		try {
+			$result = $model->getGraph($this->configuration);
+		} catch(GraphTtlException $e) {
+			throw new HttpException(400, "Model too large.", $e);
 		}
 
 		$response = new Response(json_encode($result));
@@ -1447,7 +1414,6 @@ class GoodDataWriter extends Component
 		$response->send();
 		exit();
 	}
-
 
 	/**
 	 *

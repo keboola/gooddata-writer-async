@@ -25,6 +25,7 @@
 			<file>Tests/Controller/ProxyTest.php</file>
 			<file>Tests/Controller/ReportsTest.php</file>
 			<file>Tests/Controller/RcTest.php</file>
+			<file>Tests/GraphTest.php</file>
         </testsuite>
     </testsuites>
 </phpunit>
