@@ -63,8 +63,6 @@ class JobExecutor
 
 
 	/**
-	 * @param SharedConfig $sharedConfig
-	 * @param ContainerInterface $container
 	 */
 	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, Logger $logger, TempServiceFactory $tempServiceFactory)
 	{

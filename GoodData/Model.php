@@ -152,7 +152,7 @@ class Model
 							)
 						);
 					}
-					$references[] = self::getId($column['schemaReference']);
+					$references[] = self::getId($column['schemaReference']) . (!empty($column['template']) ? '.' . $column['template'] : null);
 					break;
 			}
 		}
