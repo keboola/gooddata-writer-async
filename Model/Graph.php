@@ -159,7 +159,8 @@ class Graph
 	public function getTransitions(Configuration $configuration)
 	{
 		$transitions = array();
-		foreach ($configuration->getDataSets() as $dataSet) {
+		$dataSets = $configuration->getDataSets();
+		foreach ($dataSets as $dataSet) {
 			if (!empty($dataSet['export'])) {
 				$definition = $configuration->getDataSet($dataSet['id']);
 				foreach ($definition['columns'] as $c) {
@@ -172,12 +173,21 @@ class Graph
 						);
 					}
 					if ($c['type'] == 'REFERENCE' && $c['schemaReference']) {
-						$transitions[] = array(
-							'source' => $dataSet['id'],
-							'target' => $c['schemaReference'],
-							'type' => 'dataset',
-							'transitive' => false
-						);
+						// Check, if the counterpart exists
+						$active = false;
+						foreach($dataSets as $dataSetToCheck) {
+							if ($dataSetToCheck['id'] == $c['schemaReference'] && !empty($dataSetToCheck['export'])) {
+								$active = true;
+							}
+						}
+						if ($active) {
+							$transitions[] = array(
+								'source' => $dataSet['id'],
+								'target' => $c['schemaReference'],
+								'type' => 'dataset',
+								'transitive' => false
+							);
+						}
 					}
 				}
 			}
