@@ -43,7 +43,6 @@ class UploadDateDimension extends AbstractJob
 		}
 
 		// Init
-		$debug = array();
 		$tmpFolderName = basename($this->tmpDir);
 		$this->goodDataModel = new Model($this->appConfiguration);
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -129,11 +128,14 @@ class UploadDateDimension extends AbstractJob
 						$this->restApi->loadData($pid, $tmpFolderNameDimension, $dataSetName);
 					} catch (RestApiException $e) {
 						$debugFile = $tmpFolderDimension . '/' . $pid . '-etl.log';
-						$taskName = 'Dimension ' . $params['name'];
 						$logSaved = $webDav->saveLogs($tmpFolderDimension, $debugFile);
 						if ($logSaved) {
 							$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $pid, $dataSetName));
-							$debug[$taskName] = $logUrl;
+							if ($pid == $bucketAttributes['gd']['pid']) {
+								$this->logs['ETL Job'] = $logUrl;
+							} else {
+								$this->logs[$pid]['ETL Job'] = $logUrl;
+							}
 						}
 
 						throw new RestApiException('ETL load failed', $e->getMessage());
@@ -166,9 +168,6 @@ class UploadDateDimension extends AbstractJob
 		}
 
 		$result = array();
-		if (count($debug)) {
-			$result['debug'] = $debug;
-		}
 		if (empty($error)) {
 			$this->configuration->setDateDimensionIsExported($params['name']);
 		} else {

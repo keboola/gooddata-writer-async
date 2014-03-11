@@ -35,8 +35,9 @@ class UploadTable extends AbstractJob
 		$stopWatchId = 'prepareJob';
 		$stopWatch->start($stopWatchId);
 
-		if (empty($job['xmlFile'])) {
-			throw new WrongConfigurationException("Parameter 'xmlFile' is missing");
+		//@TODO REMOVE xmlFile
+		if (empty($job['definition']) && empty($job['xmlFile'])) {
+			throw new WrongConfigurationException("Definition for data set is missing. Try the upload again please.");
 		}
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->configuration->checkBucketAttributes();
@@ -49,7 +50,6 @@ class UploadTable extends AbstractJob
 		$this->csvHandler->setJobId($job['id']);
 		$this->csvHandler->setRunId($job['runId']);
 		$projects = $this->configuration->getProjects();
-		$debug = array();
 
 		$updateModelJobs = array();
 		$loadDataJobs = array();
@@ -71,7 +71,7 @@ class UploadTable extends AbstractJob
 		// Get definition
 		$stopWatchId = 'getDefinition';
 		$stopWatch->start($stopWatchId);
-		$definitionFile = $job['xmlFile'];
+		$definitionFile = !empty($job['definition'])? $job['definition'] : $job['xmlFile']; //@TODO REMOVE xmlFile
 
 		$definitionUrl = $this->s3Client->url($definitionFile);
 		$command = 'curl -sS -L --retry 12 ' . escapeshellarg($definitionUrl);
@@ -114,11 +114,11 @@ class UploadTable extends AbstractJob
 		$stopWatch->start($stopWatchId);
 		$manifest = Model::getDataLoadManifest($definition, $incrementalLoad);
 		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
-		$debug['manifest'] = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
+		$this->logs['Manifest'] = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
 		$e = $stopWatch->stop($stopWatchId);
 		$this->logEvent($stopWatchId, array(
 			'duration' => $e->getDuration(),
-			'manifest' => $debug['manifest']
+			'manifest' => $this->logs['Manifest']
 		));
 
 
@@ -238,9 +238,9 @@ class UploadTable extends AbstractJob
 					}
 					if ($clToolApi->debugLogUrl) {
 						if ($gdJob['mainProject']) {
-							$debug[$gdJob['command'] . ' dataset'] = $clToolApi->debugLogUrl;
+							$this->logs['CL ' . $gdJob['command'] . ' DataSet'] = $clToolApi->debugLogUrl;
 						} else {
-							$debug[$gdJob['pid']][$gdJob['command'] . ' dataset'] = $clToolApi->debugLogUrl;
+							$this->logs[$gdJob['pid']]['CL ' . $gdJob['command'] . ' DataSet'] = $clToolApi->debugLogUrl;
 						}
 						$clToolApi->debugLogUrl = null;
 					}
@@ -313,14 +313,14 @@ class UploadTable extends AbstractJob
 					$this->restApi->loadData($gdJob['pid'], $webDavFolder, Model::getId($dataSetName));
 				} catch (RestApiException $e) {
 					$debugFile = $dataTmpDir . '/etl.log';
-					$taskName = 'Data load';
+					$taskName = 'Data Load';
 					$logSaved = $webDav->saveLogs($webDavFolder, $debugFile);
 					if ($logSaved) {
 						$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $gdJob['pid'], $dataSetName));
 						if ($gdJob['mainProject']) {
-							$debug[$taskName] = $logUrl;
+							$this->logs[$taskName] = $logUrl;
 						} else {
-							$debug[$gdJob['pid']][$taskName] = $logUrl;
+							$this->logs[$gdJob['pid']][$taskName] = $logUrl;
 						}
 					}
 
@@ -341,13 +341,13 @@ class UploadTable extends AbstractJob
 			);
 			if ($e instanceof CLToolApiErrorException) {
 				if ($clToolApi->debugLogUrl) {
-					$debug[(count($debug) + 1) . ': CL tool'] = $clToolApi->debugLogUrl;
+					$this->logs['CL Tool Error'] = $clToolApi->debugLogUrl;
 					$clToolApi->debugLogUrl = null;
 				}
 				$eventDetails['clTool'] = $clToolApi->output;
 				$data = $e->getData();
 				if (count($data)) {
-					$debug[(count($debug) + 1) . ': debug data'] = $this->s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($data));
+					$this->logs['CL Tool Debug'] = $this->s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($data));
 				}
 			} elseif ($e instanceof RestApiException) {
 				$error = $e->getDetails();
@@ -361,7 +361,6 @@ class UploadTable extends AbstractJob
 		}
 
 		$result = array(
-			'debug' => $debug,
 			'incrementalLoad' => (int) $incrementalLoad,
 			'ldmChange' => (bool) $ldmChange,
 		);

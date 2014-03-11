@@ -69,6 +69,7 @@ abstract class AbstractJob
 	 * @var \SplFileObject
 	 */
 	private $logFile;
+	protected $logs;
 
 	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedConfig $sharedConfig,
 								RestApi $restApi, S3Client $s3Client, TempServiceFactory $tempServiceFactory)
@@ -84,6 +85,7 @@ abstract class AbstractJob
 		$this->domainUser = $this->sharedConfig->getDomainUser($appConfiguration->gd_domain);
 
 		$this->initLog();
+		$this->logs = array();
 	}
 
 

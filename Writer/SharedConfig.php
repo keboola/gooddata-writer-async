@@ -129,16 +129,13 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function saveJob($jobId, $fields)
 	{
-		if (isset($fields['parameters'])) {
-			$encodedParameters = json_encode($fields['parameters']);
-			if ($encodedParameters) {
-				$fields['parameters'] = $encodedParameters;
-			}
-		}
-		if (isset($fields['result'])) {
-			$encodedResult = json_encode($fields['result']);
-			if ($encodedResult) {
-				$fields['result'] = $encodedResult;
+		$keysToEncode = array('parameters', 'result', 'logs', 'debug');
+		foreach ($keysToEncode as $key) {
+			if (isset($fields[$key])) {
+				$encodedParameters = json_encode($fields[$key]);
+				if ($encodedParameters) {
+					$fields[$key] = $encodedParameters;
+				}
 			}
 		}
 
@@ -155,20 +152,18 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function jobToApiResponse(array $job, $s3Client = null)
 	{
-		if (!is_array($job['result'])) {
-			$result = json_decode($job['result'], true);
-			if (isset($result['debug']) && !is_array($result['debug'])) $result['debug'] = json_decode($result['debug'], true);
-			if ($result) {
-				$job['result'] = $result;
+		$keysToDecode = array('parameters', 'result', 'logs', 'debug');
+		foreach ($keysToDecode as $key) {
+			if (!is_array($job[$key])) {
+				$result = json_decode($job[$key], true);
+				if (isset($result['debug']) && !is_array($result['debug']))
+					$result['debug'] = json_decode($result['debug'], true);
+				if ($result) {
+					$job[$key] = $result;
+				}
 			}
 		}
 
-		if (!is_array($job['parameters'])) {
-			$params = json_decode($job['parameters'], true);
-			if ($params) {
-				$job['parameters'] = $params;
-			}
-		}
 		if (isset($job['parameters']['accessToken'])) {
 			$job['parameters']['accessToken'] = '***';
 		}
@@ -176,45 +171,49 @@ class SharedConfig extends StorageApiConfiguration
 			$job['parameters']['password'] = '***';
 		}
 
-		// Find private links and make them accessible
-		if ($s3Client) {
+		$logs = array();
+		if (is_array($job['logs'])) {
+			$logs = $job['logs'];
+		} else {
 			if ($job['xmlFile']) {
-				$url = parse_url($job['xmlFile']);
-				if (empty($url['host'])) {
-					$job['xmlFile'] = $s3Client->url($job['xmlFile']);
-				}
+				$logs['DataSet Definition'] = $job['xmlFile'];
 			}
 			if ($job['log']) {
-				$url = parse_url($job['log']);
-				if (empty($url['host'])) {
-					$job['log'] = $s3Client->url($job['log']);
-				}
+				$logs['API Requests'] = $job['log'];
 			}
-			if (!empty($job['result']['debug']) && is_array($job['result']['debug'])) {
-				foreach ($job['result']['debug'] as $key => &$value) {
-					if (is_array($value)) {
-						foreach ($value as $k => &$v) {
-							$url = parse_url($v);
-							if (empty($url['host'])) {
-								$v = $s3Client->url($v);
-							}
-						}
-					} else {
-						$url = parse_url($value);
-						if (empty($url['host'])) {
-							$value = $s3Client->url($value);
-						}
+			if (isset($job['result']['debug'])) {
+				$logs = array_merge($logs, $job['result']['debug']);
+			}
+		}
+
+		if (!empty($job['definition'])) {
+			$logs['DataSet Definition'] = $job['definition'];
+		}
+
+		// Find private links and make them accessible
+		if ($s3Client) {
+			foreach ($logs as $key => &$log) {
+				if (is_array($log)) foreach ($log as $k => &$v) {
+					$url = parse_url($v);
+					if (empty($url['host'])) {
+						$v = $s3Client->url($v);
+					}
+				} else {
+					$url = parse_url($log);
+					if (empty($url['host'])) {
+						$log = $s3Client->url($log);
 					}
 				}
 			}
 		}
 
-		return array(
+		$result = array(
 			'id' => (int) $job['id'],
 			'batchId' => (int) $job['batchId'],
 			'runId' => (int) $job['runId'],
 			'projectId' => (int) $job['projectId'],
 			'writerId' => (string) $job['writerId'],
+			'queueId' => !empty($job['queueId']) ? $job['queueId'] : sprintf('%s.%s.%s', $job['projectId'], $job['writerId'], self::PRIMARY_QUEUE),
 			'token' => array(
 				'id' => (int) $job['tokenId'],
 				'description' => $job['tokenDesc'],
@@ -224,14 +223,21 @@ class SharedConfig extends StorageApiConfiguration
 			'endTime' => !empty($job['endTime']) ? $job['endTime'] : null,
 			'command' => $job['command'],
 			'dataset' => $job['dataset'],
-			'xmlFile' => $job['xmlFile'],
 			'parameters' => $job['parameters'],
 			'result' => $job['result'],
 			'gdWriteStartTime' => $job['gdWriteStartTime'],
 			'status' => $job['status'],
-			'log' => $job['log'],
-			'queueId' => !empty($job['queueId']) ? $job['queueId'] : sprintf('%s.%s.%s', $job['projectId'], $job['writerId'], self::PRIMARY_QUEUE)
+			'logs' => $logs
 		);
+
+		//@TODO REMOVE
+		$result['log'] = isset($logs['API Requests'])? $logs['API Requests'] : null;
+		if (isset($result['result']['debug'])) {
+			$result['result']['debug'] = array_diff_key($result['logs'], array('DataSet Definition' => null, 'API Requests' => null));
+		}
+		//@TODO REMOVE
+
+		return $result;
 	}
 
 	/**

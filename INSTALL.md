@@ -5,7 +5,7 @@ w# Keboola GoodData Writer
 - columns in italics should be indices
 
 ### jobs
-**id**,runId,projectId,writerId,token,tokenId,tokenDesc,tokenOwnerName,initializedBy,createdTime,startTime,endTime,command,pid,dataset,xmlFile,parameters,result,gdWriteStartTime,gdWriteBytes,status,log,_projectIdWriterId,batchId,queueId_
+**id**,runId,projectId,writerId,token,tokenId,tokenDesc,tokenOwnerName,createdTime,startTime,endTime,command,dataset,parameters,result,gdWriteStartTime,status,logs,debug,definition,_projectIdWriterId,batchId,queueId_
 
 ### projects
 **pid**,projectId,writerId,backendUrl,accessToken,createdTime,_projectIdWriterId_
