@@ -200,34 +200,39 @@ class JobExecutor
 				try {
 					$jobData['result'] = $command->run($job, $parameters);
 				} catch (\Exception $e) {
-					$data = array();
+					$debug = array(
+						'message' => $e->getMessage(),
+						'trace' => $e->getTrace()
+					);
 
 					if ($e instanceof RestApiException) {
 						$jobData['result']['error'] = 'Rest API Error. ' . $e->getMessage();
-						$data['details'] = $e->getDetails();
+						$debug['details'] = $e->getDetails();
 					} elseif ($e instanceof CLToolApiErrorException) {
 						$jobData['result']['error'] = 'CL Tool Error. ' . $e->getMessage();
-						$data['details'] = $e->getData();
+						$debug['details'] = $e->getData();
 					} elseif ($e instanceof StorageApiClientException) {
 						$jobData['result']['error'] = 'Storage API Error. ' . $e->getMessage();
 						if ($e->getPrevious() instanceof CurlException) {
 							/* @var CurlException $curlException */
 							$curlException = $e->getPrevious();
-							$data['curl'] = $curlException->getCurlInfo();
+							$debug['curl'] = $curlException->getCurlInfo();
 						}
 					} elseif ($e instanceof ClientException) {
 						$jobData['result']['error'] = $e->getMessage();
-						$data['details'] = $e->getData();
+						$debug['details'] = $e->getData();
 					} else {
 						throw $e;
 					}
 
-					$data['message'] = $e->getMessage();
-					$data['trace'] = $e->getTrace();
-					$jobData['result']['details'] = $s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($data, JSON_PRETTY_PRINT));
+					$jobData['debug'] = $s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($debug, JSON_PRETTY_PRINT));
 				}
 
-				$jobData['log'] = $s3Client->uploadFile($command->getLogPath(), 'text/plain', $job['id'] . '/log.json');
+				$apiLog = $s3Client->uploadFile($command->getLogPath(), 'text/plain', $job['id'] . '/log.json');
+
+				$jobData['log'] = $apiLog; //@TODO REMOVE
+				$jobData['logs'] = $command->getLogs();
+				$jobData['logs']['API Requests'] = $apiLog;
 
 			} catch (\Exception $e) {
 				if ($e instanceof QueueUnavailableException) {
@@ -253,7 +258,6 @@ class JobExecutor
 			$jobData['gdWriteStartTime'] = $jobData['result']['gdWriteStartTime'];
 			unset($jobData['result']['gdWriteStartTime']);
 		}
-		$jobData['logs'] = $job->logs;
 		$this->sharedConfig->saveJob($jobId, $jobData);
 
 		$this->storageApiEvent->setDuration(time() - $startTime);
