@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Writer;
 
+use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\User;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\GoodDataWriter\Service\S3Client,
@@ -248,25 +249,28 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function batchToApiResponse($batchId, $s3Client = null)
 	{
+		$jobs = $this->fetchBatch($batchId);
+		if (!count($jobs)) {
+			throw new WrongParametersException(sprintf("Batch '%d' not found", $batchId));
+		}
+
 		$data = array(
 			'batchId' => (int)$batchId,
 			'projectId' => null,
 			'writerId' => null,
+			'queueId' => null,
 			'createdTime' => date('c'),
 			'startTime' => date('c'),
 			'endTime' => null,
 			'status' => null,
-			'jobs' => array(),
-			'result' => null,
-			'log' => null,
-			'queueId' => null
+			'jobs' => array()
 		);
 		$cancelledJobs = 0;
 		$waitingJobs = 0;
 		$processingJobs = 0;
 		$errorJobs = 0;
 		$successJobs = 0;
-		foreach ($this->fetchBatch($batchId) as $job) {
+		foreach ($jobs as $job) {
 			$job = $this->jobToApiResponse($job, $s3Client);
 
 			if (!$data['projectId']) {

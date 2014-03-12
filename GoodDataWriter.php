@@ -1393,7 +1393,7 @@ class GoodDataWriter extends Component
 			}
 			$job = $this->getSharedConfig()->fetchJob($params['jobId'], $this->configuration->writerId, $this->configuration->projectId);
 			if (!$job) {
-				throw new WrongParametersException(sprintf("Job '%d' does not belong to writer '%s'", $params['jobId'], $this->configuration->writerId));
+				throw new WrongParametersException(sprintf("Job '%d' not found", $params['jobId']));
 			}
 
 			$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
