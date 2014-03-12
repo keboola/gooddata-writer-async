@@ -147,9 +147,7 @@ class SharedConfig extends StorageApiConfiguration
 	}
 
 	/**
-	 * @param array $job
-	 * @param S3Client $s3Client
-	 * @return array
+	 *
 	 */
 	public function jobToApiResponse(array $job, $s3Client = null)
 	{
@@ -242,10 +240,7 @@ class SharedConfig extends StorageApiConfiguration
 	}
 
 	/**
-	 * @param $batchId
-	 * @param null $s3Client
-	 * @return array
-	 * @throws SharedConfigException
+	 *
 	 */
 	public function batchToApiResponse($batchId, $s3Client = null)
 	{

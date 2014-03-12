@@ -253,6 +253,7 @@ class JobExecutor
 			$jobData['gdWriteStartTime'] = $jobData['result']['gdWriteStartTime'];
 			unset($jobData['result']['gdWriteStartTime']);
 		}
+		$jobData['logs'] = $job->logs;
 		$this->sharedConfig->saveJob($jobId, $jobData);
 
 		$this->storageApiEvent->setDuration(time() - $startTime);

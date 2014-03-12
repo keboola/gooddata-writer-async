@@ -131,6 +131,11 @@ abstract class AbstractJob
 		return $this->logFile->getRealPath();
 	}
 
+	public function getLogs()
+	{
+		return $this->logs;
+	}
+
 	protected function logEvent($event, $details, $restApiLogPath = null)
 	{
 		$this->logFile->fwrite('{"' . $event . '": ');
