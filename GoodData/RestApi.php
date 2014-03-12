@@ -1462,7 +1462,7 @@ class RestApi
 		if (!$this->authTt) {
 			$this->refreshToken();
 		}
-		$startTime = microtime();
+		$startTime = time();
 
 		$request = $this->client->get($this->apiUrl . $uri, array(
 			'accept' => 'text/csv',
@@ -1482,14 +1482,14 @@ class RestApi
 			try {
 				$response = $request->send();
 
-				$this->logCall($uri, 'GET', array("filename" => $filename), $response->getBody(true), abs(microtime() - $startTime) * 1000);
+				$this->logCall($uri, 'GET', array("filename" => $filename), $response->getBody(true), time() - $startTime, $response->getStatusCode());
 
 				if ($response->getStatusCode() == 200) {
 					return $filename;
 				}
 			} catch (ClientErrorResponseException $e) {
 				$response = $request->getResponse();
-				$this->logCall($uri, 'GET', array("filename" => $filename), $response->getBody(true), abs(microtime() - $startTime) * 1000);
+				$this->logCall($uri, 'GET', array("filename" => $filename), $response->getBody(true), time() - $startTime, $response->getStatusCode());
 
 				if ($request->getResponse()->getStatusCode() == 201) {
 
@@ -1521,15 +1521,16 @@ class RestApi
 			$this->refreshToken();
 		}
 
-		$startTime = microtime();
+		$startTime = time();
 		$jsonParams = is_array($params) ? json_encode($params) : $params;
 
 		$backOffInterval = self::BACKOFF_INTERVAL;
 		$request = null;
 		$response = null;
 		$exception = null;
-		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
-
+		$retriesCount = 1;
+		do {
+			$isMaintenance = false;
 			switch ($method) {
 				case 'GET':
 					$request = $this->client->get($uri, $headers);
@@ -1559,7 +1560,7 @@ class RestApi
 			try {
 				$response = $request->send();
 
-				$duration = abs(microtime() - $startTime) * 1000;
+				$duration = time() - $startTime;
 				if ($logCall) $this->logCall($uri, $method, $params, $response->getBody(true), $duration, $request->getResponse()->getStatusCode());
 
 				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
@@ -1569,7 +1570,7 @@ class RestApi
 
 			} catch (\Exception $e) {
 				$exception = $e;
-				$duration = abs(microtime() - $startTime) * 1000;
+				$duration = time() - $startTime;
 
 				$responseObject = $request->getResponse();
 				if ($responseObject) {
@@ -1598,9 +1599,8 @@ class RestApi
 					}
 				} elseif ($e instanceof ServerErrorResponseException) {
 					if ($request->getResponse()->getStatusCode() == 503) {
-						// Wait indefinitely due to GD maintenance
-						$i--;
-						$backOffInterval = 10 * 60;
+						// GD maintenance
+						$isMaintenance = true;
 					}
 				} elseif ($e instanceof CurlException) {
 					// Just retry according to backoff algorithm
@@ -1610,8 +1610,14 @@ class RestApi
 
 			}
 
-			sleep($backOffInterval * ($i + 1));
-		}
+			if ($isMaintenance) {
+				sleep(rand(60, 600));
+			} else {
+				sleep($backOffInterval * ($retriesCount + 1));
+				$retriesCount++;
+			}
+
+		} while ($isMaintenance || $retriesCount <= self::RETRIES_COUNT);
 
 		/** @var $response \Guzzle\Http\Message\Response */
 		$statusCode = $request ? $request->getResponse()->getStatusCode() : null;
