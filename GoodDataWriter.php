@@ -931,8 +931,10 @@ class GoodDataWriter extends Component
 		$jobInfo = $this->createJob($jobData);
 
 
+		$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $params['tableId']), json_encode($definition));
 		$this->sharedConfig->saveJob($jobInfo['id'], array(
-			'definition' => $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $params['tableId']), json_encode($definition))
+			'definition' => $definitionUrl,
+			'xmlFile' => $definitionUrl  //@TODO REMOVE
 		));
 
 		$this->enqueue($batchId);
@@ -1020,8 +1022,10 @@ class GoodDataWriter extends Component
 			}
 			$jobInfo = $this->createJob($jobData);
 
+			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $dataSet['tableId']), json_encode($dataSet['definition']));
 			$this->sharedConfig->saveJob($jobInfo['id'], array(
-				'definition' => $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $dataSet['tableId']), json_encode($dataSet['definition']))
+				'definition' => $definitionUrl,
+				'xmlFile' => $definitionUrl //@TODO REMOVE
 			));
 		}
 
