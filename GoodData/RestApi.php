@@ -1560,7 +1560,7 @@ class RestApi
 				$response = $request->send();
 
 				$duration = abs(microtime() - $startTime) * 1000;
-				if ($logCall) $this->logCall($uri, $method, $params, $response->getBody(true), $duration);
+				if ($logCall) $this->logCall($uri, $method, $params, $response->getBody(true), $duration, $request->getResponse()->getStatusCode());
 
 				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
 				if ($response->isSuccessful()) {
@@ -1576,12 +1576,11 @@ class RestApi
 					$response = $request->getResponse()->getBody(true);
 				}
 
-				if ($logCall) $this->logCall($uri, $method, $params, $response, $duration);
+				if ($logCall) $this->logCall($uri, $method, $params, $response, $duration, $request->getResponse()->getStatusCode());
 				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
 
 				if ($e instanceof ClientErrorResponseException) {
-					$statusCode = $responseObject ? $responseObject->getStatusCode() : null;
-					if ($statusCode == 401) {
+					if ($request->getResponse()->getStatusCode() == 401) {
 						// TT token expired
 						//$this->refreshToken();
 						$this->login($this->username, $this->password);
@@ -1595,7 +1594,7 @@ class RestApi
 							}
 							$response = json_encode($responseJson);
 						}
-						throw new RestApiException('API error ' . $statusCode, $response);
+						throw new RestApiException('API error ' . $request->getResponse()->getStatusCode(), $response);
 					}
 				} elseif ($e instanceof ServerErrorResponseException) {
 					if ($request->getResponse()->getStatusCode() == 503) {
@@ -1744,7 +1743,7 @@ class RestApi
 	}
 
 
-	protected function logCall($uri, $method, $params, $response, $duration)
+	protected function logCall($uri, $method, $params, $response, $duration, $statusCode)
 	{
 		$decodedResponse = json_decode($response, true);
 		if (!$decodedResponse) {
@@ -1761,11 +1760,12 @@ class RestApi
 		array_walk_recursive($decodedResponse, $sanitize);
 
 		$this->logFile->fwrite(json_encode(array(
-			'duration' => $duration,
 			'time' => date('c'),
+			'duration' => $duration,
 			'uri' => $this->client->getBaseUrl() . $uri,
 			'method' => $method,
 			'params' => $params,
+			'status' => $statusCode,
 			'response' => $decodedResponse
 		), JSON_PRETTY_PRINT) . ',');
 	}
