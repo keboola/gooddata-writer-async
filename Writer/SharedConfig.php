@@ -63,6 +63,7 @@ class SharedConfig extends StorageApiConfiguration
 		$user->domain = $result['name'];
 		$user->username = $result['username'];
 		$user->password = $this->encryptor->decrypt($result['password']);
+		$user->uid = $result['uid'];
 
 		return $user;
 	}

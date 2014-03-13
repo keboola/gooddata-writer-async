@@ -136,7 +136,7 @@ abstract class AbstractJob
 		return $this->logs;
 	}
 
-	protected function logEvent($event, $details, $restApiLogPath = null)
+	public function logEvent($event, $details, $restApiLogPath = null)
 	{
 		$this->logFile->fwrite('{"' . $event . '": ');
 		$details = json_encode(array_merge(array('time' => date('c')), $details), JSON_PRETTY_PRINT);

@@ -14,4 +14,5 @@ class User
 	public $domain;
 	public $username;
 	public $password;
+	public $uid;
 } 

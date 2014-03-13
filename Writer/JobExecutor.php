@@ -206,6 +206,8 @@ class JobExecutor
 					);
 
 					if ($e instanceof RestApiException) {
+						$command->logEvent('restApi', array('error' => $e->getMessage()), $this->restApi->getLogPath());
+
 						$jobData['result']['error'] = 'Rest API Error. ' . $e->getMessage();
 						$debug['details'] = $e->getDetails();
 					} elseif ($e instanceof CLToolApiErrorException) {
