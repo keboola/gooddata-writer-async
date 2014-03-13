@@ -149,7 +149,7 @@ class GoodDataWriter extends Component
 			$this->enqueue($batchId);
 
 			if (empty($params['wait'])) {
-				return array('job' => (int)$jobInfo['id']);
+				return $this->getPollResult($jobInfo['id'], $params['writerId']);
 			} else {
 				$result = $this->waitForJob($jobInfo['id'], $params['writerId']);
 				if (isset($result['job']['result']['pid'])) {
@@ -1445,14 +1445,11 @@ class GoodDataWriter extends Component
 
 	private function getPollResult($id, $writerId, $isBatch = false)
 	{
-		/** @var \Symfony\Component\HttpFoundation\Request $request */
-		$request = $this->_container->get('request');
-
 		/** @var \Symfony\Component\Routing\RequestContext $context */
 		$context = $this->_container->get('router')->getContext();
 
 		return array(
-			'job' => (int)$id,
+			($isBatch? 'batch' : 'job') => (int)$id,
 			'url' => sprintf('https://%s%s/gooddata-writer/%s?writerId=%s&%s=%s', $context->getHost(), $context->getBaseUrl(),
 				$isBatch? 'batch' : 'jobs', $writerId, $isBatch? 'batchId' : 'jobId', $id)
 		);
