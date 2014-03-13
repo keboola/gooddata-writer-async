@@ -1758,7 +1758,7 @@ class RestApi
 
 		$clearFromLog = $this->clearFromLog;
 		$sanitize = function(&$value) use($clearFromLog) {
-			if ($value && in_array((string)$value, $clearFromLog)) {
+			if ($value && !is_object($value) && in_array((string)$value, $clearFromLog)) {
 				$value = '***';
 			}
 		};
