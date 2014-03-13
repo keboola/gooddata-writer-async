@@ -171,13 +171,14 @@ class SharedConfig extends StorageApiConfiguration
 			$job['parameters']['password'] = '***';
 		}
 
+		$logs = is_array($job['logs']) ? $job['logs'] : array();
 		if (!empty($job['definition'])) {
-			$job['logs']['DataSet Definition'] = $job['definition'];
+			$logs['DataSet Definition'] = $job['definition'];
 		}
 
 		// Find private links and make them accessible
 		if ($s3Client) {
-			foreach ($job['logs'] as &$log) {
+			foreach ($logs as &$log) {
 				if (is_array($log)) foreach ($log as &$v) {
 					$url = parse_url($v);
 					if (empty($url['host'])) {
@@ -212,7 +213,7 @@ class SharedConfig extends StorageApiConfiguration
 			'result' => $job['result'],
 			'gdWriteStartTime' => $job['gdWriteStartTime'],
 			'status' => $job['status'],
-			'logs' => $job['logs']
+			'logs' => $logs
 		);
 
 		return $result;
