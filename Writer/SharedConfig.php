@@ -150,7 +150,7 @@ class SharedConfig extends StorageApiConfiguration
 	/**
 	 *
 	 */
-	public function jobToApiResponse(array $job, $s3Client = null)
+	public function jobToApiResponse(array $job, S3Client $s3Client = null)
 	{
 		$keysToDecode = array('parameters', 'result', 'logs', 'debug');
 		foreach ($keysToDecode as $key) {
@@ -171,29 +171,14 @@ class SharedConfig extends StorageApiConfiguration
 			$job['parameters']['password'] = '***';
 		}
 
-		$logs = array();
-		if (is_array($job['logs'])) {
-			$logs = $job['logs'];
-		} else {
-			if ($job['xmlFile']) {
-				$logs['DataSet Definition'] = $job['xmlFile'];
-			}
-			if ($job['log']) {
-				$logs['API Requests'] = $job['log'];
-			}
-			if (isset($job['result']['debug'])) {
-				$logs = array_merge($logs, $job['result']['debug']);
-			}
-		}
-
 		if (!empty($job['definition'])) {
-			$logs['DataSet Definition'] = $job['definition'];
+			$job['logs']['DataSet Definition'] = $job['definition'];
 		}
 
 		// Find private links and make them accessible
 		if ($s3Client) {
-			foreach ($logs as $key => &$log) {
-				if (is_array($log)) foreach ($log as $k => &$v) {
+			foreach ($job['logs'] as &$log) {
+				if (is_array($log)) foreach ($log as &$v) {
 					$url = parse_url($v);
 					if (empty($url['host'])) {
 						$v = $s3Client->url($v);
@@ -227,15 +212,8 @@ class SharedConfig extends StorageApiConfiguration
 			'result' => $job['result'],
 			'gdWriteStartTime' => $job['gdWriteStartTime'],
 			'status' => $job['status'],
-			'logs' => $logs
+			'logs' => $job['logs']
 		);
-
-		//@TODO REMOVE
-		$result['log'] = isset($logs['API Requests'])? $logs['API Requests'] : null;
-		if (isset($result['result']['debug'])) {
-			$result['result']['debug'] = array_diff_key($result['logs'], array('DataSet Definition' => null, 'API Requests' => null));
-		}
-		//@TODO REMOVE
 
 		return $result;
 	}

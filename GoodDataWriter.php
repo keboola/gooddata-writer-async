@@ -177,7 +177,7 @@ class GoodDataWriter extends Component
 
 			$this->enqueue($batchId);
 
-			return array('batch' => (int)$batchId);
+			return $this->getPollResult($batchId, $params['writerId'], true);
 		}
 
 
@@ -208,7 +208,7 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
+			return $this->getPollResult($jobInfo['id'], $params['writerId']);
 		} else {
 			return $this->waitForJob($jobInfo['id'], $params['writerId']);
 		}
@@ -267,7 +267,7 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
+			return $this->getPollResult($jobInfo['id'], $params['writerId']);
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], $params['writerId']);
 			if (isset($result['job']['result']['pid'])) {
@@ -336,7 +336,7 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
+			return $this->getPollResult($jobInfo['id'], $params['writerId']);
 		} else {
 			return $this->waitForJob($jobInfo['id'], $params['writerId']);
 		}
@@ -375,7 +375,7 @@ class GoodDataWriter extends Component
 		$this->enqueue($jobInfo['batchId']);
 
 		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
+			return $this->getPollResult($jobInfo['id'], $params['writerId']);
 		} else {
 			$jobId = $jobInfo['id'];
 			$jobFinished = false;
@@ -454,7 +454,7 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
+			return $this->getPollResult($jobInfo['id'], $params['writerId']);
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], $params['writerId']);
 			if (isset($result['job']['result']['uid'])) {
@@ -579,7 +579,7 @@ class GoodDataWriter extends Component
 		$this->enqueue($jobInfo['batchId']);
 
 		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
+			return $this->getPollResult($jobInfo['id'], $params['writerId']);
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], $params['writerId']);
 
@@ -665,7 +665,7 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
+			return $this->getPollResult($jobInfo['id'], $params['writerId']);
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], $params['writerId']);
 
@@ -701,7 +701,7 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
+			return $this->getPollResult($jobInfo['id'], $params['writerId']);
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], $params['writerId']);
 			if (isset($result['job']['result']['uri'])) {
@@ -740,7 +740,7 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
+			return $this->getPollResult($jobInfo['id'], $params['writerId']);
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], $params['writerId']);
 			if (isset($result['job']['result']['uri'])) {
@@ -776,7 +776,7 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
+			return $this->getPollResult($jobInfo['id'], $params['writerId']);
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], $params['writerId']);
 
@@ -858,7 +858,7 @@ class GoodDataWriter extends Component
 		}
 
 		$this->enqueue($jobInfo['batchId']);
-		return array('job' => (int)$jobInfo['id']);
+		return $this->getPollResult($jobInfo['id'], $params['writerId']);
 	}
 
 	public function postUploadTable($params)
@@ -941,7 +941,7 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
+			return $this->getPollResult($jobInfo['id'], $params['writerId']);
 		} else {
 			return $this->waitForJob($jobInfo['id'], $params['writerId']);
 		}
@@ -1043,7 +1043,7 @@ class GoodDataWriter extends Component
 
 
 		if (empty($params['wait'])) {
-			return array('batch' => (int)$batchId);
+			return $this->getPollResult($batchId, $params['writerId'], true);
 		} else {
 			return $this->waitForBatch($batchId, $params['writerId']);
 		}
@@ -1098,7 +1098,7 @@ class GoodDataWriter extends Component
 		$this->enqueue($jobInfo['batchId']);
 
 		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
+			return $this->getPollResult($jobInfo['id'], $params['writerId']);
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], $params['writerId']);
 			if (isset($result['job']['status']) && $result['job']['status'] == 'success') {
@@ -1136,7 +1136,7 @@ class GoodDataWriter extends Component
 		$this->enqueue($jobInfo['batchId']);
 
 		if (empty($params['wait'])) {
-			return array('job' => (int)$jobInfo['id']);
+			return $this->getPollResult($jobInfo['id'], $params['writerId']);
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], $params['writerId']);
 			if (isset($result['job']['status']) && $result['job']['status'] == 'success') {
@@ -1278,7 +1278,7 @@ class GoodDataWriter extends Component
 
 		$this->enqueue($jobInfo['batchId']);
 
-		return array('job' => (int)$jobInfo['id']);
+		return $this->getPollResult($jobInfo['id'], $params['writerId']);
 	}
 
 
@@ -1304,7 +1304,7 @@ class GoodDataWriter extends Component
 
 		$this->enqueue($jobInfo['batchId']);
 
-		return array('job' => (int)$jobInfo['id']);
+		return $this->getPollResult($jobInfo['id'], $params['writerId']);
 	}
 
 
@@ -1442,6 +1442,21 @@ class GoodDataWriter extends Component
 	 * *************************************************************************
 	 * @section Helpers
 	 */
+
+	private function getPollResult($id, $writerId, $isBatch = false)
+	{
+		/** @var \Symfony\Component\HttpFoundation\Request $request */
+		$request = $this->_container->get('request');
+
+		/** @var \Symfony\Component\Routing\RequestContext $context */
+		$context = $this->_container->get('router')->getContext();
+
+		return array(
+			'job' => (int)$id,
+			'url' => sprintf('https://%s%s/gooddata-writer/%s?writerId=%s&%s=%s', $context->getHost(), $context->getBaseUrl(),
+				$isBatch? 'batch' : 'jobs', $writerId, $isBatch? 'batchId' : 'jobId', $id)
+		);
+	}
 
 	private function getS3Client()
 	{
