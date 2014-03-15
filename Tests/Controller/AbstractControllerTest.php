@@ -15,6 +15,7 @@ use Keboola\GoodDataWriter\Command\ExecuteBatchCommand,
 	Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable;
+use Doctrine\Common\Annotations\AnnotationRegistry;
 
 abstract class AbstractControllerTest extends WebTestCase
 {
@@ -60,6 +61,11 @@ abstract class AbstractControllerTest extends WebTestCase
 	{
 		$this->httpClient = static::createClient();
 		$container = $this->httpClient->getContainer();
+
+		/** To make annotations work here */
+		AnnotationRegistry::registerAutoloadNamespaces(array(
+			'Sensio\\Bundle\\FrameworkExtraBundle' => '../../vendor/sensio/framework-extra-bundle/'
+		));
 
 		$uniqueIndex = uniqid();
 		$this->writerId = 'test' . $uniqueIndex;
@@ -285,7 +291,7 @@ abstract class AbstractControllerTest extends WebTestCase
 		$response = $this->httpClient->getResponse();
 		/* @var \Symfony\Component\HttpFoundation\Response $response */
 
-		$this->assertEquals(200, $response->getStatusCode(), sprintf("HTTP status of writer call '%s' should be 200. Response: %s", $url, $response->getContent()));
+		$this->assertTrue(in_array($response->getStatusCode(), array(200, 202)), sprintf("HTTP status of writer call '%s' should be 200 or 202 but is %s", $url, $response->getContent()));
 		$responseJson = json_decode($response->getContent(), true);
 		$this->assertNotEmpty($responseJson, sprintf("Response for writer call '%s' should not be empty.", $url));
 
