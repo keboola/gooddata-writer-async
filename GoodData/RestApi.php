@@ -1482,7 +1482,7 @@ class RestApi
 			try {
 				$response = $request->send();
 
-				$this->logCall($uri, 'GET', array("filename" => $filename), $response->getBody(true), time() - $startTime, $response->getStatusCode());
+				$this->logCall($uri, 'GET', array("filename" => $filename), '["-- omitted --"]', time() - $startTime, $response->getStatusCode());
 
 				if ($response->getStatusCode() == 200) {
 					return $filename;
