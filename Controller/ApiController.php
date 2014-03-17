@@ -1670,6 +1670,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->container->get('logger')->log(Logger::INFO, 'Job created ' . $jobId, array(
 			'writerId' => $this->getConfiguration()->writerId,
 			'runId' => $jobInfo['runId'],
+			'command' => $jobInfo['command'],
 			'params' => $this->params
 		));
 
