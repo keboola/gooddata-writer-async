@@ -147,12 +147,13 @@ POST /writers
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "writerId": "writer1" }
-< 200
+< 202
 < Content-Type: application/json
 { 
     "status": "ok", 
     "duration": 2.89, 
-    "job": job_id 
+    "job": job_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id"
 }
 
 
@@ -168,12 +169,13 @@ POST /reset-project
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "writerId": "writer1" }
-< 200
+< 202
 < Content-Type: application/json
 { 
     "status": "ok", 
     "duration": 2.89, 
-    "job": job_id 
+    "job": job_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id"
 }
 
 
@@ -186,12 +188,13 @@ Deletes configuration bucket and enqueues GoodData project and dedicated GoodDat
 * **queue** (optional) - with value **secondary** will put job in secondary queue
 DELETE /writers?writerId={writerId}
 > X-StorageApi-Token: your_token
-< 200
+< 202
 < Content-Type: application/json
 { 
     "status": "ok", 
     "duration": 1.89, 
-    "job": job_id 
+    "job": job_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id"
 }
 
 
@@ -247,9 +250,14 @@ POST /users
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "writerId": "writer1", "email" }
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok", "job": job_id, "duration": 35.12 }
+{ 
+    "status": "ok", 
+    "job": job_id, 
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
 
 
 --
@@ -324,9 +332,14 @@ POST /projects
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "writerId": "writer1" }
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok", "job": job_id, "duration": 35.12 }
+{ 
+    "status": "ok", 
+    "job": job_id, 
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
 
 
 ### Get list of users in project
@@ -365,9 +378,14 @@ POST /project-users
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "writerId": "writer1", "pid": "xjywplmhejceb6j3ezzlxiganmjavqio", "email": "user1@keboola.com", "role": "editor" }
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok", "job": job_id, "duration": 35.12 }
+{ 
+    "status": "ok", 
+    "job": job_id, 
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
 
 
 ### Remove user from project
@@ -380,9 +398,14 @@ Remove user from specified project. Project invitations will be also canceled.
 * **email** (required) - email of user
 DELETE /project-users?writerId={writerId}&pid={pr0j3ct_p1d}&email={user@email.com}
 > X-StorageApi-Token: your_token
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok", "job": job_id, "duration": 35.12 }
+{ 
+    "status": "ok", 
+    "job": job_id, 
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
 
 
 --
@@ -403,9 +426,18 @@ POST /upload-project
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "writerId": "123" }
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok", "batch": "batch_id", "jobs": {"job1_id", "job2_id" } }
+{ 
+    "status": "ok", 
+    "jobs": {
+        job_id1,
+        job_id2
+    },
+    "batch": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/batch?writerId=writer1&batchId=batch_id",
+    "duration": 35.12 
+}
 
 
 ### Upload selected table
@@ -421,9 +453,14 @@ POST /upload-table
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "tableId": "out.c-main-products", "writerId": "123" }
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok", "batch": "batch_id", "jobs": {"job1_id", "job2_id" } }
+{ 
+    "status": "ok", 
+    "jobId": job_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
 
 
 ### Reset table
@@ -438,12 +475,13 @@ POST /reset-table
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "writerId": "writer1", "tableId": "out.c-main.table" }
-< 200
+< 202
 < Content-Type: application/json
 { 
-    "status": "ok", 
-    "duration": 2.89, 
-    "job": job_id 
+    "status": "ok",
+    "jobId": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
 }
 
 
@@ -461,9 +499,14 @@ POST /upload-date-dimension
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "name": "ProductDate", "writerId": "123" }
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok", "job": "job_id" }
+{ 
+    "status": "ok",
+    "jobId": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
 
 
 ### Execute reports
@@ -487,12 +530,13 @@ POST /execute-reports
         "/gdc/md/pr0j3ct_p1d/obj/673"
     ]
 }
-< 200
+< 202
 < Content-Type: application/json
-{
+{ 
     "status": "ok",
-    "job": "job1d",
-    "duration": 2.23
+    "jobId": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
 }
 
 
@@ -691,9 +735,14 @@ POST /filters-user
     "pid": "p1d_0f_y0u2_6d_p20j3ct", 
     "filters": ["myFilter"], 
     "userEmail": "john.smith@keboola.com" }
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok" }
+{ 
+    "status": "ok",
+    "jobId": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
 
 
 ### Synchronize Filters
@@ -709,9 +758,14 @@ POST /sync-filters
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "writerId": "123", "pid": "p1d_0f_y0u2_6d_p20j3ct" }
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok" }
+{ 
+    "status": "ok",
+    "jobId": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
 
 --
 SSO
@@ -822,6 +876,7 @@ GET /proxy?writerId={writerId}&query=/gdc/md/{pr0j3ct_p1d}/query/projectdashboar
 * **writerId** (required)
 * **query** (required) - Link to GoodData API resource (without protocol and domain)
 * **payload** (required) - Body of the POST request to GD
+* **queue** (optional) - with value **secondary** will put job in secondary queue
 
 #### Returns
 
@@ -835,11 +890,12 @@ POST /proxy
     "query": "/gdc/md/p1d_0f_y0u2_6d_p20j3ct/obj",
     "payload": { ... }
 }
-< 200
+< 202
 < Content-Type: application/json
-{
-    "response": { ... },
+{ 
     "status": "ok",
-    "duration": 7.16
+    "jobId": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
 }
 

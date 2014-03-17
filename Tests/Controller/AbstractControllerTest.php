@@ -291,7 +291,7 @@ abstract class AbstractControllerTest extends WebTestCase
 		$response = $this->httpClient->getResponse();
 		/* @var \Symfony\Component\HttpFoundation\Response $response */
 
-		$this->assertTrue(in_array($response->getStatusCode(), array(200, 202)), sprintf("HTTP status of writer call '%s' should be 200 or 202 but is %s", $url, $response->getContent()));
+		$this->assertTrue(in_array($response->getStatusCode(), array(200, 202)), sprintf("HTTP status of writer call '%s' should be 200 or 202 but is %s", $url, $response->getStatusCode()));
 		$responseJson = json_decode($response->getContent(), true);
 		$this->assertNotEmpty($responseJson, sprintf("Response for writer call '%s' should not be empty.", $url));
 

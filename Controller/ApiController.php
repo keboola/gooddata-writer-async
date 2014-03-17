@@ -1706,7 +1706,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$i++;
 		} while(!$jobFinished);
 
-		if ($jobInfo['job'] == 'success') {
+		if ($jobInfo['status'] == 'success') {
 			return $this->createApiResponse($jobInfo);
 		} else {
 			$e = new JobProcessException('Job processing failed');
