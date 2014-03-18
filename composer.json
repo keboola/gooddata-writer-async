@@ -21,7 +21,8 @@
 	"scripts": {
 		"post-install-cmd": [
 			"Incenteev\\ParameterHandler\\ScriptHandler::buildParameters",
-			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap"
+			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap",
+			"php vendor/syrup/development-bundle/app/console cache:clear --env=test"
 		],
 		"post-update-cmd": [
 			"Incenteev\\ParameterHandler\\ScriptHandler::buildParameters",

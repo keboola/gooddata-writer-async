@@ -232,7 +232,6 @@ class JobExecutor
 
 				$apiLog = $s3Client->uploadFile($command->getLogPath(), 'text/plain', $job['id'] . '/log.json');
 
-				$jobData['log'] = $apiLog; //@TODO REMOVE
 				$jobData['logs'] = $command->getLogs();
 				$jobData['logs']['API Requests'] = $apiLog;
 

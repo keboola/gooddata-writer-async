@@ -36,7 +36,7 @@ class UploadTable extends AbstractJob
 		$stopWatch->start($stopWatchId);
 
 		//@TODO REMOVE xmlFile
-		if (empty($job['definition']) && empty($job['xmlFile'])) {
+		if (empty($job['definition'])) {
 			throw new WrongConfigurationException("Definition for data set is missing. Try the upload again please.");
 		}
 		$bucketAttributes = $this->configuration->bucketAttributes();
@@ -71,7 +71,7 @@ class UploadTable extends AbstractJob
 		// Get definition
 		$stopWatchId = 'getDefinition';
 		$stopWatch->start($stopWatchId);
-		$definitionFile = !empty($job['definition'])? $job['definition'] : $job['xmlFile']; //@TODO REMOVE xmlFile
+		$definitionFile = $job['definition'];
 
 		$definitionUrl = $this->s3Client->url($definitionFile);
 		$command = 'curl -sS -L --retry 12 ' . escapeshellarg($definitionUrl);
