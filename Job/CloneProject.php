@@ -35,7 +35,11 @@ class CloneProject extends AbstractJob
 			$this->configuration->updateWriter('gd.uid', $userId);
 			$bucketAttributes['gd']['uid'] = $userId;
 		}
-		$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
+		$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken'], json_encode(array(
+			'projectId' => $this->configuration->projectId,
+			'writerId' => $this->configuration->writerId,
+			'main' => false
+		)));
 		$this->restApi->cloneProject($bucketAttributes['gd']['pid'], $projectPid,
 			empty($params['includeData']) ? 0 : 1, empty($params['includeUsers']) ? 0 : 1);
 		$this->restApi->addUserToProject($bucketAttributes['gd']['uid'], $projectPid);

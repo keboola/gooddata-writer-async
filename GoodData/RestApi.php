@@ -266,12 +266,8 @@ class RestApi
 
 	/**
 	 * Create project
-	 * @param $name
-	 * @param $authToken
-	 * @throws RestApiException
-	 * @return string
 	 */
-	public function createProject($name, $authToken)
+	public function createProject($name, $authToken, $description = null)
 	{
 		$this->clearFromLog[] = $authToken;
 
@@ -288,6 +284,9 @@ class RestApi
 				)
 			)
 		);
+		if ($description) {
+			$params['project']['meta']['summary'] = $description;
+		}
 		$result = $this->jsonRequest($uri, 'POST', $params);
 
 		if (empty($result['uri']) || strpos($result['uri'], '/gdc/projects/') === false) {

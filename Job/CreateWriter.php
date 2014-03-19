@@ -29,7 +29,11 @@ class CreateWriter extends AbstractJob
 		$password = md5(uniqid());
 
 		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
-		$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
+		$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken'], json_encode(array(
+			'projectId' => $this->configuration->projectId,
+			'writerId' => $this->configuration->writerId,
+			'main' => true
+		)));
 
 		$userId = $this->restApi->createUser($this->appConfiguration->gd_domain, $username, $password, 'KBC', 'Writer', $this->appConfiguration->gd_ssoProvider);
 		$this->restApi->addUserToProject($userId, $projectPid, RestApi::$userRoles['admin']);

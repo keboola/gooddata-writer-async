@@ -27,7 +27,11 @@ class ResetProject extends AbstractJob
 		$userId = $bucketAttributes['gd']['uid'];
 
 		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
-		$newPid = $this->restApi->createProject($projectName, $accessToken);
+		$newPid = $this->restApi->createProject($projectName, $accessToken, json_encode(array(
+			'projectId' => $this->configuration->projectId,
+			'writerId' => $this->configuration->writerId,
+			'main' => true
+		)));
 
 		// All users from old project add to the new one with the same role
 		$oldRoles = array();
