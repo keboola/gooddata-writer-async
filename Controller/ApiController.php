@@ -134,11 +134,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 			} else {
 				$result = $this->waitForJob($jobInfo['id'], false);
-				if (isset($result['job']['result']['pid'])) {
-					return $this->createApiResponse(array('pid' => $result['job']['result']['pid']));
+				if (isset($result['result']['pid'])) {
+					return $this->createApiResponse(array('pid' => $result['result']['pid']));
 				} else {
 					$e = new JobProcessException('Job failed');
-					$e->setData(array('result' => $result['job']['result'], 'logs' => $result['job']['logs']));
+					$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
 					throw $e;
 				}
 			}
@@ -261,13 +261,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], false);
-			if (isset($result['job']['result']['pid'])) {
+			if (isset($result['result']['pid'])) {
 				return $this->createApiResponse(array(
-					'pid' => $result['job']['result']['pid']
+					'pid' => $result['result']['pid']
 				));
 			} else {
 				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['job']['result'], 'logs' => $result['job']['logs']));
+				$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
 				throw $e;
 			}
 		}
@@ -455,13 +455,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], false);
-			if (isset($result['job']['result']['uid'])) {
+			if (isset($result['result']['uid'])) {
 				return $this->createApiResponse(array(
-					'uid' => $result['job']['result']['uid']
+					'uid' => $result['result']['uid']
 				));
 			} else {
 				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['job']['result'], 'logs' => $result['job']['logs']));
+				$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
 				throw $e;
 			}
 		}
@@ -568,14 +568,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], false);
 
-			if (isset($result['job']['result']['response'])) {
+			if (isset($result['result']['response'])) {
 				return $this->createApiResponse(array(
 					'message'   => 'proxy call executed',
-					'response'  => $result['job']['result']['response']
+					'response'  => $result['result']['response']
 				));
 			} else {
 				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['job']['result'], 'logs' => $result['job']['logs']));
+				$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
 				throw $e;
 			}
 		}
@@ -672,13 +672,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], false);
 
-			if (isset($result['job']['result']['uri'])) {
+			if (isset($result['result']['uri'])) {
 				return $this->createApiResponse(array(
-					'uri' => $result['job']['result']['uri']
+					'uri' => $result['result']['uri']
 				));
 			} else {
 				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['job']['result'], 'logs' => $result['job']['logs']));
+				$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
 				throw $e;
 			}
 		}
@@ -714,13 +714,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], false);
-			if (isset($result['job']['result']['uri'])) {
+			if (isset($result['result']['uri'])) {
 				return $this->createApiResponse(array(
-					'uri' => $result['job']['result']['uri']
+					'uri' => $result['result']['uri']
 				));
 			} else {
 				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['job']['result'], 'logs' => $result['job']['logs']));
+				$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
 				throw $e;
 			}
 		}
@@ -787,13 +787,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 		} else {
 			$result = $this->waitForJob($jobInfo['id'], false);
-			if (isset($result['job']['result']['uri'])) {
+			if (isset($result['result']['uri'])) {
 				return $this->createApiResponse(array(
-					'uri' => $result['job']['result']['uri']
+					'uri' => $result['result']['uri']
 				));
 			} else {
 				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['job']['result'], 'logs' => $result['job']['logs']));
+				$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
 				throw $e;
 			}
 		}

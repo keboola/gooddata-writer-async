@@ -335,9 +335,13 @@ class SharedConfig extends StorageApiConfiguration
 	 * @param $writerId
 	 * @return mixed
 	 */
-	public function getProjects($projectId, $writerId)
+	public function getProjects($projectId = null, $writerId = null)
 	{
-		return $this->_fetchTableRows(self::PROJECTS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId);
+		if ($projectId && $writerId) {
+			return $this->_fetchTableRows(self::PROJECTS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId);
+		} else {
+			return $this->_fetchTableRows(self::PROJECTS_TABLE_ID);
+		}
 	}
 
 	/**
