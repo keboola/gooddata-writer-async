@@ -6,22 +6,23 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\StorageApi\Table as StorageApiTable;
-
 class ProxyTest extends AbstractControllerTest
 {
-	public function testGetProxy()
+	public function testProxy()
 	{
 		$user = $this->_createUser();
 
+		/**
+		 * Get proxy
+		 */
 		// Check of GoodData
-		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
-		$userInfo = self::$restApi->getUser($user['uid']);
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$userInfo = $this->restApi->getUser($user['uid']);
 		$this->assertArrayHasKey('accountSetting', $userInfo, "Response for GoodData API user call should contain 'accountSetting' key.");
 
 		// Check of Writer API
-		$projectsList = self::$configuration->getProjects();
+		$projectsList = $this->configuration->getProjects();
 		$this->assertGreaterThanOrEqual(1, $projectsList, "Response for writer call '/projects' should return at least one GoodData project.");
 		$project = $projectsList[count($projectsList)-1];
 
@@ -32,17 +33,19 @@ class ProxyTest extends AbstractControllerTest
 		$this->assertArrayHasKey('response', $responseJson, "Response for writer call '/proxy' should contain 'response' key.");
 		$this->assertArrayHasKey('users', $responseJson['response'], "Response for writer call '/proxy' should contain 'users' key users in GD reponse.");
 		$this->assertCount(2, $responseJson['response']['users'], "Response for writer call '/proxy' should return two users in GD reponse.");
-	}
 
-	public function testPostProxy()
-	{
+
+		/**
+		 * Post proxy
+		 */
 		// Upload data
 		$this->_prepareData();
 		$this->_processJob('/gooddata-writer/upload-project');
 
-		$pid = self::$configuration->bucketInfo['gd']['pid'];
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$pid = $bucketAttributes['gd']['pid'];
 
-		$attr = $this->getAttributeByTitle($pid, 'Id (Categories)');
+		$attr = $this->_getAttributeByTitle($pid, 'Id (Categories)');
 
 		$attrUri = $attr['attribute']['meta']['uri'];
 
@@ -55,29 +58,6 @@ class ProxyTest extends AbstractControllerTest
 
 		$jobStatus = $this->_getWriterApi('/gooddata-writer/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
 
-		$this->assertEquals('success', $jobStatus['job']['result']['status']);
-	}
-
-	protected function getAttributes($pid)
-	{
-		$query = sprintf('/gdc/md/%s/query/attributes', $pid);
-
-		$result = $this->_getWriterApi('/gooddata-writer/proxy?writerId=' . $this->writerId . '&query=' . $query);
-
-		if (isset($result['response']['query']['entries'])) {
-			return $result['response']['query']['entries'];
-		} else {
-			throw new Exception('Attributes in project could not be fetched');
-		}
-	}
-
-	public function getAttributeByTitle($pid, $title)
-	{
-		foreach ($this->getAttributes($pid) as $attr) {
-			if ($attr['title'] == $title) {
-				$result = $this->_getWriterApi('/gooddata-writer/proxy?writerId=' . $this->writerId . '&query=' . $attr['link']);
-				return $result['response'];
-			}
-		}
+		$this->assertEquals('success', $jobStatus['job']['status']);
 	}
 }

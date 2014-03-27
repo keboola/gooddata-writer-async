@@ -8,6 +8,59 @@ API calls work only in integration with Keboola Storage API and need Storage API
 ---
 
 --
+Configuration in Storage API
+
+Each writer has it's own bucket in `sys` stage which is created automatically by [Create writer](#post-%2Fgooddata-writer%2Fwriters) request. By default bucket is named `sys.c-wr-gooddata-[writerId]` but that is not mandatory. It has several attributes:
+
+* **writer** - with value **gooddata** is used to identify that the bucket contains writer configuration
+* **writerId** - name of writer, must be unique within project and may contain only letters, numbers and underscores
+* **gd.pid** - PID of main GoodData project
+* **gd.uid** - UID of GoodData account used for requests to GoodData API
+* **gd.username** - username of GoodData account used for requests to GoodData API
+* **gd.password** - password of GoodData account used for requests to GoodData API
+* **gd.backendUrl** (optional) - url to non-default GoodData backend
+* **filterColumn** (optional) - name of column which will be used for filtering of cloned projects by pid
+* **maintenance** (optional) - processing of writer's jobs is postponed if not empty
+
+There are two basic configuration tables used for data loads: **data_sets** and **date_dimensions**. 
+
+There can be other tables used for special purposes: **projects, users, project_users** for project cloning and user management and **filters, filters_users, filters_projects** for mandatory user filters. These are described in their own sections.
+
+# data_sets
+
+Contains definition and metadata of each dataset. It is required. Columns:
+
+* **id** (primary key) - full id of table in Storage API
+* **name** - desired name of dataset in GoodData
+* **export** - flag whether to export the dataset in [Upload Project](#post-%2Fgooddata-writer%2Fupload-project) request or not
+* **isExported** - flagh whether the dataset has been exported to GoodData or not
+* **lastChangeDate** - date of last change of dataset's configuration, in ISO 8601 format
+* **incrementalLoad** - should be empty or 0 for full load or contain number of days which are used for export of table from SAPI
+* **ignoreFilter** - flag whether the filtering of data for clones should be ignored on this table
+* **definition** - JSON object with description of columns definition, example:
+
+    {
+        "id" : {
+            "gdName" : "Id",
+            "type" : "CONNECTION_POINT"
+        },
+        "name" : {
+            "gdName" : "Name",
+            "type" : "ATTRIBUTE"
+        }
+    }
+
+# date_dimensions
+
+Contains definition and metadata of each date dimension. It is optional. Columns:
+
+* **name** (primary key) - name of date dimension
+* **includeTime** - flag whether the dimension contains time
+* **isExported** - flagh whether the dimension has been exported to GoodData or not
+
+--
+
+--
 Writers
 Commands for handling whole writers
 --
@@ -20,17 +73,33 @@ GET /writers
 > X-StorageApi-Token: your_token
 < 200
 < Content-Type: application/json
-{
-    "status": "ok",
-    "duration": 45.11,
+{ 
+    "status": "ok", 
+    "duration": 45.11, 
     "writers": [
         {
             "id": "writer1",
-            "bucket": "sys.c-wr-gooddata-writer1"
+            "bucket": "sys.c-wr-gooddata-writer1",
+            "writer": "gooddata",
+            "writerId": "writer1",
+            "gd": {
+                "pid": "vcmxlgjsojfdsjfdsdskfsfdks",
+                "uid": "dkgkfdreituigjfgfjkdgfkdfng",
+                "username": "user1@clients.keboola.com",
+                "password": "password"
+            }
         },
         {
             "id": "writer2",
-            "bucket": "sys.c-wr-gooddata-writer2"
+            "bucket": "sys.c-wr-gooddata-writer2",
+            "writer": "gooddata",
+            "writerId": "writer2",
+            "gd": {
+                "pid": "xcmxlgjsojfdsjfdsdskfsfdks",
+                "uid": "wwgkfdreituigjfgfjkdgfkdwre",
+                "username": "user2@clients.keboola.com",
+                "password": "password2"
+            }
         }
     ]
 }
@@ -40,23 +109,25 @@ Returns attributes of the writer
 
 #### Parameters
 
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 
 GET /writers?writerId={writerId}
 > X-StorageApi-Token: your_token
 < 200
 < Content-Type: application/json
-{
-    "status": "ok",
-    "duration": 45.11,
+{ 
+    "status": "ok", 
+    "duration": 45.11, 
     "writer": [
         {
             "writer": "gooddata",
             "writerId": "writer1",
-            "gd.pid": "vcmxlgjsojfdsjfdsdskfůsfdks",
-            "gd.uid": "dkgkfdreituigjfgfjkdgfkdfng",
-            "gd.username": "user1@clients.keboola.com",
-            "gd.password": "password"
+            "gd": { 
+                "pid": "vcmxlgjsojfdsjfdsdskfsfdks",
+                "uid": "dkgkfdreituigjfgfjkdgfkdfng",
+                "username": "user1@clients.keboola.com",
+                "password": "password"
+            }
         }
     ]
 }
@@ -67,20 +138,44 @@ Creates new configuration bucket and creates GoodData project and dedicated Good
 
 #### Parameters
 
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 * **backendUrl** (optional) - url of backend (secure.gooddata.com by default)
 * **accessToken** (optional) - GoodData access token (main Keboola by default)
+* **users** (optional) - comma-separated list of users emails which should be added to main project
 * **queue** (optional) - with value **secondary** will put job in secondary queue
 POST /writers
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "writerId": "writer1" }
-< 200
+< 202
 < Content-Type: application/json
-{
-    "status": "ok",
-    "duration": 2.89,
-    "job": job_id
+{ 
+    "status": "ok", 
+    "duration": 2.89, 
+    "job": job_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id"
+}
+
+
+### Reset project
+Creates new GoodData project for the writer and enqueues the old for deletion
+
+#### Parameters
+
+* **writerId** (required)
+* **removeClones** (optional) - remove or keep all clones
+* **queue** (optional) - with value **secondary** will put job in secondary queue
+POST /reset-project
+> X-StorageApi-Token: your_token
+> Accept: application/json
+{ "writerId": "writer1" }
+< 202
+< Content-Type: application/json
+{ 
+    "status": "ok", 
+    "duration": 2.89, 
+    "job": job_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id"
 }
 
 
@@ -89,27 +184,118 @@ Deletes configuration bucket and enqueues GoodData project and dedicated GoodDat
 
 #### Parameters
 
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 * **queue** (optional) - with value **secondary** will put job in secondary queue
 DELETE /writers?writerId={writerId}
 > X-StorageApi-Token: your_token
-< 200
+< 202
 < Content-Type: application/json
-{
-    "status": "ok",
-    "duration": 1.89,
-    "job": job_id
+{ 
+    "status": "ok", 
+    "duration": 1.89, 
+    "job": job_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id"
 }
 
 
 
 --
-Projects
-Commands for handling projects of specific writer
+Users management
+Commands for handling GoodData users
+
+# Tables configuration
+
+## users
+
+Table is used for list of created users. When you create new user Writer will add it to this table. It's columns are:
+
+* **email** (primary key) - email of user
+* **uid** - GoodData UID of user
+
+--
+
+
+### Get users list
+
+GET /users?writerId={writerId}
+> X-StorageApi-Token: your_token
+< 200
+< Content-Type: application/json
+{ "status": "ok", "duration": 31.54, "users": [
+        {
+            "email": "11112@test.keboola.com",
+            "uri": "/gdc/account/profile/3b761f4d31dcd3c28a4336117635dd38"
+        },
+        {
+            "email": "2@test.keboola.com",
+            "uri": "/gdc/account/profile/8a2c90bcae3ea2f7eafc875c0917e268"
+        }
+    ]
+}
+
+
+### Create user
+Creates new GoodData user in Keboola domain.
+
+#### Parameters
+
+* **writerId** (required)
+* **email** (required) - user email
+* **password** (required) - user password (has to have at least seven characters)
+* **firstName** (required) - user first name
+* **lastName** (required) - user last name
+* **ssoProvider** (optional) - optional ssoProvider, default is keboola.com
+* **queue** (optional) - with value **secondary** will put job in secondary queue
+POST /users
+> X-StorageApi-Token: your_token
+> Accept: application/json
+{ "writerId": "writer1", "email" }
+< 202
+< Content-Type: application/json
+{ 
+    "status": "ok", 
+    "job": job_id, 
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
+
+
+--
+Project clones
+
+Main project of the writer can be cloned multiple times. Cloned projects will have the same structure as the main project but can contain different data.
+
+If you specify bucket attribute `filterColumn` and perform upload, Writer will look for a column with specified name in each table and will upload to each cloned project only those rows which contain pid of the project in the column. Main project will recieve all rows regardless values of the column.
+
+If you have a table which you want to load whole to each cloned project, you can add attribute `ignoreFilter` with non-null value to it's configuration.
+
+API calls [/upload-table](#post-%2Fgooddata-writer%2Fupload-table) and [/upload-project](#post-%2Fgooddata-writer%2Fupload-project) accept parameter `pid` which ensures data load only to specified project.
+
+# Tables configuration
+
+## projects
+
+Table is used for list of main project clones. When you [create new clone](#post-%2Fgooddata-writer%2Fprojects) Writer will add it's PID to this table. It's columns are:
+
+* **pid** (primary key) - GoodData PID of project
+* **active** - flag whether the project should be loaded with data when performing upload requests
+
+## project_users
+
+Table is used as log of operations between projects and users
+
+* **id** (primary key) - some uinque identifier
+* **pid** - PID of GoodData project
+* **email** - email of GoodData user
+* **role** - role of user
+* **action** - action (**add** or **invite**)
+
 --
 
 
 ### Get projects list
+
+Returns list of project clones including main project marked with `main: 1` field
 
 GET /projects?writerId={writerId}
 > X-StorageApi-Token: your_token
@@ -118,15 +304,16 @@ GET /projects?writerId={writerId}
 { "status": "ok", "duration": 31.54, "projects": [
         {
             "pid": "l7eqkx6daomtv5iw2912p019anskzt1n",
-            "active": "1"
+            "active": 1,
+            "main": 1
         },
         {
             "pid": "rcgtjwroldsctin8pzxxg1n1nwbgelhb",
-            "active": "1"
+            "active": 1
         },
         {
             "pid": "xjywplmhejceb6j3ezzlxiganmjavqio",
-            "active": "1"
+            "active": 1
         }
     ]
 }
@@ -137,7 +324,7 @@ Creates new GoodData project by cloning the main project with PID in bucket attr
 
 #### Parameters
 
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 * **name** (optional) - name of project ("KBC - projectId - writerId" by default)
 * **accessToken** (optional) - GoodData access token (main Keboola by default)
 * **queue** (optional) - with value **secondary** will put job in secondary queue
@@ -145,28 +332,14 @@ POST /projects
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "writerId": "writer1" }
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok", "job": job_id, "duration": 35.12 }
-
-
-### Create project and wait for PID
-Creates new GoodData project by cloning the main project with PID in bucket attribute. Returns it's PID on output.
-
-#### Parameters
-
-* **wait** (optional)
-* **writerId** (required) - KBC id of writer
-* **name** (optional) - name of project ("KBC - projectId - writerId" by default)
-* **accessToken** (optional) - GoodData access token (main Keboola by default)
-* **queue** (optional) - with value **secondary** will put job in secondary queue
-POST /projects
-> X-StorageApi-Token: your_token
-> Accept: application/json
-{ "writerId": "writer1", "wait": 1 }
-< 200
-< Content-Type: application/json
-{ "status": "ok", "pid": pid, "duration": 345.51 }
+{ 
+    "status": "ok", 
+    "job": job_id, 
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
 
 
 ### Get list of users in project
@@ -195,125 +368,44 @@ If user does not exists or exists in other domain, project invitation will be se
 
 #### Parameters
 
-* **wait** (optional)
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 * **pid** (required) - PID of project
 * **email** (required) - email of user
 * **role** (required) - role of user (one of: admin, editor, readOnly, dashboardOnly)
+* **createUser** (optional) - if true and user does not exist, it will be created
 * **queue** (optional) - with value **secondary** will put job in secondary queue
 POST /project-users
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "writerId": "writer1", "pid": "xjywplmhejceb6j3ezzlxiganmjavqio", "email": "user1@keboola.com", "role": "editor" }
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok", "job": job_id, "duration": 35.12 }
+{ 
+    "status": "ok", 
+    "job": job_id, 
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
 
-### Add user to project and create him if does not exists
-Adds GoodData user to specified project. New user account will be created if user does not exists in GoodData
-
-If user exists in other domain, project invitation will be sent to user.
-
-#### Parameters
-
-* **createUser** (optional)
-* **wait** (optional)
-* **writerId** (required) - KBC id of writer
-* **pid** (required) - PID of project
-* **email** (required) - email of user
-* **role** (required) - role of user (one of: admin, editor, readOnly, dashboardOnly)
-* **queue** (optional) - with value **secondary** will put job in secondary queue
-POST /project-users
-> X-StorageApi-Token: your_token
-> Accept: application/json
-{ "createUser": "1", "writerId": "writer1", "pid": "xjywplmhejceb6j3ezzlxiganmjavqio", "email": "user1@keboola.com", "role": "editor" }
-< 200
-< Content-Type: application/json
-{ "status": "ok", "job": job_id, "duration": 35.12 }
 
 ### Remove user from project
 Remove user from specified project. Project invitations will be also canceled.
 
 #### Parameters
 
-* **wait** (optional)
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 * **pid** (required) - PID of project
 * **email** (required) - email of user
-* **queue** (optional) - with value **secondary** will put job in secondary queue
 DELETE /project-users?writerId={writerId}&pid={pr0j3ct_p1d}&email={user@email.com}
 > X-StorageApi-Token: your_token
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok", "job": job_id, "duration": 35.12 }
-
-
---
-Users
-Commands for handling GoodData users
---
-
-
-### Get users list
-
-GET /users?writerId={writerId}
-> X-StorageApi-Token: your_token
-< 200
-< Content-Type: application/json
-{ "status": "ok", "duration": 31.54, "users": [
-        {
-            "email": "11112@test.keboola.com",
-            "uri": "/gdc/account/profile/3b761f4d31dcd3c28a4336117635dd38"
-        },
-        {
-            "email": "2@test.keboola.com",
-            "uri": "/gdc/account/profile/8a2c90bcae3ea2f7eafc875c0917e268"
-        }
-    ]
+{ 
+    "status": "ok", 
+    "job": job_id, 
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
 }
-
-
-### Create user
-Creates new GoodData user in Keboola domain.
-
-#### Parameters
-
-* **writerId** (required) - KBC id of writer
-* **email** (required) - user email
-* **password** (required) - user password (has to have at least seven characters)
-* **firstName** (required) - user first name
-* **lastName** (required) - user last name
-* **ssoProvider** (optional) - optional ssoProvider, default is keboola.com
-* **queue** (optional) - with value **secondary** will put job in secondary queue
-POST /users
-> X-StorageApi-Token: your_token
-> Accept: application/json
-{ "writerId": "writer1", "email" }
-< 200
-< Content-Type: application/json
-{ "status": "ok", "job": job_id, "duration": 35.12 }
-
-
-### Create user and wait
-Creates new GoodData user in Keboola domain and waits for it's user uri.
-
-#### Parameters
-
-* **wait** (required)
-* **writerId** (required) - KBC id of writer
-* **email** (required) - user email
-* **password** (required) - user password (has to have at least seven characters)
-* **firstName** (required) - user first name
-* **lastName** (required) - user last name
-* **queue** (optional) - with value **secondary** will put job in secondary queue
-POST /users
-> X-StorageApi-Token: your_token
-> Accept: application/json
-{ "writerId": "writer1", "email" }
-< 200
-< Content-Type: application/json
-{ "status": "ok", "uri": "/gdc/account/profile/8a2c90bcae3ea2f7eafc875c0917e268", "duration": 335.12 }
-
 
 
 --
@@ -326,63 +418,95 @@ Commands for manipulation with GoodData project structure and data
 
 #### Parameters
 
-* **wait** (optional)
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 * **incrementalLoad** (optional) - force incremental or full load
-* **sanitize** (optional) - force replacing or skipping null values in csv files
+* **pid** (optional) - filter rows from data table by filter column (see [Project clones](#projectclones))
 * **queue** (optional) - with value **secondary** will put job in secondary queue
 POST /upload-project
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "writerId": "123" }
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok", "batch": "batch_id", "jobs": {"job1_id", "job2_id" } }
+{ 
+    "status": "ok", 
+    "jobs": {
+        job_id1,
+        job_id2
+    },
+    "batch": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/batch?writerId=writer1&batchId=batch_id",
+    "duration": 35.12 
+}
 
 
 ### Upload selected table
 
 #### Parameters
 
-* **wait** (optional)
 * **tableId** (required) - name of table to upload
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 * **incrementalLoad** (optional) - force incremental or full load
-* **sanitize** (optional) - force replacing or skipping null values in csv files
+* **pid** (optional) - filter rows from data table by filter column (see [Project clones](#projectclones))
 * **queue** (optional) - with value **secondary** will put job in secondary queue
 POST /upload-table
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { "tableId": "out.c-main-products", "writerId": "123" }
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok", "batch": "batch_id", "jobs": {"job1_id", "job2_id" } }
+{ 
+    "status": "ok", 
+    "jobId": job_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
 
 
-### Get dataset xml
+### Reset table
+Remove dataset in GoodData project belonging to the table and reset it's export status
 
-GET /xml?writerId={writerId}&tableId={tableId}
+#### Parameters
+
+* **tableId** (required) - name of table to reset
+* **writerId** (required)
+* **queue** (optional) - with value **secondary** will put job in secondary queue
+POST /reset-table
 > X-StorageApi-Token: your_token
-< 200
-< Content-Type: application/xml
-<?xml version="1.0"?>
-<schema>
-    <name>Categories</name>
-    <columns>
-        <column>
-            <name>id</name>
-            <title>id (Categories)</title>
-            <ldmType>CONNECTION_POINT</ldmType>
-            <folder>Categories</folder>
-        </column>
-        <column>
-            <name>name</name>
-            <title>name (Categories)</title>
-            <ldmType>ATTRIBUTE</ldmType>
-            <folder>Categories</folder>
-        </column>
-    </columns>
-</schema>
+> Accept: application/json
+{ "writerId": "writer1", "tableId": "out.c-main.table" }
+< 202
+< Content-Type: application/json
+{ 
+    "status": "ok",
+    "jobId": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
+
+
+### Upload date dimension
+
+Selectively upload date dimension (must be already configured in Writer)
+
+#### Parameters
+
+* **name** (required) - name of date dimension
+* **writerId** (required)
+* **pid** (optional) - filter rows from data table by filter column (see [Project clones](#projectclones))
+* **queue** (optional) - with value **secondary** will put job in secondary queue
+POST /upload-date-dimension
+> X-StorageApi-Token: your_token
+> Accept: application/json
+{ "name": "ProductDate", "writerId": "123" }
+< 202
+< Content-Type: application/json
+{ 
+    "status": "ok",
+    "jobId": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
 
 
 ### Execute reports
@@ -391,8 +515,7 @@ Use this method to execute selected reports in GoodData
 
 #### Parameters
 
-* **wait** (optional)
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 * **pid** (required) - PID of project
 * **reports** (optional) - array of GD links to reports
 * **queue** (optional) - with value **secondary** will put job in secondary queue
@@ -407,12 +530,13 @@ POST /execute-reports
         "/gdc/md/pr0j3ct_p1d/obj/673"
     ]
 }
-< 200
+< 202
 < Content-Type: application/json
-{
+{ 
     "status": "ok",
-    "job": "job1d",
-    "duration": 2.23
+    "jobId": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
 }
 
 
@@ -422,6 +546,15 @@ Jobs
 
 
 ### Get jobs list
+
+#### Parameters
+
+* **writerId** (required) - id of writer
+* **days** (optional) - age of jobs which should be fetched, default is 7 days
+* **command** (optional) - filter jobs by command
+* **tableId** (optional) - filter jobs belonging to given tableId
+* **tokenId** (optional) - filter jobs belonging to given token
+* **status** (optional) - filter jobs with given status
 
 GET /jobs?writerId={writerId}
 > X-StorageApi-Token: your_token
@@ -439,18 +572,12 @@ GET /jobs?writerId={writerId}
                 "id": 2352,
                 "description": "Master Token"
             },
-            "initializedBy": "",
             "createdTime": "2013-04-05T10:15:48+02:00",
             "startTime": "2013-04-05T10:45:06+02:00",
             "endTime": "2013-04-05T10:45:17+02:00",
             "command": "addUserToProject",
-            "pid": "",
-            "dataset": "",
-            "xmlFile": "",
-            "csvFile": "",
             "parameters": {
                 "writerId": "wr9",
-                "wait": 1,
                 "email": "11112@test.keboola.com",
                 "pid": "xjywplmhejceb6j3ezzlxiganmjavqio",
                 "role": "editor"
@@ -462,7 +589,6 @@ GET /jobs?writerId={writerId}
                 "duration": 8
             },
             "gdWriteStartTime": "2013-04-05T10:45:12+02:00",
-            "gdWriteBytes": "",
             "status": "success",
             "log": "url to log"
         },
@@ -489,18 +615,12 @@ GET /jobs?writerId={writerId}&jobId={jobId}
             "id": 2352,
             "description": "Master Token"
         },
-        "initializedBy": "",
         "createdTime": "2013-04-05T10:15:48+02:00",
         "startTime": "2013-04-05T10:45:06+02:00",
         "endTime": "2013-04-05T10:45:17+02:00",
         "command": "addUserToProject",
-        "pid": "",
-        "dataset": "",
-        "xmlFile": "",
-        "csvFile": "",
         "parameters": {
             "writerId": "wr9",
-            "wait": 1,
             "email": "11112@test.keboola.com",
             "pid": "xjywplmhejceb6j3ezzlxiganmjavqio",
             "role": "editor"
@@ -512,7 +632,6 @@ GET /jobs?writerId={writerId}&jobId={jobId}
             "duration": 8
         },
         "gdWriteStartTime": "2013-04-05T10:45:12+02:00",
-        "gdWriteBytes": "",
         "status": "success",
         "log": "url to log"
     },
@@ -559,7 +678,7 @@ GET /filters?writerId={writerId}&userEmail={userEmail}
 < 200
 < Content-Type: application/json
 {
-    "filters": [
+    "filters": [        
         {
             "name": "filter1",
             "attribute": "out.c-main.users.name",
@@ -576,24 +695,22 @@ GET /filters?writerId={writerId}&userEmail={userEmail}
 
 #### Parameters
 
-* **wait** (optional)
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 * **pid** (required) - PID of the project, in which the filter will be created
 * **name** (required) - Name of the filter
 * **attribute** (required) - Name of the attribute in SAPI notation (stage.c-bucket.table.column)
-* **element** (required) - Value of the attribute
-* **operator** (optional) - One of =,>,<,<>. Default "=".
+* **element** (required) - Value of the attribute, could be an array in combination with operators "IN" or "NOT IN"
+* **operator** (optional) - One of =,>,<,<>, IN, NOT IN. Default "=".
 * **queue** (optional) - with value **secondary** will put job in secondary queue
 POST /filters
 > X-StorageApi-Token: your_token
 > Accept: application/json
-{
-    "wait": 1,
-    "writerId": "123",
-    "pid": "p1d_0f_y0u2_6d_p20j3ct",
-    "name": "myFilter",
-    "attribute": "out.c-main.users.name",
-    "element": "John Smith"
+{ 
+    "writerId": "123", 
+    "pid": "p1d_0f_y0u2_6d_p20j3ct", 
+    "name": "myFilter", 
+    "attribute": "out.c-main.users.name", 
+    "element": "John Smith" 
 }
 < 200
 < Content-Type: application/json
@@ -604,8 +721,7 @@ POST /filters
 
 #### Parameters
 
-* **wait** (optional)
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 * **pid** (required) - PID of the project, in which the filter exists
 * **filters** (required) - Array of filters to assign
 * **userEmail** (required) - email of the User, who will be affected by the filter(s)
@@ -614,15 +730,19 @@ POST /filters
 POST /filters-user
 > X-StorageApi-Token: your_token
 > Accept: application/json
-{
-    "wait": 1,
-    "writerId": "123",
-    "pid": "p1d_0f_y0u2_6d_p20j3ct",
-    "filters": ["myFilter"],
+{ 
+    "writerId": "123", 
+    "pid": "p1d_0f_y0u2_6d_p20j3ct", 
+    "filters": ["myFilter"], 
     "userEmail": "john.smith@keboola.com" }
-< 200
+< 202
 < Content-Type: application/json
-{ "status": "ok" }
+{ 
+    "status": "ok",
+    "jobId": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
 
 
 ### Synchronize Filters
@@ -630,18 +750,22 @@ Synchornize filters in Storage API with GoodData project
 
 #### Parameters
 
-* **wait** (optional)
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 * **pid** (optional) - PID of the project
 * **queue** (optional) - with value **secondary** will put job in secondary queue
 
 POST /sync-filters
 > X-StorageApi-Token: your_token
 > Accept: application/json
-{ "wait": 1, "writerId": "123", "pid": "p1d_0f_y0u2_6d_p20j3ct" }
-< 200
+{ "writerId": "123", "pid": "p1d_0f_y0u2_6d_p20j3ct" }
+< 202
 < Content-Type: application/json
-{ "status": "ok" }
+{ 
+    "status": "ok",
+    "jobId": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
 
 --
 SSO
@@ -653,7 +777,7 @@ Call to obtain an SSO link for user.
 
 #### Parameters
 
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 * **pid** (optional) - PID of the project
 * **email** (required) - Email of the user for whom the SSO link is generated
 * **createUser** (optional) - If user doesn't exists in GD yet set this option to 1, user will be created in GD and add to project prior to SSO link generation.
@@ -662,24 +786,24 @@ Call to obtain an SSO link for user.
 * **password**  (optional) - If createUser is set to 1, this specifies users password
 * **role**  (optional) - If createUser is set to 1, this specifies users role (one of: admin, editor, readOnly, dashboardOnly)
 
-GET /sso?writerId={writerId}&pid={pr0j3ct_p1d}&email={user@email.com}&wait=1
+GET /sso?writerId={writerId}&pid={pr0j3ct_p1d}&email={user@email.com}
 > X-StorageApi-Token: your_token
 > Accept: application/json
 < 200
 < Content-Type: application/json
-{
+{    
     "ssoLink": "https://secure.gooddata.com/gdc/account/customerlogin?sessionId=-----BEGIN+PGP+MESSAGE-----s0m3_l0000n6_h4sh",
-    "status": "ok"
+    "status": "ok"    
 }
 
-GET /sso?writerId={writerId}&pid={pr0j3ct_p1d}&email={user@email.com}&wait=1&createUser=1&firstName=john&lastName=smith&password=secretPassword
+GET /sso?writerId={writerId}&pid={pr0j3ct_p1d}&email={user@email.com}&createUser=1&firstName=john&lastName=smith&password=secretPassword
 > X-StorageApi-Token: your_token
 > Accept: application/json
 < 200
 < Content-Type: application/json
-{
+{    
     "ssoLink": "https://secure.gooddata.com/gdc/account/customerlogin?sessionId=-----BEGIN+PGP+MESSAGE-----s0m3_l0000n6_h4sh",
-    "status": "ok"
+    "status": "ok"    
 }
 
 --
@@ -692,7 +816,7 @@ Simple proxy for direct calls to GoodData API
 
 #### Parameters
 
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 * **query** (required) - Link to GoodData API resource (without protocol and domain)
 
 #### Returns
@@ -749,10 +873,10 @@ GET /proxy?writerId={writerId}&query=/gdc/md/{pr0j3ct_p1d}/query/projectdashboar
 
 #### Parameters
 
-* **writerId** (required) - KBC id of writer
+* **writerId** (required)
 * **query** (required) - Link to GoodData API resource (without protocol and domain)
 * **payload** (required) - Body of the POST request to GD
-* **wait** (optional) - if not set, a job ID is returned
+* **queue** (optional) - with value **secondary** will put job in secondary queue
 
 #### Returns
 
@@ -762,15 +886,16 @@ POST /proxy
 > X-StorageApi-Token: your_token
 > Accept: application/json
 {
-    "wait": 1,
     "writerId": "123",
     "query": "/gdc/md/p1d_0f_y0u2_6d_p20j3ct/obj",
     "payload": { ... }
 }
-< 200
+< 202
 < Content-Type: application/json
-{
-    "response": { ... },
+{ 
     "status": "ok",
-    "duration": 7.16
+    "jobId": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
 }
+

@@ -12,6 +12,8 @@
 
 namespace Keboola\GoodDataWriter\Service;
 
+use Keboola\GoodDataWriter\Exception\JobProcessException;
+
 class Lock
 {
 
@@ -66,8 +68,18 @@ class Lock
 
 	protected function _dbName()
 	{
-		$result = $this->_db->query('SELECT DATABASE()');
-		return (string)$result->fetchColumn();
+		$error = array();
+		for ($i = 0; $i < 5; $i++) {
+			$result = $this->_db->query('SELECT DATABASE()');
+			if ($result) {
+				return (string)$result->fetchColumn();
+			} else {
+				$error = $this->_db->errorInfo();
+			}
+			sleep($i * 60);
+		}
+
+		throw new \Exception('Could not connect to locking database. ' . implode(', ', $error));
 	}
 
 	public function getLockName()

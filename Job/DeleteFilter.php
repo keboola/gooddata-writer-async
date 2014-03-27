@@ -8,48 +8,34 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
-	Keboola\GoodDataWriter\GoodData\RestApiException,
-	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
+use Keboola\GoodDataWriter\GoodData\RestApiException;
 
 class DeleteFilter extends AbstractJob {
 
 	function run($job, $params)
 	{
+		$this->checkParams($params, array('uri'));
+
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$gdWriteStartTime = date('c');
-
-		$this->_checkParams($params, array(
-			'uri'
-		));
-
 		try {
-			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			try {
-				$this->restApi->deleteFilter($params['uri']);
-			} catch (RestApiException $e) {
-				$mes = json_decode($e->getMessage(), true);
-
-				var_dump($mes);
-
-				if ($mes['error']['errorClass'] != 'GDC::Exception::NotFound') {
-					throw new RestApiException($e->getMessage(), $e->getCode(), $e);
-				}
-			}
-
-			$this->configuration->deleteFilter($params['uri']);
-
-			return $this->_prepareResult($job['id'], array(
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->restApi->callsLog());
-
-		} catch (UnauthorizedException $e) {
-			throw new WrongConfigurationException('Login failed');
+			$this->restApi->deleteFilter($params['uri']);
 		} catch (RestApiException $e) {
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => $e->getMessage(),
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->restApi->callsLog());
+			$mes = json_decode($e->getMessage(), true);
+
+			if (!isset($mes['error']['errorClass']) || $mes['error']['errorClass'] != 'GDC::Exception::NotFound') {
+				throw $e;
+			}
 		}
+
+		$this->configuration->deleteFilter($params['uri']);
+
+		$this->logEvent('deleteFilter', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
+		return array(
+			'gdWriteStartTime' => $gdWriteStartTime
+		);
 	}
 }

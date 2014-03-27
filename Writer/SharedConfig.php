@@ -6,11 +6,12 @@
 
 namespace Keboola\GoodDataWriter\Writer;
 
-use Keboola\Csv\CsvFile;
+use Keboola\GoodDataWriter\Exception\WrongParametersException;
+use Keboola\GoodDataWriter\GoodData\User;
 use Keboola\StorageApi\Client as StorageApiClient,
-	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\Service\StorageApiConfiguration;
+use Syrup\ComponentBundle\Service\Encryption\EncryptorFactory;
 
 
 class SharedConfigException extends \Exception
@@ -22,6 +23,7 @@ class SharedConfigException extends \Exception
 class SharedConfig extends StorageApiConfiguration
 {
 	const WRITER_NAME = 'gooddata_writer';
+	const DOMAINS_TABLE_ID = 'in.c-wr-gooddata.domains';
 	const JOBS_TABLE_ID = 'in.c-wr-gooddata.jobs';
 	const PROJECTS_TABLE_ID = 'in.c-wr-gooddata.projects';
 	const USERS_TABLE_ID = 'in.c-wr-gooddata.users';
@@ -37,22 +39,45 @@ class SharedConfig extends StorageApiConfiguration
 	const PRIMARY_QUEUE = 'primary';
 	const SECONDARY_QUEUE = 'secondary';
 
+	private $encryptor;
 
-	/**
-	 * @param StorageApiClient $storageApiClient
-	 */
-	public function __construct($storageApiClient)
+
+	public function __construct(AppConfiguration $appConfiguration, EncryptorFactory $encryptorFactory)
 	{
-		$this->_storageApiClient = $storageApiClient;
+		$this->_storageApiClient = new StorageApiClient(
+			$appConfiguration->sharedSapi_token,
+			$appConfiguration->sharedSapi_url,
+			$appConfiguration->userAgent
+		);
+		$this->encryptor = $encryptorFactory->get('gooddata-writer'); //@TODO component name
+	}
+
+	public function getDomainUser($domain)
+	{
+		$result = $this->_fetchTableRows(self::DOMAINS_TABLE_ID, 'name', $domain);
+		$result = reset($result);
+		if (!$result || !isset($result['name']))
+			throw new SharedConfigException(sprintf("User for domain '%s' does not exist", $domain));
+
+		$user = new User();
+		$user->domain = $result['name'];
+		$user->username = $result['username'];
+		$user->password = $this->encryptor->decrypt($result['password']);
+		$user->uid = $result['uid'];
+
+		return $user;
+	}
+
+	public function saveDomain($name, $username, $password)
+	{
+		$this->_updateTableRow(self::DOMAINS_TABLE_ID, 'name', array(
+			'name' => $name,
+			'username' => $username,
+			'password' => $this->encryptor->encrypt($password)
+		));
 	}
 
 
-	/**
-	 * @param $projectId
-	 * @param $writerId
-	 * @param $days
-	 * @return mixed
-	 */
 	public function fetchJobs($projectId, $writerId, $days = 7)
 	{
 		return $this->_fetchTableRows(self::JOBS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId, array(
@@ -68,7 +93,7 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function fetchJob($jobId, $writerId = null, $projectId = null)
 	{
-		$job = $this->_fetchTableRows(self::JOBS_TABLE_ID, 'id', $jobId);
+		$job = $this->_fetchTableRows(self::JOBS_TABLE_ID, 'id', $jobId, array(), false);
 		$job = reset($job);
 
 		if ((!$writerId || $job['writerId'] == $writerId) && (!$projectId || $job['projectId'] == $projectId)) {
@@ -84,7 +109,7 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function fetchBatch($batchId)
 	{
-		return $this->_fetchTableRows(self::JOBS_TABLE_ID, 'batchId', $batchId);
+		return $this->_fetchTableRows(self::JOBS_TABLE_ID, 'batchId', $batchId, array(), false);
 	}
 
 	/**
@@ -106,16 +131,13 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function saveJob($jobId, $fields)
 	{
-		if (isset($fields['parameters'])) {
-			$encodedParameters = json_encode($fields['parameters']);
-			if ($encodedParameters) {
-				$fields['parameters'] = $encodedParameters;
-			}
-		}
-		if (isset($fields['result'])) {
-			$encodedResult = json_encode($fields['result']);
-			if ($encodedResult) {
-				$fields['result'] = $encodedResult;
+		$keysToEncode = array('parameters', 'result', 'logs', 'debug');
+		foreach ($keysToEncode as $key) {
+			if (isset($fields[$key])) {
+				$encodedParameters = json_encode($fields[$key]);
+				if ($encodedParameters) {
+					$fields[$key] = $encodedParameters;
+				}
 			}
 		}
 
@@ -126,127 +148,104 @@ class SharedConfig extends StorageApiConfiguration
 	}
 
 	/**
-	 * @param $status
-	 * @return bool
+	 *
 	 */
-	public static function isJobFinished($status)
+	public function jobToApiResponse(array $job, S3Client $s3Client = null)
 	{
-		return in_array($status, array(
-			self::JOB_STATUS_SUCCESS,
-			self::JOB_STATUS_ERROR,
-			self::JOB_STATUS_CANCELLED
-		));
-	}
-
-	/**
-	 * @param array $job
-	 * @param S3Client $s3Client
-	 * @return array
-	 */
-	public function jobToApiResponse(array $job, $s3Client = null)
-	{
-		if (!is_array($job['result'])) {
-			$result = json_decode($job['result'], true);
-			if (isset($result['debug']) && !is_array($result['debug'])) $result['debug'] = json_decode($result['debug'], true);
-			if ($result) {
-				$job['result'] = $result;
+		$keysToDecode = array('parameters', 'result', 'logs', 'debug');
+		foreach ($keysToDecode as $key) {
+			if (!is_array($job[$key])) {
+				$result = json_decode($job[$key], true);
+				if (isset($result['debug']) && !is_array($result['debug']))
+					$result['debug'] = json_decode($result['debug'], true);
+				if ($result) {
+					$job[$key] = $result;
+				}
 			}
 		}
 
-		if (!is_array($job['parameters'])) {
-			$params = json_decode($job['parameters'], true);
-			if ($params) {
-				$job['parameters'] = $params;
-			}
+		if (isset($job['parameters']['accessToken'])) {
+			$job['parameters']['accessToken'] = '***';
+		}
+		if (isset($job['parameters']['password'])) {
+			$job['parameters']['password'] = '***';
+		}
+
+		$logs = is_array($job['logs']) ? $job['logs'] : array();
+		if (!empty($job['definition'])) {
+			$logs['DataSet Definition'] = $job['definition'];
 		}
 
 		// Find private links and make them accessible
 		if ($s3Client) {
-			if ($job['xmlFile']) {
-				$url = parse_url($job['xmlFile']);
-				if (empty($url['host'])) {
-					$job['xmlFile'] = $s3Client->url($job['xmlFile']);
-				}
-			}
-			if ($job['log']) {
-				$url = parse_url($job['log']);
-				if (empty($url['host'])) {
-					$job['log'] = $s3Client->url($job['log']);
-				}
-			}
-			if (!empty($job['result']['debug']) && is_array($job['result']['debug'])) {
-				foreach ($job['result']['debug'] as $key => &$value) {
-					if (is_array($value)) {
-						foreach ($value as $k => &$v) {
-							$url = parse_url($v);
-							if (empty($url['host'])) {
-								$v = $s3Client->url($v);
-							}
-						}
-					} else {
-						$url = parse_url($value);
-						if (empty($url['host'])) {
-							$value = $s3Client->url($value);
-						}
+			foreach ($logs as &$log) {
+				if (is_array($log)) foreach ($log as &$v) {
+					$url = parse_url($v);
+					if (empty($url['host'])) {
+						$v = $s3Client->url($v);
+					}
+				} else {
+					$url = parse_url($log);
+					if (empty($url['host'])) {
+						$log = $s3Client->url($log);
 					}
 				}
 			}
 		}
 
-		return array(
+		$result = array(
 			'id' => (int) $job['id'],
 			'batchId' => (int) $job['batchId'],
 			'runId' => (int) $job['runId'],
 			'projectId' => (int) $job['projectId'],
 			'writerId' => (string) $job['writerId'],
+			'queueId' => !empty($job['queueId']) ? $job['queueId'] : sprintf('%s.%s.%s', $job['projectId'], $job['writerId'], self::PRIMARY_QUEUE),
 			'token' => array(
 				'id' => (int) $job['tokenId'],
 				'description' => $job['tokenDesc'],
 			),
-			'initializedBy' => $job['initializedBy'],
 			'createdTime' => $job['createdTime'],
 			'startTime' => !empty($job['startTime']) ? $job['startTime'] : null,
 			'endTime' => !empty($job['endTime']) ? $job['endTime'] : null,
 			'command' => $job['command'],
 			'dataset' => $job['dataset'],
-			'xmlFile' => $job['xmlFile'],
 			'parameters' => $job['parameters'],
 			'result' => $job['result'],
 			'gdWriteStartTime' => $job['gdWriteStartTime'],
-			'gdWriteBytes' => $job['gdWriteBytes'] ? (int) $job['gdWriteBytes'] : null,
 			'status' => $job['status'],
-			'log' => $job['log'],
-			'queueId' => !empty($job['queueId']) ? $job['queueId'] : sprintf('%s.%s.%s', $job['projectId'], $job['writerId'], self::PRIMARY_QUEUE)
+			'logs' => $logs
 		);
+
+		return $result;
 	}
 
 	/**
-	 * @param $batchId
-	 * @param null $s3Client
-	 * @return array
-	 * @throws SharedConfigException
+	 *
 	 */
 	public function batchToApiResponse($batchId, $s3Client = null)
 	{
+		$jobs = $this->fetchBatch($batchId);
+		if (!count($jobs)) {
+			throw new WrongParametersException(sprintf("Batch '%d' not found", $batchId));
+		}
+
 		$data = array(
 			'batchId' => (int)$batchId,
 			'projectId' => null,
 			'writerId' => null,
+			'queueId' => null,
 			'createdTime' => date('c'),
 			'startTime' => date('c'),
 			'endTime' => null,
 			'status' => null,
-			'jobs' => array(),
-			'result' => null,
-			'log' => null,
-			'queueId' => null
+			'jobs' => array()
 		);
 		$cancelledJobs = 0;
 		$waitingJobs = 0;
 		$processingJobs = 0;
 		$errorJobs = 0;
 		$successJobs = 0;
-		foreach ($this->fetchBatch($batchId) as $job) {
+		foreach ($jobs as $job) {
 			$job = $this->jobToApiResponse($job, $s3Client);
 
 			if (!$data['projectId']) {
@@ -336,9 +335,13 @@ class SharedConfig extends StorageApiConfiguration
 	 * @param $writerId
 	 * @return mixed
 	 */
-	public function getProjects($projectId, $writerId)
+	public function getProjects($projectId = null, $writerId = null)
 	{
-		return $this->_fetchTableRows(self::PROJECTS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId);
+		if ($projectId && $writerId) {
+			return $this->_fetchTableRows(self::PROJECTS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId);
+		} else {
+			return $this->_fetchTableRows(self::PROJECTS_TABLE_ID);
+		}
 	}
 
 	/**
@@ -370,13 +373,8 @@ class SharedConfig extends StorageApiConfiguration
 		$this->_updateTable(self::PROJECTS_TO_DELETE_TABLE_ID, 'pid', array('pid', 'deletedTime'), $data);
 	}
 
-	/**
-	 * @param $projectId
-	 * @param $writerId
-	 * @param $pid
-	 * @param $backendUrl
-	 */
-	public function enqueueProjectToDelete($projectId, $writerId, $pid, $backendUrl = null)
+
+	public function enqueueProjectToDelete($projectId, $writerId, $pid)
 	{
 		$data = array(
 			'pid' => $pid,
@@ -446,27 +444,6 @@ class SharedConfig extends StorageApiConfiguration
 			'deletedTime' => null
 		);
 		$this->_updateTableRow(self::USERS_TO_DELETE_TABLE_ID, 'uid', $data);
-	}
-
-
-	/**
-	 * @param $writerId
-	 * @param $runId
-	 * @param $message
-	 * @param array $params
-	 * @param array $results
-	 */
-	public function logEvent($writerId, $runId, $message, $params = array(), $results = array())
-	{
-		$event = new StorageApiEvent();
-		$event
-			->setComponent(self::WRITER_NAME)
-			->setConfigurationId($writerId)
-			->setRunId($runId)
-			->setParams($params)
-			->setResults($results)
-			->setMessage($message);
-		$this->_storageApiClient->createEvent($event);
 	}
 
 }

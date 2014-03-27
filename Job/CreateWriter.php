@@ -8,8 +8,6 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
-use Keboola\GoodDataWriter\GoodData\RestApiException;
-use Keboola\GoodDataWriter\GoodData\UnauthorizedException;
 
 class CreateWriter extends AbstractJob
 {
@@ -22,47 +20,42 @@ class CreateWriter extends AbstractJob
 	 */
 	public function run($job, $params)
 	{
-		if (empty($params['accessToken'])) {
-			throw new WrongConfigurationException("Parameter accessToken is missing");
-		}
-		if (empty($params['projectName'])) {
-			throw new WrongConfigurationException("Parameter projectName is missing");
-		}
+		$this->checkParams($params, array('accessToken', 'projectName'));
 
+        $this->configuration->updateDataSetsFromSapi();
 
 		$gdWriteStartTime = date('c');
-		$username = sprintf($this->mainConfig['gd']['user_email'], $job['projectId'], $job['writerId'] . '-' . uniqid());
+		$username = sprintf($this->appConfiguration->gd_userEmailTemplate, $job['projectId'], $job['writerId'] . '-' . uniqid());
 		$password = md5(uniqid());
 
-		$this->restApi->setCredentials($this->mainConfig['gd']['username'], $this->mainConfig['gd']['password']);
-		try {
-			try {
-				$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken']);
-			} catch (RestApiException $e) {
-				throw new WrongConfigurationException('Project creation failed: ' . $e->getMessage());
-			}
+		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
+		$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken'], json_encode(array(
+			'projectId' => $this->configuration->projectId,
+			'writerId' => $this->configuration->writerId,
+			'main' => true
+		)));
 
-			$userId = $this->restApi->createUser($this->mainConfig['gd']['domain'], $username, $password, 'KBC', 'Writer', $this->mainConfig['gd']['sso_provider']);
-			$this->restApi->addUserToProject($userId, $projectPid, RestApi::$userRoles['admin']);
-		} catch (UnauthorizedException $e) {
-			throw new \Exception('Create writer auth error', 500, $e);
-		}
+		$userId = $this->restApi->createUser($this->appConfiguration->gd_domain, $username, $password, 'KBC', 'Writer', $this->appConfiguration->gd_ssoProvider);
+		$this->restApi->addUserToProject($userId, $projectPid, RestApi::$userRoles['admin']);
 
 		// Save data to configuration bucket
-		$this->configuration->setBucketAttribute('gd.pid', $projectPid);
-		$this->configuration->setBucketAttribute('gd.username', $username);
-		$this->configuration->setBucketAttribute('gd.password', $password, true);
-		$this->configuration->setBucketAttribute('gd.uid', $userId);
+		$this->configuration->updateWriter('gd.pid', $projectPid);
+		$this->configuration->updateWriter('gd.username', $username);
+		$this->configuration->updateWriter('gd.password', $password, true);
+		$this->configuration->updateWriter('gd.uid', $userId);
 
 
-		$this->sharedConfig->saveProject($projectPid, $params['accessToken'], $this->restApi->apiUrl, $job);
+		$this->sharedConfig->saveProject($projectPid, $params['accessToken'], $this->restApi->getApiUrl(), $job);
 		$this->sharedConfig->saveUser($userId, $username, $job);
 
 
-		return $this->_prepareResult($job['id'], array(
+		$this->logEvent('createUser', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
+		return array(
 			'uid' => $userId,
 			'pid' => $projectPid,
 			'gdWriteStartTime' => $gdWriteStartTime
-		), $this->restApi->callsLog());
+		);
 	}
 }

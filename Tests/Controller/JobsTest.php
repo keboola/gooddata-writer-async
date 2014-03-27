@@ -6,19 +6,18 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\StorageApi\Table as StorageApiTable,
-	Keboola\GoodDataWriter\Service\S3Client;
-use Guzzle\Http\Client;
 
 class JobsTest extends AbstractControllerTest
 {
 
-	public function testJobInfo()
+	public function testJobs()
 	{
 		$this->_prepareData();
 
+
+		/**
+		 * Jobs info
+		 */
 		$responseJson = $this->_postWriterApi('/gooddata-writer/upload-table', array(
 			'writerId' => $this->writerId,
 			'tableId' => $this->dataBucketId . '.categories'
@@ -52,7 +51,7 @@ class JobsTest extends AbstractControllerTest
 		$responseJson = $this->_getWriterApi('/gooddata-writer/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
 		$this->assertArrayHasKey('batch', $responseJson, "Response for GoodData API call '/batch' should contain 'batch' key.");
 		$this->assertArrayHasKey('jobs', $responseJson['batch'], "Response for GoodData API call '/batch' should contain 'batch.jobs' key.");
-		$this->assertCount(3, $responseJson['batch']['jobs'], "Response for GoodData API call '/batch' should contain three jobs.");
+		$this->assertCount(4, $responseJson['batch']['jobs'], "Response for GoodData API call '/batch' should contain four jobs.");
 
 		$uploadCategoriesFound = false;
 		$uploadProductsFound = false;
@@ -61,29 +60,25 @@ class JobsTest extends AbstractControllerTest
 			$jobResponse = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
 			$this->assertArrayHasKey('job', $jobResponse, "Response for GoodData API call '/jobs?jobId=' should contain 'job' key.");
 			$this->assertArrayHasKey('command', $jobResponse['job'], "Response for GoodData API call '/jobs?jobId=' should contain 'job.command' key.");
-			$this->assertArrayHasKey('dataset', $jobResponse['job'], "Response for GoodData API call '/jobs?jobId=' should contain 'job.dataset' key.");
-			if ($jobResponse['job']['command'] == 'uploadTable' && $jobResponse['job']['dataset'] == 'Categories') {
+			if ($jobResponse['job']['command'] == 'uploadTable') {
+				$this->assertArrayHasKey('parameters', $jobResponse['job'], "Response for GoodData API call '/jobs?jobId=' should contain 'job.parameters' key.");
+				$this->assertArrayHasKey('tableId', $jobResponse['job']['parameters'], "Response for GoodData API call '/jobs?jobId=' should contain 'job.parameters.tableId' key.");
+			}
+			if ($jobResponse['job']['command'] == 'uploadTable' && $jobResponse['job']['parameters']['tableId'] == $this->dataBucketId . '.categories') {
 				$uploadCategoriesFound = true;
 			}
-			if ($jobResponse['job']['command'] == 'uploadTable' && $jobResponse['job']['dataset'] == 'Products') {
+			if ($jobResponse['job']['command'] == 'uploadTable' && $jobResponse['job']['parameters']['tableId'] == $this->dataBucketId . '.products') {
 				$uploadProductsFound = true;
 			}
 		}
-		$this->assertTrue($uploadCategoriesFound, "Response for GoodData API call '/jobs' should contain job of dataset 'Categories' upload.");
-		$this->assertTrue($uploadProductsFound, "Response for GoodData API call '/jobs' should contain job of dataset 'Products' upload.");
-	}
+		$this->assertTrue($uploadCategoriesFound, "Response for GoodData API call '/jobs' should contain job of table 'out.c-main.categories' upload.");
+		$this->assertTrue($uploadProductsFound, "Response for GoodData API call '/jobs' should contain job of table 'out.c-main.products' upload.");
 
 
-	/*public function testWaitForJob()
-	{
-		//@TODO we have to process the job while it is waiting - so the need for parallel processing?
-	}*/
 
-
-	public function testCancelJobs()
-	{
-		$this->_prepareData();
-
+		/**
+		 * Cancel jobs
+		 */
 		// Upload project
 		$responseJson = $this->_postWriterApi('/gooddata-writer/upload-project', array(
 			'writerId' => $this->writerId

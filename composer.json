@@ -9,38 +9,26 @@
 			"email": "jakub@keboola.com"
 		}
 	],
-	"repositories": [
-		{
-			"type": "package",
-			"package": {
-				"name": "gooddata/gooddata-cl",
-				"version": "1.2.67",
-				"dist": {
-					"url": "http://developer.gooddata.com/downloads/cl-tool/gooddata-cli.zip",
-					"type": "zip"
-				}
-			}
-		}
-	],
 	"require": {
-		"php": ">=5.3.5",
-		"gooddata/gooddata-cl": "1.2.*",
-		"sabre/dav": "1.8.*"
+		"php": ">=5.3.5"
 	},
 	"require-dev": {
-		"syrup/component-bundle": "1.2.*",
+		"keboola/storage-api-client": "2.8.*",
+		"syrup/component-bundle": "1.3.*",
 		"syrup/development-bundle": "1.1.*",
 		"phpunit/phpunit": "3.7.*"
 	},
 	"scripts": {
 		"post-install-cmd": [
 			"Incenteev\\ParameterHandler\\ScriptHandler::buildParameters",
-			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap"
+			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap",
+			"php vendor/syrup/development-bundle/app/console cache:clear --env=test"
 		],
 		"post-update-cmd": [
 			"Incenteev\\ParameterHandler\\ScriptHandler::buildParameters",
 			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap",
-			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::clearCache"
+			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::clearCache",
+			"php vendor/syrup/development-bundle/app/console cache:clear --env=test"
 		]
 	},
 	"minimum-stability": "stable",

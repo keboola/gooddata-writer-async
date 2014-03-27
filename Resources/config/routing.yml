@@ -1,0 +1,3 @@
+gooddata_writer_default:
+  resource: "@KeboolaGoodDataWriterBundle/Controller/ApiController.php"
+  type: annotation

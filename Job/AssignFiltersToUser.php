@@ -6,9 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
-	Keboola\GoodDataWriter\GoodData\RestApiException,
-	Keboola\GoodDataWriter\GoodData\UnauthorizedException;
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 
 class assignFiltersToUser extends AbstractJob
 {
@@ -20,13 +18,7 @@ class assignFiltersToUser extends AbstractJob
 	 */
 	public function run($job, $params)
 	{
-		$gdWriteStartTime = date('c');
-
-		$this->_checkParams($params, array(
-			'filters',
-			'userEmail',
-			'pid'
-		));
+		$this->checkParams($params, array('filters', 'userEmail', 'pid'));
 
 		if (!is_array($params['filters'])) {
 			throw new WrongConfigurationException("Parameter 'filters' must be an array.");
@@ -39,24 +31,19 @@ class assignFiltersToUser extends AbstractJob
 			$filterUris[] = $filter['uri'];
 		}
 
-		try {
-			$this->restApi->setCredentials($this->configuration->bucketInfo['gd']['username'], $this->configuration->bucketInfo['gd']['password']);
-			$this->restApi->assignFiltersToUser($filterUris, $user['uid'], $params['pid']);
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
-			$this->configuration->saveFilterUser($filterUris, $params['userEmail']);
+		$gdWriteStartTime = date('c');
+		$this->restApi->assignFiltersToUser($filterUris, $user['uid'], $params['pid']);
 
-			return $this->_prepareResult($job['id'], array(
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->restApi->callsLog());
+		$this->configuration->saveFilterUser($filterUris, $params['userEmail']);
 
-		} catch (UnauthorizedException $e) {
-			throw new WrongConfigurationException('Login failed');
-		} catch (RestApiException $e) {
-			return $this->_prepareResult($job['id'], array(
-				'status' => 'error',
-				'error' => $e->getMessage(),
-				'gdWriteStartTime' => $gdWriteStartTime
-			), $this->restApi->callsLog());
-		}
+		$this->logEvent('assignFilterToUser', array(
+			'duration' => time() - strtotime($gdWriteStartTime)
+		), $this->restApi->getLogPath());
+		return array(
+			'gdWriteStartTime' => $gdWriteStartTime
+		);
 	}
 }

@@ -1,9 +1,6 @@
 <?php
 namespace Keboola\GoodDataWriter\Command;
 
-use Keboola\StorageApi\Client as StorageApiClient;
-use Keboola\GoodDataWriter\Writer\JobExecutor;
-use Keboola\GoodDataWriter\Writer\SharedConfig;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -30,16 +27,7 @@ class ExecuteJobCommand extends ContainerAwareCommand
 	{
 		$this->getContainer()->get('syrup.monolog.json_formatter')->setComponentName('gooddata-writer');
 
-		$mainConfig = $this->getContainer()->getParameter('gooddata_writer');
-		$sharedConfig = new SharedConfig(
-			new StorageApiClient(
-				$mainConfig['shared_sapi']['token'],
-				$mainConfig['shared_sapi']['url'],
-				$mainConfig['user_agent']
-			)
-		);
-
-		$executor = new JobExecutor($sharedConfig, $this->getContainer());
+		$executor = $this->getContainer()->get('gooddata_writer.job_executor');
 		$executor->runJob($input->getArgument('jobId'), $input->getOption('force'));
 	}
 

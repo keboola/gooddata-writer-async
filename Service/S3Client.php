@@ -7,31 +7,33 @@
 namespace Keboola\GoodDataWriter\Service;
 
 use Aws\S3\S3Client as Client,
-	Aws\Common\Aws,
 	Aws\S3\Enum\CannedAcl;
+use Keboola\GoodDataWriter\Writer\AppConfiguration;
 
 class S3Client
 {
 	/**
-	 * @var \Aws\S3\S3Client
+	 * @var Client
 	 */
-	protected $_client;
+	protected $client;
 	/**
 	 * @var string
 	 */
-	protected $_bucket;
-
-
+	protected $bucket;
 	/**
-	 * @param \Aws\S3\S3Client $s3Client
-	 * @param $bucket
-	 * @param $pathPrefix
+	 * @var string
 	 */
-	public function __construct(Client $s3Client, $bucket, $pathPrefix)
+	protected $path;
+
+
+	public function __construct(AppConfiguration $appConfiguration, $path)
 	{
-		$this->_client = $s3Client;
-		$this->_bucket = $bucket;
-		$this->_pathPrefix = $pathPrefix;
+		$this->client = Client::factory(array(
+			'key' => $appConfiguration->aws_accessKey,
+			'secret' => $appConfiguration->aws_secretKey
+		));
+		$this->bucket = $appConfiguration->aws_s3Bucket;
+		$this->path = $path;
 	}
 
 	/**
@@ -65,10 +67,10 @@ class S3Client
 	 */
 	public function uploadString($name, $content, $contentType = 'text/plain')
 	{
-		$s3FileName = date('Y/m/d/') . $this->_pathPrefix . '/' . $name;
-		$this->_client->getConfig()->set('curl.options', array('body_as_string' => true));
-		$this->_client->putObject(array(
-			'Bucket' => $this->_bucket,
+		$s3FileName = date('Y/m/d/') . $this->path . '/' . $name;
+		$this->client->getConfig()->set('curl.options', array('body_as_string' => true));
+		$this->client->putObject(array(
+			'Bucket' => $this->bucket,
 			'Key'    => $s3FileName,
 			'Body'   => $content,
 			'ACL'    => CannedAcl::AUTHENTICATED_READ,
@@ -84,7 +86,7 @@ class S3Client
 	 */
 	public function url($object, $expires = 172800)
 	{
-		return $this->_client->getObjectUrl($this->_bucket, $object, '+' . $expires . ' seconds');
+		return $this->client->getObjectUrl($this->bucket, $object, '+' . $expires . ' seconds');
 	}
 
 }

@@ -7,75 +7,72 @@
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\StorageApi\Table as StorageApiTable;
+use Keboola\GoodDataWriter\Writer\Configuration;
 
 class WritersTest extends AbstractControllerTest
 {
 
-	public function testCreateWriter()
+	public function testWriters()
 	{
+		/**
+		 * create writer
+		 */
 		// Check writer configuration
 		$validConfiguration = true;
 		try {
-			self::$configuration->checkGoodDataSetup();
+			$this->configuration->checkBucketAttributes();
 		} catch (WrongConfigurationException $e) {
 			$validConfiguration = false;
 		}
 		$this->assertTrue($validConfiguration, "Writer configuration is not valid.");
 
 		// Check project existence in GD
-		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
-		$projectInfo = self::$restApi->getProject(self::$configuration->bucketInfo['gd']['pid']);
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$projectInfo = $this->restApi->getProject($bucketAttributes['gd']['pid']);
 		$this->assertArrayHasKey('project', $projectInfo, "Response for GoodData API login call should contain 'project' key.");
 		$this->assertArrayHasKey('content', $projectInfo['project'], "Response for GoodData API login call should contain 'project.content' key.");
 		$this->assertArrayHasKey('state', $projectInfo['project']['content'], "Response for GoodData API login call should contain 'project.content.state' key.");
 		$this->assertEquals('ENABLED', $projectInfo['project']['content']['state'], "Response for GoodData API login call should have key 'project.content.state' with value 'ENABLED'.");
 
 		// Check user existence in GD
-		$userInfo = self::$restApi->getUser(self::$configuration->bucketInfo['gd']['uid']);
+		$userInfo = $this->restApi->getUser($bucketAttributes['gd']['uid']);
 		$this->assertArrayHasKey('accountSetting', $userInfo, "Response for GoodData API user info call should contain 'accountSetting' key.");
 
 		// Check user's access to the project in GD
-		$userProjectsInfo = self::$restApi->get(sprintf('/gdc/account/profile/%s/projects', self::$configuration->bucketInfo['gd']['uid']));
+		$userProjectsInfo = $this->restApi->get(sprintf('/gdc/account/profile/%s/projects', $bucketAttributes['gd']['uid']));
 		$this->assertArrayHasKey('projects', $userProjectsInfo, "Response for GoodData API user projects call should contain 'projects' key.");
 		$this->assertCount(1, $userProjectsInfo['projects'], "Writer's primary user should have exactly one project assigned.");
 		$projectFound = false;
 		foreach ($userProjectsInfo['projects'] as $p) {
-			if (isset($p['project']['links']['metadata']) && strpos($p['project']['links']['metadata'], self::$configuration->bucketInfo['gd']['pid']) !== false) {
+			if (isset($p['project']['links']['metadata']) && strpos($p['project']['links']['metadata'], $bucketAttributes['gd']['pid']) !== false) {
 				$projectFound = true;
 				break;
 			}
 		}
 		$this->assertTrue($projectFound, "Writer's primary user should have assigned master project.");
-	}
 
 
-	public function testDeleteWriter()
-	{
-		$this->_processJob('/gooddata-writer/delete-writers');
 
-		// Check non-existence of configuration
-		$this->assertFalse(self::$configuration->configurationBucket($this->writerId), "Writer configuration should not exist anymore.");
-	}
-
-
-	public function testCreateWriterWithInvitations()
-	{
+		/**
+		 * Create writer with invitations
+		 */
 		$uniqId = uniqid();
 		$writerId = 'test' . $uniqId;
 		$user1 = 'user1' . $uniqId . '@test.keboola.com';
 		$user2 = 'user2' . $uniqId . '@test.keboola.com';
 
+		// Create new writer and new configuration
 		$this->_processJob('/gooddata-writer/writers', array(
 			'writerId' => $writerId,
 			'users' => $user1 . ',' . $user2
 		));
-		self::$configuration = new Configuration($writerId, self::$storageApi, self::$mainConfig['tmp_path']);
+		$this->configuration = new Configuration($this->storageApi, $writerId, $this->appConfiguration->scriptsPath);
 
 		// Check invitations existence in GD
-		self::$restApi->setCredentials(self::$configuration->bucketInfo['gd']['username'], self::$configuration->bucketInfo['gd']['password']);
-		$userProjectsInfo = self::$restApi->get('/gdc/projects/' . self::$configuration->bucketInfo['gd']['pid'] . '/invitations');
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$userProjectsInfo = $this->restApi->get('/gdc/projects/' . $bucketAttributes['gd']['pid'] . '/invitations');
 		$this->assertArrayHasKey('invitations', $userProjectsInfo, "Response for GoodData API project invitations call should contain 'invitations' key.");
 		$this->assertGreaterThanOrEqual(1, $userProjectsInfo['invitations'], "Response for GoodData API project invitations call should return at least one invitation.");
 		$user1Invited = false;
@@ -91,16 +88,14 @@ class WritersTest extends AbstractControllerTest
 		$this->assertTrue($user1Invited, "Response for GoodData API project invitations call should return tested user 1.");
 		$this->assertTrue($user2Invited, "Response for GoodData API project invitations call should return tested user 2.");
 
-		$this->_processJob('/gooddata-writer/delete-writers');
-	}
 
-
-	public function testGetWriters()
-	{
+		/**
+		 * test writers configuration
+		 */
 		$responseJson = $this->_getWriterApi('/gooddata-writer/writers');
 
 		$this->assertArrayHasKey('writers', $responseJson, "Response for writer call '/writers' should contain 'writers' key.");
-		$this->assertCount(1, $responseJson['writers'], "Response for writer call '/writers' should contain only one writer.");
+		$this->assertCount(2, $responseJson['writers'], "Response for writer call '/writers' should contain two writers.");
 		$this->assertArrayHasKey('id', $responseJson['writers'][0], "Response for writer call '/writers' should contain 'writers..id' key.");
 		$this->assertArrayHasKey('bucket', $responseJson['writers'][0], "Response for writer call '/writers' should contain 'writers..bucket' key.");
 		$this->assertEquals($this->writerId, $responseJson['writers'][0]['id'], "Response for writer call '/writers' should contain id of created writer.");
@@ -114,6 +109,13 @@ class WritersTest extends AbstractControllerTest
 		$this->assertArrayHasKey('writerId', $responseJson['writer'], "Response for writer call '/writers?writerId=' should contain 'writer.writerId' key.");
 		$this->assertEquals($this->writerId, $responseJson['writer']['writerId'], "Response for writer call '/writers?writerId=' should contain id of created writer.");
 		$this->assertEquals('gooddata', $responseJson['writer']['writer'], "Response for writer call '/writers?writerId=' should contain name of the writer.");
+
+		/**
+		 * delete writer
+		 */
+		$this->_processJob('/gooddata-writer/writers?writerId=' . $this->writerId, array(), 'DELETE');
+		// Check non-existence of configuration
+		$this->assertFalse($this->configuration->configurationBucket($this->writerId), "Writer configuration should not exist anymore.");
 	}
 
 }

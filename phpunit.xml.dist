@@ -7,7 +7,7 @@
          convertNoticesToExceptions="true"
          convertWarningsToExceptions="true"
          processIsolation="false"
-         stopOnFailure="false"
+         stopOnFailure="true"
          syntaxCheck="false"
          bootstrap="Tests/bootstrap.php">
 	<php>
@@ -23,6 +23,9 @@
 			<file>Tests/Controller/DatasetsTest.php</file>
 			<file>Tests/Controller/JobsTest.php</file>
 			<file>Tests/Controller/ProxyTest.php</file>
+			<file>Tests/Controller/ReportsTest.php</file>
+			<file>Tests/Controller/RcTest.php</file>
+			<file>Tests/GraphTest.php</file>
         </testsuite>
     </testsuites>
 </phpunit>

@@ -6,39 +6,45 @@
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\GoodData\RestApiException;
+use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase,
 	Symfony\Bundle\FrameworkBundle\Console\Application,
-	Symfony\Bundle\FrameworkBundle\Client,
 	Symfony\Component\Console\Tester\CommandTester;
 use Keboola\GoodDataWriter\Command\ExecuteBatchCommand,
 	Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable;
+use Doctrine\Common\Annotations\AnnotationRegistry;
 
 abstract class AbstractControllerTest extends WebTestCase
 {
+	protected $storageApiToken;
 	/**
 	 * @var \Keboola\StorageApi\Client
 	 */
-	protected static $storageApi;
+	protected $storageApi;
 	/**
 	 * @var RestApi
 	 */
-	protected static $restApi;
+	protected $restApi;
 	/**
 	 * @var Configuration
 	 */
-	protected static $configuration;
+	protected $configuration;
 	/**
 	 * @var \Symfony\Bundle\FrameworkBundle\Client
 	 */
-	protected static $client;
+	protected $httpClient;
 	/**
 	 * @var CommandTester
 	 */
-	protected static $commandTester;
-	protected static $mainConfig;
+	protected $commandTester;
+	/**
+	 * @var AppConfiguration
+	 */
+	protected $appConfiguration;
+	protected $domainUser;
 
 
 	protected $bucketName;
@@ -53,6 +59,14 @@ abstract class AbstractControllerTest extends WebTestCase
 	 */
 	protected function setUp()
 	{
+		$this->httpClient = static::createClient();
+		$container = $this->httpClient->getContainer();
+
+		/** To make annotations work here */
+		AnnotationRegistry::registerAutoloadNamespaces(array(
+			'Sensio\\Bundle\\FrameworkExtraBundle' => '../../vendor/sensio/framework-extra-bundle/'
+		));
+
 		$uniqueIndex = uniqid();
 		$this->writerId = 'test' . $uniqueIndex;
 		$this->bucketName = 'wr-gooddata-test' . $uniqueIndex;
@@ -60,24 +74,38 @@ abstract class AbstractControllerTest extends WebTestCase
 		$this->dataBucketName = 'test' . $uniqueIndex;
 		$this->dataBucketId = 'out.c-test' . $uniqueIndex;
 
+		if (!$this->storageApiToken)
+			$this->storageApiToken = $container->getParameter('storage_api.test.token');
 
-		self::$client = static::createClient();
-		$container = self::$client->getContainer();
-		self::$client->setServerParameters(array(
-			'HTTP_X-StorageApi-Token' => $container->getParameter('storageApi.test.token')
+
+		$this->httpClient->setServerParameters(array(
+			'HTTP_X-StorageApi-Token' => $this->storageApiToken
 		));
 
-		self::$mainConfig = $container->getParameter('gooddata_writer');
-		self::$storageApi = new \Keboola\StorageApi\Client($container->getParameter('storageApi.test.token'),
-			self::$client->getContainer()->getParameter('storageApi.url'));
-		self::$restApi = new RestApi($container->get('logger'));
-		self::$configuration = new Configuration($this->writerId, self::$storageApi, self::$mainConfig['tmp_path']);
+		$this->appConfiguration = $container->get('gooddata_writer.app_configuration');
+		$this->storageApi = new \Keboola\StorageApi\Client($this->storageApiToken,
+			$container->getParameter('storage_api.url'));
 
+		$sharedConfig = $container->get('gooddata_writer.shared_config');
+		$this->domainUser = $sharedConfig->getDomainUser($this->appConfiguration->gd_domain);
+
+		// Log Storage API calls
+		$className = get_called_class();
+		if (preg_match('@\\\\([\w]+)$@', $className, $matches)) {
+			$className = $matches[1];
+		}
+		$logFile = sprintf('%s/sapi-logs/%s-%s.txt', $this->appConfiguration->tmpPath, time(), $className);
+		if (!file_exists($this->appConfiguration->tmpPath . '/sapi-logs')) mkdir($this->appConfiguration->tmpPath . '/sapi-logs');
+		StorageApiClient::setLogger(function($message, $data) use($logFile) {
+			file_put_contents($logFile, $message . PHP_EOL, FILE_APPEND);
+		});
+
+		$this->restApi = $container->get('gooddata_writer.rest_api');
 
 		// Clear test environment
 		// Drop data tables from SAPI
-		self::$restApi->setCredentials(self::$mainConfig['gd']['username'], self::$mainConfig['gd']['password']);
-		foreach (self::$storageApi->listBuckets() as $bucket) {
+		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
+		foreach ($this->storageApi->listBuckets() as $bucket) {
 			$isConfigBucket = substr($bucket['id'], 0, 22) == 'sys.c-wr-gooddata-test';
 			$isDataBucket = substr($bucket['id'], 0, 4) == 'out.';
 
@@ -85,49 +113,65 @@ abstract class AbstractControllerTest extends WebTestCase
 				foreach ($bucket['attributes'] as $attr) {
 					if ($attr['name'] == 'gd.pid') {
 						try {
-							self::$restApi->dropProject($attr['value']);
+							$this->restApi->dropProject($attr['value']);
 						} catch (RestApiException $e) {}
 					}
 					if ($attr['name'] == 'gd.uid') {
 						try {
-							self::$restApi->dropUser($attr['value']);
+							$this->restApi->dropUser($attr['value']);
 						} catch (RestApiException $e) {}
 					}
 				}
 			}
 
 			if ($isConfigBucket || $isDataBucket) {
-				foreach (self::$storageApi->listTables($bucket['id']) as $table) {
+				/**
+				 * @var \Monolog\Logger $logger
+				 */
+				$logger = $container->get('logger');
+				foreach ($this->storageApi->listTables($bucket['id']) as $table) {
 					if ($isConfigBucket && $table['id'] == $bucket['id'] . '.projects') {
-						$csv = self::$storageApi->exportTable($table['id']);
-						foreach(StorageApiClient::parseCsv($csv) as $project) {
-							try {
-								self::$restApi->dropProject($project['pid']);
-							} catch (RestApiException $e) {}
+						try {
+							$csv = $this->storageApi->exportTable($table['id']);
+							foreach(StorageApiClient::parseCsv($csv) as $project) {
+								try {
+									$this->restApi->dropProject($project['pid']);
+								} catch (RestApiException $e) {}
+							}
+						} catch (\Exception $e) {
+							$logger->alert('Storage API error during writers cleanup', array('exception' => $e));
 						}
 					} elseif ($isConfigBucket && $table['id'] == $bucket['id'] . '.users') {
-						$csv = self::$storageApi->exportTable($table['id']);
-						foreach(StorageApiClient::parseCsv($csv) as $user) {
-							try {
-								self::$restApi->dropUser($user['uid']);
-							} catch (RestApiException $e) {}
+						try {
+							$csv = $this->storageApi->exportTable($table['id']);
+							foreach(StorageApiClient::parseCsv($csv) as $user) {
+								try {
+									$this->restApi->dropUser($user['uid']);
+								} catch (RestApiException $e) {}
+							}
+						} catch (\Exception $e) {
+							$logger->alert('Storage API error during writers cleanup', array('exception' => $e));
 						}
 					}
-					self::$storageApi->dropTable($table['id']);
+					$this->storageApi->dropTable($table['id']);
 				}
-				self::$storageApi->dropBucket($bucket['id']);
+				$this->storageApi->dropBucket($bucket['id']);
 			}
 		}
 
 		// Init job processing
-		$application = new Application(self::$client->getKernel());
+		$application = new Application($this->httpClient->getKernel());
 		$application->add(new ExecuteBatchCommand());
 		$command = $application->find('gooddata-writer:execute-batch');
-		self::$commandTester = new CommandTester($command);
+		$this->commandTester = new CommandTester($command);
+
+		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->appConfiguration->scriptsPath);
 
 		// Init writer
 		$this->_processJob('/gooddata-writer/writers', array());
-		self::$configuration = new Configuration($this->writerId, self::$storageApi, self::$mainConfig['tmp_path']);
+
+		// Reset configuration
+		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->appConfiguration->scriptsPath);
 	}
 
 
@@ -136,10 +180,9 @@ abstract class AbstractControllerTest extends WebTestCase
 	 */
 	protected function _prepareData()
 	{
-		// Prepare data
-		self::$storageApi->createBucket($this->dataBucketName, 'out', 'Writer Test');
+		$this->storageApi->createBucket($this->dataBucketName, 'out', 'Writer Test');
 
-		$table = new StorageApiTable(self::$storageApi, $this->dataBucketId . '.categories', null, 'id');
+		$table = new StorageApiTable($this->storageApi, $this->dataBucketId . '.categories', null, 'id');
 		$table->setHeader(array('id', 'name'));
 		$table->setFromArray(array(
 			array('c1', 'Category 1'),
@@ -147,7 +190,7 @@ abstract class AbstractControllerTest extends WebTestCase
 		));
 		$table->save();
 
-		$table = new StorageApiTable(self::$storageApi, $this->dataBucketId . '.products', null, 'id');
+		$table = new StorageApiTable($this->storageApi, $this->dataBucketId . '.products', null, 'id');
 		$table->setHeader(array('id', 'name', 'price', 'date', 'category'));
 		$table->setFromArray(array(
 			array('p1', 'Product 1', '45', '2013-01-01 00:01:59', 'c1'),
@@ -156,35 +199,61 @@ abstract class AbstractControllerTest extends WebTestCase
 		));
 		$table->save();
 
+
+
 		// Prepare Writer configuration
-		self::$configuration->addDateDimension('ProductDate', true);
+		$this->configuration->saveDateDimension('ProductDate', true);
 
-		$table = new StorageApiTable(self::$storageApi, $this->bucketId . '.c-' . $this->dataBucketName . '_categories', null, 'name');
-		$table->setAttribute('tableId', $this->dataBucketId . '.categories');
-		$table->setAttribute('gdName', 'Categories');
-		$table->setAttribute('export', '1');
-		$table->setHeader(array('name', 'gdName', 'type', 'dataType', 'dataTypeSize', 'schemaReference', 'reference',
-			'format', 'dateDimension', 'sortLabel', 'sortOrder'));
-		$table->setFromArray(array(
-			array('id', 'Id', 'CONNECTION_POINT', '', '', '', '', '', '', '', ''),
-			array('name', 'Name', 'ATTRIBUTE', '', '', '', '', '', '', '', '')
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.categories', 'name', 'Categories');
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.categories', 'export', '1');
+		$this->configuration->updateColumnsDefinition($this->dataBucketId . '.categories', array(
+			array(
+				'name' => 'id',
+				'gdName' => 'Id',
+				'type' => 'CONNECTION_POINT'
+			),
+			array(
+				'name' => 'name',
+				'gdName' => 'Name',
+				'type' => 'ATTRIBUTE'
+			)
 		));
-		$table->save();
 
-		$table = new StorageApiTable(self::$storageApi, $this->bucketId . '.c-' . $this->dataBucketName . '_products', null, 'name');
-		$table->setAttribute('tableId', $this->dataBucketId . '.products');
-		$table->setAttribute('gdName', 'Products');
-		$table->setAttribute('export', '1');
-		$table->setHeader(array('name', 'gdName', 'type', 'dataType', 'dataTypeSize', 'schemaReference', 'reference',
-			'format', 'dateDimension', 'sortLabel', 'sortOrder'));
-		$table->setFromArray(array(
-			array('id', 'Id', 'CONNECTION_POINT', '', '', '', '', '', '', '', ''),
-			array('name', 'Name', 'ATTRIBUTE', '', '', '', '', '', '', '', ''),
-			array('price', 'Price', 'FACT', '', '', '', '', '', '', '', ''),
-			array('date', 'Date', 'DATE', '', '', '', '', 'yyyy-MM-dd HH:mm:ss', 'ProductDate', '', ''),
-			array('category', 'Category', 'REFERENCE', '', '', $this->dataBucketId . '.categories', '', '', '', '', '')
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.products', 'name', 'Products');
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.products', 'export', '1');
+		$this->configuration->updateColumnsDefinition($this->dataBucketId . '.products', array(
+			array(
+				'name' => 'id',
+				'gdName' => 'Id',
+				'type' => 'CONNECTION_POINT'
+			),
+			array(
+				'name' => 'name',
+				'gdName' => 'Name',
+				'type' => 'ATTRIBUTE'
+			),
+			array(
+				'name' => 'price',
+				'gdName' => 'Price',
+				'type' => 'FACT'
+			),
+			array(
+				'name' => 'date',
+				'gdName' => '',
+				'type' => 'DATE',
+				'format' => 'yyyy-MM-dd HH:mm:ss',
+				'dateDimension' => 'ProductDate'
+			),
+			array(
+				'name' => 'category',
+				'gdName' => '',
+				'type' => 'REFERENCE',
+				'schemaReference' => $this->dataBucketId . '.categories'
+			)
 		));
-		$table->save();
+
+		// Reset configuration
+		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->appConfiguration->scriptsPath);
 	}
 
 
@@ -218,11 +287,11 @@ abstract class AbstractControllerTest extends WebTestCase
 	 */
 	protected function _callWriterApi($url, $method = 'POST', $params = array())
 	{
-		self::$client->request($method, $url, array(), array(), array(), json_encode($params));
-		$response = self::$client->getResponse();
+		$this->httpClient->request($method, $url, array(), array(), array(), json_encode($params));
+		$response = $this->httpClient->getResponse();
 		/* @var \Symfony\Component\HttpFoundation\Response $response */
 
-		$this->assertEquals(200, $response->getStatusCode(), sprintf("HTTP status of writer call '%s' should be 200. Response: %s", $url, $response->getContent()));
+		$this->assertTrue(in_array($response->getStatusCode(), array(200, 202)), sprintf("HTTP status of writer call '%s' should be 200 or 202 but is %s", $url, $response->getStatusCode()));
 		$responseJson = json_decode($response->getContent(), true);
 		$this->assertNotEmpty($responseJson, sprintf("Response for writer call '%s' should not be empty.", $url));
 
@@ -243,18 +312,19 @@ abstract class AbstractControllerTest extends WebTestCase
 
 		$params['writerId'] = $writerId;
 		$responseJson = $this->_callWriterApi($url, $method, $params);
+		$this->configuration->clearCache();
 
 		$resultId = null;
 		if (isset($responseJson['job'])) {
 			$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/jobs?writerId=%s&jobId=%d', $writerId, $responseJson['job']));
 
-			self::$commandTester->execute(array(
+			$this->commandTester->execute(array(
 				'command' => 'gooddata-writer:execute-batch',
 				'batchId' => $responseJson['job']['batchId']
 			));
 			$resultId = $responseJson['job']['id'];
 		} else if (isset($responseJson['batch'])) {
-			self::$commandTester->execute(array(
+			$this->commandTester->execute(array(
 				'command' => 'gooddata-writer:execute-batch',
 				'batchId' => $responseJson['batch']
 			));
@@ -278,8 +348,32 @@ abstract class AbstractControllerTest extends WebTestCase
 		}
 		$this->_processJob('/gooddata-writer/users', $params);
 
-		$usersList = self::$configuration->getUsers();
+		$usersList = $this->configuration->getUsers();
 		$this->assertGreaterThanOrEqual(2, $usersList, "Response for writer call '/users' should return at least two GoodData users.");
 		return $usersList[count($usersList)-1];
+	}
+
+	protected function _getAttributes($pid)
+	{
+		$query = sprintf('/gdc/md/%s/query/attributes', $pid);
+
+		$result = $this->_getWriterApi('/gooddata-writer/proxy?writerId=' . $this->writerId . '&query=' . $query);
+
+		if (isset($result['response']['query']['entries'])) {
+			return $result['response']['query']['entries'];
+		} else {
+			throw new \Exception('Attributes in project could not be fetched');
+		}
+	}
+
+	protected function _getAttributeByTitle($pid, $title)
+	{
+		foreach ($this->_getAttributes($pid) as $attr) {
+			if ($attr['title'] == $title) {
+				$result = $this->_getWriterApi('/gooddata-writer/proxy?writerId=' . $this->writerId . '&query=' . $attr['link']);
+				return $result['response'];
+			}
+		}
+		return false;
 	}
 }

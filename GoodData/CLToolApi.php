@@ -11,8 +11,9 @@ namespace Keboola\GoodDataWriter\GoodData;
 use Monolog\Logger;
 use Keboola\GoodDataWriter\Service\S3Client;
 use Symfony\Component\Process\Process;
+use Keboola\GoodDataWriter\Exception\ClientException;
 
-class CLToolApiErrorException extends \Exception
+class CLToolApiErrorException extends ClientException
 {
 
 }
@@ -135,9 +136,18 @@ class CLToolApi
             $process = new Process($runCommand);
             $process->setTimeout(null);
             $process->run();
-            if (!$process->isSuccessful()) {
-                $message = $process->getErrorOutput() ? $process->getErrorOutput() : 'No output';
-                throw new \Exception('CL tool Error: ' . $message);
+			if (!$process->isSuccessful() || $process->getErrorOutput() || substr($process->getOutput(), 0, 9) == 'Exception') {
+				$message = null;
+				if ($process->getOutput()) {
+					$message .= $process->getOutput() . "\n";
+				}
+				if ($process->getErrorOutput()) {
+					$message .= $process->getErrorOutput();
+				}
+				if (!$message) {
+					$message = 'No output';
+				}
+                throw new CLToolApiErrorException($message);
             }
 
 			// Test output for server error
@@ -182,101 +192,133 @@ class CLToolApi
 
 	/**
 	 * Set of commands which create a dataset
-	 * @param string $pid
-	 * @param string $xmlFile
-	 * @return array
-	 * @throws CLToolApiErrorException
-	 * @throws \Exception
 	 */
-	public function createDataSet($pid, $xmlFile)
+	public function createDataSetMaql($pid, $xml, $dataSetName)
 	{
+		$xmlFilePath = $this->tmpDir . '/model.xml';
+		file_put_contents($xmlFilePath, $xml);
+
 		$this->output = array();
-		if (file_exists($xmlFile)) {
+		if (file_exists($xmlFilePath)) {
+			$maqlFile = $this->tmpDir . '/createDataset-' . $dataSetName . '.maql';
 
-			libxml_use_internal_errors(TRUE);
-			$sXml = simplexml_load_file($xmlFile);
-			if ($sXml) {
-				$dataSetName = (string)$sXml->name;
+			$csvFile = $this->tmpDir . '/dummy.csv';
+			if (!file_exists($csvFile)) touch($csvFile);
 
-				$maqlFile = $this->tmpDir . '/createDataset-' . $dataSetName . '.maql';
+			$command  = 'OpenProject(id="' . $pid . '"); ';
+			$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFilePath . '"); ';
+			$command .= 'GenerateMaql(maqlFile="' . $maqlFile . '"); ';
 
-				$csvFile = $this->tmpDir . '/dummy.csv';
-				if (!file_exists($csvFile)) touch($csvFile);
+			$this->output['command'] = $command;
+			$this->call($command);
 
-				$command  = 'OpenProject(id="' . $pid . '"); ';
-				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '"); ';
-				$command .= 'GenerateMaql(maqlFile="' . $maqlFile . '"); ';
-				$command .= 'ExecuteMaql(maqlFile="' . $maqlFile . '"); ';
+			if (file_exists($maqlFile)) {
+				$maql = file_get_contents($maqlFile);
+				$this->output['maql'] = $maql;
+				unlink($maqlFile);
 
-				$this->output['command'] = $command;
-				$this->call($command);
-
-				if (file_exists($maqlFile)) {
-					$this->output['maql'] = file_get_contents($maqlFile);
-					unlink($maqlFile);
-				} else {
-					throw new CLToolApiErrorException();
-				}
+				return $maql;
 			} else {
-				$this->output['errors'] = libxml_get_errors();
-				throw new CLToolApiErrorException();
+				throw new CLToolApiErrorException('Maql file was not created.');
 			}
 		} else {
-			throw new \Exception('XML file does not exist: ' . $xmlFile);
+			throw new \Exception('XML file does not exist: ' . $xmlFilePath);
 		}
 	}
 
 	/**
-	 * Set of commands which create a dataset
-	 * @param string $pid
-	 * @param string $xmlFile
-	 * @param bool $updateAll
-	 * @throws CLToolApiErrorException
-	 * @throws \Exception
-	 * @return string|bool
+	 * Set of commands which updates a dataset
 	 */
-	public function updateDataSet($pid, $xmlFile, $updateAll=FALSE)
+	public function updateDataSetMaql($pid, $xml, $updateAll=FALSE, $dataSetName)
 	{
+		$xmlFilePath = $this->tmpDir . '/model.xml';
+		file_put_contents($xmlFilePath, $xml);
+
 		$this->output = array();
-		if (file_exists($xmlFile)) {
+		if (file_exists($xmlFilePath)) {
 
-			libxml_use_internal_errors(TRUE);
-			$sXml = simplexml_load_file($xmlFile);
-			if ($sXml) {
-				$dataSetName = (string)$sXml->name;
-				$maqlFile = $this->tmpDir . '/updateDataset-' . $dataSetName . '.maql';
-				$csvFile = $this->tmpDir . '/dummy.csv';
-				if (!file_exists($csvFile)) touch($csvFile);
+			$maqlFile = $this->tmpDir . '/updateDataset-' . $dataSetName . '.maql';
+			$csvFile = $this->tmpDir . '/dummy.csv';
+			if (!file_exists($csvFile)) touch($csvFile);
 
-				$command  = 'OpenProject(id="' . $pid . '"); ';
-				$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFile . '"); ';
-				$command .= 'GenerateUpdateMaql(maqlFile="' . $maqlFile . '"';
-				if ($updateAll) {
-					$command .= ' updateAll="true"';
-				}
-				$command .= '); ';
+			$command  = 'OpenProject(id="' . $pid . '"); ';
+			$command .= 'UseCsv(csvDataFile="' . $csvFile . '", hasHeader="true", configFile="' . $xmlFilePath . '"); ';
+			$command .= 'GenerateUpdateMaql(maqlFile="' . $maqlFile . '" rebuildLabels="false"';
+			if ($updateAll) {
+				$command .= ' updateAll="true"';
+			}
+			$command .= '); ';
 
 
-				$this->output['command'] = $command;
-				$this->call($command);
+			$this->output['command'] = $command;
+			$this->call($command);
 
-				if (file_exists($maqlFile)) {
-					$this->output['maql'] = file_get_contents($maqlFile);
+			if (file_exists($maqlFile)) {
+				$maql = file_get_contents($maqlFile);
+				$this->output['maql'] = $maql;
+				unlink($maqlFile);
 
-					$command = 'OpenProject(id="' . $pid . '"); ExecuteMaql(maqlFile="' . $maqlFile . '");';
-
-					$this->output['command2'] = $command;
-					$this->call($command);
-
-					unlink($maqlFile);
-				}
+				return $maql;
 			} else {
-				$this->output['errors'] = libxml_get_errors();
-				throw new CLToolApiErrorException();
+				return false;
 			}
 		} else {
-			throw new \Exception('XML file does not exist: ' . $xmlFile);
+			throw new \Exception('XML file does not exist: ' . $xmlFilePath);
 		}
+	}
+
+
+	/**
+	 *
+	 */
+	public static function getXml($definition)
+	{
+		$xml = new \DOMDocument();
+		$schema = $xml->createElement('schema');
+		$name = $xml->createElement('name', $definition['name']);
+		$schema->appendChild($name);
+		$columns = $xml->createElement('columns');
+
+		foreach ($definition['columns'] as $columnDefinition) {
+
+			$column = $xml->createElement('column');
+			$column->appendChild($xml->createElement('name', $columnDefinition['name']));
+			$column->appendChild($xml->createElement('title', $columnDefinition['title']));
+			$column->appendChild($xml->createElement('ldmType', $columnDefinition['type']));
+			if ($columnDefinition['type'] != 'FACT') {
+				$column->appendChild($xml->createElement('folder', $definition['name']));
+			}
+
+			if (!empty($columnDefinition['dataType'])) {
+				$column->appendChild($xml->createElement('dataType', $columnDefinition['dataType']));
+			}
+
+			if (!empty($columnDefinition['sortLabel'])) {
+				$column->appendChild($xml->createElement('sortLabel', $columnDefinition['sortLabel']));
+				$column->appendChild($xml->createElement('sortOrder', !empty($columnDefinition['sortOrder'])
+					? $columnDefinition['sortOrder'] : 'ASC'));
+			}
+
+			if (!empty($columnDefinition['reference'])) {
+				$column->appendChild($xml->createElement('reference', $columnDefinition['reference']));
+			}
+
+			if (!empty($columnDefinition['schemaReference'])) {
+				$column->appendChild($xml->createElement('schemaReference', $columnDefinition['schemaReference']));
+			}
+
+			if ($columnDefinition['type'] == 'DATE') {
+				$column->appendChild($xml->createElement('format', $columnDefinition['format']));
+				$column->appendChild($xml->createElement('datetime', $columnDefinition['includeTime'] ? 'true' : 'false'));
+			}
+
+			$columns->appendChild($column);
+		}
+
+		$schema->appendChild($columns);
+		$xml->appendChild($schema);
+
+		return $xml->saveXML();
 	}
 
 }

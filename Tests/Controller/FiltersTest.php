@@ -5,9 +5,6 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\StorageApi\Table as StorageApiTable;
-
 class FiltersTest extends AbstractControllerTest
 {
 	protected function _createFilter($pid)
@@ -22,11 +19,11 @@ class FiltersTest extends AbstractControllerTest
 
 	protected function _assignFilterToUser($pid)
 	{
-		$usersList = self::$configuration->getUsers();
+		$usersList = $this->configuration->getUsers();
 		$this->assertGreaterThan(0, $usersList, "Writer should have at least one user.");
 		$user = $usersList[0];
 
-		$filters = self::$configuration->getFilters();
+		$filters = $this->configuration->getFilters();
 		$this->assertGreaterThan(0, $filters, "Writer should have at least one filter.");
 		$filter = $filters[0];
 
@@ -38,86 +35,77 @@ class FiltersTest extends AbstractControllerTest
 		));
 	}
 
-	public function testCreateFilter()
+	public function testFilters()
 	{
-		$pid = self::$configuration->bucketInfo['gd']['pid'];
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$pid = $bucketAttributes['gd']['pid'];
 
 		// Upload data
 		$this->_prepareData();
 		$this->_processJob('/gooddata-writer/upload-project');
 
+
+		/**
+		 * Create filter
+		 */
 		$this->_createFilter($pid);
 
 		// Check result
-		$filterList = self::$configuration->getFilters();
+		$filterList = $this->configuration->getFilters();
 		$this->assertCount(1, $filterList);
 
-		self::$restApi->setCredentials(
-			self::$configuration->bucketInfo['gd']['username'],
-			self::$configuration->bucketInfo['gd']['password']
-		);
-		$gdFilters = self::$restApi->getFilters($pid);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$gdFilters = $this->restApi->getFilters($pid);
 		$gdFilter = $gdFilters[0];
 		$this->assertEquals($gdFilter['link'], $filterList[0]['uri']);
-	}
 
-	public function testAssignFilterToUser()
-	{
-		$pid = self::$configuration->bucketInfo['gd']['pid'];
 
-		// Upload data
-		$this->_prepareData();
-		$this->_processJob('/gooddata-writer/upload-project');
-
-		$this->_createFilter($pid);
+		/**
+		 * Assign filter to user
+		 */
 		$this->_assignFilterToUser($pid);
 
 		// Check result
-		$filtersUsers = self::$configuration->getFiltersUsers();
+		$filtersUsers = $this->configuration->getFiltersUsers();
 		$this->assertCount(1, $filtersUsers);
-	}
 
-	public function testSyncFilter()
-	{
-		$pid = self::$configuration->bucketInfo['gd']['pid'];
 
-		// Upload data
-		$this->_prepareData();
-		$this->_processJob('/gooddata-writer/upload-project');
-
-		$this->_createFilter($pid);
-		$this->_assignFilterToUser($pid);
-
-		// Create and process job
+		/**
+		 * Sync filters
+		 */
 		$this->_processJob('/gooddata-writer/sync-filters', array(
 			"pid"   => $pid,
 		));
 
 		// Check result
-		$filterList = self::$configuration->getFilters();
+		$filterList = $this->configuration->getFilters();
 
-		self::$restApi->setCredentials(
-			self::$configuration->bucketInfo['gd']['username'],
-			self::$configuration->bucketInfo['gd']['password']
-		);
-		$gdFilters = self::$restApi->getFilters($pid);
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$gdFilters = $this->restApi->getFilters($pid);
 		$gdFilter = $gdFilters[0];
 		$this->assertEquals($gdFilter['link'], $filterList[0]['uri']);
-	}
 
-	public function testDeleteFilter()
-	{
-		$pid = self::$configuration->bucketInfo['gd']['pid'];
 
-		// Upload data
-		$this->_prepareData();
-		$this->_processJob('/gooddata-writer/upload-project');
+		/**
+		 * Get filters
+		 */
+		$responseJson = $this->_getWriterApi('/gooddata-writer/filters?writerId=' . $this->writerId);
+		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters should contain 'filters' key.");
+		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
 
-		$this->_createFilter($pid);
-		$this->_assignFilterToUser($pid);
+		// Get filters for user and pid
+		$usersList = $this->configuration->getUsers();
+		$user = $usersList[0];
 
-		$filters = self::$configuration->getFilters();
-		$filter = $filters[0];
+		$responseJson = $this->_getWriterApi('/gooddata-writer/filters?writerId=' . $this->writerId . '&userEmail=' . $user['email'] . '&pid=' . $pid);
+		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters should contain 'filters' key.");
+		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
+
+
+		/**
+		 * Delete filter
+		 */
+		$filter = $filterList[0];
 
 		// Create and process job
 		$this->_processJob(
@@ -125,37 +113,6 @@ class FiltersTest extends AbstractControllerTest
 			array(),
 			'DELETE'
 		);
-
-		// Check result
-		$filters = self::$configuration->getFilters();
-		$this->assertCount(0, $filters);
-
-		$filtersUsers = self::$configuration->getFiltersUsers();
-		$this->assertCount(0, $filtersUsers);
-	}
-
-	public function testGetFilters()
-	{
-		$pid = self::$configuration->bucketInfo['gd']['pid'];
-
-		// Upload data
-		$this->_prepareData();
-		$this->_processJob('/gooddata-writer/upload-project');
-
-		$this->_createFilter($pid);
-		$this->_assignFilterToUser($pid);
-
-		$responseJson = $this->_getWriterApi('/gooddata-writer/filters?writerId=' . $this->writerId);
-		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters should contain 'filters' key.");
-		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
-
-		// Get filters for user and pid
-		$usersList = self::$configuration->getUsers();
-		$user = $usersList[0];
-
-		$responseJson = $this->_getWriterApi('/gooddata-writer/filters?writerId=' . $this->writerId . '&userEmail=' . $user['email'] . '&pid=' . $pid);
-		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters should contain 'filters' key.");
-		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
 	}
 
 }

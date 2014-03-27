@@ -4,6 +4,7 @@ namespace Keboola\GoodDataWriter\Service;
 
 
 use Aws\Sqs\SqsClient;
+use Keboola\GoodDataWriter\Writer\AppConfiguration;
 
 class Queue
 {
@@ -11,25 +12,26 @@ class Queue
 	/**
 	 * @var SqsClient
 	 */
-	protected $_client;
-	protected $_queueUrl;
+	protected $client;
+	protected $queueUrl;
 
-	public function __construct(SqsClient $client, $queueUrl)
+	public function __construct(AppConfiguration $appConfiguration)
 	{
-		$this->_client = $client;
-		$this->_queueUrl = $queueUrl;
+		$this->client = SqsClient::factory(array(
+			'key' => $appConfiguration->aws_accessKey,
+			'secret' => $appConfiguration->aws_secretKey,
+			'region' => $appConfiguration->aws_region
+		));
+		$this->queueUrl = $appConfiguration->aws_jobsSqsUrl;
 	}
 
 
 	/**
-	 * @param array $body
-	 * @param int $delay
-	 * @return
 	 */
 	public function enqueue($body, $delay = 0)
 	{
-		$message = $this->_client->sendMessage(array(
-			'QueueUrl' => $this->_queueUrl,
+		$message = $this->client->sendMessage(array(
+			'QueueUrl' => $this->queueUrl,
 			'MessageBody' => json_encode($body),
 			'DelaySeconds' => $delay,
 		));
@@ -42,14 +44,13 @@ class Queue
 	 */
 	public function receive($messagesCount = 1)
 	{
-		$result = $this->_client->receiveMessage(array(
-			'QueueUrl' => $this->_queueUrl,
+		$result = $this->client->receiveMessage(array(
+			'QueueUrl' => $this->queueUrl,
 			'WaitTimeSeconds' => 20,
 			'MaxNumberOfMessages' => $messagesCount,
 		));
-		$messages = $result['Messages'];
 
-		$queueUrl = $this->_queueUrl;
+		$queueUrl = $this->queueUrl;
 		return array_map(function($message) use ($queueUrl) {
 			return new QueueMessage(
 				$message['MessageId'],
@@ -63,7 +64,7 @@ class Queue
 
 	public function deleteMessage(QueueMessage $message)
 	{
-		$this->_client->deleteMessage(array(
+		$this->client->deleteMessage(array(
 			'QueueUrl' => $message->getQueueUrl(),
 			'ReceiptHandle' => $message->getReceiptHandle(),
 		));
