@@ -215,11 +215,11 @@ abstract class StorageApiConfiguration
 		return $result;
 	}
 
-	protected function _getConfigTableRow($tableName, $id)
+	protected function _getConfigTableRow($tableName, $id, $cache=true)
 	{
 		if (!isset($this->tables[$tableName])) return false;
 
-		$result = $this->_fetchTableRows($this->bucketId . '.' . $tableName, $this->tables[$tableName]['primaryKey'], $id);
+		$result = $this->_fetchTableRows($this->bucketId . '.' . $tableName, $this->tables[$tableName]['primaryKey'], $id, array(), $cache);
 		return count($result) ? current($result) : false;
 	}
 

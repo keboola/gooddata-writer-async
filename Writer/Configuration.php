@@ -471,7 +471,7 @@ class Configuration extends StorageApiConfiguration
 	{
 		$this->updateDataSetFromSapi($tableId);
 
-		$tableRow = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
+		$tableRow = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId, false);
 		if (!$tableRow) {
 			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
 		}
@@ -581,7 +581,7 @@ class Configuration extends StorageApiConfiguration
 	{
 		$this->updateDataSetFromSapi($tableId);
 
-		$tableRow = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
+		$tableRow = $this->_getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId, false);
 		if (!$tableRow) {
 			throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
 		}
