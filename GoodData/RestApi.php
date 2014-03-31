@@ -16,6 +16,7 @@ use Guzzle\Http\Curl\CurlHandle;
 use Guzzle\Http\Exception\CurlException;
 use Guzzle\Stream\PhpStreamRequestFactory;
 use Guzzle\Http\Message\RequestInterface;
+use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Monolog\Logger;
 use stdClass;
 use Syrup\ComponentBundle\Filesystem\TempService;
@@ -1276,12 +1277,7 @@ class RestApi
 			}
 		}
 
-		$this->logAlert('getAttributeById() attribute not found', array(
-			'pid' => $pid,
-			'attribute' => $id,
-			'attributesFound' => $attributes
-		));
-		throw new RestApiException('Attribute ' . $id . ' not found in project.');
+		throw new JobProcessException('Attribute ' . $id . ' not found in project.');
 	}
 
 	public function getAttributeByTitle($pid, $title)
@@ -1297,11 +1293,7 @@ class RestApi
 		}
 
 		if (null == $attrUri) {
-			$this->logAlert('getAttributeByTitle() attribute not found', array(
-				'pid' => $pid,
-				'attribute' => $title
-			));
-			throw new RestApiException('Attribute ' . $title . ' not found in project');
+			throw new JobProcessException('Attribute ' . $title . ' not found in project');
 		} else {
 			$result = $this->jsonRequest($attrUri);
 			if (isset($result['attribute'])) {
@@ -1341,11 +1333,7 @@ class RestApi
 		}
 
 		if (null == $elementUri) {
-			$this->logAlert('getElementsByTitle() element not found', array(
-				'uri' => $uri,
-				'element' => $title
-			));
-			throw new RestApiException('Element ' . $title . ' not found');
+			throw new JobProcessException('Element ' . $title . ' not found');
 		} else {
 			return $elementUri;
 		}

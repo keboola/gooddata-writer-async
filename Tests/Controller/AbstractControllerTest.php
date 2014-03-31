@@ -12,7 +12,6 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase,
 	Symfony\Component\Console\Tester\CommandTester;
 use Keboola\GoodDataWriter\Command\ExecuteBatchCommand,
 	Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable;
 use Doctrine\Common\Annotations\AnnotationRegistry;
@@ -25,7 +24,7 @@ abstract class AbstractControllerTest extends WebTestCase
 	 */
 	protected $storageApi;
 	/**
-	 * @var RestApi
+	 * @var \Keboola\GoodDataWriter\GoodData\RestApi
 	 */
 	protected $restApi;
 	/**
@@ -96,7 +95,7 @@ abstract class AbstractControllerTest extends WebTestCase
 		}
 		$logFile = sprintf('%s/sapi-logs/%s-%s.txt', $this->appConfiguration->tmpPath, time(), $className);
 		if (!file_exists($this->appConfiguration->tmpPath . '/sapi-logs')) mkdir($this->appConfiguration->tmpPath . '/sapi-logs');
-		StorageApiClient::setLogger(function($message, $data) use($logFile) {
+		StorageApiClient::setLogger(function($message) use($logFile) {
 			file_put_contents($logFile, $message . PHP_EOL, FILE_APPEND);
 		});
 

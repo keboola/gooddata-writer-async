@@ -166,15 +166,17 @@ abstract class StorageApiConfiguration
 
 	/**
 	 * Update configuration table
+	 * $data must contain column names in keys if not all
 	 */
 	protected function updateConfigTable($tableName, $data, $incremental = true)
 	{
 		if (!isset($this->tables[$tableName])) return false;
 
+		$firstRow = current($data);
 		$result = $this->saveTable(
 			$this->bucketId . '.' . $tableName,
 			$this->tables[$tableName]['primaryKey'],
-			array_keys(current($data)),
+			(count($firstRow) == count($this->tables[$tableName]['columns']))? $this->tables[$tableName]['columns'] : array_keys($firstRow),
 			$data,
 			$incremental,
 			true,
