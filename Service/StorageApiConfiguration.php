@@ -174,7 +174,7 @@ abstract class StorageApiConfiguration
 		$result = $this->saveTable(
 			$this->bucketId . '.' . $tableName,
 			$this->tables[$tableName]['primaryKey'],
-			$this->tables[$tableName]['columns'],
+			array_keys(current($data)),
 			$data,
 			$incremental,
 			true,
