@@ -109,6 +109,12 @@ class Model
 						'defaultLabel' => $defaultLabelId,
 						'folder' => $tableDefinition['name']
 					);
+					if (!empty($column['dataType'])) {
+						$attribute['dataType'] = $column['dataType'];
+						if (!empty($column['dataTypeSize'])) {
+							$attribute['dataType'] .= '(' . $column['dataTypeSize'] . ')';
+						}
+					}
 
 					if (!empty($column['sortLabel'])) {
 						$attribute['sortOrder'] = array(
