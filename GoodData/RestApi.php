@@ -1584,11 +1584,11 @@ class RestApi
 					$response = $request->getResponse()->getBody(true);
 				}
 
-				if ($logCall) $this->logCall($uri, $method, $params, $response, $duration, $request->getResponse()->getStatusCode());
+				if ($logCall) $this->logCall($uri, $method, $params, $response, $duration, $responseObject? $responseObject->getStatusCode() : null);
 				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
 
 				if ($e instanceof ClientErrorResponseException) {
-					if ($request->getResponse()->getStatusCode() == 401) {
+					if ($responseObject && $responseObject->getStatusCode() == 401) {
 						// TT token expired
 						//$this->refreshToken();
 						$this->login($this->username, $this->password);
@@ -1605,7 +1605,7 @@ class RestApi
 						throw new RestApiException('API error ' . $request->getResponse()->getStatusCode(), $response);
 					}
 				} elseif ($e instanceof ServerErrorResponseException) {
-					if ($request->getResponse()->getStatusCode() == 503) {
+					if ($responseObject && $responseObject->getStatusCode() == 503) {
 						// GD maintenance
 						$isMaintenance = true;
 					}
