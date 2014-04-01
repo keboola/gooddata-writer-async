@@ -78,12 +78,22 @@ class Model
 							'folder' => $tableDefinition['name']
 						)
 					);
+
+					$label = array(
+						'identifier' => sprintf('label.%s.%s', $dataSetId, $columnIdentifier),
+						'title' => $column['title'],
+						'type' => 'GDC.' . ($column['type'] == 'HYPERLINK' ? 'link' : 'text')
+					);
+
+					if (!empty($column['dataType'])) {
+						$label['dataType'] = $column['dataType'];
+						if (!empty($column['dataTypeSize'])) {
+							$label['dataType'] .= '(' . $column['dataTypeSize'] . ')';
+						}
+					}
+
 					$labels[$column['name']][] = array(
-						'label' => array(
-							'identifier' => sprintf('label.%s.%s', $dataSetId, $columnIdentifier),
-							'title' => $column['title'],
-							'type' => 'GDC.' . ($column['type'] == 'HYPERLINK' ? 'link' : 'text')
-						)
+						'label' => $label
 					);
 					break;
 				case 'FACT' :
@@ -109,12 +119,6 @@ class Model
 						'defaultLabel' => $defaultLabelId,
 						'folder' => $tableDefinition['name']
 					);
-					if (!empty($column['dataType'])) {
-						$attribute['dataType'] = $column['dataType'];
-						if (!empty($column['dataTypeSize'])) {
-							$attribute['dataType'] .= '(' . $column['dataTypeSize'] . ')';
-						}
-					}
 
 					if (!empty($column['sortLabel'])) {
 						$attribute['sortOrder'] = array(
@@ -126,12 +130,19 @@ class Model
 					}
 					$attributes[$column['name']] = array('attribute' => $attribute);
 
+					$label = array(
+						'identifier' => $defaultLabelId,
+						'title' => $column['title'],
+						'type' => 'GDC.' . ($column['type'] == 'HYPERLINK' ? 'link' : 'text')
+					);
+					if (!empty($column['dataType'])) {
+						$label['dataType'] = $column['dataType'];
+						if (!empty($column['dataTypeSize'])) {
+							$label['dataType'] .= '(' . $column['dataTypeSize'] . ')';
+						}
+					}
 					$labels[$column['name']][] = array(
-						'label' => array(
-							'identifier' => $defaultLabelId,
-							'title' => $column['title'],
-							'type' => 'GDC.' . ($column['type'] == 'HYPERLINK' ? 'link' : 'text')
-						)
+						'label' => $label
 					);
 					break;
 				case 'HYPERLINK' :
@@ -139,12 +150,19 @@ class Model
 					if (!isset($labels[$column['reference']])) {
 						$labels[$column['reference']] = array();
 					}
+					$label = array(
+						'identifier' => sprintf('label.%s.%s.%s', $dataSetId, self::getId($column['reference']), $columnIdentifier),
+						'title' => $column['title'],
+						'type' => 'GDC.' . ($column['type'] == 'HYPERLINK' ? 'link' : 'text')
+					);
+					if (!empty($column['dataType'])) {
+						$label['dataType'] = $column['dataType'];
+						if (!empty($column['dataTypeSize'])) {
+							$label['dataType'] .= '(' . $column['dataTypeSize'] . ')';
+						}
+					}
 					$labels[$column['reference']][] = array(
-						'label' => array(
-							'identifier' => sprintf('label.%s.%s.%s', $dataSetId, self::getId($column['reference']), $columnIdentifier),
-							'title' => $column['title'],
-							'type' => 'GDC.' . ($column['type'] == 'HYPERLINK' ? 'link' : 'text')
-						)
+						'label' => $label
 					);
 
 					break;
