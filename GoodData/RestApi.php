@@ -1456,7 +1456,10 @@ class RestApi
 			'accept-charset' => 'utf-8'
 		));
 
-		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
+		$retriesCount = 1;
+		do {
+			$isMaintenance = false;
+
 			if ($this->authSst) {
 				$request->addCookie('GDCAuthSST', $this->authSst);
 			}
@@ -1474,26 +1477,44 @@ class RestApi
 				if ($response->getStatusCode() == 200) {
 					return $filename;
 				}
-			} catch (ClientErrorResponseException $e) {
-				$response = $request->getResponse();
-				$this->logCall($uri, 'GET', array("filename" => $filename), $response->getBody(true), time() - $startTime, $response->getStatusCode());
+			} catch (\Exception $e) {
 
-				if ($request->getResponse()->getStatusCode() == 201) {
+				if ($e instanceof ClientErrorResponseException) {
+					$response = $request->getResponse();
+					$this->logCall($uri, 'GET', array("filename" => $filename), $response->getBody(true), time() - $startTime, $response->getStatusCode());
 
-					// file not ready yet do nothing
+					if ($request->getResponse()->getStatusCode() == 201) {
 
-				} elseif ($request->getResponse()->getStatusCode() == 401) {
+						// file not ready yet do nothing
 
-					// TT token expired
-					$this->refreshToken();
+					} elseif ($request->getResponse()->getStatusCode() == 401) {
 
+						// TT token expired
+						$this->refreshToken();
+
+					} else {
+						throw new RestApiException("Error occurred while downloading file. Status code ". $response->getStatusCode(), 500, $e);
+					}
+				} elseif ($e instanceof ServerErrorResponseException) {
+					if ($request->getResponse()->getStatusCode() == 503) {
+						// GD maintenance
+						$isMaintenance = true;
+					}
+				} elseif ($e instanceof CurlException) {
+					// Just retry according to backoff algorithm
 				} else {
-					throw new RestApiException("Error occurred while downloading file. Status code ". $response->getStatusCode(), 500, $e);
+					throw $e;
 				}
 			}
 
-			sleep(self::BACKOFF_INTERVAL * ($i + 1));
-		}
+			if ($isMaintenance) {
+				sleep(rand(60, 600));
+			} else {
+				sleep(self::BACKOFF_INTERVAL * ($retriesCount + 1));
+				$retriesCount++;
+			}
+
+		} while ($isMaintenance || $retriesCount <= self::RETRIES_COUNT);
 
 		return false;
 	}
@@ -1511,7 +1532,6 @@ class RestApi
 		$startTime = time();
 		$jsonParams = is_array($params) ? json_encode($params) : $params;
 
-		$backOffInterval = self::BACKOFF_INTERVAL;
 		$request = null;
 		$response = null;
 		$exception = null;
@@ -1600,7 +1620,7 @@ class RestApi
 			if ($isMaintenance) {
 				sleep(rand(60, 600));
 			} else {
-				sleep($backOffInterval * ($retriesCount + 1));
+				sleep(self::BACKOFF_INTERVAL * ($retriesCount + 1));
 				$retriesCount++;
 			}
 
