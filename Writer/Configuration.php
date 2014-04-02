@@ -1294,7 +1294,12 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getFilters()
 	{
-		return $this->getConfigTable(self::FILTERS_TABLE_NAME);
+		$filters = $this->getConfigTable(self::FILTERS_TABLE_NAME);
+		foreach ($filters as &$filter) {
+			if (in_array(substr($filter['element'], 0, 1), array('[', '{')))
+				$filter['element'] = json_decode($filter['element'], true);
+		}
+		return $filters;
 	}
 
 
@@ -1335,7 +1340,7 @@ class Configuration extends StorageApiConfiguration
 		$data = array(
 			'name' => $name,
 			'attribute' => $attribute,
-			'element' => $element,
+			'element' => is_array($element)? json_encode($element) : $element,
 			'operator' => $operator,
 			'uri' => $uri
 		);
