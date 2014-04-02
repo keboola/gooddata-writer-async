@@ -1622,6 +1622,7 @@ class RestApi
 			} else {
 				sleep(self::BACKOFF_INTERVAL * ($retriesCount + 1));
 				$retriesCount++;
+				$this->refreshToken();
 			}
 
 		} while ($isMaintenance || $retriesCount <= self::RETRIES_COUNT);
