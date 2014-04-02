@@ -71,7 +71,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	public function preExecute()
 	{
 		parent::preExecute();
-		
+
 		if (!defined('JSON_PRETTY_PRINT')) {
 			// fallback for PHP <= 5.3
 			define('JSON_PRETTY_PRINT', 0);
@@ -767,7 +767,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$command = 'assignFiltersToUser';
 		$createdTime = time();
 
-		$this->checkParams(array('writerId', 'filters', 'userEmail', 'pid'));
+		$this->checkParams(array('writerId', 'userEmail', 'pid'));
+		if (!isset($this->params['filters'])) {
+			throw new WrongParametersException("Parameter 'filters' is missing");
+		}
 		$this->checkWriterExistence();
 
 		$jobInfo = $this->createJob(array(
@@ -1704,4 +1707,4 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 	}
 
-} 
+}

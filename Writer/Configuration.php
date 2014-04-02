@@ -1400,12 +1400,26 @@ class Configuration extends StorageApiConfiguration
 			}
 		}
 
-		$data = array();
-		foreach ($filterNames as $fn) {
-			$data[] = array($fn, $userEmail);
+		$filtersUsers = $this->getFiltersUsers();
+
+		// remove all filters for user
+		foreach ($filtersUsers as $k => $v) {
+			if ($v['userEmail'] == $userEmail) {
+				unset($filtersUsers[$k]);
+			}
 		}
 
-		$this->updateConfigTable(self::FILTERS_USERS_TABLE_NAME, $data, false);
+		// add filters
+		foreach ($filterNames as $fn) {
+			$filtersUsers[] = array($fn, $userEmail);
+		}
+
+		if (empty($filtersUsers)) {
+			$tableId = $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME;
+			$this->saveTable($tableId, null, array('filterName', 'userEmail'), array(), false);
+		} else {
+			$this->updateConfigTable(self::FILTERS_USERS_TABLE_NAME, $filtersUsers, false);
+		}
 	}
 
 	public function deleteFilter($filterUri)
