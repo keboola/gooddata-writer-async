@@ -786,16 +786,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if (empty($this->params['wait'])) {
 			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 		} else {
-			$result = $this->waitForJob($jobInfo['id'], false);
-			if (isset($result['result']['uri'])) {
-				return $this->createApiResponse(array(
-					'uri' => $result['result']['uri']
-				));
-			} else {
-				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
-				throw $e;
-			}
+			return $this->waitForJob($jobInfo['id'], false);
 		}
 	}
 
