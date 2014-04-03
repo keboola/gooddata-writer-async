@@ -33,6 +33,7 @@ use Keboola\GoodDataWriter\GoodData\RestApiException,
 
 class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 {
+	const STOPWATCH_NAME_REQUEST = 'requestTimer';
 
 	/**
 	 * @var Configuration
@@ -89,7 +90,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$this->appConfiguration = $this->container->get('gooddata_writer.app_configuration');
 		$this->stopWatch = new Stopwatch();
-		$this->stopWatch->start('request');
+		$this->stopWatch->start(self::STOPWATCH_NAME_REQUEST);
 	}
 
 
@@ -1508,11 +1509,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 	private function createApiResponse($response = array(), $statusCode = 200)
 	{
-		$event = $this->stopWatch->stop('request');
 		$responseBody = array(
-			'status'    => 'ok',
-			'duration'  => $event->getDuration()
+			'status'    => 'ok'
 		);
+
+		if ($this->stopWatch->isStarted(self::STOPWATCH_NAME_REQUEST)) {
+			$event = $this->stopWatch->stop(self::STOPWATCH_NAME_REQUEST);
+			$responseBody['duration']  = $event->getDuration();
+		}
 
 		if (null != $response) {
 			$responseBody = array_merge($response, $responseBody);
