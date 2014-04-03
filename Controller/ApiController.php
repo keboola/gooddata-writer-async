@@ -790,7 +790,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if (empty($this->params['wait'])) {
 			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 		} else {
-			return $this->waitForJob($jobInfo['id'], false);
+			return $this->waitForJob($jobInfo['id']);
 		}
 	}
 
