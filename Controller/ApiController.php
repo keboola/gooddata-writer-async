@@ -33,6 +33,7 @@ use Keboola\GoodDataWriter\GoodData\RestApiException,
 
 class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 {
+	const STOPWATCH_NAME_REQUEST = 'requestTimer';
 
 	/**
 	 * @var Configuration
@@ -71,7 +72,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	public function preExecute()
 	{
 		parent::preExecute();
-		
+
 		if (!defined('JSON_PRETTY_PRINT')) {
 			// fallback for PHP <= 5.3
 			define('JSON_PRETTY_PRINT', 0);
@@ -89,7 +90,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$this->appConfiguration = $this->container->get('gooddata_writer.app_configuration');
 		$this->stopWatch = new Stopwatch();
-		$this->stopWatch->start('request');
+		$this->stopWatch->start(self::STOPWATCH_NAME_REQUEST);
 	}
 
 
@@ -382,13 +383,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 					throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
 				}
 				$jobInfo = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
-				if (isset($jobInfo['status']) && ($jobInfo['status'] == 'success' || $jobInfo['status'] == 'error')) {
+				if (isset($jobInfo['status']) && ($jobInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS || $jobInfo['status'] == SharedConfig::JOB_STATUS_ERROR)) {
 					$jobFinished = true;
 				}
 				if (!$jobFinished) sleep(30);
 			} while(!$jobFinished);
 
-			if ($jobInfo['status'] == 'success') {
+			if ($jobInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS) {
 				return $this->createApiResponse();
 			} else {
 				$e = new JobProcessException('Remove Project User job failed');
@@ -767,7 +768,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$command = 'assignFiltersToUser';
 		$createdTime = time();
 
-		$this->checkParams(array('writerId', 'filters', 'userEmail', 'pid'));
+		$this->checkParams(array('writerId', 'userEmail', 'pid'));
+		if (!isset($this->params['filters'])) {
+			throw new WrongParametersException("Parameter 'filters' is missing");
+		}
 		$this->checkWriterExistence();
 
 		$jobInfo = $this->createJob(array(
@@ -786,16 +790,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if (empty($this->params['wait'])) {
 			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 		} else {
-			$result = $this->waitForJob($jobInfo['id'], false);
-			if (isset($result['result']['uri'])) {
-				return $this->createApiResponse(array(
-					'uri' => $result['result']['uri']
-				));
-			} else {
-				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
-				throw $e;
-			}
+			return $this->waitForJob($jobInfo['id']);
 		}
 	}
 
@@ -1514,11 +1509,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 	private function createApiResponse($response = array(), $statusCode = 200)
 	{
-		$event = $this->stopWatch->stop('request');
 		$responseBody = array(
-			'status'    => 'ok',
-			'duration'  => $event->getDuration()
+			'status'    => 'ok'
 		);
+
+		if ($this->stopWatch->isStarted(self::STOPWATCH_NAME_REQUEST)) {
+			$event = $this->stopWatch->stop(self::STOPWATCH_NAME_REQUEST);
+			$responseBody['duration']  = $event->getDuration();
+		}
 
 		if (null != $response) {
 			$responseBody = array_merge($response, $responseBody);
@@ -1671,7 +1669,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
 			}
 			$jobInfo = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
-			if (isset($jobInfo['status']) && !in_array($jobInfo['status'], array('waiting', 'processing'))) {
+			if (isset($jobInfo['status']) && !in_array($jobInfo['status'], array(SharedConfig::JOB_STATUS_WAITING, SharedConfig::JOB_STATUS_PROCESSING))) {
 				$jobFinished = true;
 			}
 			if (!$jobFinished) sleep($i * 10);
@@ -1679,8 +1677,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		} while(!$jobFinished);
 
 		if ($returnResponse) {
-			if ($jobInfo['status'] == 'success') {
+			if ($jobInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS) {
 				return $this->createApiResponse($jobInfo);
+			} elseif ($jobInfo['status'] == SharedConfig::JOB_STATUS_CANCELLED) {
+				throw new JobProcessException('Job processing cancelled');
 			} else {
 				$e = new JobProcessException('Job processing failed');
 				$e->setData(array('result' => $jobInfo['result'], 'logs' => $jobInfo['logs']));
@@ -1697,15 +1697,18 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$i = 1;
 		do {
 			$jobsInfo = $this->getSharedConfig()->batchToApiResponse($batchId, $this->getS3Client());
-			if (isset($jobsInfo['status']) && !in_array($jobsInfo['status'], array('waiting', 'processing'))) {
+			if (isset($jobsInfo['status']) && !in_array($jobsInfo['status'], array(SharedConfig::JOB_STATUS_WAITING, SharedConfig::JOB_STATUS_PROCESSING))) {
 				$jobsFinished = true;
 			}
 			if (!$jobsFinished) sleep($i * 10);
 			$i++;
 		} while(!$jobsFinished);
 
-		if ($jobsInfo['status'] == 'success') {
+		if ($jobsInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS) {
 			return $this->createApiResponse($jobsInfo);
+		} elseif ($jobsInfo['status'] == SharedConfig::JOB_STATUS_CANCELLED) {
+			throw new JobProcessException('Batch processing cancelled');
+
 		} else {
 			$e = new JobProcessException('Batch processing failed');
 			$e->setData(array('result' => $jobsInfo['result'], 'logs' => $jobsInfo['logs']));
@@ -1713,4 +1716,4 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 	}
 
-} 
+}

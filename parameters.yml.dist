@@ -1,0 +1,64 @@
+parameters:
+    gooddata_writer:
+        user_agent: 'Keboola GoodData Writer'
+        tmp_path: /tmp/gooddata-writer
+        scripts_path: /www/syrup-router/components/gooddata-writer/current/GoodData
+        zip_path:
+        shared_sapi:
+            url: 'https://connection.keboola.com'
+            token:
+        gd:
+            access_token:
+            domain: keboola
+            sso_provider: keboola.com
+            key_passphrase:
+            username: gooddata@keboola.com
+            password:
+            user_email: '%%s-%%s@clients.keboola.com'
+            project_name: 'KBC - %%s - %%s'
+        db:
+            host: localhost
+            name: gooddata_writer
+            user: gooddata_writer
+            password:
+        aws:
+            access_key:
+            secret_key:
+            region: us-east-1
+            s3_bucket: kbc-gooddata-writer
+            queue_url:
+    app_name: gooddata-writer
+
+    database_driver: pdo_mysql
+    database_host: localhost
+    database_port: null
+    database_name: symfony
+    database_user: root
+    database_password: null
+
+    mailer_transport: smtp
+    mailer_host: localhost
+    mailer_user: null
+    mailer_password: null
+
+    locale: en
+
+    secret:
+
+    shared_sapi.url: 'https://connection.keboola.com'
+    shared_sapi.token:
+
+    storage_api.url: 'https://connection.keboola.com'
+    storage_api.test.token:
+    storage_api.test.token-rc:
+
+    uploader.aws-access-key:
+    uploader.aws-secret-key:
+    uploader.s3-upload-path: keboola-logs/debug-files
+    uploader.bitly-login:
+    uploader.bitly-api-key:
+    components:
+        gooddata-writer:
+            class: Keboola\GoodDataWriter\GoodDataWriter
+            bundle: Keboola\GoodDataWriter\KeboolaGoodDataWriterBundle
+            encryption_key: 

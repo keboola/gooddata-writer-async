@@ -16,6 +16,7 @@ use Guzzle\Http\Curl\CurlHandle;
 use Guzzle\Http\Exception\CurlException;
 use Guzzle\Stream\PhpStreamRequestFactory;
 use Guzzle\Http\Message\RequestInterface;
+use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Monolog\Logger;
 use stdClass;
 use Syrup\ComponentBundle\Filesystem\TempService;
@@ -61,8 +62,14 @@ class RestApiException extends \Exception
 		$this->details = $details;
 	}
 
+}
+
+class UserAlreadyExistsException extends RestApiException
+{
 
 }
+
+
 
 class RestApi
 {
@@ -445,7 +452,7 @@ class RestApi
 			// User exists?
 			$userId = $this->userId($login, $domain);
 			if ($userId) {
-				return $userId;
+				throw new UserAlreadyExistsException($userId);
 			} else {
 				throw $e;
 			}
@@ -1276,12 +1283,7 @@ class RestApi
 			}
 		}
 
-		$this->logAlert('getAttributeById() attribute not found', array(
-			'pid' => $pid,
-			'attribute' => $id,
-			'attributesFound' => $attributes
-		));
-		throw new RestApiException('Attribute ' . $id . ' not found in project.');
+		throw new JobProcessException('Attribute ' . $id . ' not found in project.');
 	}
 
 	public function getAttributeByTitle($pid, $title)
@@ -1297,11 +1299,7 @@ class RestApi
 		}
 
 		if (null == $attrUri) {
-			$this->logAlert('getAttributeByTitle() attribute not found', array(
-				'pid' => $pid,
-				'attribute' => $title
-			));
-			throw new RestApiException('Attribute ' . $title . ' not found in project');
+			throw new JobProcessException('Attribute ' . $title . ' not found in project');
 		} else {
 			$result = $this->jsonRequest($attrUri);
 			if (isset($result['attribute'])) {
@@ -1341,11 +1339,7 @@ class RestApi
 		}
 
 		if (null == $elementUri) {
-			$this->logAlert('getElementsByTitle() element not found', array(
-				'uri' => $uri,
-				'element' => $title
-			));
-			throw new RestApiException('Element ' . $title . ' not found');
+			throw new JobProcessException('Element ' . $title . ' not found');
 		} else {
 			return $elementUri;
 		}
@@ -1468,7 +1462,10 @@ class RestApi
 			'accept-charset' => 'utf-8'
 		));
 
-		for ($i = 0; $i < self::RETRIES_COUNT; $i++) {
+		$retriesCount = 1;
+		do {
+			$isMaintenance = false;
+
 			if ($this->authSst) {
 				$request->addCookie('GDCAuthSST', $this->authSst);
 			}
@@ -1486,26 +1483,44 @@ class RestApi
 				if ($response->getStatusCode() == 200) {
 					return $filename;
 				}
-			} catch (ClientErrorResponseException $e) {
-				$response = $request->getResponse();
-				$this->logCall($uri, 'GET', array("filename" => $filename), $response->getBody(true), time() - $startTime, $response->getStatusCode());
+			} catch (\Exception $e) {
 
-				if ($request->getResponse()->getStatusCode() == 201) {
+				if ($e instanceof ClientErrorResponseException) {
+					$response = $request->getResponse();
+					$this->logCall($uri, 'GET', array("filename" => $filename), $response->getBody(true), time() - $startTime, $response->getStatusCode());
 
-					// file not ready yet do nothing
+					if ($request->getResponse()->getStatusCode() == 201) {
 
-				} elseif ($request->getResponse()->getStatusCode() == 401) {
+						// file not ready yet do nothing
 
-					// TT token expired
-					$this->refreshToken();
+					} elseif ($request->getResponse()->getStatusCode() == 401) {
 
+						// TT token expired
+						$this->refreshToken();
+
+					} else {
+						throw new RestApiException("Error occurred while downloading file. Status code ". $response->getStatusCode(), 500, $e);
+					}
+				} elseif ($e instanceof ServerErrorResponseException) {
+					if ($request->getResponse()->getStatusCode() == 503) {
+						// GD maintenance
+						$isMaintenance = true;
+					}
+				} elseif ($e instanceof CurlException) {
+					// Just retry according to backoff algorithm
 				} else {
-					throw new RestApiException("Error occurred while downloading file. Status code ". $response->getStatusCode(), 500, $e);
+					throw $e;
 				}
 			}
 
-			sleep(self::BACKOFF_INTERVAL * ($i + 1));
-		}
+			if ($isMaintenance) {
+				sleep(rand(60, 600));
+			} else {
+				sleep(self::BACKOFF_INTERVAL * ($retriesCount + 1));
+				$retriesCount++;
+			}
+
+		} while ($isMaintenance || $retriesCount <= self::RETRIES_COUNT);
 
 		return false;
 	}
@@ -1523,7 +1538,6 @@ class RestApi
 		$startTime = time();
 		$jsonParams = is_array($params) ? json_encode($params) : $params;
 
-		$backOffInterval = self::BACKOFF_INTERVAL;
 		$request = null;
 		$response = null;
 		$exception = null;
@@ -1576,11 +1590,11 @@ class RestApi
 					$response = $request->getResponse()->getBody(true);
 				}
 
-				if ($logCall) $this->logCall($uri, $method, $params, $response, $duration, $request->getResponse()->getStatusCode());
+				if ($logCall) $this->logCall($uri, $method, $params, $response, $duration, $responseObject? $responseObject->getStatusCode() : null);
 				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
 
 				if ($e instanceof ClientErrorResponseException) {
-					if ($request->getResponse()->getStatusCode() == 401) {
+					if ($responseObject && $responseObject->getStatusCode() == 401) {
 						// TT token expired
 						//$this->refreshToken();
 						$this->login($this->username, $this->password);
@@ -1597,7 +1611,7 @@ class RestApi
 						throw new RestApiException('API error ' . $request->getResponse()->getStatusCode(), $response);
 					}
 				} elseif ($e instanceof ServerErrorResponseException) {
-					if ($request->getResponse()->getStatusCode() == 503) {
+					if ($responseObject && $responseObject->getStatusCode() == 503) {
 						// GD maintenance
 						$isMaintenance = true;
 					}
@@ -1612,8 +1626,9 @@ class RestApi
 			if ($isMaintenance) {
 				sleep(rand(60, 600));
 			} else {
-				sleep($backOffInterval * ($retriesCount + 1));
+				sleep(self::BACKOFF_INTERVAL * ($retriesCount + 1));
 				$retriesCount++;
+				$this->refreshToken();
 			}
 
 		} while ($isMaintenance || $retriesCount <= self::RETRIES_COUNT);

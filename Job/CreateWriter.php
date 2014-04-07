@@ -6,18 +6,12 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\GoodData\UserAlreadyExistsException;
 
 class CreateWriter extends AbstractJob
 {
-	/**
-	 * @param $job
-	 * @param $params
-	 * @throws \Exception
-	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
-	 * @return array
-	 */
+
 	public function run($job, $params)
 	{
 		$this->checkParams($params, array('accessToken', 'projectName'));
@@ -35,7 +29,11 @@ class CreateWriter extends AbstractJob
 			'main' => true
 		)));
 
-		$userId = $this->restApi->createUser($this->appConfiguration->gd_domain, $username, $password, 'KBC', 'Writer', $this->appConfiguration->gd_ssoProvider);
+		try {
+			$userId = $this->restApi->createUser($this->appConfiguration->gd_domain, $username, $password, 'KBC', 'Writer', $this->appConfiguration->gd_ssoProvider);
+		} catch (UserAlreadyExistsException $e) {
+			$userId = $e->getMessage();
+		}
 		$this->restApi->addUserToProject($userId, $projectPid, RestApi::$userRoles['admin']);
 
 		// Save data to configuration bucket

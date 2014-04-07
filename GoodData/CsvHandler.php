@@ -38,6 +38,9 @@ class CsvHandler
 		$this->s3Client = $s3Client;
 		$this->tmpDir = $tmpDir;
 		$this->logger = $logger;
+
+		if (!file_exists($scriptsPath . '/convert_csv.php'))
+			throw new \Exception('Conversion script for csv handling in pipe does not exist');
 	}
 
 	public function setJobId($id)

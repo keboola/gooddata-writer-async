@@ -44,7 +44,7 @@ class SharedConfig extends StorageApiConfiguration
 
 	public function __construct(AppConfiguration $appConfiguration, EncryptorFactory $encryptorFactory)
 	{
-		$this->_storageApiClient = new StorageApiClient(
+		$this->storageApiClient = new StorageApiClient(
 			$appConfiguration->sharedSapi_token,
 			$appConfiguration->sharedSapi_url,
 			$appConfiguration->userAgent
@@ -54,7 +54,7 @@ class SharedConfig extends StorageApiConfiguration
 
 	public function getDomainUser($domain)
 	{
-		$result = $this->_fetchTableRows(self::DOMAINS_TABLE_ID, 'name', $domain);
+		$result = $this->fetchTableRows(self::DOMAINS_TABLE_ID, 'name', $domain);
 		$result = reset($result);
 		if (!$result || !isset($result['name']))
 			throw new SharedConfigException(sprintf("User for domain '%s' does not exist", $domain));
@@ -70,7 +70,7 @@ class SharedConfig extends StorageApiConfiguration
 
 	public function saveDomain($name, $username, $password)
 	{
-		$this->_updateTableRow(self::DOMAINS_TABLE_ID, 'name', array(
+		$this->updateTableRow(self::DOMAINS_TABLE_ID, 'name', array(
 			'name' => $name,
 			'username' => $username,
 			'password' => $this->encryptor->encrypt($password)
@@ -80,7 +80,7 @@ class SharedConfig extends StorageApiConfiguration
 
 	public function fetchJobs($projectId, $writerId, $days = 7)
 	{
-		return $this->_fetchTableRows(self::JOBS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId, array(
+		return $this->fetchTableRows(self::JOBS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId, array(
 			'changedSince' => '-' . $days . ' days'
 		));
 	}
@@ -93,7 +93,7 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function fetchJob($jobId, $writerId = null, $projectId = null)
 	{
-		$job = $this->_fetchTableRows(self::JOBS_TABLE_ID, 'id', $jobId, array(), false);
+		$job = $this->fetchTableRows(self::JOBS_TABLE_ID, 'id', $jobId, array(), false);
 		$job = reset($job);
 
 		if ((!$writerId || $job['writerId'] == $writerId) && (!$projectId || $job['projectId'] == $projectId)) {
@@ -109,7 +109,7 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function fetchBatch($batchId)
 	{
-		return $this->_fetchTableRows(self::JOBS_TABLE_ID, 'batchId', $batchId, array(), false);
+		return $this->fetchTableRows(self::JOBS_TABLE_ID, 'batchId', $batchId, array(), false);
 	}
 
 	/**
@@ -144,7 +144,7 @@ class SharedConfig extends StorageApiConfiguration
 		if (!isset($fields['id'])) {
 			$fields['id'] = $jobId;
 		}
-		$this->_updateTableRow(self::JOBS_TABLE_ID, 'pid', $fields);
+		$this->updateTableRow(self::JOBS_TABLE_ID, 'pid', $fields);
 	}
 
 	/**
@@ -308,7 +308,7 @@ class SharedConfig extends StorageApiConfiguration
 			'createdTime' => date('c'),
 			'projectIdWriterId' => $job['projectId'] . '.' . $job['writerId']
 		);
-		$this->_updateTableRow(self::PROJECTS_TABLE_ID, 'pid', $data);
+		$this->updateTableRow(self::PROJECTS_TABLE_ID, 'pid', $data);
 	}
 
 	/**
@@ -326,7 +326,7 @@ class SharedConfig extends StorageApiConfiguration
 			'createdTime' => date('c'),
 			'projectIdWriterId' => $job['projectId'] . '.' . $job['writerId']
 		);
-		$this->_updateTableRow(self::USERS_TABLE_ID, 'uid', $data);
+		$this->updateTableRow(self::USERS_TABLE_ID, 'uid', $data);
 	}
 
 
@@ -338,9 +338,9 @@ class SharedConfig extends StorageApiConfiguration
 	public function getProjects($projectId = null, $writerId = null)
 	{
 		if ($projectId && $writerId) {
-			return $this->_fetchTableRows(self::PROJECTS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId);
+			return $this->fetchTableRows(self::PROJECTS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId);
 		} else {
-			return $this->_fetchTableRows(self::PROJECTS_TABLE_ID);
+			return $this->fetchTableRows(self::PROJECTS_TABLE_ID);
 		}
 	}
 
@@ -351,7 +351,7 @@ class SharedConfig extends StorageApiConfiguration
 	{
 		$now = time();
 		$result = array();
-		$csv = $this->_fetchTableRows(self::PROJECTS_TO_DELETE_TABLE_ID, 'deletedTime', '');
+		$csv = $this->fetchTableRows(self::PROJECTS_TO_DELETE_TABLE_ID, 'deletedTime', '');
 		foreach ($csv as $project) {
 			if ($now - strtotime($project['createdTime']) >= 60 * 60 * 24 * 30) {
 				$result[] = $project;
@@ -370,7 +370,7 @@ class SharedConfig extends StorageApiConfiguration
 		foreach ($pids as $pid) {
 			$data[] = array($pid, $nowTime);
 		}
-		$this->_updateTable(self::PROJECTS_TO_DELETE_TABLE_ID, 'pid', array('pid', 'deletedTime'), $data);
+		$this->updateTable(self::PROJECTS_TO_DELETE_TABLE_ID, 'pid', array('pid', 'deletedTime'), $data);
 	}
 
 
@@ -383,7 +383,7 @@ class SharedConfig extends StorageApiConfiguration
 			'createdTime' => date('c'),
 			'deletedTime' => null
 		);
-		$this->_updateTableRow(self::PROJECTS_TO_DELETE_TABLE_ID, 'pid', $data);
+		$this->updateTableRow(self::PROJECTS_TO_DELETE_TABLE_ID, 'pid', $data);
 	}
 
 
@@ -394,7 +394,7 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function getUsers($projectId, $writerId)
 	{
-		return $this->_fetchTableRows(self::USERS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId);
+		return $this->fetchTableRows(self::USERS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId);
 	}
 
 	/**
@@ -404,7 +404,7 @@ class SharedConfig extends StorageApiConfiguration
 	{
 		$now = time();
 		$result = array();
-		$csv = $this->_fetchTableRows(self::USERS_TO_DELETE_TABLE_ID, 'deletedTime', '');
+		$csv = $this->fetchTableRows(self::USERS_TO_DELETE_TABLE_ID, 'deletedTime', '');
 		foreach ($csv as $user) {
 			if ($now - strtotime($user['createdTime']) >= 60 * 60 * 24 * 30) {
 				$result[] = $user;
@@ -424,7 +424,7 @@ class SharedConfig extends StorageApiConfiguration
 			$data[] = array($id, $nowTime);
 		}
 
-		$this->_updateTable(self::USERS_TO_DELETE_TABLE_ID, 'uid', array('uid', 'deletedTime'), $data);
+		$this->updateTable(self::USERS_TO_DELETE_TABLE_ID, 'uid', array('uid', 'deletedTime'), $data);
 	}
 
 	/**
@@ -443,7 +443,7 @@ class SharedConfig extends StorageApiConfiguration
 			'createdTime' => date('c'),
 			'deletedTime' => null
 		);
-		$this->_updateTableRow(self::USERS_TO_DELETE_TABLE_ID, 'uid', $data);
+		$this->updateTableRow(self::USERS_TO_DELETE_TABLE_ID, 'uid', $data);
 	}
 
 }
