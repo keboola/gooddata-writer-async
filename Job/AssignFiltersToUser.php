@@ -7,24 +7,34 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Keboola\GoodDataWriter\Exception\WrongParametersException;
 
 class assignFiltersToUser extends AbstractJob
 {
 	/**
 	 * @param $job
 	 * @param $params
-	 * @throws WrongConfigurationException
+	 * @throws WrongParametersException
 	 * @return array
 	 */
 	public function run($job, $params)
 	{
-		$this->checkParams($params, array('filters', 'userEmail', 'pid'));
+		$this->checkParams($params, array('userEmail', 'pid'));
 
 		if (!is_array($params['filters'])) {
-			throw new WrongConfigurationException("Parameter 'filters' must be an array.");
+			throw new WrongParametersException("Parameter 'filters' must be an array.");
+		}
+
+		$project = $this->configuration->getProject($params['pid']);
+		if ($project == false) {
+			throw new WrongParametersException("Project with specified PID not found within this writer.");
 		}
 
 		$user = $this->configuration->getUser($params['userEmail']);
+		if ($user == false) {
+			throw new WrongParametersException("User '". $user ."' not found within this writer.");
+		}
+
 		$filterUris = array();
 		foreach ($params['filters'] as $name) {
 			$filter = $this->configuration->getFilter($name);

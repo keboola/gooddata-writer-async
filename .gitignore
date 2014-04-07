@@ -1,4 +1,4 @@
-parameters.yml.dist
+parameters.yml
 *.log
 .idea
 composer.phar

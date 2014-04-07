@@ -9,8 +9,8 @@ namespace Keboola\GoodDataWriter\GoodData;
 
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\Configuration;
-use Keboola\GoodDataWriter\Writer\SharedConfig;
-use Symfony\Component\HttpKernel\Kernel;
+use Symfony\Component\Process\Process;
+use Syrup\ComponentBundle\Exception\ApplicationException;
 
 class GoodDataSSOException extends \Exception
 {
@@ -55,19 +55,35 @@ class SSO
 
 		$command = sprintf('sudo -u root %s %s %s %s %s 2>&1',
 			self::SSO_SCRIPT_PATH, $this->passphrase, $jsonFile, $this->ssoUser, self::GOODDATA_EMAIL);
-		shell_exec($command);
-		unlink($jsonFile);
-		if (file_exists($jsonFile . '.enc')) {
-			$sign = file_get_contents($jsonFile . '.enc');
-			unlink($jsonFile . '.enc');
 
-			$url = sprintf("https://{$this->gooddataHost}/gdc/account/customerlogin?sessionId=%s&serverURL=%s&targetURL=%s",
-				urlencode($sign),
-				urlencode($this->ssoProvider),
-				urlencode($targetUrl)
-			);
+		$error = null;
+		for ($i = 0; $i < 5; $i++) {
+			$process = new Process($command);
+			$process->setTimeout(null);
+			$process->run();
+			$error = $process->getErrorOutput();
 
-			return $url;
+			if ($process->isSuccessful() && !$error) {
+
+				unlink($jsonFile);
+				if (file_exists($jsonFile . '.enc')) {
+					$sign = file_get_contents($jsonFile . '.enc');
+					unlink($jsonFile . '.enc');
+
+					$url = sprintf("https://{$this->gooddataHost}/gdc/account/customerlogin?sessionId=%s&serverURL=%s&targetURL=%s",
+						urlencode($sign),
+						urlencode($this->ssoProvider),
+						urlencode($targetUrl)
+					);
+
+					return $url;
+				}
+
+			}
+
+			sleep($i * 60);
 		}
+
+		throw new \Exception('SSO link generation failed. ' . $error);
 	}
 }

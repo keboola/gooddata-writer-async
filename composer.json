@@ -42,7 +42,7 @@
 		"incenteev-parameters": {
 			"keep-outdated": true,
 			"file": "vendor/syrup/development-bundle/app/config/parameters.yml",
-			"dist-file": "parameters.yml.dist"
+			"dist-file": "parameters.yml"
 		}
 	}
 }
