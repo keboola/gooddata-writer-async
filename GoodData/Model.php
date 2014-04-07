@@ -54,11 +54,18 @@ class Model
  	*/
 	public function getLDM($tableDefinition)
 	{
+		$dataSetId = self::getId($tableDefinition['name']);
+		// add default connection point
 		$dataSet = array(
 			'identifier' => self::getDatasetId($tableDefinition['name']),
-			'title' => $tableDefinition['name']
+			'title' => $tableDefinition['name'],
+			'anchor' => array(
+				'attribute' => array(
+					'identifier' => sprintf('attr.%s.factsof', $dataSetId),
+					'title' => sprintf('Records of %s', $tableDefinition['name'])
+				)
+			)
 		);
-		$dataSetId = self::getId($tableDefinition['name']);
 
 		$facts = array();
 		$attributes = array();
