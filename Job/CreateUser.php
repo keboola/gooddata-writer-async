@@ -6,7 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Keboola\GoodDataWriter\GoodData\UserAlreadyExistsException;
 
 class CreateUser extends AbstractJob
 {
@@ -17,8 +17,14 @@ class CreateUser extends AbstractJob
 		$gdWriteStartTime = date('c');
 		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
 		$ssoProvider = empty($params['ssoProvider']) ? $this->appConfiguration->gd_ssoProvider : $params['ssoProvider'];
-		$userId = $this->restApi->createUser($this->appConfiguration->gd_domain, $params['email'], $params['password'],
-			$params['firstName'], $params['lastName'], $ssoProvider);
+		$alreadyExists = false;
+		try {
+			$userId = $this->restApi->createUser($this->appConfiguration->gd_domain, $params['email'], $params['password'],
+				$params['firstName'], $params['lastName'], $ssoProvider);
+		} catch (UserAlreadyExistsException $e) {
+			$userId = $e->getMessage();
+			$alreadyExists = true;
+		}
 
 		$this->configuration->saveUser($params['email'], $userId);
 		$this->sharedConfig->saveUser($userId, $params['email'], $job);
@@ -28,7 +34,8 @@ class CreateUser extends AbstractJob
 		), $this->restApi->getLogPath());
 		return array(
 			'uid' => $userId,
-			'gdWriteStartTime' => $gdWriteStartTime
+			'gdWriteStartTime' => $gdWriteStartTime,
+			'alreadyExists' => $alreadyExists
 		);
 	}
 }

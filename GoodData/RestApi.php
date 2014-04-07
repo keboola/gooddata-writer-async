@@ -62,8 +62,14 @@ class RestApiException extends \Exception
 		$this->details = $details;
 	}
 
+}
+
+class UserAlreadyExistsException extends RestApiException
+{
 
 }
+
+
 
 class RestApi
 {
@@ -446,7 +452,7 @@ class RestApi
 			// User exists?
 			$userId = $this->userId($login, $domain);
 			if ($userId) {
-				return $userId;
+				throw new UserAlreadyExistsException($userId);
 			} else {
 				throw $e;
 			}
