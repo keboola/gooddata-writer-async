@@ -10,12 +10,6 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 
 class CreateUser extends AbstractJob
 {
-	/**
-	 * @param $job
-	 * @param $params
-	 * @throws WrongConfigurationException
-	 * @return array
-	 */
 	public function run($job, $params)
 	{
 		$this->checkParams($params, array('email', 'password', 'firstName', 'lastName'));
