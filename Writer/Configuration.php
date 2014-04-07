@@ -1151,6 +1151,10 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function saveProjectUser($pid, $email, $role)
 	{
+		// cleanup previous
+		$this->removeProjectUserAdd($pid, $email);
+		$this->removeProjectUserInvite($pid, $email);
+
 		$action = 'add';
 		$data = array(
 			'id' => sha1($pid . $email . $action . date('c')),
@@ -1169,6 +1173,10 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function saveProjectInvite($pid, $email, $role)
 	{
+		// cleanup previous
+		$this->removeProjectUserAdd($pid, $email);
+		$this->removeProjectUserInvite($pid, $email);
+
 		$action = 'invite';
 		$data = array(
 			'id' => sha1($pid . $email . $action . date('c')),
