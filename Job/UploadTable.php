@@ -176,7 +176,7 @@ class UploadTable extends AbstractJob
 				'incrementalLoad' => ($dataSetExists && $incrementalLoad) ? $incrementalLoad : 0
 			);
 
-			$modelChangeDecisionsLog[$project['id']] = array(
+			$modelChangeDecisionsLog[$project['pid']] = array(
 				'dataSetExists' => $dataSetExists,
 				'lastGoodDataUpdate' => $lastGoodDataUpdate . ($lastGoodDataUpdate? ' - ' . strtotime($lastGoodDataUpdate) : null),
 				'lastConfigurationUpdate' => $lastConfigurationUpdate . ($lastConfigurationUpdate? ' - ' . strtotime($lastConfigurationUpdate) : null),
