@@ -145,13 +145,15 @@ class UploadTable extends AbstractJob
 
 
 		// Enqueue jobs for creation/update of dataSet and load data
+		$modelChangeDecisionsLog = array();
 		foreach ($projectsToLoad as $project) {
 			$dataSetExists = in_array($dataSetId, array_keys($project['existingDataSets']));
-			if ($dataSetExists) {
-				if (!empty($tableDefinition['lastChangeDate'])
-					&& (empty($project['existingDataSets'][$dataSetId]['lastChangeDate'])
-					|| strtotime($project['existingDataSets'][$dataSetId]['lastChangeDate']) < strtotime($tableDefinition['lastChangeDate']))) {
+			$lastGoodDataUpdate = empty($project['existingDataSets'][$dataSetId]['lastChangeDate'])? null : $project['existingDataSets'][$dataSetId]['lastChangeDate'];
+			$lastConfigurationUpdate = empty($tableDefinition['lastChangeDate'])? null : $tableDefinition['lastChangeDate'];
+			$doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || strtotime($lastGoodDataUpdate) < strtotime($lastConfigurationUpdate));
 
+			if ($dataSetExists) {
+				if ($doUpdate) {
 					$updateModelJobs[] = array(
 						'command' => 'update',
 						'pid' => $project['pid'],
@@ -173,6 +175,13 @@ class UploadTable extends AbstractJob
 				'mainProject' => !empty($project['main']),
 				'incrementalLoad' => ($dataSetExists && $incrementalLoad) ? $incrementalLoad : 0
 			);
+
+			$modelChangeDecisionsLog[$project['id']] = array(
+				'dataSetExists' => $dataSetExists,
+				'lastGoodDataUpdate' => $lastGoodDataUpdate . ($lastGoodDataUpdate? ' - ' . strtotime($lastGoodDataUpdate) : null),
+				'lastConfigurationUpdate' => $lastConfigurationUpdate . ($lastConfigurationUpdate? ' - ' . strtotime($lastConfigurationUpdate) : null),
+				'doUpdate' => $doUpdate
+			);
 		}
 
 
@@ -193,7 +202,8 @@ class UploadTable extends AbstractJob
 
 		$e = $stopWatch->stop($stopWatchId);
 		$this->logEvent($stopWatchId, array(
-			'duration' => $e->getDuration()
+			'duration' => $e->getDuration(),
+			'modelChangeDecisions' => $modelChangeDecisionsLog
 		));
 
 
