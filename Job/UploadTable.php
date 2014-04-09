@@ -149,6 +149,11 @@ class UploadTable extends AbstractJob
 		foreach ($projectsToLoad as $project) {
 			$dataSetExists = in_array($dataSetId, array_keys($project['existingDataSets']));
 			$lastGoodDataUpdate = empty($project['existingDataSets'][$dataSetId]['lastChangeDate'])? null : $project['existingDataSets'][$dataSetId]['lastChangeDate'];
+
+			//@TODO Dirty quick fix
+			if ($lastGoodDataUpdate) $lastGoodDataUpdate .= '+02:00';
+			//@TODO Dirty quick fix
+
 			$lastConfigurationUpdate = empty($tableDefinition['lastChangeDate'])? null : $tableDefinition['lastChangeDate'];
 			$doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || strtotime($lastGoodDataUpdate) < strtotime($lastConfigurationUpdate));
 
