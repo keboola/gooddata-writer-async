@@ -15,6 +15,7 @@ class Model
 
 	const TIME_DIMENSION_MANIFEST = 'time-dimension-manifest.json';
 	const TIME_DIMENSION_MODEL = 'time-dimension-ldm.json';
+	const API_TIME_ZONE = 'Europe/Prague';
 
 	public function __construct(AppConfiguration $appConfiguration)
 	{
@@ -46,6 +47,12 @@ class Model
 	public static function getDatasetId($name)
 	{
 		return 'dataset.' . self::getId($name);
+	}
+
+	public static function getTimestampFromApiDate($date)
+	{
+		$date = new \DateTime($date, new \DateTimeZone(self::API_TIME_ZONE));
+		return $date->getTimestamp();
 	}
 
 
