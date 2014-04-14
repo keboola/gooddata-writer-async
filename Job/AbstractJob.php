@@ -55,7 +55,6 @@ abstract class AbstractJob
 	protected $tmpDir;
 	protected $rootPath;
 	protected $scriptsPath;
-	protected $preRelease;
 	/**
 	 * @var \Keboola\GoodDataWriter\GoodData\User
 	 */
@@ -70,6 +69,9 @@ abstract class AbstractJob
 	 */
 	private $logFile;
 	protected $logs;
+
+	protected $preRelease;
+	protected $isTesting;
 
 	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedConfig $sharedConfig,
 								RestApi $restApi, S3Client $s3Client, TempServiceFactory $tempServiceFactory)
@@ -116,6 +118,11 @@ abstract class AbstractJob
 	public function setPreRelease($preRelease)
 	{
 		$this->preRelease = $preRelease;
+	}
+
+	public function setIsTesting($isTesting)
+	{
+		$this->isTesting = $isTesting;
 	}
 
 

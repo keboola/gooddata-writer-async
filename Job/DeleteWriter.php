@@ -26,13 +26,17 @@ class DeleteWriter extends AbstractJob
 
 		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) {
 
-			$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid']);
+			if ($this->isTesting) {
+				$this->restApi->dropProject($project['pid']);
+			} else {
+				$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid']);
 
-			// Disable users in project
-			$projectUsers = $this->restApi->get(sprintf('/gdc/projects/%s/users', $project['pid']));
-			foreach ($projectUsers['users'] as $user) {
-				if ($user['user']['content']['email'] != $this->domainUser->username) {
-					$this->restApi->disableUserInProject($user['user']['links']['self'], $project['pid']);
+				// Disable users in project
+				$projectUsers = $this->restApi->get(sprintf('/gdc/projects/%s/users', $project['pid']));
+				foreach ($projectUsers['users'] as $user) {
+					if ($user['user']['content']['email'] != $this->domainUser->username) {
+						$this->restApi->disableUserInProject($user['user']['links']['self'], $project['pid']);
+					}
 				}
 			}
 		}
@@ -41,7 +45,11 @@ class DeleteWriter extends AbstractJob
 		$writerDomain = substr($this->appConfiguration->gd_userEmailTemplate, strpos($this->appConfiguration->gd_userEmailTemplate, '@'));
 		foreach ($this->sharedConfig->getUsers($job['projectId'], $job['writerId']) as $user) {
 			if (strpos($user['email'], $writerDomain) !== false) {
-				$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid'], $user['email']);
+				if ($this->isTesting) {
+					$this->restApi->dropUser($user['uid']);
+				} else {
+					$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid'], $user['email']);
+				}
 			}
 		}
 

@@ -181,7 +181,7 @@ class JobExecutor
 				$this->restApi->initLog();
 				$token = $this->storageApiClient->getLogData();
 
-				if (!empty($token['owner']['features']) && in_array('writer-domain-academy', $token['owner']['features'])) {
+				if (!empty($token['owner']['features']) && (in_array('writer-domain-academy', $token['owner']['features']) || in_array('gdwr-academy', $token['owner']['features']))) { //@TODO REMOVE writer-domain-academy
 					$this->appConfiguration->gd_domain = 'keboola-academy';
 				}
 
@@ -193,7 +193,9 @@ class JobExecutor
 				$command->setScriptsPath($this->appConfiguration->scriptsPath);
 				$command->setLogger($this->logger);
 				$command->setStorageApiClient($this->storageApiClient);
-				$command->setPreRelease(!empty($token['owner']['features']) && in_array('rc-writer', $token['owner']['features']));
+
+				$command->setPreRelease(!empty($token['owner']['features']) && (in_array('rc-writer', $token['owner']['features']) || in_array('gdwr-prerelease', $token['owner']['features'])));  //@TODO REMOVE rc-writer
+				$command->setIsTesting(!empty($token['owner']['features']) && in_array('gdwr-testing', $token['owner']['features']));
 
 				$error = null;
 
