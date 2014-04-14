@@ -343,7 +343,6 @@ class DatasetsTest extends AbstractControllerTest
 		/**
 		 * Date Dimensions
 		 */
-		//@TODO get, delete, post
 
 		// Create dimension
 		$dimensionName = 'TestDate';
@@ -395,6 +394,12 @@ class DatasetsTest extends AbstractControllerTest
 
 
 		// Drop dimension
+		$dimensionName = 'TestDate_' . uniqid();
+		$this->_postWriterApi('/gooddata-writer/date-dimensions', array(
+			'writerId' => $this->writerId,
+			'name' => $dimensionName,
+			'includeTime' => true
+		));
 		$this->_callWriterApi('/gooddata-writer/date-dimensions?writerId=' . $this->writerId . '&name=' . $dimensionName, 'DELETE');
 		$responseJson = $this->_getWriterApi('/gooddata-writer/date-dimensions?writerId=' . $this->writerId);
 		$this->assertCount(1, $responseJson['dimensions'], "Response for writer call '/date-dimensions' should contain one dimension.");
