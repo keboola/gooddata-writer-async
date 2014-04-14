@@ -1372,6 +1372,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$dimensions = $this->getConfiguration()->getDateDimensions();
 		if (isset($dimensions[$this->params['name']])) {
+			if (!empty($dimensions[$this->params['name']]['isExported'])) {
+				throw new WrongParametersException(sprintf("Dimension '%s' is already uploaded and cannot be deleted.", $this->params['name']));
+			}
 			$this->getConfiguration()->deleteDateDimension($this->params['name']);
 			return $this->createApiResponse();
 		} else {
