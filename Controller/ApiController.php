@@ -1450,9 +1450,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			}
 
 			$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
-			return $this->createApiResponse(array(
-				'job' => $job
-			));
+			$job['job'] = $job; //@TODO backwards compatibility, remove soon
+			return $this->createJsonResponse($job);
 		}
 	}
 
@@ -1467,9 +1466,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkParams(array('writerId', 'batchId'));
 		$this->checkWriterExistence();
 
-		return $this->createApiResponse(array(
-			'batch' => $this->getSharedConfig()->batchToApiResponse($this->params['batchId'], $this->getS3Client())
-		));
+		$batch = $this->getSharedConfig()->batchToApiResponse($this->params['batchId'], $this->getS3Client());
+		$batch['batch'] = $batch; //@TODO backwards compatibility, remove soon
+		return $this->createJsonResponse($batch);
 	}
 
 	/**
