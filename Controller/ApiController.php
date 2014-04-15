@@ -520,7 +520,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			throw new WrongParametersException("User " . $user . " doesn't exist in writer");
 		}
 
-		$sso = new SSO($this->getConfiguration(), $this->appConfiguration);
+		$domainUser = $this->sharedConfig->getDomainUser($this->appConfiguration->gd_domain);
+		$sso = new SSO($domainUser->username, $this->appConfiguration);
 
 		$targetUrl = '/#s=/gdc/projects/' . $this->params['pid'];
 		if (isset($this->params['targetUrl'])) {

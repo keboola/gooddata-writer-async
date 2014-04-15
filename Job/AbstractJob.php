@@ -180,7 +180,7 @@ abstract class AbstractJob
 			$backendUrl = (substr($bucketAttributes['gd']['backendUrl'], 0, 8) != 'https://'
 					? 'https://' : '') . $bucketAttributes['gd']['backendUrl'];
 			$this->restApi->setBaseUrl($backendUrl);
-			$this->restApi->login($this->appConfiguration->gd_username, $this->appConfiguration->gd_password);
+			$this->restApi->login($this->domainUser->username, $this->domainUser->password);
 			$webDavUrl = $this->restApi->getWebDavUrl();
 			if (!$webDavUrl) {
 				throw new JobProcessException(sprintf("Getting of WebDav url for backend '%s' failed.", $bucketAttributes['gd']['backendUrl']));

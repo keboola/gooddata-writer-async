@@ -32,16 +32,13 @@ class SSO
 
 	protected $gooddataHost = 'secure.gooddata.com';
 
-	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration)
+	public function __construct($username, AppConfiguration $appConfiguration)
 	{
 		$this->tmpPath = $appConfiguration->tmpPath;
 
+		$this->ssoUser = $username;
 		$this->ssoProvider = $appConfiguration->gd_ssoProvider;
-		$this->ssoUser = $appConfiguration->gd_username;
 		$this->passphrase = $appConfiguration->gd_keyPassphrase;
-
-		if (!empty($configuration->backendUrl))
-			$this->gooddataHost = $configuration->backendUrl;
 	}
 
 	public function url($targetUrl, $email, $validity = 86400)
