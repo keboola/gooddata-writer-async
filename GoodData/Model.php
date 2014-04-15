@@ -184,15 +184,16 @@ class Model
 					$references[] = self::getDatasetId($column['schemaReference']);
 					break;
 				case 'DATE' :
+					$references[] = self::getId($column['schemaReference']) . (!empty($column['template']) ? '.' . $column['template'] : null);
+					$facts[] = array(
+						'fact' => array(
+							'identifier' => sprintf('dt.%s.%s', $dataSetId, $columnIdentifier),
+							'title' => sprintf('%s Date', $column['title'], $tableDefinition['name']),
+							'dataType' => 'INT'
+						)
+					);
 					if ($column['includeTime']) {
 						$references[] = 'dataset.time.' . self::getId($column['schemaReference']);
-						$facts[] = array(
-							'fact' => array(
-								'identifier' => sprintf('dt.%s.%s', $dataSetId, $columnIdentifier),
-								'title' => sprintf('%s Date', $column['title'], $tableDefinition['name']),
-								'dataType' => 'INT'
-							)
-						);
 						$facts[] = array(
 							'fact' => array(
 								'identifier' => sprintf('tm.dt.%s.%s', $dataSetId, $columnIdentifier),
@@ -201,7 +202,6 @@ class Model
 							)
 						);
 					}
-					$references[] = self::getId($column['schemaReference']) . (!empty($column['template']) ? '.' . $column['template'] : null);
 					break;
 			}
 		}
