@@ -3,7 +3,7 @@
         "This file locks the dependencies of your project to a known state",
         "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file"
     ],
-    "hash": "ac1636c51df91efed3b1bc8612cf90d4",
+    "hash": "10df6fc3cb8c02ee42d5be782013b6ff",
     "packages": [
 
     ],
@@ -960,16 +960,16 @@
         },
         {
             "name": "keboola/storage-api-client",
-            "version": "2.10.1",
+            "version": "2.8.31",
             "source": {
                 "type": "git",
                 "url": "https://github.com/keboola/storage-api-php-client.git",
-                "reference": "831c3369b4c767ca28cd9031b35c545db750311f"
+                "reference": "0a1e7dd76b7d613ff2f42c7545d7c7d408c0f9af"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/keboola/storage-api-php-client/zipball/831c3369b4c767ca28cd9031b35c545db750311f",
-                "reference": "831c3369b4c767ca28cd9031b35c545db750311f",
+                "url": "https://api.github.com/repos/keboola/storage-api-php-client/zipball/0a1e7dd76b7d613ff2f42c7545d7c7d408c0f9af",
+                "reference": "0a1e7dd76b7d613ff2f42c7545d7c7d408c0f9af",
                 "shasum": ""
             },
             "require": {
@@ -978,7 +978,6 @@
                 "symfony/filesystem": "~2.3.5"
             },
             "require-dev": {
-                "aws/aws-sdk-php": "2.5.*",
                 "phpunit/phpunit": "3.7.*"
             },
             "type": "library",
@@ -993,52 +992,7 @@
             ],
             "description": "Keboola Storage API PHP CLient",
             "homepage": "http://keboola.com",
-            "time": "2014-03-05 09:36:20"
-        },
-        {
-            "name": "keboola/syrup",
-            "version": "1.2.5",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/keboola/syrup.git",
-                "reference": "11d0a8bce6a36d2c59ef3615a74d587b8831ae51"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/keboola/syrup/zipball/11d0a8bce6a36d2c59ef3615a74d587b8831ae51",
-                "reference": "11d0a8bce6a36d2c59ef3615a74d587b8831ae51",
-                "shasum": ""
-            },
-            "require": {
-                "doctrine/doctrine-bundle": "1.2.*",
-                "doctrine/orm": ">=2.2.3,<2.4-dev",
-                "incenteev/composer-parameter-handler": "~2.0",
-                "php": ">=5.3.3",
-                "sensio/distribution-bundle": "2.3.*",
-                "sensio/framework-extra-bundle": "2.3.*",
-                "sensio/generator-bundle": "2.3.*",
-                "symfony/assetic-bundle": "2.3.*",
-                "symfony/monolog-bundle": "2.3.*",
-                "symfony/swiftmailer-bundle": "~2.3.5",
-                "symfony/symfony": "2.3.*",
-                "syrup/component-bundle": "~1.4.0"
-            },
-            "type": "project",
-            "extra": {
-                "symfony-app-dir": "app",
-                "symfony-web-dir": "web"
-            },
-            "autoload": {
-                "psr-0": {
-                    "": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "description": "Syrup - Concentrated extract(or)s",
-            "time": "2014-04-03 11:45:02"
+            "time": "2014-02-21 12:20:03"
         },
         {
             "name": "kriswallsmith/assetic",
@@ -1110,6 +1064,47 @@
                 "minification"
             ],
             "time": "2013-07-19 00:03:27"
+        },
+        {
+            "name": "leafo/lessphp",
+            "version": "v0.4.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/leafo/lessphp.git",
+                "reference": "51f3f06f0fe78a722dabfd14578444bdd078d9de"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/leafo/lessphp/zipball/51f3f06f0fe78a722dabfd14578444bdd078d9de",
+                "reference": "51f3f06f0fe78a722dabfd14578444bdd078d9de",
+                "shasum": ""
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "0.3-dev"
+                }
+            },
+            "autoload": {
+                "classmap": [
+                    "lessc.inc.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT",
+                "GPL-3.0"
+            ],
+            "authors": [
+                {
+                    "name": "Leaf Corcoran",
+                    "email": "leafot@gmail.com",
+                    "homepage": "http://leafo.net"
+                }
+            ],
+            "description": "lessphp is a compiler for LESS written in PHP.",
+            "homepage": "http://leafo.net/lessphp/",
+            "time": "2013-08-09 17:09:19"
         },
         {
             "name": "monolog/monolog",
@@ -2327,17 +2322,17 @@
         },
         {
             "name": "syrup/component-bundle",
-            "version": "1.4.3",
+            "version": "1.3.14",
             "target-dir": "Syrup/ComponentBundle",
             "source": {
                 "type": "git",
                 "url": "https://github.com/keboola/syrup-component-bundle.git",
-                "reference": "5ef2722ce7b919a71c153fc57b8c2e0efd0ac17f"
+                "reference": "d318fe99f9ed2f99ef0730f8e58c7f63318a048e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/keboola/syrup-component-bundle/zipball/5ef2722ce7b919a71c153fc57b8c2e0efd0ac17f",
-                "reference": "5ef2722ce7b919a71c153fc57b8c2e0efd0ac17f",
+                "url": "https://api.github.com/repos/keboola/syrup-component-bundle/zipball/d318fe99f9ed2f99ef0730f8e58c7f63318a048e",
+                "reference": "d318fe99f9ed2f99ef0730f8e58c7f63318a048e",
                 "shasum": ""
             },
             "require": {
@@ -2345,19 +2340,22 @@
                 "guzzle/guzzle": ">=3.0.0",
                 "keboola/csv": "1.1.*",
                 "keboola/php-encryption": "~0.2.0",
-                "keboola/storage-api-client": "~2.10.0",
+                "keboola/storage-api-client": "~2.8.0",
                 "php": ">=5.3.5"
             },
             "require-dev": {
-                "keboola/syrup": "~1.2.0",
-                "phpunit/phpunit": "3.7.*"
+                "phpunit/phpunit": "3.7.*",
+                "syrup/development-bundle": ">=1.1.1"
             },
             "type": "symfony-bundle",
             "extra": {
                 "incenteev-parameters": {
                     "keep-outdated": true,
-                    "file": "vendor/keboola/syrup/app/config/parameters.yml",
+                    "file": "vendor/syrup/development-bundle/app/config/parameters.yml",
                     "dist-file": "parameters.yml.dist"
+                },
+                "branch-alias": {
+                    "dev-master": "2.3-dev"
                 }
             },
             "autoload": {
@@ -2376,7 +2374,60 @@
                 }
             ],
             "description": "Syrup ComponentBundle",
-            "time": "2014-04-03 11:43:13"
+            "time": "2014-03-03 12:19:30"
+        },
+        {
+            "name": "syrup/development-bundle",
+            "version": "1.1.14",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/keboola/syrup-development-bundle.git",
+                "reference": "b03718d99134358425bf0fc1128792bb48b94b3a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/keboola/syrup-development-bundle/zipball/b03718d99134358425bf0fc1128792bb48b94b3a",
+                "reference": "b03718d99134358425bf0fc1128792bb48b94b3a",
+                "shasum": ""
+            },
+            "require": {
+                "doctrine/doctrine-bundle": "1.2.*",
+                "doctrine/orm": ">=2.2.3,<2.4-dev",
+                "incenteev/composer-parameter-handler": "~2.0",
+                "leafo/lessphp": ">=0.4.0",
+                "php": ">=5.3.3",
+                "sensio/distribution-bundle": "2.3.*",
+                "sensio/framework-extra-bundle": "2.3.*",
+                "sensio/generator-bundle": "2.3.*",
+                "symfony/assetic-bundle": "2.3.*",
+                "symfony/monolog-bundle": "2.3.*",
+                "symfony/swiftmailer-bundle": "2.3.*",
+                "symfony/symfony": "2.3.*",
+                "syrup/component-bundle": "~1.3.13"
+            },
+            "type": "project",
+            "extra": {
+                "symfony-app-dir": "app",
+                "symfony-web-dir": "web",
+                "incenteev-parameters": {
+                    "keep-outdated": true,
+                    "file": "app/config/parameters.yml"
+                },
+                "branch-alias": {
+                    "dev-master": "2.2-dev"
+                }
+            },
+            "autoload": {
+                "psr-0": {
+                    "": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Syrup wrapper clone for bundle development",
+            "time": "2014-03-03 11:36:42"
         },
         {
             "name": "twig/twig",
