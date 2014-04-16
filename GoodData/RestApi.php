@@ -1593,13 +1593,18 @@ class RestApi
 				if ($logCall) $this->logCall($uri, $method, $params, $response, $duration, $responseObject? $responseObject->getStatusCode() : null);
 				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
 
+				$responseJson = json_decode($response, true);
 				if ($e instanceof ClientErrorResponseException) {
 					if ($responseObject && $responseObject->getStatusCode() == 401) {
-						// TT token expired
-						//$this->refreshToken();
-						$this->login($this->username, $this->password);
+						if (isset($responseJson['message']) && $responseJson['message'] == 'Login needs security code verification due to failed login attempts.') {
+							// Bad password
+							throw new \Exception('Login "' . $this->username . '" refused due to failed login attempts');
+						} else {
+							// TT token expired
+							//$this->refreshToken();
+							$this->login($this->username, $this->password);
+						}
 					} else {
-						$responseJson = json_decode($response, true);
 						if ($responseJson !== false) {
 							// Include parameters directly to error message
 							if (isset($responseJson['error']) && isset($responseJson['error']['parameters']) && isset($responseJson['error']['message'])) {
