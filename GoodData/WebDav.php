@@ -188,14 +188,19 @@ class WebDav
 	 */
 	public function saveLogs($folderName, $logFile)
 	{
-		$result = false;
-		foreach ($this->listFiles($folderName, true, array('json', 'log')) as $file) if ($file != 'upload_info.json') {
+		$logs = $this->listFiles($folderName, true, array('log'));
+		if (!count($logs)) return false;
+
+		file_put_contents($logFile, '{' . PHP_EOL, FILE_APPEND);
+		foreach ($logs as $i => $file) {
 			$result = $this->get($folderName . '/' . $file);
-			file_put_contents($logFile, $file . PHP_EOL, FILE_APPEND);
+			file_put_contents($logFile, '"' . $file . '" : ' . PHP_EOL, FILE_APPEND);
 			file_put_contents($logFile, print_r($result, true) . PHP_EOL . PHP_EOL . PHP_EOL, FILE_APPEND);
-			$result = true;
+			if ($i != count($logs)-1)
+				file_put_contents($logFile, ',' . PHP_EOL, FILE_APPEND);
 		}
-		return $result;
+		file_put_contents($logFile, '}' . PHP_EOL, FILE_APPEND);
+		return true;
 	}
 
 

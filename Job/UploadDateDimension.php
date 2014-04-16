@@ -128,17 +128,23 @@ class UploadDateDimension extends AbstractJob
 						$this->restApi->loadData($pid, $tmpFolderNameDimension, $dataSetName);
 					} catch (RestApiException $e) {
 						$debugFile = $tmpFolderDimension . '/' . $pid . '-etl.log';
+						$taskName = 'Data Load Error';
 						$logSaved = $webDav->saveLogs($tmpFolderDimension, $debugFile);
+						$error = 'Rest API error. See logs for details';
 						if ($logSaved) {
-							$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $pid, $dataSetName));
-							if ($pid == $bucketAttributes['gd']['pid']) {
-								$this->logs['ETL Job'] = $logUrl;
+							if (filesize($debugFile) > 1024 * 1024) {
+								$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $pid, $dataSetName));
+								if ($pid == $bucketAttributes['gd']['pid']) {
+									$this->logs[$taskName] = $logUrl;
+								} else {
+									$this->logs[$pid][$taskName] = $logUrl;
+								}
 							} else {
-								$this->logs[$pid]['ETL Job'] = $logUrl;
+								$error = file_get_contents($debugFile);
 							}
 						}
 
-						throw new RestApiException('ETL load failed', $e->getMessage());
+						throw new RestApiException('Data load failed', $error);
 					}
 
 					$e = $stopWatch->stop($stopWatchId);

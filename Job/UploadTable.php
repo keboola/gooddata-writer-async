@@ -324,18 +324,23 @@ class UploadTable extends AbstractJob
 					$this->restApi->loadData($gdJob['pid'], $webDavFolder, Model::getId($dataSetName));
 				} catch (RestApiException $e) {
 					$debugFile = $dataTmpDir . '/etl.log';
-					$taskName = 'Data Load';
+					$taskName = 'Data Load Error';
 					$logSaved = $webDav->saveLogs($webDavFolder, $debugFile);
+					$error = 'Rest API error. See logs for details';
 					if ($logSaved) {
-						$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $gdJob['pid'], $dataSetName));
-						if ($gdJob['mainProject']) {
-							$this->logs[$taskName] = $logUrl;
+						if (filesize($debugFile) > 1024 * 1024) {
+							$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $gdJob['pid'], $dataSetName));
+							if ($gdJob['mainProject']) {
+								$this->logs[$taskName] = $logUrl;
+							} else {
+								$this->logs[$gdJob['pid']][$taskName] = $logUrl;
+							}
 						} else {
-							$this->logs[$gdJob['pid']][$taskName] = $logUrl;
+							$error = file_get_contents($debugFile);
 						}
 					}
 
-					throw new RestApiException('ETL load failed', $e->getMessage());
+					throw new RestApiException('Data load failed', $error);
 				}
 				$e = $stopWatch->stop($stopWatchId);
 				$this->logEvent($stopWatchId, array(
