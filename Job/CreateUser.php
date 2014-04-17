@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\GoodData\UserAlreadyExistsException;
 
 class CreateUser extends AbstractJob
@@ -24,6 +25,9 @@ class CreateUser extends AbstractJob
 		} catch (UserAlreadyExistsException $e) {
 			$userId = $e->getMessage();
 			$alreadyExists = true;
+			if (!$userId) {
+				throw new JobProcessException(sprintf("User '%s' already exists and belongs to other domain", $params['email']));
+			}
 		}
 
 		$this->configuration->saveUser($params['email'], $userId);

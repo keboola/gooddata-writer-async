@@ -30,9 +30,12 @@ class CreateWriter extends AbstractJob
 		)));
 
 		try {
-			$userId = $this->restApi->createUser($this->appConfiguration->gd_domain, $username, $password, 'KBC', 'Writer', $this->appConfiguration->gd_ssoProvider);
+			$userId = $this->restApi->createUser($this->domainUser->domain, $username, $password, 'KBC', 'Writer', $this->appConfiguration->gd_ssoProvider);
 		} catch (UserAlreadyExistsException $e) {
 			$userId = $e->getMessage();
+			if (!$userId) {
+				throw new \Exception(sprintf("User '%s' already exists and does not belong to domain '%s'", $username, $this->domainUser->domain));
+			}
 		}
 		$this->restApi->addUserToProject($userId, $projectPid, RestApi::$userRoles['admin']);
 
