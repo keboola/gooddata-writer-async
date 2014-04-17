@@ -866,10 +866,13 @@ class RestApi
 			$model['projectModel']['datasets'][] = array('dataset' => $dataSetModel);
 		}
 
-		$resultMaql = $this->generateUpdateProjectMaql($pid, $model);
-		if ($resultMaql) {
-			$this->executeMaql($pid, $resultMaql);
+		$update = $this->generateUpdateProjectMaql($pid, $model);
+		if ($update['maql']) {
+			$this->executeMaql($pid, $update['maql']);
+
+			return $update['operations'];
 		}
+		return false;
 	}
 
 	public function generateUpdateProjectMaql($pid, $model)
@@ -896,7 +899,19 @@ class RestApi
 								$noPreserveDataMaql = $updateScript['updateScript']['maqlDdl'];
 							}
 						}
-						return $preserveDataMaql ? $preserveDataMaql : $noPreserveDataMaql;
+						$maql = $preserveDataMaql ? $preserveDataMaql : $noPreserveDataMaql;
+
+						$operations = array();
+						if ($maql) {
+							foreach ($taskResponse['projectModelDiff']['updateOperations'] as $o) {
+								$operations[] = vsprintf($o['updateOperation']['description'], $o['updateOperation']['parameters']);
+							}
+						}
+
+						return array(
+							'maql' => $maql,
+							'operations' => $operations
+						);
 					} else {
 						$this->logAlert('updateProjectModel() has bad response', array(
 							'uri' => $uri,
@@ -974,12 +989,18 @@ class RestApi
 			}
 		}
 		$model['projectModel']['datasets'] = array_values($model['projectModel']['datasets']);
-		$maql  = $this->generateUpdateProjectMaql($pid, $model);
-		$maql .= sprintf('DROP IF EXISTS {dim.%s};', $dataSetId);
-		$maql .= sprintf('DROP IF EXISTS {ffld.%s};', $dataSetId);
 
-		if ($maql)
+		$update = $this->generateUpdateProjectMaql($pid, $model);
+
+		if ($update['maql']) {
+			$maql  = $update['maql'];
+			$maql .= sprintf('DROP IF EXISTS {dim.%s};', $dataSetId);
+			$maql .= sprintf('DROP IF EXISTS {ffld.%s};', $dataSetId);
 			$this->executeMaql($pid, $maql);
+
+			return $update['operations'];
+		}
+		return false;
 	}
 
 

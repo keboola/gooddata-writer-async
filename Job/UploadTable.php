@@ -208,7 +208,7 @@ class UploadTable extends AbstractJob
 		));
 
 
-
+		$updateOperations = array();
 		try {
 			// Update model
 			foreach ($updateModelJobs as $gdJob) {
@@ -218,7 +218,10 @@ class UploadTable extends AbstractJob
 				if ($this->preRelease) {
 					$this->restApi->initLog();
 
-					$this->restApi->updateDataSet($gdJob['pid'], $definition);
+					$result = $this->restApi->updateDataSet($gdJob['pid'], $definition);
+					if ($result) {
+						$updateOperations[$gdJob['pid']] = $result;
+					}
 
 					$e = $stopWatch->stop($stopWatchId);
 					$this->logEvent($stopWatchId, array(
@@ -385,6 +388,9 @@ class UploadTable extends AbstractJob
 		}
 		if (!empty($gdWriteStartTime)) {
 			$result['gdWriteStartTime'] = $gdWriteStartTime;
+		}
+		if (count($updateOperations)) {
+			$result['info'] = $updateOperations;
 		}
 
 		return $result;

@@ -44,8 +44,16 @@ class ResetTable extends AbstractJob
 		$stopWatch->start($stopWatchId);
 		try {
 			$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+
+			$updateOperations = array();
 			foreach ($projects as $project) if ($project['active']) {
-				$this->restApi->dropDataSet($project['pid'], $dataSetName);
+				$result = $this->restApi->dropDataSet($project['pid'], $dataSetName);
+				if ($result) {
+					$updateOperations[$project['pid']] = $result;
+				}
+			}
+			if (count($updateOperations)) {
+				$result['info'] = $updateOperations;
 			}
 
 			$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 0);
