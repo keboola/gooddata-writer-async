@@ -188,19 +188,43 @@ class WebDav
 	 */
 	public function saveLogs($folderName, $logFile)
 	{
-		$logs = $this->listFiles($folderName, true, array('log'));
-		if (!count($logs)) return false;
+		$errors = array();
 
-		file_put_contents($logFile, '{' . PHP_EOL, FILE_APPEND);
-		foreach ($logs as $i => $file) {
-			$result = $this->get($folderName . '/' . $file);
-			file_put_contents($logFile, '"' . $file . '" : ' . PHP_EOL, FILE_APPEND);
-			file_put_contents($logFile, print_r($result, true) . PHP_EOL . PHP_EOL . PHP_EOL, FILE_APPEND);
-			if ($i != count($logs)-1)
-				file_put_contents($logFile, ',' . PHP_EOL, FILE_APPEND);
+		$uploadFile = $folderName . '/upload_status.json';
+		if ($this->fileExists($uploadFile)) {
+			$result = $this->get($uploadFile);
+			if ($result) {
+				$jsonResult = json_encode($result);
+				if ($jsonResult && isset($jsonResult['error']['component']) && $jsonResult['error']['component'] != 'GDC::DB2::ETL') {
+					if (isset($jsonResult['error']['message'])) {
+						$errors['upload_status.json'] = $jsonResult['error']['message'];
+						if (isset($jsonResult['error']['parameters'])) {
+							$errors['upload_status.json'] = vsprintf($errors['upload_status.json'], $jsonResult['error']['parameters']);
+						}
+					}
+				}
+			}
 		}
-		file_put_contents($logFile, '}' . PHP_EOL, FILE_APPEND);
-		return true;
+
+		foreach ($this->listFiles($folderName, true, array('log')) as $file) {
+			$errors[$file] = $this->get($folderName . '/' . $file);
+		}
+
+		if (count($errors)) {
+
+			$i = 0;
+			file_put_contents($logFile, '{' . PHP_EOL, FILE_APPEND);
+			foreach ($errors as $f => $e) {
+				file_put_contents($logFile, '"' . $f . '" : ' . PHP_EOL, FILE_APPEND);
+				file_put_contents($logFile, print_r($e, true) . PHP_EOL . PHP_EOL . PHP_EOL, FILE_APPEND);
+				if ($i != count($errors)-1)
+					file_put_contents($logFile, ',' . PHP_EOL, FILE_APPEND);
+			}
+			file_put_contents($logFile, '}' . PHP_EOL, FILE_APPEND);
+
+			return true;
+		} else
+			return false;
 	}
 
 
