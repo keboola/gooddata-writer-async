@@ -3,7 +3,7 @@
         "This file locks the dependencies of your project to a known state",
         "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file"
     ],
-    "hash": "10df6fc3cb8c02ee42d5be782013b6ff",
+    "hash": "fd3cc66a7dc41968644c9f7a4238c2c4",
     "packages": [
 
     ],
@@ -688,16 +688,16 @@
         },
         {
             "name": "guzzle/guzzle",
-            "version": "v3.7.4",
+            "version": "v3.8.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/guzzle/guzzle.git",
-                "reference": "b170b028c6bb5799640e46c8803015b0f9a45ed9"
+                "reference": "4de0618a01b34aa1c8c33a3f13f396dcd3882eba"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/b170b028c6bb5799640e46c8803015b0f9a45ed9",
-                "reference": "b170b028c6bb5799640e46c8803015b0f9a45ed9",
+                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/4de0618a01b34aa1c8c33a3f13f396dcd3882eba",
+                "reference": "4de0618a01b34aa1c8c33a3f13f396dcd3882eba",
                 "shasum": ""
             },
             "require": {
@@ -735,19 +735,19 @@
                 "phpunit/phpunit": "3.7.*",
                 "psr/log": "1.0.*",
                 "symfony/class-loader": "*",
-                "zendframework/zend-cache": "2.0.*",
-                "zendframework/zend-log": "2.0.*"
+                "zendframework/zend-cache": "<2.3",
+                "zendframework/zend-log": "<2.3"
             },
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-master": "3.7-dev"
+                    "dev-master": "3.8-dev"
                 }
             },
             "autoload": {
                 "psr-0": {
-                    "Guzzle\\Tests": "tests/",
-                    "Guzzle": "src/"
+                    "Guzzle": "src/",
+                    "Guzzle\\Tests": "tests/"
                 }
             },
             "notification-url": "https://packagist.org/downloads/",
@@ -776,7 +776,217 @@
                 "rest",
                 "web service"
             ],
-            "time": "2013-10-02 20:47:00"
+            "time": "2014-01-28 22:29:15"
+        },
+        {
+            "name": "guzzlehttp/guzzle",
+            "version": "4.0.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/guzzle/guzzle.git",
+                "reference": "40db53833aaea528347994acd4578d7b9b2211ee"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/40db53833aaea528347994acd4578d7b9b2211ee",
+                "reference": "40db53833aaea528347994acd4578d7b9b2211ee",
+                "shasum": ""
+            },
+            "require": {
+                "guzzlehttp/streams": "~1.0",
+                "php": ">=5.4.0"
+            },
+            "require-dev": {
+                "ext-curl": "*",
+                "phpunit/phpunit": "~4.0",
+                "psr/log": "~1.0"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "4.0.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "GuzzleHttp\\": "src/"
+                },
+                "files": [
+                    "src/functions.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Dowling",
+                    "email": "mtdowling@gmail.com",
+                    "homepage": "https://github.com/mtdowling"
+                }
+            ],
+            "description": "Guzzle is a PHP HTTP client library and framework for building RESTful web service clients",
+            "homepage": "http://guzzlephp.org/",
+            "keywords": [
+                "client",
+                "curl",
+                "framework",
+                "http",
+                "http client",
+                "rest",
+                "web service"
+            ],
+            "time": "2014-04-16 17:33:22"
+        },
+        {
+            "name": "guzzlehttp/log-subscriber",
+            "version": "1.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/guzzle/log-subscriber.git",
+                "reference": "1231bdb715a96cc7802ada6f7075fa0520bc7d1a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/guzzle/log-subscriber/zipball/1231bdb715a96cc7802ada6f7075fa0520bc7d1a",
+                "reference": "1231bdb715a96cc7802ada6f7075fa0520bc7d1a",
+                "shasum": ""
+            },
+            "require": {
+                "guzzlehttp/guzzle": "4.*",
+                "php": ">=5.4.0",
+                "psr/log": "~1.0"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "4.*"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "GuzzleHttp\\Subscriber\\Log\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Dowling",
+                    "email": "mtdowling@gmail.com",
+                    "homepage": "https://github.com/mtdowling"
+                }
+            ],
+            "description": "Logs HTTP requests and responses as they are sent over the wire (Guzzle 4+)",
+            "homepage": "http://guzzlephp.org/",
+            "keywords": [
+                "Guzzle",
+                "log",
+                "plugin"
+            ],
+            "time": "2014-03-30 00:07:41"
+        },
+        {
+            "name": "guzzlehttp/retry-subscriber",
+            "version": "0.1.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/guzzle/retry-subscriber.git",
+                "reference": "f99fe1bdfe1346f6c0867e6b83e912133e91fa60"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/guzzle/retry-subscriber/zipball/f99fe1bdfe1346f6c0867e6b83e912133e91fa60",
+                "reference": "f99fe1bdfe1346f6c0867e6b83e912133e91fa60",
+                "shasum": ""
+            },
+            "require": {
+                "guzzlehttp/guzzle": "~4.0",
+                "php": ">=5.4.0"
+            },
+            "require-dev": {
+                "guzzlehttp/log-subscriber": "~1.0",
+                "phpunit/phpunit": "~4.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "GuzzleHttp\\Subscriber\\Retry\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Dowling",
+                    "email": "mtdowling@gmail.com",
+                    "homepage": "https://github.com/mtdowling"
+                }
+            ],
+            "description": "Retries failed HTTP requests using customizable retry strategies (Guzzle 4+)",
+            "homepage": "http://guzzlephp.org/",
+            "keywords": [
+                "Guzzle",
+                "http",
+                "retry"
+            ],
+            "time": "2014-03-30 22:25:40"
+        },
+        {
+            "name": "guzzlehttp/streams",
+            "version": "1.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/guzzle/streams.git",
+                "reference": "cf0c8c33ca95cc147efba4c714f630ee44767180"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/guzzle/streams/zipball/cf0c8c33ca95cc147efba4c714f630ee44767180",
+                "reference": "cf0c8c33ca95cc147efba4c714f630ee44767180",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.4.0"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "~4.0"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "1.0.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "GuzzleHttp\\Stream\\": "src/"
+                },
+                "files": [
+                    "src/functions.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Dowling",
+                    "email": "mtdowling@gmail.com",
+                    "homepage": "https://github.com/mtdowling"
+                }
+            ],
+            "description": "Provides a simple abstraction over streams of data (Guzzle 4+)",
+            "homepage": "http://guzzlephp.org/",
+            "keywords": [
+                "Guzzle",
+                "stream"
+            ],
+            "time": "2014-04-03 04:48:24"
         },
         {
             "name": "incenteev/composer-parameter-handler",
@@ -960,24 +1170,27 @@
         },
         {
             "name": "keboola/storage-api-client",
-            "version": "2.8.31",
+            "version": "2.11.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/keboola/storage-api-php-client.git",
-                "reference": "0a1e7dd76b7d613ff2f42c7545d7c7d408c0f9af"
+                "reference": "9d70629a80239e58a8f2c6d6af5544c2df292830"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/keboola/storage-api-php-client/zipball/0a1e7dd76b7d613ff2f42c7545d7c7d408c0f9af",
-                "reference": "0a1e7dd76b7d613ff2f42c7545d7c7d408c0f9af",
+                "url": "https://api.github.com/repos/keboola/storage-api-php-client/zipball/9d70629a80239e58a8f2c6d6af5544c2df292830",
+                "reference": "9d70629a80239e58a8f2c6d6af5544c2df292830",
                 "shasum": ""
             },
             "require": {
-                "guzzle/guzzle": "3.7.*",
+                "guzzlehttp/guzzle": "~4.0.2",
+                "guzzlehttp/log-subscriber": "1.*",
+                "guzzlehttp/retry-subscriber": "~0.1.1",
                 "keboola/csv": "~1.1.3",
                 "symfony/filesystem": "~2.3.5"
             },
             "require-dev": {
+                "aws/aws-sdk-php": "2.5.*",
                 "phpunit/phpunit": "3.7.*"
             },
             "type": "library",
@@ -992,7 +1205,52 @@
             ],
             "description": "Keboola Storage API PHP CLient",
             "homepage": "http://keboola.com",
-            "time": "2014-02-21 12:20:03"
+            "time": "2014-04-22 08:17:06"
+        },
+        {
+            "name": "keboola/syrup",
+            "version": "1.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/keboola/syrup.git",
+                "reference": "40cdead1463bc8c6b750af830c747207c0a60036"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/keboola/syrup/zipball/40cdead1463bc8c6b750af830c747207c0a60036",
+                "reference": "40cdead1463bc8c6b750af830c747207c0a60036",
+                "shasum": ""
+            },
+            "require": {
+                "doctrine/doctrine-bundle": "1.2.*",
+                "doctrine/orm": ">=2.2.3,<2.4-dev",
+                "incenteev/composer-parameter-handler": "~2.0",
+                "php": ">=5.3.3",
+                "sensio/distribution-bundle": "2.3.*",
+                "sensio/framework-extra-bundle": "2.3.*",
+                "sensio/generator-bundle": "2.3.*",
+                "symfony/assetic-bundle": "2.3.*",
+                "symfony/monolog-bundle": "2.3.*",
+                "symfony/swiftmailer-bundle": "~2.3.5",
+                "symfony/symfony": "2.3.*",
+                "syrup/component-bundle": "~1.5.0"
+            },
+            "type": "project",
+            "extra": {
+                "symfony-app-dir": "app",
+                "symfony-web-dir": "web"
+            },
+            "autoload": {
+                "psr-0": {
+                    "": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Syrup - Concentrated extract(or)s",
+            "time": "2014-04-17 14:30:10"
         },
         {
             "name": "kriswallsmith/assetic",
@@ -1066,58 +1324,17 @@
             "time": "2013-07-19 00:03:27"
         },
         {
-            "name": "leafo/lessphp",
-            "version": "v0.4.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/leafo/lessphp.git",
-                "reference": "51f3f06f0fe78a722dabfd14578444bdd078d9de"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/leafo/lessphp/zipball/51f3f06f0fe78a722dabfd14578444bdd078d9de",
-                "reference": "51f3f06f0fe78a722dabfd14578444bdd078d9de",
-                "shasum": ""
-            },
-            "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-master": "0.3-dev"
-                }
-            },
-            "autoload": {
-                "classmap": [
-                    "lessc.inc.php"
-                ]
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT",
-                "GPL-3.0"
-            ],
-            "authors": [
-                {
-                    "name": "Leaf Corcoran",
-                    "email": "leafot@gmail.com",
-                    "homepage": "http://leafo.net"
-                }
-            ],
-            "description": "lessphp is a compiler for LESS written in PHP.",
-            "homepage": "http://leafo.net/lessphp/",
-            "time": "2013-08-09 17:09:19"
-        },
-        {
             "name": "monolog/monolog",
-            "version": "1.8.0",
+            "version": "1.9.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Seldaek/monolog.git",
-                "reference": "392ef35fd470638e08d0160d6b1cbab63cb23174"
+                "reference": "1afc39690e7414412face1f8cbf67b73db34485c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Seldaek/monolog/zipball/392ef35fd470638e08d0160d6b1cbab63cb23174",
-                "reference": "392ef35fd470638e08d0160d6b1cbab63cb23174",
+                "url": "https://api.github.com/repos/Seldaek/monolog/zipball/1afc39690e7414412face1f8cbf67b73db34485c",
+                "reference": "1afc39690e7414412face1f8cbf67b73db34485c",
                 "shasum": ""
             },
             "require": {
@@ -1145,7 +1362,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-master": "1.8.x-dev"
+                    "dev-master": "1.9.x-dev"
                 }
             },
             "autoload": {
@@ -1172,7 +1389,7 @@
                 "logging",
                 "psr-3"
             ],
-            "time": "2014-03-23 19:50:26"
+            "time": "2014-04-20 16:41:26"
         },
         {
             "name": "phpunit/php-code-coverage",
@@ -1423,16 +1640,16 @@
         },
         {
             "name": "phpunit/phpunit",
-            "version": "4.0.15",
+            "version": "4.0.17",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/phpunit.git",
-                "reference": "47b0850e47b7667ef0ddf296bc27906155ac752d"
+                "reference": "8185f4bd21860cc72466009070a50bed6cd2eaca"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/47b0850e47b7667ef0ddf296bc27906155ac752d",
-                "reference": "47b0850e47b7667ef0ddf296bc27906155ac752d",
+                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/8185f4bd21860cc72466009070a50bed6cd2eaca",
+                "reference": "8185f4bd21860cc72466009070a50bed6cd2eaca",
                 "shasum": ""
             },
             "require": {
@@ -1494,7 +1711,7 @@
                 "testing",
                 "xunit"
             ],
-            "time": "2014-04-16 15:05:25"
+            "time": "2014-04-21 06:33:32"
         },
         {
             "name": "phpunit/phpunit-mock-objects",
@@ -2322,17 +2539,17 @@
         },
         {
             "name": "syrup/component-bundle",
-            "version": "1.3.14",
+            "version": "1.5.1",
             "target-dir": "Syrup/ComponentBundle",
             "source": {
                 "type": "git",
                 "url": "https://github.com/keboola/syrup-component-bundle.git",
-                "reference": "d318fe99f9ed2f99ef0730f8e58c7f63318a048e"
+                "reference": "0966338205534052e40192e39aaf5bb18a047a20"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/keboola/syrup-component-bundle/zipball/d318fe99f9ed2f99ef0730f8e58c7f63318a048e",
-                "reference": "d318fe99f9ed2f99ef0730f8e58c7f63318a048e",
+                "url": "https://api.github.com/repos/keboola/syrup-component-bundle/zipball/0966338205534052e40192e39aaf5bb18a047a20",
+                "reference": "0966338205534052e40192e39aaf5bb18a047a20",
                 "shasum": ""
             },
             "require": {
@@ -2340,22 +2557,19 @@
                 "guzzle/guzzle": ">=3.0.0",
                 "keboola/csv": "1.1.*",
                 "keboola/php-encryption": "~0.2.0",
-                "keboola/storage-api-client": "~2.8.0",
+                "keboola/storage-api-client": "~2.11.0",
                 "php": ">=5.3.5"
             },
             "require-dev": {
-                "phpunit/phpunit": "3.7.*",
-                "syrup/development-bundle": ">=1.1.1"
+                "keboola/syrup": "~1.3.0",
+                "phpunit/phpunit": "3.7.*"
             },
             "type": "symfony-bundle",
             "extra": {
                 "incenteev-parameters": {
                     "keep-outdated": true,
-                    "file": "vendor/syrup/development-bundle/app/config/parameters.yml",
-                    "dist-file": "parameters.yml.dist"
-                },
-                "branch-alias": {
-                    "dev-master": "2.3-dev"
+                    "file": "vendor/keboola/syrup/app/config/parameters.yml",
+                    "dist-file": "parameters.yml"
                 }
             },
             "autoload": {
@@ -2374,60 +2588,7 @@
                 }
             ],
             "description": "Syrup ComponentBundle",
-            "time": "2014-03-03 12:19:30"
-        },
-        {
-            "name": "syrup/development-bundle",
-            "version": "1.1.14",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/keboola/syrup-development-bundle.git",
-                "reference": "b03718d99134358425bf0fc1128792bb48b94b3a"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/keboola/syrup-development-bundle/zipball/b03718d99134358425bf0fc1128792bb48b94b3a",
-                "reference": "b03718d99134358425bf0fc1128792bb48b94b3a",
-                "shasum": ""
-            },
-            "require": {
-                "doctrine/doctrine-bundle": "1.2.*",
-                "doctrine/orm": ">=2.2.3,<2.4-dev",
-                "incenteev/composer-parameter-handler": "~2.0",
-                "leafo/lessphp": ">=0.4.0",
-                "php": ">=5.3.3",
-                "sensio/distribution-bundle": "2.3.*",
-                "sensio/framework-extra-bundle": "2.3.*",
-                "sensio/generator-bundle": "2.3.*",
-                "symfony/assetic-bundle": "2.3.*",
-                "symfony/monolog-bundle": "2.3.*",
-                "symfony/swiftmailer-bundle": "2.3.*",
-                "symfony/symfony": "2.3.*",
-                "syrup/component-bundle": "~1.3.13"
-            },
-            "type": "project",
-            "extra": {
-                "symfony-app-dir": "app",
-                "symfony-web-dir": "web",
-                "incenteev-parameters": {
-                    "keep-outdated": true,
-                    "file": "app/config/parameters.yml"
-                },
-                "branch-alias": {
-                    "dev-master": "2.2-dev"
-                }
-            },
-            "autoload": {
-                "psr-0": {
-                    "": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "description": "Syrup wrapper clone for bundle development",
-            "time": "2014-03-03 11:36:42"
+            "time": "2014-04-17 14:51:32"
         },
         {
             "name": "twig/twig",

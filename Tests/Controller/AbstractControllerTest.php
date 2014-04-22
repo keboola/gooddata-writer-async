@@ -82,8 +82,10 @@ abstract class AbstractControllerTest extends WebTestCase
 		));
 
 		$this->appConfiguration = $container->get('gooddata_writer.app_configuration');
-		$this->storageApi = new \Keboola\StorageApi\Client($this->storageApiToken,
-			$container->getParameter('storage_api.url'));
+		$this->storageApi = new StorageApiClient(array(
+			'token' => $this->storageApiToken,
+			'url' => $container->getParameter('storage_api.url'))
+		);
 
 		$sharedConfig = $container->get('gooddata_writer.shared_config');
 		$this->domainUser = $sharedConfig->getDomainUser($this->appConfiguration->gd_domain);

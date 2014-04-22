@@ -44,11 +44,11 @@ class SharedConfig extends StorageApiConfiguration
 
 	public function __construct(AppConfiguration $appConfiguration, EncryptorFactory $encryptorFactory)
 	{
-		$this->storageApiClient = new StorageApiClient(
-			$appConfiguration->sharedSapi_token,
-			$appConfiguration->sharedSapi_url,
-			$appConfiguration->userAgent
-		);
+		$this->storageApiClient = new StorageApiClient(array(
+			'token' => $appConfiguration->sharedSapi_token,
+			'url' => $appConfiguration->sharedSapi_url,
+			'userAgent' => $appConfiguration->userAgent
+		));
 		$this->encryptor = $encryptorFactory->get('gooddata-writer'); //@TODO component name
 	}
 

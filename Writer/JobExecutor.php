@@ -19,7 +19,6 @@ use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Exception as StorageApiException;
 use Keboola\GoodDataWriter\Service\Lock;
 use Monolog\Logger;
-use Symfony\Component\DependencyInjection\ContainerInterface;
 use Syrup\ComponentBundle\Filesystem\TempServiceFactory;
 
 
@@ -128,11 +127,11 @@ class JobExecutor
 		$jobData = array('result' => array());
 		$logParams = $job['parameters'];
 		try {
-			$this->storageApiClient = new StorageApiClient(
-				$job['token'],
-				$this->appConfiguration->storageApiUrl,
-				$this->appConfiguration->userAgent
-			);
+			$this->storageApiClient = new StorageApiClient(array(
+				'token' => $job['token'],
+				'url' => $this->appConfiguration->storageApiUrl,
+				'userAgent' => $this->appConfiguration->userAgent
+			));
 			$this->storageApiClient->setRunId($jobId);
 
 			try {
