@@ -194,7 +194,7 @@ class WebDav
 		if ($this->fileExists($uploadFile)) {
 			$result = $this->get($uploadFile);
 			if ($result) {
-				$jsonResult = json_encode($result);
+				$jsonResult = json_decode($result, true);
 				if ($jsonResult && isset($jsonResult['error']['component']) && $jsonResult['error']['component'] != 'GDC::DB2::ETL') {
 					if (isset($jsonResult['error']['message'])) {
 						$errors['upload_status.json'] = $jsonResult['error']['message'];
