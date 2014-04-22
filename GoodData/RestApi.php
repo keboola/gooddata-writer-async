@@ -877,62 +877,76 @@ class RestApi
 
 	public function generateUpdateProjectMaql($pid, $model)
 	{
-		$uri = sprintf('/gdc/projects/%s/model/diff', $pid);
-		$result = $this->jsonRequest($uri, 'POST', array('diffRequest' => array('targetModel' => $model)));
+		try {
+			$uri = sprintf('/gdc/projects/%s/model/diff', $pid);
+			$result = $this->jsonRequest($uri, 'POST', array('diffRequest' => array('targetModel' => $model)));
 
-		if (isset($result['asyncTask']['link']['poll'])) {
+			if (isset($result['asyncTask']['link']['poll'])) {
 
-			$try = 1;
-			do {
-				sleep(10 * $try);
-				$taskResponse = $this->jsonRequest($result['asyncTask']['link']['poll']);
+				$try = 1;
+				do {
+					sleep(10 * $try);
+					$taskResponse = $this->jsonRequest($result['asyncTask']['link']['poll']);
 
-				if (!isset($taskResponse['asyncTask']['link']['poll'])) {
-					if (isset($taskResponse['projectModelDiff']['updateScripts'])) {
-						$preserveDataMaql = null;
-						$noPreserveDataMaql = null;
-						foreach($taskResponse['projectModelDiff']['updateScripts'] as $updateScript) {
-							if ($updateScript['updateScript']['preserveData'] && !$updateScript['updateScript']['cascadeDrops']) {
-								$preserveDataMaql = $updateScript['updateScript']['maqlDdl'];
+					if (!isset($taskResponse['asyncTask']['link']['poll'])) {
+						if (isset($taskResponse['projectModelDiff']['updateScripts'])) {
+							$preserveDataMaql = null;
+							$noPreserveDataMaql = null;
+							foreach($taskResponse['projectModelDiff']['updateScripts'] as $updateScript) {
+								if ($updateScript['updateScript']['preserveData'] && !$updateScript['updateScript']['cascadeDrops']) {
+									$preserveDataMaql = $updateScript['updateScript']['maqlDdl'];
+								}
+								if (!$updateScript['updateScript']['preserveData'] && !$updateScript['updateScript']['cascadeDrops']) {
+									$noPreserveDataMaql = $updateScript['updateScript']['maqlDdl'];
+								}
 							}
-							if (!$updateScript['updateScript']['preserveData'] && !$updateScript['updateScript']['cascadeDrops']) {
-								$noPreserveDataMaql = $updateScript['updateScript']['maqlDdl'];
+							$maql = $preserveDataMaql ? $preserveDataMaql : $noPreserveDataMaql;
+
+							$operations = array();
+							if ($maql) {
+								foreach ($taskResponse['projectModelDiff']['updateOperations'] as $o) {
+									$operations[] = vsprintf($o['updateOperation']['description'], $o['updateOperation']['parameters']);
+								}
 							}
+
+							return array(
+								'maql' => $maql,
+								'operations' => $operations
+							);
+						} else {
+							$this->logAlert('updateProjectModel() has bad response', array(
+								'uri' => $uri,
+								'result' => $result
+							));
+							throw new RestApiException('Update Project Model task could not be finished');
 						}
-						$maql = $preserveDataMaql ? $preserveDataMaql : $noPreserveDataMaql;
-
-						$operations = array();
-						if ($maql) {
-							foreach ($taskResponse['projectModelDiff']['updateOperations'] as $o) {
-								$operations[] = vsprintf($o['updateOperation']['description'], $o['updateOperation']['parameters']);
-							}
-						}
-
-						return array(
-							'maql' => $maql,
-							'operations' => $operations
-						);
-					} else {
-						$this->logAlert('updateProjectModel() has bad response', array(
-							'uri' => $uri,
-							'result' => $result
-						));
-						throw new RestApiException('Update Project Model task could not be finished');
 					}
+
+					$try++;
+				} while (true);
+
+			} else {
+				$this->logAlert('updateProjectModel() has bad response', array(
+					'uri' => $uri,
+					'result' => $result
+				));
+				throw new RestApiException('Update Project Model task could not be started');
+			}
+
+			return false;
+		} catch (RestApiException $e) {
+			$details = $e->getDetails();
+			if (isset($details['details']['error']['validationErrors'])) {
+				$errors = array();
+				foreach ($details['details']['error']['validationErrors'] as $err) {
+					$errors[] = vsprintf($err['validationError']['message'], $err['validationError']['parameters']);
 				}
-
-				$try++;
-			} while (true);
-
-		} else {
-			$this->logAlert('updateProjectModel() has bad response', array(
-				'uri' => $uri,
-				'result' => $result
-			));
-			throw new RestApiException('Update Project Model task could not be started');
+				if (count($errors)) {
+					$e->setDetails($errors);
+				}
+			}
+			throw $e;
 		}
-
-		return false;
 	}
 
 	public function getProjectModel($pid)
