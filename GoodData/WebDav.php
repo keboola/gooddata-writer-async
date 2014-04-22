@@ -216,7 +216,7 @@ class WebDav
 			file_put_contents($logFile, '{' . PHP_EOL, FILE_APPEND);
 			foreach ($errors as $f => $e) {
 				file_put_contents($logFile, '"' . $f . '" : ' . PHP_EOL, FILE_APPEND);
-				file_put_contents($logFile, print_r($e, true) . PHP_EOL . PHP_EOL . PHP_EOL, FILE_APPEND);
+				file_put_contents($logFile, $e . PHP_EOL . PHP_EOL . PHP_EOL, FILE_APPEND);
 				if ($i != count($errors)-1)
 					file_put_contents($logFile, ',' . PHP_EOL, FILE_APPEND);
 			}
