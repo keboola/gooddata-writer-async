@@ -112,7 +112,7 @@ class CLToolApi
 			throw new \Exception('GoodDataExport: cannot change dir: ' . $this->tmpDir);
 		}
 
-        $clPath = $this->_clPath ? $this->_clPath : 'sh /opt/ebs-disk/GD/cli/bin/gdi.sh';
+        $clPath = 'sh '. ($this->_clPath ? $this->_clPath : '/opt/ebs-disk/GD/cli/bin/gdi.sh');
 		// Assemble CL tool command
 		$command = escapeshellarg($clPath)
 			. ' -u ' . escapeshellarg($this->_username)
