@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
+use Keboola\StorageApi\Client;
 use Monolog\Logger;
 use Symfony\Component\Process\Process;
 use Keboola\GoodDataWriter\Exception\ClientException;
@@ -17,26 +18,20 @@ class CsvHandlerException extends ClientException
 
 class CsvHandler
 {
-
 	private $scriptPath;
-	private $tmpDir;
-	private $command;
-
-	/**
-	 * @var \Keboola\GoodDataWriter\Service\S3Client
-	 */
-	private $s3Client;
+	private $storageApiClient;
 	private $logger;
 
 	private $jobId;
 	private $runId;
 
+	private $command;
 
-	public function __construct($scriptsPath, $s3Client, $tmpDir, Logger $logger)
+
+	public function __construct($scriptsPath, Client $storageApi, Logger $logger)
 	{
 		$this->scriptPath = $scriptsPath . '/convert_csv.php';
-		$this->s3Client = $s3Client;
-		$this->tmpDir = $tmpDir;
+		$this->storageApiClient = $storageApi;
 		$this->logger = $logger;
 
 		if (!file_exists($scriptsPath . '/convert_csv.php'))
@@ -57,14 +52,30 @@ class CsvHandler
 	 * Assemble curl to download csv from SAPI and ungzip it
 	 * There is approx. 38 minutes backoff for 5xx errors from SAPI (via --retry 12)
 	 */
-	public function initDownload($tableId, $token, $sapiUrl, $userAgent, $incrementalLoad = false, $filterColumn = false, $filterValue = null)
+	public function initDownload($tableId, $incrementalLoad = false, $filterColumn = false, $filterValue = null)
 	{
-		$incrementalLoad = $incrementalLoad ? '&changedSince=-' . $incrementalLoad . '+days' : null;
-		$filter = ($filterColumn && $filterValue) ? '&whereColumn=' . $filterColumn . '&whereValues%5B%5D=' . $filterValue : null;
-		$sapiUrl = sprintf('%s/v2/storage/tables/%s/export?format=escaped%s%s', $sapiUrl, $tableId, $incrementalLoad, $filter);
-		$this->command = sprintf('curl -s -S -f --header %s --header %s --header %s --user-agent %s --retry 12 %s | gzip -d',
-			escapeshellarg('Accept-encoding: gzip'), escapeshellarg('X-StorageApi-Token: ' . $token),
-			escapeshellarg('X-KBC-RunId: ' . $this->runId), escapeshellarg($userAgent), escapeshellarg($sapiUrl));
+		// run async export and get file id
+		$params = array('gzip' => true);
+		if ($incrementalLoad) {
+			$params['changedSince'] = '-' . $incrementalLoad . ' days';
+		}
+		if ($filterColumn && $filterValue) {
+			$params['whereColumn'] = $filterColumn;
+			$params['whereValues'] = array($filterValue);
+		}
+
+		$result = $this->storageApiClient->exportTableAsync($tableId, $params);
+		if (empty($result['file']['id'])) {
+			throw new \Exception('Async export from SAPI returned bad response: '. json_encode($result));
+		}
+
+		// get file's s3 url
+		$result = $this->storageApiClient->getFile($result['file']['id']);
+		if (empty($result['url'])) {
+			throw new \Exception('Get file after async export from SAPI returned bad response: '. json_encode($result));
+		}
+
+		$this->command = sprintf('curl -s -S -f --header %s --retry 12 %s | gzip -d', escapeshellarg('Accept-encoding: gzip'), escapeshellarg($result['url']));
 	}
 
 
@@ -154,12 +165,9 @@ class CsvHandler
 		$urlParts = parse_url($url);
 		$url = 'https://' . $urlParts['host'];
 
-		$command = sprintf('curl -s -S -T - --retry 12 --user %s:%s %s',
-			escapeshellarg($username), escapeshellarg($password),
-			escapeshellarg($url . $uri . '/data.csv'));
-		/*$command = sprintf('gzip -c | curl -s -S -T - --header %s --retry 12 --user %s:%s %s',
+		$command = sprintf('gzip -c | curl -s -S -T - --header %s --retry 12 --user %s:%s %s',
 			escapeshellarg('Content-encoding: gzip'), escapeshellarg($username), escapeshellarg($password),
-			escapeshellarg($url . $uri . '/data.csv'));*/
+			escapeshellarg($url . $uri . '/data.csv'));
 
 		$this->command .= ' | ' . $command;
 

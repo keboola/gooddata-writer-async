@@ -46,7 +46,7 @@ class UploadTable extends AbstractJob
 		// Init
 		$tmpFolderName = basename($this->tmpDir);
 		$this->goodDataModel = new Model($this->appConfiguration);
-		$this->csvHandler = new CsvHandler($this->scriptsPath, $this->s3Client, $this->tmpDir, $this->logger);
+		$this->csvHandler = new CsvHandler($this->scriptsPath, $this->storageApiClient, $this->logger);
 		$this->csvHandler->setJobId($job['id']);
 		$this->csvHandler->setRunId($job['runId']);
 		$projects = $this->configuration->getProjects();
@@ -284,8 +284,7 @@ class UploadTable extends AbstractJob
 
 				$webDav->prepareFolder($webDavFolder);
 
-				$this->csvHandler->initDownload($params['tableId'], $job['token'], $this->appConfiguration->storageApiUrl,
-					$this->appConfiguration->userAgent, $gdJob['incrementalLoad'], $gdJob['filterColumn'], $gdJob['pid']);
+				$this->csvHandler->initDownload($params['tableId'], $gdJob['incrementalLoad'], $gdJob['filterColumn'], $gdJob['pid']);
 				$this->csvHandler->prepareTransformation($definition);
 				$this->csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl, '/uploads/' . $webDavFolder);
 				if (!$webDav->fileExists($webDavFolder . '/data.csv')) {
