@@ -101,6 +101,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 			} else {
 				// enqueue again
 				$delaySecs = 60 * pow(2, $message->getRetryCount());
+				if ($delaySecs > 900) $delaySecs = 900;
 				$newMessageId = $this->queue->enqueue($message->getBody(), $delaySecs);
 				$log->err("Queue process error", array_merge($logData, array(
 					'newMessageId' => $newMessageId,
