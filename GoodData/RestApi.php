@@ -804,7 +804,7 @@ class RestApi
 	/**
 	 * Run load data task
 	 */
-	public function loadData($pid, $dirName, $dataSetName)
+	public function loadData($pid, $dirName)
 	{
 		$uri = sprintf('/gdc/md/%s/etl/pull', $pid);
 		$result = $this->jsonRequest($uri, 'POST', array('pullIntegration' => $dirName));
@@ -829,8 +829,9 @@ class RestApi
 
 			if ($taskResponse['taskStatus'] == 'ERROR' || $taskResponse['taskStatus'] == 'WARNING') {
 				// Find upload message
-				$uploadMessage = $this->getUploadMessage($pid, $dataSetName);
-				throw new RestApiException($uploadMessage ? $uploadMessage : 'ETL task finished with error');
+				$taskId = substr($result['pullTask']['uri'], strrpos($result['pullTask']['uri'], '/')+1);
+				$upload = $this->get(sprintf('/gdc/md/%s/data/upload/%s', $pid, $taskId));
+				throw new RestApiException(isset($upload['dataUpload']['msg'])? $upload['dataUpload']['msg'] : 'Data load failed');
 			}
 
 			return $taskResponse;
@@ -1039,18 +1040,6 @@ class RestApi
 				"reportDefinition" => $uri
 			)
 		))->json();
-	}
-
-	public function getUploadMessage($pid, $datasetName)
-	{
-		$datasets = $this->get(sprintf('/gdc/md/%s/data/sets', $pid));
-		foreach ($datasets['dataSetsInfo']['sets'] as $dataset) {
-			if ($dataset['meta']['identifier'] == 'dataset.' . $datasetName) {
-				return $dataset['lastUpload']['dataUploadShort']['msg'];
-			}
-		}
-
-		return null;
 	}
 
 	public function createDateDimension($pid, $name, $includeTime = false)

@@ -125,12 +125,11 @@ class UploadDateDimension extends AbstractJob
 
 					$dataSetName = 'time.' . $dimensionName;
 					try {
-						$this->restApi->loadData($pid, $tmpFolderNameDimension, $dataSetName);
+						$this->restApi->loadData($pid, $tmpFolderNameDimension);
 					} catch (RestApiException $e) {
 						$debugFile = $tmpFolderDimension . '/' . $pid . '-etl.log';
 						$taskName = 'Data Load Error';
 						$logSaved = $webDav->saveLogs($tmpFolderDimension, $debugFile);
-						$error = 'Rest API error. See logs for details';
 						if ($logSaved) {
 							if (filesize($debugFile) > 1024 * 1024) {
 								$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $pid, $dataSetName));
@@ -139,12 +138,13 @@ class UploadDateDimension extends AbstractJob
 								} else {
 									$this->logs[$pid][$taskName] = $logUrl;
 								}
+								$e->setDetails(array($logUrl));
 							} else {
-								$error = file_get_contents($debugFile);
+								$e->setDetails(file_get_contents($debugFile));
 							}
 						}
 
-						throw new RestApiException('Data load failed', $error);
+						throw $e;
 					}
 
 					$e = $stopWatch->stop($stopWatchId);

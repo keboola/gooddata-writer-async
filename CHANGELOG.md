@@ -1,3 +1,12 @@
+## 2014-03-25 (v 5.12)
+- async export from Storage API
+
+## 2014-04-24 (v 5.11)
+- update to Syrup 1.3
+
+## 2014-03-17 (v 5.10)
+- refactorings
+
 ## 2014-03-04 (v 5.9)
 - added POST call `reset-table` which deletes dataset in GoodData project belonging to the table
 
