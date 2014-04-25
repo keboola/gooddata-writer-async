@@ -35,7 +35,6 @@ class UploadTable extends AbstractJob
 		$stopWatchId = 'prepareJob';
 		$stopWatch->start($stopWatchId);
 
-		//@TODO REMOVE xmlFile
 		if (empty($job['definition'])) {
 			throw new WrongConfigurationException("Definition for data set is missing. Try the upload again please.");
 		}
@@ -348,6 +347,25 @@ class UploadTable extends AbstractJob
 				$this->logEvent($stopWatchId, array(
 					'duration' => $e->getDuration()
 				), $this->restApi->getLogPath());
+
+
+				//@TODO temporary saving of projectId and writerId to GD project summary
+				$projectInfo = $this->restApi->getProject($gdJob['pid']);
+				$projectJson = json_decode($projectInfo['project']['meta']['summary'], true);
+				if (!$projectJson) {
+					$projectInfo['project']['meta']['summary'] = json_encode(array(
+						'projectId' => $this->configuration->projectId,
+						'writerId' => $this->configuration->writerId,
+						'main' => $gdJob['mainProject']
+					));
+					$this->restApi->post('/gdc/projects/' . $gdJob['pid'], array(
+						'project' => array(
+							'content' => array('guidedNavigation' => 1),
+							'meta' => $projectInfo['project']['meta'])
+						)
+					);
+				}
+				//@TODO temporary saving of projectId and writerId to GD project summary
 			}
 		} catch (\Exception $e) {
 			$error = $e->getMessage();

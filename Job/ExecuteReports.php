@@ -7,18 +7,10 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException,
-	Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException;
 
 class ExecuteReports extends AbstractJob
 {
-	/**
-	 * @param $job
-	 * @param $params
-	 * @throws WrongConfigurationException
-	 * @throws WrongParametersException
-	 * @return array
-	 */
 	public function run($job, $params)
 	{
 		$this->configuration->checkBucketAttributes();
