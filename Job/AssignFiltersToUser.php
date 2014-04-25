@@ -38,7 +38,14 @@ class assignFiltersToUser extends AbstractJob
 		$filterUris = array();
 		foreach ($params['filters'] as $name) {
 			$filter = $this->configuration->getFilter($name);
+			if (!$filter['uri']) {
+				throw new WrongConfigurationException("Filter '" . $name . "' does not have configured uri.");
+			}
 			$filterUris[] = $filter['uri'];
+		}
+
+		if (!count($filterUris)) {
+			throw new WrongConfigurationException("There are no configured valid filters to assign.");
 		}
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
