@@ -55,7 +55,10 @@ class CsvHandler
 	public function initDownload($tableId, $incrementalLoad = false, $filterColumn = false, $filterValue = null)
 	{
 		// run async export and get file id
-		$params = array('gzip' => true);
+		$params = array(
+			'gzip' => true,
+			'format' => 'escaped'
+		);
 		if ($incrementalLoad) {
 			$params['changedSince'] = '-' . $incrementalLoad . ' days';
 		}
