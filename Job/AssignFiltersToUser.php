@@ -44,10 +44,6 @@ class assignFiltersToUser extends AbstractJob
 			$filterUris[] = $filter['uri'];
 		}
 
-		if (!count($filterUris)) {
-			throw new WrongConfigurationException("There are no configured valid filters to assign.");
-		}
-
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
