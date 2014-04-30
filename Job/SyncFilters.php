@@ -13,7 +13,6 @@ class SyncFilters extends AbstractJob {
 	function run($job, $params)
 	{
 		$gdWriteStartTime = date('c');
-
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
@@ -44,11 +43,14 @@ class SyncFilters extends AbstractJob {
 							// Create filter
 							$filter = $this->configuration->getFilter($fu['filterName']);
 							$attrId = $this->configuration->translateAttributeName($filter['attribute']);
-							$elem = is_array(json_decode($filter['element'], true))?json_decode($filter['element'], true):$filter['element'];
+							$element = json_decode($filter['element'], true);
+							if (!is_array($element)) {
+								$element = $filter['element'];
+							}
 							$filterUri = $this->restApi->createFilter(
 								$filter['name'],
 								$attrId,
-								$elem,
+								$element,
 								$filter['operator'],
 								$p['pid']
 							);
@@ -80,7 +82,6 @@ class SyncFilters extends AbstractJob {
 			'gdWriteStartTime'  => $gdWriteStartTime
 		);
 	}
-
 	protected function isFilterInProject($filterName, $pid) {
 		foreach ($this->configuration->getFiltersProjects() as $fp) {
 			if ($fp['filterName'] == $filterName && $fp['pid'] == $pid) {

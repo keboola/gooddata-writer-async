@@ -1266,12 +1266,8 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function getFilter($name)
 	{
-		foreach ($this->getFilters() as $filter) {
-			if ($filter['name'] == $name) {
-				return $filter;
-			}
-		}
-		return false;
+		$filters = $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_TABLE_NAME, 'name', $name);
+		return count($filters) ? current($filters) : false;
 	}
 
 	/**
@@ -1339,10 +1335,8 @@ class Configuration extends StorageApiConfiguration
 	public function saveFilter($name, $attribute, $element, $operator, $uri)
 	{
 		// check for existing name
-		foreach ($this->getFilters() as $f) {
-			if ($f['name'] == $name) {
-				throw new WrongParametersException("Filter of that name already exists.");
-			}
+		if ($this->getFilter($name)) {
+			throw new WrongParametersException("Filter of that name already exists.");
 		}
 
 		$data = array(
@@ -1382,6 +1376,7 @@ class Configuration extends StorageApiConfiguration
 	public function updateFilters($name, $attribute, $element, $operator, $uri)
 	{
 		$data = $this->getFilters();
+		$element = is_array($element)? json_encode($element) : $element;
 
 		foreach ($data as $k => $v) {
 			if ($v['name'] == $name) {
