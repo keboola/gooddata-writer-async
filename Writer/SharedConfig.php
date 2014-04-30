@@ -344,6 +344,15 @@ class SharedConfig extends StorageApiConfiguration
 		}
 	}
 
+	public function projectBelongsToWriter($projectId, $writerId, $pid)
+	{
+		foreach ($this->fetchTableRows(self::PROJECTS_TABLE_ID, 'pid', $pid) as $p) {
+			if ($p['projectId'] == $projectId && $p['writerId'] == $writerId)
+				return true;
+		}
+		return false;
+	}
+
 	/**
 	 * @return array
 	 */
@@ -395,6 +404,15 @@ class SharedConfig extends StorageApiConfiguration
 	public function getUsers($projectId, $writerId)
 	{
 		return $this->fetchTableRows(self::USERS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId);
+	}
+
+	public function userBelongsToWriter($projectId, $writerId, $email)
+	{
+		foreach ($this->fetchTableRows(self::USERS_TABLE_ID, 'projectIdWriterId', $projectId.'.'.$writerId) as $u) {
+			if ($u['email'] == $email)
+				return true;
+		}
+		return false;
 	}
 
 	/**

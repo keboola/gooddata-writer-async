@@ -502,11 +502,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	public function getSsoAction()
 	{
 		// Init parameters
-		$this->checkParams(array('writerId'));
+		$this->checkParams(array('writerId', 'email', 'pid'));
 		$this->checkWriterExistence();
-		$this->checkParams(array('email', 'pid'));
-		if (!empty($this->params['pid']) && !$this->getConfiguration()->getProject($this->params['pid'])) {
-			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $this->params['pid']));
+
+		if (!$this->getSharedConfig()->projectBelongsToWriter($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->params['pid'])) {
+			throw new WrongParametersException(sprintf("Project '%s' was not created by this writer and cannot be accessed using sso therefore.", $this->params['pid']));
 		}
 
 		if (!empty($this->params['createUser']) && $this->params['createUser'] == 1) {
@@ -515,21 +515,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$this->postProjectUsersAction();
 		}
 
-		$user = $this->getConfiguration()->getUser($this->params['email']);
-		if (!$user) {
-			throw new WrongParametersException("User " . $user . " doesn't exist in writer");
+		if (!$this->getSharedConfig()->userBelongsToWriter($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->params['email'])) {
+			throw new WrongParametersException(sprintf("User '%s' was not created by this writer and cannot be used for sso access therefore.", $this->params['email']));
 		}
+
+		$targetUrl = isset($this->params['targetUrl'])? $this->params['targetUrl'] : '/#s=/gdc/projects/' . $this->params['pid'];
+		$validity = (isset($this->params['validity']))? $this->params['validity'] : 86400;
 
 		$domainUser = $this->getSharedConfig()->getDomainUser($this->appConfiguration->gd_domain);
 		$sso = new SSO($domainUser->username, $this->appConfiguration);
-
-		$targetUrl = '/#s=/gdc/projects/' . $this->params['pid'];
-		if (isset($this->params['targetUrl'])) {
-			$targetUrl = $this->params['targetUrl'];
-		}
-
-		$validity = (isset($this->params['validity']))?$this->params['validity']:86400;
-
 		$ssoLink = $sso->url($targetUrl, $this->params['email'], $validity);
 
 		if (null == $ssoLink) {
