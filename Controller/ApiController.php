@@ -505,9 +505,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkParams(array('writerId', 'email', 'pid'));
 		$this->checkWriterExistence();
 
-		if (!$this->getSharedConfig()->projectBelongsToWriter($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->params['pid'])) {
+		//@TODO Security Fix
+		/*if (!$this->getSharedConfig()->projectBelongsToWriter($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->params['pid'])) {
 			throw new WrongParametersException(sprintf("Project '%s' was not created by this writer and cannot be accessed using sso therefore.", $this->params['pid']));
+		}*/
+		if (!$this->getConfiguration()->getProject($this->params['pid'])) {
+			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $this->params['pid']));
 		}
+		//@TODO Security Fix
 
 		if (!empty($this->params['createUser']) && $this->params['createUser'] == 1) {
 			$this->params['wait'] = 1;
@@ -515,9 +520,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$this->postProjectUsersAction();
 		}
 
-		if (!$this->getSharedConfig()->userBelongsToWriter($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->params['email'])) {
+		//@TODO Security Fix
+		/*if (!$this->getSharedConfig()->userBelongsToWriter($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->params['email'])) {
 			throw new WrongParametersException(sprintf("User '%s' was not created by this writer and cannot be used for sso access therefore.", $this->params['email']));
+		}*/
+		if (!$this->getConfiguration()->getUser($this->params['email'])) {
+			throw new WrongParametersException("User " . $this->params['email'] . " doesn't exist in writer");
 		}
+		//@TODO Security Fix
 
 		$targetUrl = isset($this->params['targetUrl'])? $this->params['targetUrl'] : '/#s=/gdc/projects/' . $this->params['pid'];
 		$validity = (isset($this->params['validity']))? $this->params['validity'] : 86400;
