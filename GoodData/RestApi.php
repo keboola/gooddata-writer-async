@@ -437,7 +437,7 @@ class RestApi
 		$uri = sprintf('/gdc/account/domains/%s/users', $domain);
 		$params = array(
 			'accountSetting' => array(
-				'login' => $login,
+				'login' => strtolower($login),
 				'password' => $password,
 				'verifyPassword' => $password,
 				'firstName' => $firstName,
@@ -500,7 +500,7 @@ class RestApi
 	public function userId($email, $domain)
 	{
 		foreach($this->usersInDomain($domain) as $user) {
-			if (!empty($user['accountSetting']['login']) && $user['accountSetting']['login'] == $email) {
+			if (!empty($user['accountSetting']['login']) && strtolower($user['accountSetting']['login']) == strtolower($email)) {
 				if (!empty($user['accountSetting']['links']['self'])) {
 					if (substr($user['accountSetting']['links']['self'], 0, 21) == '/gdc/account/profile/') {
 						return substr($user['accountSetting']['links']['self'], 21);
@@ -576,7 +576,7 @@ class RestApi
 	public function userIdByProject($email, $pid)
 	{
 		foreach ($this->usersInProject($pid) as $user) {
-			if (!empty($user['user']['content']['email']) && $user['user']['content']['email'] == $email) {
+			if (!empty($user['user']['content']['email']) && strtolower($user['user']['content']['email']) == strtolower($email)) {
 				if (!empty($user['user']['links']['self'])) {
 					if (substr($user['user']['links']['self'], 0, 21) == '/gdc/account/profile/') {
 						return substr($user['user']['links']['self'], 21);
@@ -790,7 +790,7 @@ class RestApi
 				$invitationStatus = $invitationData['invitation']['content']['status'];
 				$invitationUri = $invitationData['invitation']['links']['self'];
 
-				if ($invitationEmail != $email)
+				if (strtolower($invitationEmail) != strtolower($email))
 					continue;
 
 				if ($invitationStatus == 'CANCELED')
