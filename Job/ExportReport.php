@@ -18,13 +18,13 @@ use Keboola\StorageApi\Table;
 class ExportReport extends AbstractJob
 {
 	/**
-	 * @param $job
-	 * @param $params
-	 * @throws \Keboola\GoodDataWriter\GoodData\RestApiException
-	 * @return array
+	 * required: report, table
+	 * optional:
 	 */
 	public function run($job, $params)
 	{
+		$this->checkParams($params, array('report', 'table'));
+
 		$this->configuration->checkBucketAttributes();
 		$this->configuration->checkProjectsTable();
 

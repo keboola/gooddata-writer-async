@@ -23,6 +23,10 @@ class UploadDateDimension extends AbstractJob
 	private $goodDataModel;
 	public $eventsLog;
 
+	/**
+	 * required: name
+	 * optional: pid
+	 */
 	public function run($job, $params)
 	{
 		$this->checkParams($params, array('name'));

@@ -10,8 +10,12 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 
-class DeleteFilter extends AbstractJob {
-
+class DeleteFilter extends AbstractJob
+{
+	/**
+	 * required: uri
+	 * optional:
+	 */
 	function run($job, $params)
 	{
 		$this->checkParams($params, array('uri'));

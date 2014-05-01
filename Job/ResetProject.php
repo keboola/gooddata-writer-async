@@ -13,6 +13,10 @@ use Keboola\GoodDataWriter\GoodData\RestApiException;
 
 class ResetProject extends AbstractJob
 {
+	/**
+	 * required:
+	 * optional: removeClones, accessToken
+	 */
 	function run($job, $params)
 	{
 		$gdWriteStartTime = date('c');

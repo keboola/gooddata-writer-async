@@ -1335,7 +1335,7 @@ class Configuration extends StorageApiConfiguration
 	public function saveFilter($name, $attribute, $element, $operator, $uri)
 	{
 		// check for existing name
-		if ($this->getFilter($name)) {
+		if ($this->sapi_tableExists($this->bucketId . '.' . self::FILTERS_TABLE_NAME) && $this->getFilter($name)) {
 			throw new WrongParametersException("Filter of that name already exists.");
 		}
 

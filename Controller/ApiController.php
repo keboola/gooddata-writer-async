@@ -83,6 +83,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$request = $this->getRequest();
 		$this->method = $request->getMethod();
 		$this->params = in_array($this->method, array('POST', 'PUT'))? $this->getPostJson($request) : $request->query->all();
+		array_walk_recursive($this->params, function(&$param) {
+			$param = trim($param);
+		});
 
 		if (isset($this->params['queue']) && !in_array($this->params['queue'], array(SharedConfig::PRIMARY_QUEUE, SharedConfig::SECONDARY_QUEUE))) {
 			throw new WrongParametersException('Wrong parameter \'queue\'. Must be one of: ' . SharedConfig::PRIMARY_QUEUE . ', ' . SharedConfig::SECONDARY_QUEUE);

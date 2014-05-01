@@ -11,6 +11,10 @@ namespace Keboola\GoodDataWriter\Job;
 
 class ProxyCall  extends AbstractJob
 {
+	/**
+	 * required: query, payload
+	 * optional: pid
+	 */
 	function run($job, $params)
 	{
 		$this->checkParams($params, array('query', 'payload'));

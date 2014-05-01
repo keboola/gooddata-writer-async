@@ -11,6 +11,10 @@ use Keboola\GoodDataWriter\Exception\WrongParametersException,
 
 class ExecuteReports extends AbstractJob
 {
+	/**
+	 * required:
+	 * optional: pid, reports
+	 */
 	public function run($job, $params)
 	{
 		$this->configuration->checkBucketAttributes();

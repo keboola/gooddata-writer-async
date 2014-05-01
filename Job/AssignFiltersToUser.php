@@ -12,14 +12,13 @@ use Keboola\GoodDataWriter\Exception\WrongParametersException;
 class assignFiltersToUser extends AbstractJob
 {
 	/**
-	 * @param $job
-	 * @param $params
-	 * @throws WrongParametersException
-	 * @return array
+	 * required: userEmail, pid, filters
+	 * optional:
 	 */
 	public function run($job, $params)
 	{
 		$this->checkParams($params, array('userEmail', 'pid'));
+		$params['userEmail'] = strtolower($params['userEmail']);
 
 		if (!is_array($params['filters'])) {
 			throw new WrongParametersException("Parameter 'filters' must be an array.");

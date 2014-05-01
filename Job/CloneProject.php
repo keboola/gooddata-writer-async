@@ -11,10 +11,8 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 class CloneProject extends AbstractJob
 {
 	/**
-	 * @param $job
-	 * @param $params
-	 * @throws WrongConfigurationException
-	 * @return array
+	 * required: accessToken, projectName, pidSource
+	 * optional: includeData, includeUsers
 	 */
 	public function run($job, $params)
 	{

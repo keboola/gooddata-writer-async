@@ -12,15 +12,13 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 class RemoveUserFromProject extends AbstractJob
 {
 	/**
-	 * @param $job
-	 * @param $params
-	 * @throws WrongParametersException
-	 * @throws WrongConfigurationException
-	 * @return array
+	 * required: pid, email
+	 * optional:
 	 */
 	public function run($job, $params)
 	{
 		$this->checkParams($params, array('pid', 'email'));
+		$params['email'] = strtolower($params['email']);
 
 		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
 

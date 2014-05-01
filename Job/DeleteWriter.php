@@ -11,10 +11,8 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 class DeleteWriter extends AbstractJob
 {
 	/**
-	 * @param $job
-	 * @param $params
-	 * @throws WrongConfigurationException
-	 * @return array
+	 * required:
+	 * optional:
 	 */
 	public function run($job, $params)
 	{

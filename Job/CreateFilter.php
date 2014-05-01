@@ -11,10 +11,8 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 class createFilter extends AbstractJob
 {
 	/**
-	 * @param $job
-	 * @param $params
-	 * @throws WrongConfigurationException
-	 * @return array
+	 * required: name, attribute, element, pid, operator
+	 * optional:
 	 */
 	public function run($job, $params)
 	{

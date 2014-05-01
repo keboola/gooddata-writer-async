@@ -12,14 +12,13 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 class AddUserToProject extends AbstractJob
 {
 	/**
-	 * @param $job
-	 * @param $params
-	 * @throws WrongConfigurationException
-	 * @return array
+	 * required: email, role
+	 * optional: pid, createUser
 	 */
 	public function run($job, $params)
 	{
 		$this->checkParams($params, array('email', 'role'));
+		$params['email'] = strtolower($params['email']);
 
 		$allowedRoles = array_keys(RestApi::$userRoles);
 		if (!in_array($params['role'], $allowedRoles)) {

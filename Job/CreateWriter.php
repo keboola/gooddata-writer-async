@@ -11,7 +11,10 @@ use Keboola\GoodDataWriter\GoodData\UserAlreadyExistsException;
 
 class CreateWriter extends AbstractJob
 {
-
+	/**
+	 * required: accessToken, projectName
+	 * optional:
+	 */
 	public function run($job, $params)
 	{
 		$this->checkParams($params, array('accessToken', 'projectName'));

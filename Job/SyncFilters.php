@@ -8,8 +8,12 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-class SyncFilters extends AbstractJob {
-
+class SyncFilters extends AbstractJob
+{
+	/**
+	 * required:
+	 * optional: pid
+	 */
 	function run($job, $params)
 	{
 		$gdWriteStartTime = date('c');

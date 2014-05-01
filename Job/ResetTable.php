@@ -12,6 +12,8 @@ use Symfony\Component\Stopwatch\Stopwatch;
 class ResetTable extends AbstractJob
 {
 	/**
+	 * required: tableId
+	 * optional:
 	 */
 	public function run($job, $params)
 	{

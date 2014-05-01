@@ -11,9 +11,14 @@ use Keboola\GoodDataWriter\GoodData\UserAlreadyExistsException;
 
 class CreateUser extends AbstractJob
 {
+	/**
+	 * required: email, password, firstName, lastName
+	 * optional: ssoProvider
+	 */
 	public function run($job, $params)
 	{
 		$this->checkParams($params, array('email', 'password', 'firstName', 'lastName'));
+		$params['email'] = strtolower($params['email']);
 
 		$gdWriteStartTime = date('c');
 		$this->restApi->login($this->domainUser->username, $this->domainUser->password);

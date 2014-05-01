@@ -26,8 +26,14 @@ class UploadTable extends AbstractJob
 	private $csvHandler;
 	private $goodDataModel;
 
+	/**
+	 * required: tableId
+	 * optional: incrementalLoad, pid
+	 */
 	public function run($job, $params)
 	{
+		$this->checkParams($params, array('tableId'));
+
 		$this->logEvent('start', array(
 			'duration' => 0
 		));
