@@ -576,7 +576,7 @@ class RestApi
 	public function userIdByProject($email, $pid)
 	{
 		foreach ($this->usersInProject($pid) as $user) {
-			if (!empty($user['user']['content']['email']) && strtolower($user['user']['content']['email']) == strtolower($email)) {
+			if (!empty($user['user']['content']['login']) && strtolower($user['user']['content']['login']) == strtolower($email)) {
 				if (!empty($user['user']['links']['self'])) {
 					if (substr($user['user']['links']['self'], 0, 21) == '/gdc/account/profile/') {
 						return substr($user['user']['links']['self'], 21);

@@ -9,6 +9,7 @@
 namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
+use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Service\StorageApiConfiguration,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable,
@@ -1494,7 +1495,7 @@ class Configuration extends StorageApiConfiguration
 			$tableName = $tableDef['name'];
 		}
 
-		return strtolower('attr.' . preg_replace('/[^a-z\d ]/i', '', $tableName) . '.' . $attrName);
+		return sprintf('attr.%s.%s', Model::getId($tableName), Model::getId($attrName));
 	}
 
 

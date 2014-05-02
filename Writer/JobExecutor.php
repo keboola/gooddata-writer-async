@@ -184,6 +184,16 @@ class JobExecutor
 					$this->appConfiguration->gd_domain = 'keboola-academy';
 				}
 
+				//@TODO bug with switching to academy domain
+				if ($this->appConfiguration->gd_domain == 'keboola-academy') {
+					$this->logger->debug('Job in academy domain', array(
+						'token' => $this->storageApiClient->getLogData(),
+						'job' => $job,
+						'parameters' => $parameters
+					));
+				}
+				//@TODO bug with switching to academy domain
+
 				/**
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 				 */
