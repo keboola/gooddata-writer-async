@@ -185,8 +185,8 @@ class JobExecutor
 				}
 
 				//@TODO bug with switching to academy domain
-				if ($this->appConfiguration->gd_domain == 'keboola-academy') {
-					$this->logger->debug('Job in academy domain', array(
+				if ($this->appConfiguration->gd_domain == 'keboola-academy' && $configuration->projectId != 292) {
+					$this->logger->debug('Academy domain job in different project', array(
 						'token' => $this->storageApiClient->getLogData(),
 						'job' => $job,
 						'parameters' => $parameters
