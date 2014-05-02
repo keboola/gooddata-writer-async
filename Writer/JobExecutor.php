@@ -180,14 +180,17 @@ class JobExecutor
 				$this->restApi->initLog();
 				$token = $this->storageApiClient->getLogData();
 
+				// make copy of $appConfiguration (otherwise next jobs processed by this worker will have following domain setup)
+				$appConfiguration = clone $this->appConfiguration;
 				if (!empty($token['owner']['features']) && in_array('gdwr-academy', $token['owner']['features'])) {
-					$this->appConfiguration->gd_domain = 'keboola-academy';
+					$appConfiguration->gd_domain = 'keboola-academy';
 				}
 
 				//@TODO bug with switching to academy domain
-				if ($this->appConfiguration->gd_domain == 'keboola-academy' && $configuration->projectId != 292) {
+				if ($appConfiguration->gd_domain == 'keboola-academy' && $configuration->projectId != 292) {
 					$this->logger->debug('Academy domain job in different project', array(
 						'token' => $this->storageApiClient->getLogData(),
+						'token2' => $token,
 						'job' => $job,
 						'parameters' => $parameters
 					));
@@ -197,7 +200,7 @@ class JobExecutor
 				/**
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 				 */
-				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedConfig, $this->restApi, $s3Client, $this->tempServiceFactory);
+				$command = new $commandClass($configuration, $appConfiguration, $this->sharedConfig, $this->restApi, $s3Client, $this->tempServiceFactory);
 				$command->setTmpDir($tmpDir);
 				$command->setScriptsPath($this->appConfiguration->scriptsPath);
 				$command->setLogger($this->logger);
