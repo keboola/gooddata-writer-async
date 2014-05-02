@@ -322,7 +322,7 @@ class SharedConfig extends StorageApiConfiguration
 			'uid' => $uid,
 			'projectId' => $job['projectId'],
 			'writerId' => $job['writerId'],
-			'email' => $email,
+			'email' => strtolower($email),
 			'createdTime' => date('c'),
 			'projectIdWriterId' => $job['projectId'] . '.' . $job['writerId']
 		);
@@ -409,7 +409,7 @@ class SharedConfig extends StorageApiConfiguration
 	public function userBelongsToWriter($projectId, $writerId, $email)
 	{
 		foreach ($this->fetchTableRows(self::USERS_TABLE_ID, 'projectIdWriterId', $projectId.'.'.$writerId) as $u) {
-			if ($u['email'] == $email)
+			if (strtolower($u['email']) == strtolower($email))
 				return true;
 		}
 		return false;
@@ -457,7 +457,7 @@ class SharedConfig extends StorageApiConfiguration
 			'uid' => $uid,
 			'projectId' => $projectId,
 			'writerId' => $writerId,
-			'email' => $email,
+			'email' => strtolower($email),
 			'createdTime' => date('c'),
 			'deletedTime' => null
 		);

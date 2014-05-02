@@ -1042,7 +1042,7 @@ class Configuration extends StorageApiConfiguration
 	public function getUser($email)
 	{
 		foreach ($this->getUsers() as $user) {
-			if ($user['email'] == $email) return $user;
+			if (strtolower($user['email']) == strtolower($email)) return $user;
 		}
 		return false;
 	}
@@ -1072,7 +1072,7 @@ class Configuration extends StorageApiConfiguration
 	public function isProjectUser($email, $pid)
 	{
 		foreach ($this->getProjectUsers() AS $projectUser) {
-			if ($projectUser['email'] == $email && $projectUser['pid'] == $pid && empty($projectUser['main']))
+			if (strtolower($projectUser['email']) == strtolower($email) && $projectUser['pid'] == $pid && empty($projectUser['main']))
 				return true;
 		}
 
@@ -1137,7 +1137,7 @@ class Configuration extends StorageApiConfiguration
 	public function saveUser($email, $uid)
 	{
 		$data = array(
-			'email' => $email,
+			'email' => strtolower($email),
 			'uid' => $uid
 		);
 		$this->updateConfigTableRow(self::USERS_TABLE_NAME, $data);
@@ -1158,9 +1158,9 @@ class Configuration extends StorageApiConfiguration
 
 		$action = 'add';
 		$data = array(
-			'id' => sha1($pid . $email . $action . date('c')),
+			'id' => sha1($pid . strtolower($email) . $action . date('c')),
 			'pid' => $pid,
-			'email' => $email,
+			'email' => strtolower($email),
 			'role' => $role,
 			'action' => $action
 		);
@@ -1180,9 +1180,9 @@ class Configuration extends StorageApiConfiguration
 
 		$action = 'invite';
 		$data = array(
-			'id' => sha1($pid . $email . $action . date('c')),
+			'id' => sha1($pid . strtolower($email) . $action . date('c')),
 			'pid' => $pid,
-			'email' => $email,
+			'email' => strtolower($email),
 			'role' => $role,
 			'action' => $action
 		);
@@ -1209,7 +1209,7 @@ class Configuration extends StorageApiConfiguration
 			if (isset($projectUser['main']))
 				continue;
 
-			if ($projectUser['pid'] == $pid && $projectUser['email'] == $email && $projectUser['action'] == 'add')
+			if ($projectUser['pid'] == $pid && strtolower($projectUser['email']) == strtolower($email) && $projectUser['action'] == 'add')
 				$filter[] = $projectUser['id'];
 		}
 
@@ -1236,7 +1236,7 @@ class Configuration extends StorageApiConfiguration
 			if (isset($projectUser['main']))
 				continue;
 
-			if ($projectUser['pid'] == $pid && $projectUser['email'] == $email && $projectUser['action'] == 'invite')
+			if ($projectUser['pid'] == $pid && strtolower($projectUser['email']) == strtolower($email) && $projectUser['action'] == 'invite')
 				$filter[] = $projectUser['id'];
 		}
 
@@ -1282,7 +1282,7 @@ class Configuration extends StorageApiConfiguration
 
 		$filters = array();
 		foreach ($filtersUsers as $fu) {
-			if ($fu['userEmail'] == $userEmail) {
+			if (strtolower($fu['userEmail']) == strtolower($userEmail)) {
 				$filter = $this->getFilter($fu['filterName']);
 				if (null == $pid || strstr($filter['uri'], $pid)) {
 					$filters[] = $filter;
@@ -1408,14 +1408,14 @@ class Configuration extends StorageApiConfiguration
 
 		// remove all filters for user
 		foreach ($filtersUsers as $k => $v) {
-			if ($v['userEmail'] == $userEmail) {
+			if (strtolower($v['userEmail']) == strtolower($userEmail)) {
 				unset($filtersUsers[$k]);
 			}
 		}
 
 		// add filters
 		foreach ($filterNames as $fn) {
-			$filtersUsers[] = array($fn, $userEmail);
+			$filtersUsers[] = array($fn, strtolower($userEmail));
 		}
 
 		if (empty($filtersUsers)) {
