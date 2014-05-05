@@ -13,7 +13,7 @@ Configuration in Storage API
 Each writer has it's own bucket in `sys` stage which is created automatically by [Create writer](#post-%2Fgooddata-writer%2Fwriters) request. By default bucket is named `sys.c-wr-gooddata-[writerId]` but that is not mandatory. It has several attributes:
 
 * **writer** - with value **gooddata** is used to identify that the bucket contains writer configuration
-* **writerId** - name of writer, must be unique within project and may contain only letters, numbers and underscores
+* **writerId** - name of writer, must be unique within project (may contain only letters, numbers and underscores, 20 chars at max)
 * **gd.pid** - PID of main GoodData project
 * **gd.uid** - UID of GoodData account used for requests to GoodData API
 * **gd.username** - username of GoodData account used for requests to GoodData API
@@ -643,6 +643,33 @@ GET /jobs?writerId={writerId}&jobId={jobId}
 User Filters
 
 Commands for manipulation with GoodData's Mandatory User Filters
+
+# Tables configuration
+
+## filters
+
+Table is used for list of all filters associated with particualr writer. When you [create new filter](#post-%2Fgooddata-writer%2Ffilters) Writer will create new row in this table. It's columns are:
+
+* **name** (primary key) - Name of the filter (unique)
+* **attribute** - attribute to be filtered, in SAPI notation
+* **element** - value of attribute
+* **operator** - operator, one of =,>,<,<>, IN, NOT IN. Default "="
+* **uri** - after filter is created in GD, it has this uri
+
+## filters_projects
+
+Reference table between filters and projects. Row in this table added when new filter is created using [create filter api call](#post-%2Fgooddata-writer%2Ffilters). Columns:
+
+* **filterName** - filter name
+* **pid** - GD project id
+
+## filters_users
+
+Reference table between filters and users. You can assing filter(s) to user using [add filter to user](#post-%2Fgooddata-writer%2Ffilters-user). Columns:
+
+* **filterName** - filter name
+* **userEmail** - user email
+
 --
 
 
@@ -785,6 +812,7 @@ Call to obtain an SSO link for user.
 * **lastName**  (optional) - If createUser is set to 1, this specifies users lastName
 * **password**  (optional) - If createUser is set to 1, this specifies users password
 * **role**  (optional) - If createUser is set to 1, this specifies users role (one of: admin, editor, readOnly, dashboardOnly)
+* **targetUrl** (optional) - link to specific dashboard, e.g. for url `/dashboard.html#project=/gdc/projects/PID&dashboard=/gdc/md/PID/obj/DASHBOARD_ID` use url-encoded: `%2Fdashboard.html%23project%3D%2Fgdc%2Fprojects%2FPID%26dashboard%3D%2Fgdc%2Fmd%2FPID%2Fobj%2FDASHBOARD_ID`
 
 GET /sso?writerId={writerId}&pid={pr0j3ct_p1d}&email={user@email.com}
 > X-StorageApi-Token: your_token

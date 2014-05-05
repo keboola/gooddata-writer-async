@@ -113,6 +113,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if (!preg_match('/^[a-zA-Z0-9_]+$/', $this->params['writerId'])) {
 			throw new WrongParametersException('Parameter writerId may contain only basic letters, numbers and underscores');
 		}
+		/*if (strlen($this->params['writerId'] > 20)) {
+			throw new WrongParametersException('Parameter writerId may contain 20 characters at most');
+		}*/
 
 		$this->getConfiguration()->createWriter($this->params['writerId'], isset($this->params['backendUrl']) ? $this->params['backendUrl'] : null);
 
