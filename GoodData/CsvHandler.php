@@ -34,7 +34,7 @@ class CsvHandler
 		$this->storageApiClient = $storageApi;
 		$this->logger = $logger;
 
-		if (!file_exists($scriptsPath . '/convert_csv.php'))
+		if (!file_exists($this->scriptPath))
 			throw new \Exception('Conversion script for csv handling in pipe does not exist');
 	}
 
