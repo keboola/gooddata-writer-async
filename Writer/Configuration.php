@@ -144,10 +144,18 @@ class Configuration extends StorageApiConfiguration
 	public function formatWriterAttributes($bucketId, $attributes)
 	{
 		foreach ($attributes as $key => &$value) {
-			if (in_array($key, array('maintenance', 'toDelete'))) {
+			if (in_array($key, array('maintenance', 'delete', 'toDelete'))) {
 				$value = (bool) $value;
 			}
 		}
+
+		if (!empty($attributes['maintenance'])) {
+			$attributes['status'] = 'Writer is undergoing maintenance, jobs execution will be postponed';
+		}
+		if (!empty($attributes['delete']) || !empty($attributes['toDelete'])) {
+			$attributes['status'] = 'Writer is scheduled for removal';
+		}
+
 		if (!isset($attributes['writer']))
 			$attributes['writer'] = self::WRITER_NAME;
 		if (!isset($attributes['id']))
