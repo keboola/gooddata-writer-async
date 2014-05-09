@@ -29,6 +29,7 @@ class SharedConfig extends StorageApiConfiguration
 	const USERS_TABLE_ID = 'in.c-wr-gooddata.users';
 	const PROJECTS_TO_DELETE_TABLE_ID = 'in.c-wr-gooddata.projects_to_delete';
 	const USERS_TO_DELETE_TABLE_ID = 'in.c-wr-gooddata.users_to_delete';
+	const INVITATIONS_TABLE_ID = 'in.c-wr-gooddata.invitations';
 
 	const JOB_STATUS_WAITING = 'waiting';
 	const JOB_STATUS_PROCESSING = 'processing';
@@ -462,6 +463,20 @@ class SharedConfig extends StorageApiConfiguration
 			'createdTime' => date('c'),
 			'deletedTime' => null
 		));
+	}
+
+
+	public function updateInvitation($pid, $projectId, $writerId, $email, $createdTime=null, $acceptedTime=null)
+	{
+		$data = array(
+			'pid' => $pid,
+			'projectId' => $projectId,
+			'writerId' => $writerId,
+			'email' => $email
+		);
+		if ($createdTime) $data['createdTime'] = $createdTime;
+		if ($acceptedTime) $data['acceptedTime'] = $acceptedTime;
+		$this->updateTableRow(self::INVITATIONS_TABLE_ID, 'pid', $data);
 	}
 
 }

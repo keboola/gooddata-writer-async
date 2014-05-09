@@ -25,6 +25,8 @@ class AppConfiguration
 	public $gd_keyPassphrase;
 	public $gd_userEmailTemplate;
 	public $gd_projectNameTemplate;
+	public $gd_invitations_email;
+	public $gd_invitations_password;
 
 	public $db_host;
 	public $db_name;
@@ -61,6 +63,8 @@ class AppConfiguration
 		$this->gd_keyPassphrase = $mainConfig['gd']['key_passphrase'];
 		$this->gd_userEmailTemplate = $mainConfig['gd']['user_email'];
 		$this->gd_projectNameTemplate = $mainConfig['gd']['project_name'];
+		$this->gd_invitations_email = $mainConfig['gd']['invitations_email'];
+		$this->gd_invitations_password = $mainConfig['gd']['invitations_password'];
 
 		$this->db_host = $mainConfig['db']['host'];
 		$this->db_name = $mainConfig['db']['name'];

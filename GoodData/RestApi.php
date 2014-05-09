@@ -87,11 +87,16 @@ class RestApi
 	const API_URL = 'https://na1.secure.gooddata.com';
 	const DEFAULT_BACKEND_URL = 'na1.secure.gooddata.com';
 
+	const USER_ROLE_ADMIN = 'adminRole';
+	const USER_ROLE_EDITOR = 'editorRole';
+	const USER_ROLE_READ_ONLY = 'readOnlyUserRole';
+	const USER_ROLE_DASHBOARD_ONLY = 'dashboardOnlyRole';
+
 	public static $userRoles = array(
-		'admin' => 'adminRole',
-		'editor' => 'editorRole',
-		'readOnly' => 'readOnlyUserRole',
-		'dashboardOnly' => 'dashboardOnlyRole'
+		'admin' => self::USER_ROLE_ADMIN,
+		'editor' => self::USER_ROLE_EDITOR,
+		'readOnly' => self::USER_ROLE_READ_ONLY,
+		'dashboardOnly' => self::USER_ROLE_DASHBOARD_ONLY
 	);
 
 	/**
@@ -603,7 +608,7 @@ class RestApi
 	 * @throws \Exception|\Guzzle\Http\Exception\ClientErrorResponseException
 	 * @throws RestApiException
 	 */
-	public function addUserToProject($userId, $pid, $role = 'adminRole')
+	public function addUserToProject($userId, $pid, $role = self::USER_ROLE_ADMIN)
 	{
 		$projectRoleUri = $this->getRoleId($role, $pid);
 
@@ -695,7 +700,7 @@ class RestApi
 	 * @throws \Exception|\Guzzle\Http\Exception\ClientErrorResponseException
 	 * @throws RestApiException
 	 */
-	public function inviteUserToProject($email, $pid, $role = 'adminRole')
+	public function inviteUserToProject($email, $pid, $role = self::USER_ROLE_ADMIN)
 	{
 		$projectRoleUri = $this->getRoleId($role, $pid);
 
@@ -715,7 +720,7 @@ class RestApi
 		$result = $this->jsonRequest($uri, 'POST', $params);
 
 		if (isset($result['createdInvitations']['uri']) && count($result['createdInvitations']['uri'])) {
-			// SUCCESS
+			return current($result['createdInvitations']['uri']);
 		} else {
 			$this->logAlert('inviteUserToProject() has not invited user to project', array(
 				'uri' => $uri,
@@ -771,12 +776,33 @@ class RestApi
 		throw new RestApiException('Role in project not found');
 	}
 
+	public function getUserRolesInProject($username, $pid)
+	{
+		$user = false;
+		foreach ($this->usersInProject($pid) as $user) {
+			if ($user['user']['content']['login'] == $username) {
+				$user = $user['user']['content'];
+				break;
+			}
+		}
+
+		if (!$user) {
+			throw new RestApiException('User is not in the project');
+		}
+
+		$roles = array();
+		foreach ($user['userRoles'] as $roleUri) {
+			$role = $this->get($roleUri);
+			$roleKey = array_search($role['projectRole']['meta']['identifier'], self::getRoles());
+			$roles[] = $roleKey? $roleKey : $role['projectRole']['meta']['title'];
+		}
+
+		return $roles;
+	}
+
 	/**
 	 * Cancel User Invitation to Project
 	 *
-	 * @param $email
-	 * @param $pid
-	 * @throws \Exception|\Guzzle\Http\Exception\ClientErrorResponseException
 	 */
 	public function cancelInviteUserToProject($email, $pid)
 	{
@@ -1551,7 +1577,7 @@ class RestApi
 
 
 	/**
-	 *
+	 * @return \Guzzle\Http\Message\Response
 	 */
 	private function request($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true, $refreshToken = true)
 	{
