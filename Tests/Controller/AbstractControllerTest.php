@@ -18,6 +18,8 @@ use Doctrine\Common\Annotations\AnnotationRegistry;
 
 abstract class AbstractControllerTest extends WebTestCase
 {
+	const WRITER_ID_PREFIX = 'test_';
+
 	protected $storageApiToken;
 	/**
 	 * @var \Keboola\StorageApi\Client
@@ -67,11 +69,11 @@ abstract class AbstractControllerTest extends WebTestCase
 		));
 
 		$uniqueIndex = uniqid();
-		$this->writerId = 'test' . $uniqueIndex;
-		$this->bucketName = 'wr-gooddata-test' . $uniqueIndex;
-		$this->bucketId = 'sys.c-wr-gooddata-test' . $uniqueIndex;
-		$this->dataBucketName = 'test' . $uniqueIndex;
-		$this->dataBucketId = 'out.c-test' . $uniqueIndex;
+		$this->writerId = self::WRITER_ID_PREFIX . $uniqueIndex;
+		$this->bucketName = 'wr-gooddata-' . self::WRITER_ID_PREFIX . $uniqueIndex;
+		$this->bucketId = 'sys.c-wr-gooddata-' . self::WRITER_ID_PREFIX . $uniqueIndex;
+		$this->dataBucketName = self::WRITER_ID_PREFIX . $uniqueIndex;
+		$this->dataBucketId = 'out.c-' . self::WRITER_ID_PREFIX . $uniqueIndex;
 
 		if (!$this->storageApiToken)
 			$this->storageApiToken = $container->getParameter('storage_api.test.token');
@@ -97,7 +99,7 @@ abstract class AbstractControllerTest extends WebTestCase
 		// Drop data tables from SAPI
 		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
 		foreach ($this->storageApi->listBuckets() as $bucket) {
-			$isConfigBucket = substr($bucket['id'], 0, 22) == 'sys.c-wr-gooddata-test';
+			$isConfigBucket = strstr($bucket['id'], 'sys.c-wr-gooddata-' . self::WRITER_ID_PREFIX) !== false;
 			$isDataBucket = substr($bucket['id'], 0, 4) == 'out.';
 
 			if ($isConfigBucket) {

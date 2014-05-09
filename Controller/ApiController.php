@@ -117,74 +117,89 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			throw new WrongParametersException('Parameter writerId may contain 20 characters at most');
 		}*/
 
-		$this->getConfiguration()->createWriter($this->params['writerId'], isset($this->params['backendUrl']) ? $this->params['backendUrl'] : null);
-
-		$accessToken = !empty($this->params['accessToken']) ? $this->params['accessToken'] : $this->appConfiguration->gd_accessToken;
-		$projectName = sprintf($this->appConfiguration->gd_projectNameTemplate, $this->getConfiguration()->tokenInfo['owner']['name'], $this->getConfiguration()->writerId);
-
-
-		$batchId = $this->storageApi->generateId();
-		$jobData = array(
-			'batchId' => $batchId,
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'accessToken' => $accessToken,
-				'projectName' => $projectName
-			)
-		);
-
-		if (!empty($this->params['username']) || !empty($this->params['password']) || !empty($this->params['pid'])) {
-			if (empty($this->params['username'])) {
-				throw new WrongParametersException('Missing parameter username, add it or remove parameters password and pid');
-			}
-			if (empty($this->params['password'])) {
-				throw new WrongParametersException('Missing parameter password, add it or remove parameter username and pid');
-			}
-			if (empty($this->params['pid'])) {
-				throw new WrongParametersException('Missing parameter pid, add it or remove parameter password and pid');
-			}
-
-			$jobData['parameters']['pid'] = $this->params['pid'];
-			$jobData['parameters']['username'] = $this->params['username'];
-			$jobData['parameters']['password'] = $this->params['password'];
+		try {
+			$writerExists = true;
+			$this->checkWriterExistence();
+		} catch (WrongParametersException $e) {
+			$writerExists = false;
 		}
 
-		$jobInfo = $this->createJob($jobData);
-
-		if(empty($this->params['users'])) {
-			$this->enqueue($batchId);
-
-			if (empty($this->params['wait'])) {
-				return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
-			} else {
-				$result = $this->waitForJob($jobInfo['id'], false);
-				if (isset($result['result']['pid'])) {
-					return $this->createApiResponse(array('pid' => $result['result']['pid']));
-				} else {
-					$e = new JobProcessException('Job failed');
-					$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
-					throw $e;
-				}
+		if ($writerExists) {
+			// Update writer configuration
+			foreach ($this->params as $key => $value) if ($key != 'writerId') {
+				$this->getConfiguration()->updateWriter($key, $value);
 			}
+			return $this->createApiResponse();
+
 		} else {
+			// Create new writer
 
-			$users = explode(',', $this->params['users']);
-			foreach ($users as $user) {
-				$this->createJob(array(
-					'batchId' => $batchId,
-					'command' => 'addUserToProject',
-					'createdTime' => date('c', $createdTime),
-					'parameters' => array(
-						'email' => $user,
-						'role' => 'admin'
-					)
-				));
+			$this->getConfiguration()->createWriter($this->params['writerId'], isset($this->params['backendUrl']) ? $this->params['backendUrl'] : null);
+
+			$batchId = $this->storageApi->generateId();
+			$jobData = array(
+				'batchId' => $batchId,
+				'command' => $command,
+				'createdTime' => date('c', $createdTime),
+				'parameters' => array()
+			);
+
+			if (!empty($this->params['username']) || !empty($this->params['password']) || !empty($this->params['pid'])) {
+				if (empty($this->params['username'])) {
+					throw new WrongParametersException('Missing parameter username, add it or remove parameters password and pid');
+				}
+				if (empty($this->params['password'])) {
+					throw new WrongParametersException('Missing parameter password, add it or remove parameter username and pid');
+				}
+				if (empty($this->params['pid'])) {
+					throw new WrongParametersException('Missing parameter pid, add it or remove parameter password and pid');
+				}
+
+				$jobData['parameters']['pid'] = $this->params['pid'];
+				$jobData['parameters']['username'] = $this->params['username'];
+				$jobData['parameters']['password'] = $this->params['password'];
+			} else {
+				$jobData['parameters']['accessToken'] = !empty($this->params['accessToken'])? $this->params['accessToken'] : $this->appConfiguration->gd_accessToken;
+				$jobData['parameters']['projectName'] = sprintf($this->appConfiguration->gd_projectNameTemplate, $this->getConfiguration()->tokenInfo['owner']['name'], $this->getConfiguration()->writerId);
 			}
 
-			$this->enqueue($batchId);
+			$jobInfo = $this->createJob($jobData);
 
-			return $this->getPollResult($batchId, $this->params['writerId'], true);
+			if(empty($this->params['users'])) {
+				$this->enqueue($batchId);
+
+				if (empty($this->params['wait'])) {
+					return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+				} else {
+					$result = $this->waitForJob($jobInfo['id'], false);
+					if (isset($result['result']['pid'])) {
+						return $this->createApiResponse(array('pid' => $result['result']['pid']));
+					} else {
+						$e = new JobProcessException('Job failed');
+						$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
+						throw $e;
+					}
+				}
+			} else {
+
+				$users = explode(',', $this->params['users']);
+				foreach ($users as $user) {
+					$this->createJob(array(
+						'batchId' => $batchId,
+						'command' => 'addUserToProject',
+						'createdTime' => date('c', $createdTime),
+						'parameters' => array(
+							'email' => $user,
+							'role' => 'admin'
+						)
+					));
+				}
+
+				$this->enqueue($batchId);
+
+				return $this->getPollResult($batchId, $this->params['writerId'], true);
+			}
+
 		}
 	}
 

@@ -15,7 +15,7 @@ class WritersTest extends AbstractControllerTest
 	public function testWriters()
 	{
 		/**
-		 * create writer
+		 * Create writer
 		 */
 		// Check writer configuration
 		$validConfiguration = true;
@@ -58,7 +58,7 @@ class WritersTest extends AbstractControllerTest
 		 * Create writer with invitations
 		 */
 		$uniqId = uniqid();
-		$writerId = 'test' . $uniqId;
+		$writerId = self::WRITER_ID_PREFIX . 'invit_' . $uniqId;
 		$user1 = 'user1' . $uniqId . '@test.keboola.com';
 		$user2 = 'user2' . $uniqId . '@test.keboola.com';
 
@@ -90,7 +90,7 @@ class WritersTest extends AbstractControllerTest
 
 
 		/**
-		 * test writers configuration
+		 * Test writers configuration
 		 */
 		$responseJson = $this->_getWriterApi('/gooddata-writer/writers');
 
@@ -110,8 +110,48 @@ class WritersTest extends AbstractControllerTest
 		$this->assertEquals($this->writerId, $responseJson['writer']['writerId'], "Response for writer call '/writers?writerId=' should contain id of created writer.");
 		$this->assertEquals('gooddata', $responseJson['writer']['writer'], "Response for writer call '/writers?writerId=' should contain name of the writer.");
 
+
 		/**
-		 * delete writer
+		 * Create writer with existing project
+		 */
+		/*$existingPid = $bucketAttributes['gd']['pid'];
+		$existingProjectWriterId = self::WRITER_ID_PREFIX . 'exist_' . uniqid();
+		$this->_processJob('/gooddata-writer/writers', array(
+			'writerId' => $existingProjectWriterId,
+			'username' => $bucketAttributes['gd']['username'],
+			'password' => $bucketAttributes['gd']['password'],
+			'pid' => $existingPid
+		));
+		$responseJson = $this->_getWriterApi('/gooddata-writer/writers?writerId=' . $existingProjectWriterId);
+		$this->assertArrayHasKey('writer', $responseJson, "Response for writer call '/writers?writerId=' should contain 'writer' key.");
+		$this->assertArrayHasKey('gd', $responseJson['writer'], "Response for writer call '/writers?writerId=' should contain 'writer.gd' key.");
+		$this->assertArrayHasKey('username', $responseJson['writer']['gd'], "Response for writer call '/writers?writerId=' should contain 'writer.gd.username' key.");
+		$this->assertArrayHasKey('password', $responseJson['writer']['gd'], "Response for writer call '/writers?writerId=' should contain 'writer.gd.password' key.");
+		$this->assertArrayHasKey('pid', $responseJson['writer']['gd'], "Response for writer call '/writers?writerId=' should contain 'writer.gd.pid' key.");
+		$this->assertEquals($bucketAttributes['gd']['pid'], $responseJson['writer']['gd']['pid'], "Writer should have project given as request parameter");
+
+		$configuration = new Configuration($this->storageApi, $existingProjectWriterId, $this->appConfiguration->scriptsPath);
+		$bucketAttributes = $configuration->bucketAttributes();
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$projectInfo = $this->restApi->get('/gdc/md/' . $existingPid);
+		$this->assertArrayHasKey('about', $projectInfo, "Writer created from existing project should have working credentials to the project");*/
+
+
+		/**
+		 * Set configuration
+		 */
+		$this->_postWriterApi('/gooddata-writer/writers', array(
+			'writerId' => $writerId,
+			'attribute' => 1
+		));
+		$writerInfo = $this->_getWriterApi('/gooddata-writer/writers?writerId=' . $writerId);
+		$this->assertArrayHasKey('writer', $writerInfo, "Writer should have set attribute 'writer'");
+		$this->assertArrayHasKey('attribute', $writerInfo['writer'], "Writer should have set attribute 'writer.attribute'");
+		$this->assertEquals(1, $writerInfo['writer']['attribute'], "Writer should have set attribute 'writer.attribute' with value '1'");
+
+
+		/**
+		 * Delete writer
 		 */
 		$this->_processJob('/gooddata-writer/writers?writerId=' . $this->writerId, array(), 'DELETE');
 		// Check non-existence of configuration
