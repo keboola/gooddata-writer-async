@@ -1,3 +1,6 @@
+## 2014-04-12 (v 5.13)
+- optimization of SLI hashes
+
 ## 2014-03-25 (v 5.12)
 - async export from Storage API
 
