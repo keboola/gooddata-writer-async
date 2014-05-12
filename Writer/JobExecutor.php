@@ -99,8 +99,9 @@ class JobExecutor
 			throw new QueueUnavailableException("Batch {$batchId} cannot be executed, another job already in progress in the same queue.");
 		}
 
+		$serviceRun = !empty($batch['service'])? $batch['service'] : false;
 		foreach ($jobs as $job) {
-			$this->runJob($job['id']);
+			$this->runJob($job['id'], false, $serviceRun);
 		}
 
 		$lock->unlock();
@@ -110,7 +111,7 @@ class JobExecutor
 	 * Job execution
 	 * Performs execution of job tasks and logging
 	 */
-	public function runJob($jobId, $force = false)
+	public function runJob($jobId, $force = false, $serviceRun = false)
 	{
 		$job = $this->sharedConfig->fetchJob($jobId);
 		if (!$job) {
@@ -150,7 +151,7 @@ class JobExecutor
 
 				$configuration = new Configuration($this->storageApiClient, $job['writerId'], $this->appConfiguration->scriptsPath);
 				$bucketAttributes = $configuration->bucketAttributes();
-				if (!empty($bucketAttributes['maintenance'])) {
+				if (!$serviceRun && !empty($bucketAttributes['maintenance'])) {
 					throw new QueueUnavailableException('Writer is undergoing maintenance');
 				}
 

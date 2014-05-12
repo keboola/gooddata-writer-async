@@ -228,6 +228,11 @@ class UploadTable extends AbstractJob
 						$updateOperations[$gdJob['pid']] = $result;
 					}
 
+					if (empty($tableDefinition['isExported'])) {
+						// Save export status to definition
+						$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
+					}
+
 					$e = $stopWatch->stop($stopWatchId);
 					$this->logEvent($stopWatchId, array(
 						'duration' => $e->getDuration()
@@ -353,25 +358,6 @@ class UploadTable extends AbstractJob
 				$this->logEvent($stopWatchId, array(
 					'duration' => $e->getDuration()
 				), $this->restApi->getLogPath());
-
-
-				//@TODO temporary saving of projectId and writerId to GD project summary
-				$projectInfo = $this->restApi->getProject($gdJob['pid']);
-				$projectJson = json_decode($projectInfo['project']['meta']['summary'], true);
-				if (!$projectJson) {
-					$projectInfo['project']['meta']['summary'] = json_encode(array(
-						'projectId' => $this->configuration->projectId,
-						'writerId' => $this->configuration->writerId,
-						'main' => $gdJob['mainProject']
-					));
-					$this->restApi->post('/gdc/projects/' . $gdJob['pid'], array(
-						'project' => array(
-							'content' => array('guidedNavigation' => 1),
-							'meta' => $projectInfo['project']['meta'])
-						)
-					);
-				}
-				//@TODO temporary saving of projectId and writerId to GD project summary
 			}
 		} catch (\Exception $e) {
 			$error = $e->getMessage();

@@ -1434,6 +1434,47 @@ class RestApi
 		}
 	}
 
+
+
+	public function optimizeSliHash($pid, $manifests=array())
+	{
+		if (count($manifests)) {
+			$result = $this->post(sprintf('/gdc/md/%s/etl/mode', $pid), array(
+				'etlMode' => array(
+					'mode' => 'SLI',
+					'lookup' => 'recreate',
+					'sli' => $manifests
+				)
+			));
+			if (empty($result['uri'])) {
+				$this->logAlert('optimizeSliHash task has bad response', array(
+					'uri' => $result['pullTask']['uri'],
+					'result' => $result
+				));
+				throw new RestApiException('Bad response from optimizeSliHash call' . json_encode($result));
+			}
+			$pollLink = $result['uri'];
+
+			$try = 0;
+			do {
+				sleep(10 * $try);
+				$taskResponse = $this->jsonRequest($pollLink);
+
+				if (!isset($taskResponse['wTaskStatus']['status'])) {
+					$this->logAlert('optimizeSliHash task has bad response', array(
+						'uri' => $result['pullTask']['uri'],
+						'result' => $taskResponse
+					));
+					throw new RestApiException('Task optimizeSliHash could not be checked');
+				}
+
+				$try++;
+			} while (in_array($taskResponse['wTaskStatus']['status'], array('PREPARED', 'RUNNING')));
+		}
+	}
+
+
+
 	/**
 	 * Poll task uri and wait for its finish
 	 * @param $uri

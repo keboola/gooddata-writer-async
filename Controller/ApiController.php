@@ -99,6 +99,27 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 
 	/**
+	 * Optimize SLI Hash
+	 *
+	 * @Route("/optimize-sli-hash")
+	 * @Method({"POST"})
+	 */
+	public function postOptimizeSliHashAction()
+	{
+		$command = 'optimizeSliHash';
+		$createdTime = time();
+		$jobInfo = $this->createJob(array(
+			'command' => $command,
+			'createdTime' => date('c', $createdTime),
+			'parameters' => array()
+		));
+		$this->enqueue($jobInfo['batchId'], array('service' => 1));
+
+		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+	}
+
+
+	/**
 	 * Create writer
 	 *
 	 * @Route("/writers")
@@ -1687,13 +1708,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	/**
 	 * @param $batchId
 	 */
-	protected function enqueue($batchId)
+	protected function enqueue($batchId, $otherData = array())
 	{
-		$this->getWriterQueue()->enqueue(array(
+		$data = array(
 			'projectId' => $this->getConfiguration()->projectId,
 			'writerId' => $this->getConfiguration()->writerId,
 			'batchId' => $batchId
-		));
+		);
+		if (count($otherData)) $data = array_merge($data, $otherData);
+		$this->getWriterQueue()->enqueue($data);
 	}
 
 
