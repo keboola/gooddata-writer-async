@@ -101,7 +101,8 @@ class JobExecutor
 			throw new QueueUnavailableException("Batch {$batchId} cannot be executed, another job already in progress in the same queue.");
 		}
 
-		$serviceRun = !empty($batch['service'])? $batch['service'] : false;
+		$queueIdArray = explode('.', $batch['queueId']);
+		$serviceRun = isset($queueIdArray[2]) && $queueIdArray[2] == SharedConfig::SERVICE_QUEUE;
 		foreach ($jobs as $job) {
 			$this->runJob($job['id'], false, $serviceRun);
 		}

@@ -9,6 +9,7 @@ namespace Keboola\GoodDataWriter\Job;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Writer\SharedConfig;
 
 class OptimizeSliHash extends AbstractJob
 {
@@ -33,6 +34,19 @@ class OptimizeSliHash extends AbstractJob
 			$dataSetsToOptimize[] = Model::getTimeDimensionId($dimension['name']);
 		}
 
+		// Ensure that all other jobs are finished
+		$i = 0;
+		do {
+			sleep($i * 60);
+			$wait = false;
+			foreach($this->sharedConfig->fetchJobs($this->configuration->projectId, $this->configuration->writerId, 2) as $job) {
+				$queueIdArray = explode('.', $job['queueId']);
+				if ($job['status'] == SharedConfig::JOB_STATUS_PROCESSING && (isset($queueIdArray[2]) && $queueIdArray[2] != SharedConfig::SERVICE_QUEUE)) {
+					$wait = true;
+				}
+			}
+			$i++;
+		} while ($wait);
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
