@@ -115,6 +115,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		));
 		$this->enqueue($jobInfo['batchId'], array('service' => 1));
 
+		$this->getConfiguration()->updateWriter('maintenance', 1);
+
 		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 	}
 
