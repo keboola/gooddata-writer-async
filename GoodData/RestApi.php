@@ -443,6 +443,7 @@ class RestApi
 		$params = array(
 			'accountSetting' => array(
 				'login' => strtolower($login),
+				'email' => strtolower($login),
 				'password' => $password,
 				'verifyPassword' => $password,
 				'firstName' => $firstName,

@@ -38,7 +38,7 @@ class InvitationsHandler
 	{
 		$process = new Process(sprintf('ruby %s --gd_username=%s --gd_password=%s --email_username=%s --email_password=%s',
 			$this->scriptPath, escapeshellarg($this->gdUsername), escapeshellarg($this->gdPassword),
-			escapeshellarg($this->emailUsername), escapeshellarg($this->emailPassword)));echo $process.PHP_EOL;
+			escapeshellarg($this->emailUsername), escapeshellarg($this->emailPassword)));
 		$process->setTimeout(null);
 		$process->run();
 		$error = $process->getErrorOutput();
