@@ -111,9 +111,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$jobInfo = $this->createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'queue' => SharedConfig::SERVICE_QUEUE
-			)
+			'parameters' => array(),
+			'queue' => SharedConfig::SERVICE_QUEUE
 		));
 		$this->enqueue($jobInfo['batchId'], array('service' => 1));
 
