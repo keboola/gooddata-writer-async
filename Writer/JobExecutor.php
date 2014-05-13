@@ -104,7 +104,7 @@ class JobExecutor
 		$queueIdArray = explode('.', $batch['queueId']);
 		$serviceRun = isset($queueIdArray[2]) && $queueIdArray[2] == SharedConfig::SERVICE_QUEUE;
 		foreach ($jobs as $job) {
-			$this->runJob($job['id'], false, $serviceRun);
+			$this->runJob($job['id'], $force, $serviceRun);
 		}
 
 		$lock->unlock();
