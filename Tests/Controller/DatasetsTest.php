@@ -346,10 +346,12 @@ class DatasetsTest extends AbstractControllerTest
 
 		// Create dimension
 		$dimensionName = 'TestDate';
+		$templateName = 'keboola';
 		$this->_postWriterApi('/gooddata-writer/date-dimensions', array(
 			'writerId' => $this->writerId,
 			'name' => $dimensionName,
-			'includeTime' => true
+			'includeTime' => true,
+			'template' => $templateName
 		));
 
 		// Get dimensions
@@ -384,13 +386,13 @@ class DatasetsTest extends AbstractControllerTest
 					$dateTimeDataLoad = true;
 				}
 			}
-			if ($d['meta']['identifier'] == Model::getDateDimensionId($dimensionName)) {
+			if ($d['meta']['identifier'] == Model::getDateDimensionId($dimensionName, $templateName)) {
 				$dateFound = true;
 			}
 		}
-		$this->assertTrue($dateFound, sprintf("Date dimension '%' has not been found in GoodData", $dimensionName));
-		$this->assertTrue($dateTimeFound, sprintf("Time dimension '%' has not been found in GoodData", $dimensionName));
-		$this->assertTrue($dateTimeDataLoad, sprintf("Time dimension '%' has not been successfully loaded to GoodData", $dimensionName));
+		$this->assertTrue($dateFound, sprintf("Date dimension '%s' has not been found in GoodData", $dimensionName));
+		$this->assertTrue($dateTimeFound, sprintf("Time dimension '%s' has not been found in GoodData", $dimensionName));
+		$this->assertTrue($dateTimeDataLoad, sprintf("Time dimension '%s' has not been successfully loaded to GoodData", $dimensionName));
 
 
 		// Drop dimension

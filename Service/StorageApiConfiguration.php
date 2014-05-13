@@ -223,7 +223,15 @@ abstract class StorageApiConfiguration
 	{
 		if (!isset($this->tables[$tableName])) return false;
 
-		if (array_intersect($columns, $this->tables[$tableName]['columns']) != $this->tables[$tableName]['columns']) {
+		//@TODO Remove soon
+		if ($tableName == 'date_dimensions' && !in_array('template', $columns)) {
+			$this->storageApiClient->addTableColumn($this->bucketId . '.date_dimensions', 'template');
+			$columns[] = 'template';
+		}
+		//@TODO Remove soon
+
+		// Allow tables to have more columns then according to definitions
+		if (count(array_diff($this->tables[$tableName]['columns'], $columns))) {
 			throw new WrongConfigurationException(sprintf("Table '%s' appears to be wrongly configured. Contains columns: '%s' but should contain columns: '%s'",
 				$tableName, implode(',', $columns), implode(',', $this->tables[$tableName]['columns'])));
 		}

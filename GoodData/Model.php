@@ -34,9 +34,9 @@ class Model
 		return strtolower($string);
 	}
 
-	public static function getDateDimensionId($name)
+	public static function getDateDimensionId($name, $template=null)
 	{
-		return self::getId($name) . '.dataset.dt';
+		return self::getId($name) . ($template? '.' . $template : null) . '.dataset.dt';
 	}
 
 	public static function getTimeDimensionId($name)

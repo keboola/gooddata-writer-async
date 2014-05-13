@@ -65,7 +65,7 @@ class Configuration extends StorageApiConfiguration
 			'indices' => array()
 		),
         self::DATE_DIMENSIONS_TABLE_NAME => array(
-            'columns' => array('name', 'includeTime', 'isExported'),
+            'columns' => array('name', 'includeTime', 'template', 'isExported'),
             'primaryKey' => 'name',
             'indices' => array()
         ),
@@ -902,14 +902,13 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Add date dimension
-	 * @param $name
-	 * @param $includeTime
 	 */
-	public function saveDateDimension($name, $includeTime)
+	public function saveDateDimension($name, $includeTime=false, $template=null)
 	{
 		$data = array(
 			'name' => $name,
 			'includeTime' => $includeTime,
+			'template' => $template,
 			'isExported' => null
 		);
 		$this->updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);

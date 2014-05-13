@@ -1069,14 +1069,15 @@ class RestApi
 		))->json();
 	}
 
-	public function createDateDimension($pid, $name, $includeTime = false)
+	public function createDateDimension($pid, $name, $includeTime=false, $template=null)
 	{
 		$identifier = Model::getId($name);
 		$dataSets = $this->getDataSets($pid);
 
 		$maql = '';
-		if (!in_array(Model::getDateDimensionId($name), array_keys($dataSets))) {
-			$maql .= sprintf('INCLUDE TEMPLATE "URN:GOODDATA:DATE" MODIFY (IDENTIFIER "%s", TITLE "%s");', $identifier, $name);
+		if (!in_array(Model::getDateDimensionId($name, $template), array_keys($dataSets))) {
+			$template = $template? strtoupper($template) : 'GOODDATA';
+			$maql .= sprintf('INCLUDE TEMPLATE "URN:%s:DATE" MODIFY (IDENTIFIER "%s", TITLE "%s");', $template, $identifier, $name);
 		}
 
 		if ($includeTime && !in_array(Model::getTimeDimensionId($name), array_keys($dataSets))) {

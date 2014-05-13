@@ -67,6 +67,7 @@ class UploadDateDimension extends AbstractJob
 		}
 
 		$includeTime = $dateDimensions[$params['name']]['includeTime'];
+		$template = $dateDimensions[$params['name']]['template'];
 
 		$e = $stopWatch->stop($stopWatchId);
 		$this->logEvent($stopWatchId, array(
@@ -82,7 +83,7 @@ class UploadDateDimension extends AbstractJob
 				$stopWatch->start($stopWatchId);
 				$this->restApi->initLog();
 
-				$this->restApi->createDateDimension($pid, $params['name'], $includeTime);
+				$this->restApi->createDateDimension($pid, $params['name'], $includeTime, $template);
 
 				$e = $stopWatch->stop($stopWatchId);
 				$this->logEvent($stopWatchId, array(

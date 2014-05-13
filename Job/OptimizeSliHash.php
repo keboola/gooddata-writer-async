@@ -67,7 +67,7 @@ class OptimizeSliHash extends AbstractJob
 
 		$this->restApi->optimizeSliHash($bucketAttributes['gd']['pid'], $manifests);
 
-		$this->configuration->updateWriter('maintenance', null);
+		$this->configuration->updateWriter('maintenance', 0);
 
 		$this->logEvent('optimizeSliHash', array(
 			'duration' => time() - strtotime($gdWriteStartTime)

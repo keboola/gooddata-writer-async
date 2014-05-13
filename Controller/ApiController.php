@@ -1454,10 +1454,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkWriterExistence();
 
 		$this->params['name'] = trim($this->params['name']);
+		$template = !empty($this->params['template'])? $this->params['template'] : null;
 
 		$dimensions = $this->getConfiguration()->getDateDimensions();
 		if (!isset($dimensions[$this->params['name']])) {
-			$this->getConfiguration()->saveDateDimension($this->params['name'], !empty($this->params['includeTime']));
+			$this->getConfiguration()->saveDateDimension($this->params['name'], !empty($this->params['includeTime']), $template);
 		}
 
 		return $this->createApiResponse();
