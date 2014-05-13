@@ -225,7 +225,11 @@ abstract class StorageApiConfiguration
 
 		//@TODO Remove soon
 		if ($tableName == 'date_dimensions' && !in_array('template', $columns)) {
-			$this->storageApiClient->addTableColumn($this->bucketId . '.date_dimensions', 'template');
+			try {
+				$this->storageApiClient->addTableColumn($this->bucketId . '.date_dimensions', 'template');
+			} catch (\Exception $e) {
+				// ignore - race condition
+			}
 			$columns[] = 'template';
 		}
 		//@TODO Remove soon
