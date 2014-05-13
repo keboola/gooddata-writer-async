@@ -52,12 +52,17 @@ class OptimizeSliHash extends AbstractJob
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		// Check if we have all manifests
+		$missing = array();
 		foreach ($this->restApi->getDataSets($bucketAttributes['gd']['pid']) as $ds) {
 			if (substr($ds['id'], -3) != '.dt') {
 				if (!in_array($ds['id'], $dataSetsToOptimize)) {
-					throw new WrongConfigurationException(sprintf("DataSet '%s' (%s) from project does not exist in writer's configuration", $ds['title'], $ds['id']));
+					$missing[] = $ds['title'];
 				}
 			}
+		}
+		if (count($missing)) {
+			sort($missing);
+			throw new WrongConfigurationException("Following dataSets from project does not exist in writer's configuration: " . implode(', ', $missing));
 		}
 
 		$this->restApi->optimizeSliHash($bucketAttributes['gd']['pid'], $manifests);
