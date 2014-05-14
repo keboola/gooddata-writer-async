@@ -21,9 +21,11 @@ class InvitationsHandler
 	private $gdPassword;
 	private $emailUsername;
 	private $emailPassword;
+	private $sharedConfig;
 
 	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig)
 	{
+		$this->sharedConfig = $sharedConfig;
 		$domainUser = $sharedConfig->getDomainUser($appConfiguration->gd_domain);
 		$this->gdUsername = $domainUser->username;
 		$this->gdPassword = $domainUser->password;
@@ -45,7 +47,14 @@ class InvitationsHandler
 
 		if ($process->isSuccessful() && !$error) {
 			$result = $process->getOutput();
-			var_dump($result);die();
+			if ($result) {
+				foreach (explode("\n", $result) as $row) {
+					$json = json_decode($row, true);
+					if ($json && !empty($json['pid']) && !empty($json['sender']) && !empty($json['createDate']) && !empty($json['status'])) {
+						$this->sharedConfig->logInvitation($json);
+					}
+				}
+			}
 		} else {
 			throw new \Exception($error? $error : 'No error output');
 		}

@@ -223,7 +223,7 @@ abstract class StorageApiConfiguration
 	{
 		if (!isset($this->tables[$tableName])) return false;
 
-		//@TODO Remove soon
+		//@TODO Remove sometimes in july ;o)
 		if ($tableName == 'date_dimensions' && !in_array('template', $columns)) {
 			try {
 				$this->storageApiClient->addTableColumn($this->bucketId . '.date_dimensions', 'template');
@@ -232,7 +232,7 @@ abstract class StorageApiConfiguration
 			}
 			$columns[] = 'template';
 		}
-		//@TODO Remove soon
+		//@TODO Remove sometimes in july ;o)
 
 		// Allow tables to have more columns then according to definitions
 		if (count(array_diff($this->tables[$tableName]['columns'], $columns))) {

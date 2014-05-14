@@ -10,6 +10,7 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\GoodData\UserAlreadyExistsException;
 use Keboola\GoodDataWriter\Exception\JobProcessException;
+use Keboola\GoodDataWriter\Writer\SharedConfig;
 
 class CreateWriter extends AbstractJob
 {
@@ -26,14 +27,14 @@ class CreateWriter extends AbstractJob
 		$password = md5(uniqid());
 
 		// Check setup for existing project
-		/*if (!empty($params['pid']) && !empty($params['username']) && !empty($params['password'])) {
+		if (!empty($params['pid']) && !empty($params['username']) && !empty($params['password'])) {
 			try {
 				$this->restApi->login($params['username'], $params['password']);
 			} catch (RestApiException $e) {
 				throw new JobProcessException('Given GoodData credentials does not work');
 			}
 			try {
-				if (!in_array(RestApi::USER_ROLE_ADMIN, $this->restApi->getUserRolesInProject($params['username'], $params['pid']))) {
+				if (!in_array('admin', $this->restApi->getUserRolesInProject($params['username'], $params['pid']))) {
 					throw new JobProcessException('Given GoodData credentials must have admin access to the project');
 				}
 			} catch (RestApiException $e) {
@@ -41,7 +42,7 @@ class CreateWriter extends AbstractJob
 			}
 		} else {
 			$this->checkParams($params, array('accessToken', 'projectName'));
-		}*/
+		}
 
 		// Create writer's GD user
 		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
@@ -55,23 +56,37 @@ class CreateWriter extends AbstractJob
 		}
 
 		// Create project or login via given credentials for adding user to project
-		/*if (!empty($params['pid']) && !empty($params['username']) && !empty($params['password'])) {
+		if (!empty($params['pid']) && !empty($params['username']) && !empty($params['password'])) {
 			$projectPid = $params['pid'];
 			$this->restApi->login($params['username'], $params['password']);
 			$this->restApi->inviteUserToProject($this->domainUser->username, $projectPid, RestApi::USER_ROLE_ADMIN);
 
-			//@TODO WAIT UNTIL INVITATION IS ACCEPTED
+			$this->configuration->updateWriter('waitingForInvitation', '1');
+			$this->configuration->updateWriter('maintenance', '1');
 
-			$this->restApi->login($this->domainUser->username, $this->domainUser->password);
-		} else*/ {
+			$this->sharedConfig->createJob($this->configuration->projectId, $this->configuration->writerId, $this->storageApiClient, array(
+				'command' => 'waitForInvitation',
+				'createdTime' => date('c'),
+				'parameters' => array(
+					'try' => 1
+				),
+				'queue' => SharedConfig::SERVICE_QUEUE
+			));
+			$this->queue->enqueue(array(
+				'projectId' => $this->configuration->projectId,
+				'writerId' => $this->configuration->writerId,
+				'batchId' => $job['batchId']
+			));
+
+		} else {
 			$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken'], json_encode(array(
 				'projectId' => $this->configuration->projectId,
 				'writerId' => $this->configuration->writerId,
 				'main' => true
 			)));
+			$this->restApi->addUserToProject($userId, $projectPid, RestApi::USER_ROLE_ADMIN);
 		}
 
-		$this->restApi->addUserToProject($userId, $projectPid, RestApi::USER_ROLE_ADMIN);
 
 		// Save data to configuration bucket
 		$this->configuration->updateWriter('gd.pid', $projectPid);
@@ -80,7 +95,7 @@ class CreateWriter extends AbstractJob
 		$this->configuration->updateWriter('gd.uid', $userId);
 
 
-		$this->sharedConfig->saveProject($projectPid, $params['accessToken'], $this->restApi->getApiUrl(), $job);
+		$this->sharedConfig->saveProject($projectPid, isset($params['accessToken'])? $params['accessToken'] : null, $job);
 		$this->sharedConfig->saveUser($userId, $username, $job);
 
 

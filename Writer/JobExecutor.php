@@ -13,6 +13,7 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\StorageApi\ClientException as StorageApiClientException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Service\Queue;
 use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
@@ -59,11 +60,16 @@ class JobExecutor
 	 * @var StorageApiEvent
 	 */
 	protected $storageApiEvent;
+	/**
+	 * @var \Keboola\GoodDataWriter\Service\Queue
+	 */
+	protected $queue;
 
 
 	/**
+	 *
 	 */
-	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, Logger $logger, TempServiceFactory $tempServiceFactory)
+	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, Logger $logger, TempServiceFactory $tempServiceFactory, Queue $queue)
 	{
 		if (!defined('JSON_PRETTY_PRINT')) {
 			// fallback for PHP <= 5.3
@@ -75,6 +81,7 @@ class JobExecutor
 		$this->restApi = $restApi;
 		$this->logger = $logger;
 		$this->tempServiceFactory = $tempServiceFactory;
+		$this->queue = $queue;
 
 		$this->storageApiEvent = new StorageApiEvent();
 	}
@@ -209,6 +216,7 @@ class JobExecutor
 				$command->setScriptsPath($this->appConfiguration->scriptsPath);
 				$command->setLogger($this->logger);
 				$command->setStorageApiClient($this->storageApiClient);
+				$command->setQueue($this->queue);
 
 				$command->setPreRelease(!empty($token['owner']['features']) && in_array('gdwr-prerelease', $token['owner']['features']));
 				$command->setIsTesting(!empty($token['owner']['features']) && in_array('gdwr-testing', $token['owner']['features']));

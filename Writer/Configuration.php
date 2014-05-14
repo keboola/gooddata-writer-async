@@ -149,6 +149,9 @@ class Configuration extends StorageApiConfiguration
 			}
 		}
 
+		if (!empty($attributes['waitingForInvitation'])) {
+			$attributes['status'] = 'Writer is processing invitation to your project';
+		}
 		if (!empty($attributes['maintenance'])) {
 			$attributes['status'] = 'Writer is undergoing maintenance, jobs execution will be postponed';
 		}
@@ -208,13 +211,13 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Update writer's configuration
-	 * @param string $key
-	 * @param string $value
-	 * @param null $protected
 	 */
-	public function updateWriter($key, $value, $protected = null)
+	public function updateWriter($key, $value=null, $protected=null)
 	{
-		$this->storageApiClient->setBucketAttribute($this->bucketId, $key, $value, $protected);
+		if ($value !== null)
+			$this->storageApiClient->setBucketAttribute($this->bucketId, $key, $value, $protected);
+		else
+			$this->storageApiClient->deleteBucketAttribute($this->bucketId, $key);
 		$this->cache['bucketInfo.' . $this->bucketId][$key] = $value; //@TODO
 	}
 

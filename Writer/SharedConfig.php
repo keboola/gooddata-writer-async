@@ -11,6 +11,7 @@ use Keboola\GoodDataWriter\GoodData\User;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\Service\StorageApiConfiguration;
+use Symfony\Component\Templating\Storage\Storage;
 use Syrup\ComponentBundle\Service\Encryption\EncryptorFactory;
 
 
@@ -106,8 +107,7 @@ class SharedConfig extends StorageApiConfiguration
 	}
 
 	/**
-	 * @param $batchId
-	 * @return mixed
+	 *
 	 */
 	public function fetchBatch($batchId)
 	{
@@ -115,8 +115,7 @@ class SharedConfig extends StorageApiConfiguration
 	}
 
 	/**
-	 * @param $projectId
-	 * @param $writerId
+	 *
 	 */
 	public function cancelJobs($projectId, $writerId)
 	{
@@ -128,8 +127,47 @@ class SharedConfig extends StorageApiConfiguration
 	}
 
 	/**
-	 * @param $jobId
-	 * @param $fields
+	 *
+	 */
+	public function createJob($projectId, $writerId, StorageApiClient $storageApiClient, $params)
+	{
+		$jobId = $this->storageApiClient->generateId();
+		if (!isset($params['batchId'])) {
+			$params['batchId'] = $jobId;
+		}
+
+		$tokenInfo = $storageApiClient->getLogData();
+		$jobInfo = array(
+			'id' => $jobId,
+			'runId' => $storageApiClient->getRunId(),
+			'projectId' => $projectId,
+			'writerId' => $writerId,
+			'token' => $storageApiClient->token,
+			'tokenId' => $tokenInfo['id'],
+			'tokenDesc' => $tokenInfo['description'],
+			'createdTime' => null,
+			'startTime' => null,
+			'gdWriteStartTime' => null,
+			'endTime' => null,
+			'command' => null,
+			'dataset' => null,
+			'parameters' => null,
+			'result' => null,
+			'status' => 'waiting',
+			'logs' => null,
+			'debug' => null,
+			'projectIdWriterId' => sprintf('%s.%s', $projectId, $writerId),
+			'queueId' => sprintf('%s.%s.%s', $projectId, $writerId, isset($params['queue']) ? $params['queue'] : self::PRIMARY_QUEUE)
+		);
+		unset($params['queue']);
+		$jobInfo = array_merge($jobInfo, $params);
+
+		$this->saveJob($jobId, $jobInfo);
+		return $jobInfo;
+	}
+
+	/**
+	 *
 	 */
 	public function saveJob($jobId, $fields)
 	{
@@ -299,13 +337,13 @@ class SharedConfig extends StorageApiConfiguration
 	 * @param $backendUrl
 	 * @param $job
 	 */
-	public function saveProject($pid, $accessToken, $backendUrl, $job)
+	public function saveProject($pid, $accessToken=null, $job)
 	{
 		$data = array(
 			'pid' => $pid,
 			'projectId' => $job['projectId'],
 			'writerId' => $job['writerId'],
-			'backendUrl' => $backendUrl,
+			'backendUrl' => null,
 			'accessToken' => $accessToken,
 			'createdTime' => date('c'),
 			'projectIdWriterId' => $job['projectId'] . '.' . $job['writerId']
@@ -467,16 +505,16 @@ class SharedConfig extends StorageApiConfiguration
 	}
 
 
-	public function updateInvitation($pid, $projectId, $writerId, $email, $createdTime=null, $acceptedTime=null)
+	public function logInvitation($data)
 	{
 		$data = array(
-			'pid' => $pid,
-			'projectId' => $projectId,
-			'writerId' => $writerId,
-			'email' => $email
+			'pid' => $data['pid'],
+			'sender' => $data['sender'],
+			'createdTime' => $data['createDate'],
+			'acceptedTime' => date('c'),
+			'status' => $data['status'],
+			'error' => isset($data['error'])? $data['error'] : null,
 		);
-		if ($createdTime) $data['createdTime'] = $createdTime;
-		if ($acceptedTime) $data['acceptedTime'] = $acceptedTime;
 		$this->updateTableRow(self::INVITATIONS_TABLE_ID, 'pid', $data);
 	}
 

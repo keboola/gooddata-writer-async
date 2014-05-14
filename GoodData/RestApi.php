@@ -794,7 +794,7 @@ class RestApi
 		$roles = array();
 		foreach ($user['userRoles'] as $roleUri) {
 			$role = $this->get($roleUri);
-			$roleKey = array_search($role['projectRole']['meta']['identifier'], self::getRoles());
+			$roleKey = array_search($role['projectRole']['meta']['identifier'], self::$userRoles);
 			$roles[] = $roleKey? $roleKey : $role['projectRole']['meta']['title'];
 		}
 
@@ -1706,7 +1706,7 @@ class RestApi
 							}
 							$response = json_encode($responseJson);
 						}
-						throw new RestApiException('API error ' . $request->getResponse()->getStatusCode(), $response);
+						throw new RestApiException('API error ' . $request->getResponse()->getStatusCode(), $response, $request->getResponse()->getStatusCode());
 					}
 				} elseif ($e instanceof ServerErrorResponseException) {
 					if ($responseObject && $responseObject->getStatusCode() == 503) {

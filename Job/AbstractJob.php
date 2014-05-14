@@ -8,6 +8,7 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Keboola\GoodDataWriter\Service\Queue;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\Writer\SharedConfig,
@@ -68,6 +69,11 @@ abstract class AbstractJob
 	 * @var \SplFileObject
 	 */
 	private $logFile;
+	/**
+	 * @var Queue
+	 */
+	protected $queue;
+
 	protected $logs;
 
 	protected $preRelease;
@@ -113,6 +119,11 @@ abstract class AbstractJob
 	public function setStorageApiClient($storageApiClient)
 	{
 		$this->storageApiClient = $storageApiClient;
+	}
+
+	public function setQueue(Queue $queue)
+	{
+		$this->queue = $queue;
 	}
 
 	public function setPreRelease($preRelease)

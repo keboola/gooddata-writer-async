@@ -1665,48 +1665,16 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 	private function createJob($params)
 	{
-		$jobId = $this->storageApi->generateId();
-		if (!isset($params['batchId'])) {
-			$params['batchId'] = $jobId;
-		}
+		$job = $this->getSharedConfig()->createJob($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->storageApi, $params);
 
-		$params['queueId'] = sprintf('%s.%s.%s', $this->getConfiguration()->projectId, $this->getConfiguration()->writerId,
-			isset($params['queue']) ? $params['queue'] : SharedConfig::PRIMARY_QUEUE);
-		unset($params['queue']);
-
-		$jobInfo = array(
-			'id' => $jobId,
+		$this->container->get('logger')->log(Logger::INFO, 'Job created ' . $job['id'], array(
+			'writerId' => $this->getConfiguration()->writerId,
 			'runId' => $this->storageApi->getRunId(),
-			'projectId' => $this->getConfiguration()->projectId,
-			'writerId' => $this->getConfiguration()->writerId,
-			'token' => $this->storageApi->token,
-			'tokenId' => $this->getConfiguration()->tokenInfo['id'],
-			'tokenDesc' => $this->getConfiguration()->tokenInfo['description'],
-			'createdTime' => null,
-			'startTime' => null,
-			'gdWriteStartTime' => null,
-			'endTime' => null,
-			'command' => null,
-			'dataset' => null,
-			'parameters' => null,
-			'result' => null,
-			'status' => 'waiting',
-			'logs' => null,
-			'debug' => null,
-			'projectIdWriterId' => sprintf('%s.%s', $this->getConfiguration()->projectId, $this->getConfiguration()->writerId)
-		);
-		$jobInfo = array_merge($jobInfo, $params);
-
-		$this->getSharedConfig()->saveJob($jobId, $jobInfo);
-
-		$this->container->get('logger')->log(Logger::INFO, 'Job created ' . $jobId, array(
-			'writerId' => $this->getConfiguration()->writerId,
-			'runId' => $jobInfo['runId'],
-			'command' => $jobInfo['command'],
+			'command' => $params['command'],
 			'params' => $this->params
 		));
 
-		return $jobInfo;
+		return $job;
 	}
 
 	/**
