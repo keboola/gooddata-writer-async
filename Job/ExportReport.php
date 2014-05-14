@@ -98,6 +98,7 @@ class ExportReport extends AbstractJob
 			}
 
 			foreach ($lineArr as $k => $v) {
+				$v = str_replace('"', '', $v);
 				$lineArr[$k] = '"' . $v . '"';
 			}
 
