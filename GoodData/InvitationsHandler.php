@@ -34,12 +34,19 @@ class InvitationsHandler
 		$this->scriptPath = $appConfiguration->scriptsPath . '/' . self::SCRIPT_NAME;
 		if (!file_exists($this->scriptPath))
 			throw new \Exception('Script for accepting invitations does not exist');
+		$this->rubyPath = $appConfiguration->rubyPath;
+		if ($this->rubyPath) {
+			if (!file_exists($this->rubyPath))
+				throw new \Exception('Ruby on path defined in parameters.yml does not exist');
+		} else {
+			$this->rubyPath = 'ruby';
+		}
 	}
 
 	public function run()
 	{
-		$process = new Process(sprintf('ruby %s --gd_username=%s --gd_password=%s --email_username=%s --email_password=%s',
-			$this->scriptPath, escapeshellarg($this->gdUsername), escapeshellarg($this->gdPassword),
+		$process = new Process(sprintf('%s %s --gd_username=%s --gd_password=%s --email_username=%s --email_password=%s',
+			$this->rubyPath, $this->scriptPath, escapeshellarg($this->gdUsername), escapeshellarg($this->gdPassword),
 			escapeshellarg($this->emailUsername), escapeshellarg($this->emailPassword)));
 		$process->setTimeout(null);
 		$process->run();

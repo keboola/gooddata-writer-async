@@ -42,6 +42,7 @@ class AppConfiguration
 	public $appName;
 	public $storageApiUrl;
 	public $clPath;
+	public $rubyPath;
 
 	public function __construct($appName, $storageApiUrl, $mainConfig)
 	{
@@ -53,6 +54,7 @@ class AppConfiguration
 		$this->scriptsPath = $mainConfig['scripts_path'];
 		$this->zipPath = isset($mainConfig['zip_path']) ? $mainConfig['zip_path'] : null;
 		$this->clPath = isset($mainConfig['cl_path']) ? $mainConfig['cl_path'] : null;
+		$this->rubyPath = isset($mainConfig['ruby_path']) ? $mainConfig['ruby_path'] : null;
 
 		$this->sharedSapi_url = $mainConfig['shared_sapi']['url'];
 		$this->sharedSapi_token = $mainConfig['shared_sapi']['token'];
