@@ -95,7 +95,7 @@ begin
               result['error'] = e.message
             end
 
-            puts JSON.generate (result)
+            puts JSON.generate(result)
 
             imap.store message_id, '+FLAGS', [:Seen]
           end
