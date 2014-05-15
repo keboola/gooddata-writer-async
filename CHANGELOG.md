@@ -1,4 +1,7 @@
-## 2014-04-12 (v 5.13)
+## 2014-05-15 (v 5.14)
+- creating of writer with existing GD project
+
+## 2014-05-12 (v 5.13)
 - optimization of SLI hashes
 
 ## 2014-03-25 (v 5.12)

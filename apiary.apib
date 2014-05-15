@@ -56,7 +56,8 @@ Contains definition and metadata of each date dimension. It is optional. Columns
 
 * **name** (primary key) - name of date dimension
 * **includeTime** - flag whether the dimension contains time
-* **isExported** - flagh whether the dimension has been exported to GoodData or not
+* **template** - name of dimension template if non-default
+* **isExported** - flag whether the dimension has been exported to GoodData or not
 
 --
 
@@ -154,6 +155,25 @@ POST /writers
     "duration": 2.89, 
     "job": job_id,
     "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id"
+}
+
+
+### Set writer's attributes
+Sets attributes to writer's configuration
+
+#### Parameters
+
+* **writerId** (required)
+* **attribute** (required) - attribute which you want to set
+POST /writers
+> X-StorageApi-Token: your_token
+> Accept: application/json
+{ "writerId": "writer1", "maintenance": 1 }
+< 202
+< Content-Type: application/json
+{ 
+    "status": "ok", 
+    "duration": 2.89
 }
 
 
@@ -773,7 +793,7 @@ POST /filters-user
 
 
 ### Synchronize Filters
-Synchornize filters in Storage API with GoodData project
+Synchronize filters in Storage API with GoodData project
 
 #### Parameters
 
@@ -798,6 +818,9 @@ POST /sync-filters
 SSO
 
 Call to obtain an SSO link for user.
+
+**Works only for users created by the writer itself via [Users Management API](/#usersmanagement) (won't work for already existing users with sso provider other then keboola.com)**
+
 --
 
 ### Get SSO link
