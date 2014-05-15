@@ -1,3 +1,5 @@
+require 'rubygems'
+require 'bundler/setup'
 require 'gooddata'
 require 'mail'
 require 'net/http'
