@@ -39,7 +39,7 @@ class WaitForInvitation extends AbstractJob
 				throw new WrongConfigurationException('Writer is waiting for access to your project too long. Contact support please.');
 			}
 
-			$this->sharedConfig->createJob($this->configuration->projectId, $this->configuration->writerId, $this->storageApiClient, array(
+			$waitJob = $this->sharedConfig->createJob($this->configuration->projectId, $this->configuration->writerId, $this->storageApiClient, array(
 				'command' => 'waitForInvitation',
 				'createdTime' => date('c'),
 				'parameters' => array(
@@ -50,7 +50,7 @@ class WaitForInvitation extends AbstractJob
 			$this->queue->enqueue(array(
 				'projectId' => $this->configuration->projectId,
 				'writerId' => $this->configuration->writerId,
-				'batchId' => $job['batchId']
+				'batchId' => $waitJob['batchId']
 			), $params['try'] * 60);
 
 			return array(
