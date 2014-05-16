@@ -64,7 +64,7 @@ class CreateWriter extends AbstractJob
 			$this->configuration->updateWriter('waitingForInvitation', '1');
 			$this->configuration->updateWriter('maintenance', '1');
 
-			$this->sharedConfig->createJob($this->configuration->projectId, $this->configuration->writerId, $this->storageApiClient, array(
+			$waitJob = $this->sharedConfig->createJob($this->configuration->projectId, $this->configuration->writerId, $this->storageApiClient, array(
 				'command' => 'waitForInvitation',
 				'createdTime' => date('c'),
 				'parameters' => array(
@@ -73,9 +73,9 @@ class CreateWriter extends AbstractJob
 				'queue' => SharedConfig::SERVICE_QUEUE
 			));
 			$this->queue->enqueue(array(
-				'projectId' => $this->configuration->projectId,
-				'writerId' => $this->configuration->writerId,
-				'batchId' => $job['batchId']
+				'projectId' => $waitJob['projectId'],
+				'writerId' => $waitJob['writerId'],
+				'batchId' => $waitJob['batchId']
 			));
 
 		} else {

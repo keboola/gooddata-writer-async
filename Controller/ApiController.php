@@ -114,7 +114,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			'parameters' => array(),
 			'queue' => SharedConfig::SERVICE_QUEUE
 		));
-		$this->enqueue($jobInfo['batchId'], array('service' => 1));
+		$this->enqueue($jobInfo['batchId']);
 
 		$this->getConfiguration()->updateWriter('maintenance', 1);
 
@@ -249,7 +249,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$jobInfo = $this->createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => array()
+			'parameters' => array(),
+			'queue' => SharedConfig::SERVICE_QUEUE
 		));
 		$this->enqueue($jobInfo['batchId']);
 

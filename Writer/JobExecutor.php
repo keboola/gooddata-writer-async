@@ -86,32 +86,26 @@ class JobExecutor
 		$this->storageApiEvent = new StorageApiEvent();
 	}
 
-	public function runBatch($batchId, $force = false)
+	public function runBatch($batchId, $forceRun = false)
 	{
-		$jobs = $this->sharedConfig->fetchBatch($batchId);
-		if (!count($jobs)) {
-			throw new JobProcessException("Batch {$batchId} not found");
-		}
 		$batch = $this->sharedConfig->batchToApiResponse($batchId);
 
 		// Batch already executed?
-		if (!$force && $batch['status'] != SharedConfig::JOB_STATUS_WAITING) {
+		if (!$forceRun && $batch['status'] != SharedConfig::JOB_STATUS_WAITING) {
 			return;
 		}
 
+		// Lock
 		$pdo = new \PDO(sprintf('mysql:host=%s;dbname=%s', $this->appConfiguration->db_host, $this->appConfiguration->db_name),
 			$this->appConfiguration->db_user, $this->appConfiguration->db_password);
 		$pdo->exec('SET wait_timeout = 31536000;');
 		$lock = new Lock($pdo, $batch['queueId']);
-
 		if (!$lock->lock()) {
 			throw new QueueUnavailableException("Batch {$batchId} cannot be executed, another job already in progress in the same queue.");
 		}
 
-		$queueIdArray = explode('.', $batch['queueId']);
-		$serviceRun = isset($queueIdArray[2]) && $queueIdArray[2] == SharedConfig::SERVICE_QUEUE;
-		foreach ($jobs as $job) {
-			$this->runJob($job['id'], $force, $serviceRun);
+		foreach ($batch['jobs'] as $jobId) {
+			$this->runJob($jobId, $forceRun);
 		}
 
 		$lock->unlock();
@@ -121,7 +115,7 @@ class JobExecutor
 	 * Job execution
 	 * Performs execution of job tasks and logging
 	 */
-	public function runJob($jobId, $force = false, $serviceRun = false)
+	public function runJob($jobId, $forceRun = false)
 	{
 		$job = $this->sharedConfig->fetchJob($jobId);
 		if (!$job) {
@@ -129,9 +123,12 @@ class JobExecutor
 		}
 
 		// Job already executed?
-		if (!$force && $job['status'] != SharedConfig::JOB_STATUS_WAITING) {
+		if (!$forceRun && $job['status'] != SharedConfig::JOB_STATUS_WAITING) {
 			return;
 		}
+
+		$queueIdArray = explode('.', $job['queueId']);
+		$serviceRun = isset($queueIdArray[2]) && $queueIdArray[2] == SharedConfig::SERVICE_QUEUE;
 
 		$startTime = time();
 

@@ -184,7 +184,7 @@ class SharedConfig extends StorageApiConfiguration
 		if (!isset($fields['id'])) {
 			$fields['id'] = $jobId;
 		}
-		$this->updateTableRow(self::JOBS_TABLE_ID, 'pid', $fields);
+		$this->updateTableRow(self::JOBS_TABLE_ID, 'id', $fields);
 	}
 
 	/**
