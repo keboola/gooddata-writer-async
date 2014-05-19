@@ -54,7 +54,7 @@ class WaitForInvitation extends AbstractJob
 			), $params['try'] * 60);
 
 			return array(
-				'status' => 'error',
+				'status' => SharedConfig::JOB_STATUS_ERROR,
 				'error' => 'Access to project is not granted yet.'
 			);
 

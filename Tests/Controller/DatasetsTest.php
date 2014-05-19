@@ -7,6 +7,7 @@ namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\WebDav;
+use Keboola\GoodDataWriter\Writer\SharedConfig;
 
 class DatasetsTest extends AbstractControllerTest
 {
@@ -106,7 +107,7 @@ class DatasetsTest extends AbstractControllerTest
 		$response = $this->_getWriterApi('/gooddata-writer/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
 		$this->assertArrayHasKey('batch', $response, "Response for writer call '/batch?batchId=' should contain key 'batch'.");
 		$this->assertArrayHasKey('status', $response['batch'], "Response for writer call '/jobs?jobId=' should contain key 'batch.status'.");
-		$this->assertEquals('success', $response['batch']['status'], "Result of request /upload-project should be 'success'.");
+		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $response['batch']['status'], "Result of request /upload-project should be 'success'.");
 
 
 		// Check validity of foreign keys (including time dimension during daylight saving switch values)
@@ -313,7 +314,7 @@ class DatasetsTest extends AbstractControllerTest
 		$response = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
 		$this->assertArrayHasKey('job', $response, "Response for writer call '/jobs?jobId=' should contain key 'job'.");
 		$this->assertArrayHasKey('status', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.status'.");
-		$this->assertEquals('success', $response['job']['status'], "Result of request /upload-table should be 'success'.");
+		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $response['job']['status'], "Result of request /upload-table should be 'success'.");
 
 
 		/**
@@ -370,7 +371,7 @@ class DatasetsTest extends AbstractControllerTest
 		$response = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
 		$this->assertArrayHasKey('job', $response, "Response for writer call '/jobs?jobId=' should contain key 'job'.");
 		$this->assertArrayHasKey('status', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.status'.");
-		$this->assertEquals('success', $response['job']['status'], "Result of request /upload-table should be 'success'.");
+		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $response['job']['status'], "Result of request /upload-table should be 'success'.");
 
 		$data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
 		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");

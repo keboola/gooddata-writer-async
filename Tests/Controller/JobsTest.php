@@ -7,6 +7,8 @@
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
 
+use Keboola\GoodDataWriter\Writer\SharedConfig;
+
 class JobsTest extends AbstractControllerTest
 {
 
@@ -108,7 +110,7 @@ class JobsTest extends AbstractControllerTest
 			$this->assertArrayHasKey('status', $responseJson, "Response for writer call '/jobs' should contain 'status' key.");
 			$this->assertArrayHasKey('job', $responseJson, "Response for writer call '/jobs' should contain 'job' key.");
 			$this->assertArrayHasKey('status', $responseJson['job'], "Response for writer call '/jobs' should contain 'job.status' key.");
-			$this->assertEquals('cancelled', $responseJson['job']['status'], "Response for writer call '/jobs' should have key 'job.status' with value 'cancelled'.");
+			$this->assertEquals(SharedConfig::JOB_STATUS_CANCELLED, $responseJson['job']['status'], "Response for writer call '/jobs' should have key 'job.status' with value 'cancelled'.");
 		}
 	}
 

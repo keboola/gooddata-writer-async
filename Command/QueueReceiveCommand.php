@@ -2,6 +2,7 @@
 namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\GoodDataWriter\Writer\QueueUnavailableException;
+use Keboola\GoodDataWriter\Writer\SharedConfig;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -133,7 +134,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 
 		foreach ($batch as $job) {
 			$sharedConfig->saveJob($job['id'], array(
-				'status' => 'error',
+				'status' => SharedConfig::JOB_STATUS_ERROR,
 				'error' => 'Maximum execution retries exceeded.'
 			));
 		}

@@ -26,8 +26,10 @@ class CreateWriter extends AbstractJob
 		$username = sprintf($this->appConfiguration->gd_userEmailTemplate, $job['projectId'], $job['writerId'] . '-' . uniqid());
 		$password = md5(uniqid());
 
+		$existingProject = !empty($params['pid']) && !empty($params['username']) && !empty($params['password']);
+
 		// Check setup for existing project
-		if (!empty($params['pid']) && !empty($params['username']) && !empty($params['password'])) {
+		if ($existingProject) {
 			try {
 				$this->restApi->login($params['username'], $params['password']);
 			} catch (RestApiException $e) {
@@ -56,7 +58,7 @@ class CreateWriter extends AbstractJob
 		}
 
 		// Create project or login via given credentials for adding user to project
-		if (!empty($params['pid']) && !empty($params['username']) && !empty($params['password'])) {
+		if ($existingProject) {
 			$projectPid = $params['pid'];
 			$this->restApi->login($params['username'], $params['password']);
 			$this->restApi->inviteUserToProject($this->domainUser->username, $projectPid, RestApi::USER_ROLE_ADMIN);

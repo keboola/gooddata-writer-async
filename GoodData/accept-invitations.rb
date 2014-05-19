@@ -55,10 +55,20 @@ def fetch(uri_str, limit = 10)
   end
 end
 
+repeat = 0
+last_error = nil
 start_time = Time.now
 begin
   imap = Net::IMAP.new options[:host], options[:port], true, nil, false
-  imap.login options[:email_username], options[:email_password]
+
+  begin
+  	imap.login options[:email_username], options[:email_password]
+  rescue => e
+    last_error = e
+    imap.disconnect if imap
+    next
+  end
+
   imap.select 'INBOX'
   imap.search(['NOT', 'SEEN']).each do |message_id|
     catch :invitation_ok do
@@ -105,5 +115,14 @@ begin
   end
   imap.logout
   imap.disconnect
+  repeat += 1
   sleep 10
 end while ((Time.now - start_time) < 300)
+
+if repeat == 0
+  if last_error
+    raise last_error
+  else
+    raise 'Could not connect to IMAP without error message'
+  end
+end

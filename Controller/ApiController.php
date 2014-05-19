@@ -1703,7 +1703,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
 			}
 			$jobInfo = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
-			if (isset($jobInfo['status']) && !in_array($jobInfo['status'], array(SharedConfig::JOB_STATUS_WAITING, SharedConfig::JOB_STATUS_PROCESSING))) {
+			if (isset($jobInfo['status']) && SharedConfig::isJobFinished($jobInfo['status'])) {
 				$jobFinished = true;
 			}
 			if (!$jobFinished) sleep($i * 10);
@@ -1731,7 +1731,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$i = 1;
 		do {
 			$jobsInfo = $this->getSharedConfig()->batchToApiResponse($batchId, $this->getS3Client());
-			if (isset($jobsInfo['status']) && !in_array($jobsInfo['status'], array(SharedConfig::JOB_STATUS_WAITING, SharedConfig::JOB_STATUS_PROCESSING))) {
+			if (isset($jobsInfo['status']) && SharedConfig::isJobFinished($jobsInfo['status'])) {
 				$jobsFinished = true;
 			}
 			if (!$jobsFinished) sleep($i * 10);

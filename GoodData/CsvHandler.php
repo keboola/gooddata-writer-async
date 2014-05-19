@@ -35,7 +35,7 @@ class CsvHandler
 		$this->logger = $logger;
 
 		if (!file_exists($this->scriptPath))
-			throw new \Exception('Conversion script for csv handling in pipe does not exist');
+			throw new \Exception('Conversion script for csv handling in pipe does not exist: ' . $this->scriptPath);
 	}
 
 	public function setJobId($id)
@@ -168,9 +168,9 @@ class CsvHandler
 		$urlParts = parse_url($url);
 		$url = 'https://' . $urlParts['host'];
 
-		/*$command = sprintf('gzip -c | curl -s -S -T - --header %s --retry 12 --user %s:%s %s',
+		$command = sprintf('gzip -c | curl -s -S -T - --header %s --retry 12 --user %s:%s %s',
 			escapeshellarg('Content-encoding: gzip'), escapeshellarg($username), escapeshellarg($password),
-			escapeshellarg($url . $uri . '/data.csv'));*/
+			escapeshellarg($url . $uri . '/data.csv'));
 		$command = sprintf('curl -s -S -T - --retry 12 --user %s:%s %s',
 			escapeshellarg($username), escapeshellarg($password),
 			escapeshellarg($url . $uri . '/data.csv'));

@@ -8,6 +8,7 @@ namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Writer\Configuration;
+use Keboola\GoodDataWriter\Writer\SharedConfig;
 
 class WritersTest extends AbstractControllerTest
 {
@@ -114,7 +115,7 @@ class WritersTest extends AbstractControllerTest
 		/**
 		 * Create writer with existing project
 		 */
-		/*$existingPid = $bucketAttributes['gd']['pid'];
+		$existingPid = $bucketAttributes['gd']['pid'];
 		$existingProjectWriterId = self::WRITER_ID_PREFIX . 'exist_' . uniqid();
 		$this->_processJob('/gooddata-writer/writers', array(
 			'writerId' => $existingProjectWriterId,
@@ -130,11 +131,31 @@ class WritersTest extends AbstractControllerTest
 		$this->assertArrayHasKey('pid', $responseJson['writer']['gd'], "Response for writer call '/writers?writerId=' should contain 'writer.gd.pid' key.");
 		$this->assertEquals($bucketAttributes['gd']['pid'], $responseJson['writer']['gd']['pid'], "Writer should have project given as request parameter");
 
+		$i = 0;
+		do {
+			$this->assertLessThanOrEqual(10, $i, 'Waited for getting access to existing project too long');
+			sleep ($i * 10);
+			$jobsFinished = true;
+			$jobs = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $existingProjectWriterId);
+			foreach($jobs['jobs'] as $job) {
+				if (!SharedConfig::isJobFinished($job['status'])) {
+					$this->commandTester->execute(array(
+						'command' => 'gooddata-writer:execute-job',
+						'batchId' => $job['id']
+					));
+					$jobInfo = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $existingProjectWriterId . '&jobId=' . $job['id']);
+					if ($jobInfo['job']['status'] != SharedConfig::JOB_STATUS_SUCCESS)
+						$jobsFinished = false;
+				}
+			}
+			$i++;
+		} while (!$jobsFinished);
+
 		$configuration = new Configuration($this->storageApi, $existingProjectWriterId, $this->appConfiguration->scriptsPath);
 		$bucketAttributes = $configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$projectInfo = $this->restApi->get('/gdc/md/' . $existingPid);
-		$this->assertArrayHasKey('about', $projectInfo, "Writer created from existing project should have working credentials to the project");*/
+		$this->assertArrayHasKey('about', $projectInfo, "Writer created from existing project should have working credentials to the project");
 
 
 		/**

@@ -6,6 +6,8 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
+use Keboola\GoodDataWriter\Writer\SharedConfig;
+
 class ProxyTest extends AbstractControllerTest
 {
 	public function testProxy()
@@ -58,6 +60,6 @@ class ProxyTest extends AbstractControllerTest
 
 		$jobStatus = $this->_getWriterApi('/gooddata-writer/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
 
-		$this->assertEquals('success', $jobStatus['job']['status']);
+		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $jobStatus['job']['status']);
 	}
 }

@@ -163,7 +163,7 @@ class JobExecutor
 				}
 
 				$this->sharedConfig->saveJob($jobId, array(
-					'status' => 'processing',
+					'status' => SharedConfig::JOB_STATUS_PROCESSING,
 					'startTime' => date('c', $startTime),
 					'endTime' => null
 				));

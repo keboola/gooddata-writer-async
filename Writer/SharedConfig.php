@@ -55,6 +55,11 @@ class SharedConfig extends StorageApiConfiguration
 		$this->encryptor = $encryptorFactory->get('gooddata-writer'); //@TODO component name
 	}
 
+	public static function isJobFinished($status)
+	{
+		return !in_array($status, array(SharedConfig::JOB_STATUS_WAITING, SharedConfig::JOB_STATUS_PROCESSING));
+	}
+
 	public function getDomainUser($domain)
 	{
 		$result = $this->fetchTableRows(self::DOMAINS_TABLE_ID, 'name', $domain);
@@ -120,8 +125,8 @@ class SharedConfig extends StorageApiConfiguration
 	public function cancelJobs($projectId, $writerId)
 	{
 		foreach ($this->fetchJobs($projectId, $writerId) as $job) {
-			if ($job['status'] == 'waiting') {
-				$this->saveJob($job['id'], array('status' => 'cancelled'));
+			if ($job['status'] == self::JOB_STATUS_WAITING) {
+				$this->saveJob($job['id'], array('status' => self::JOB_STATUS_CANCELLED));
 			}
 		}
 	}
@@ -153,7 +158,7 @@ class SharedConfig extends StorageApiConfiguration
 			'dataset' => null,
 			'parameters' => null,
 			'result' => null,
-			'status' => 'waiting',
+			'status' => self::JOB_STATUS_WAITING,
 			'logs' => null,
 			'debug' => null,
 			'projectIdWriterId' => sprintf('%s.%s', $projectId, $writerId),
