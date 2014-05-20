@@ -90,7 +90,7 @@ class SharedConfig extends StorageApiConfiguration
 	{
 		return $this->fetchTableRows(self::JOBS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId, array(
 			'changedSince' => '-' . $days . ' days'
-		));
+		), false);
 	}
 
 	/**
