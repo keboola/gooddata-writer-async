@@ -59,9 +59,8 @@ repeat = 0
 last_error = nil
 start_time = Time.now
 begin
-  imap = Net::IMAP.new options[:host], options[:port], true, nil, false
-
   begin
+    imap = Net::IMAP.new options[:host], options[:port], true, nil, false
   	imap.login options[:email_username], options[:email_password]
   rescue => e
     last_error = e
