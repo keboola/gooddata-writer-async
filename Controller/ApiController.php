@@ -593,7 +593,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$ssoLink = $sso->url($targetUrl, $this->params['email'], $validity);
 
 		if (null == $ssoLink) {
-			throw new SyrupComponentException(500, "Can't generate SSO link. Something is broken.");
+			$e = new SyrupComponentException(500, "Can't generate SSO link. Something is broken.");
+			$e->setData(array('params' => $this->params));
+			throw $e;
 		}
 
 		return $this->createApiResponse(array(
