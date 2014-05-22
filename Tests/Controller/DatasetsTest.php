@@ -116,6 +116,27 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertEquals(0, $result['fatal_error_found'], 'Project validation should not contain errors but result is: ' . print_r($result, true));
 
 
+		/**
+		 * Test inclusion and exclusion of tables for upload project
+		 */
+		$dataSetsToExport = array_keys($this->configuration->getSortedDataSets());
+		$this->assertCount(2, $dataSetsToExport, "Configuration should return all two configured datasets");
+
+		// Set one table not to export
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.products', 'export', 0);
+		$dataSetsToExport = array_keys($this->configuration->getSortedDataSets());
+		$this->assertCount(1, $dataSetsToExport, "Configuration should return one configured dataset");
+
+		// Include
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.products', 'export', 1);
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.categories', 'export', 0);
+		$dataSetsToExport = array_keys($this->configuration->getSortedDataSets(array($this->dataBucketId . '.categories')));
+		$this->assertCount(1, $dataSetsToExport, "Configuration should return one configured dataset");
+		$this->assertEquals($this->dataBucketId . '.categories', current($dataSetsToExport), "Configuration should return '" . $this->dataBucketId . "'.categories' dataset");
+
+		// Exclude
+		$dataSetsToExport = array_keys($this->configuration->getSortedDataSets(array(), array($this->dataBucketId . '.products')));
+		$this->assertCount(0, $dataSetsToExport, "Configuration should return no configured dataset");
 
 
 		/**

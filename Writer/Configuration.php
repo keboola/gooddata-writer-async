@@ -790,10 +790,15 @@ class Configuration extends StorageApiConfiguration
 	/**
 	 * Return data sets sorted according to their references
 	 */
-	public function getSortedDataSets()
+	public function getSortedDataSets($include=array(), $exclude=array())
 	{
+		if ($include && $exclude) {
+			throw new WrongParametersException("Parameters 'include' and 'exclude' cannot be used both at once");
+		}
+
 		$dataSets = array();
-		foreach ($this->getDataSets() as $dataSet) if (!empty($dataSet['export'])) {
+		// Include dataset if not excluded and is included or if we do not want included only then look to export flag
+		foreach ($this->getDataSets() as $dataSet) if (!in_array($dataSet['id'], $exclude) && (in_array($dataSet['id'], $include) || (!$include && !empty($dataSet['export'])))) {
 			try {
 				$definition = $this->getDataSetDefinition($dataSet['id']);
 			} catch (WrongConfigurationException $e) {
@@ -818,7 +823,7 @@ class Configuration extends StorageApiConfiguration
 				if (in_array($c['schemaReferenceId'], $allIds)) {
 					$references[$tableId][] = $c['schemaReferenceId'];
 				} else {
-					throw new WrongConfigurationException("Schema reference '{$c['schemaReferenceId']}' for table '{$tableId}'does not exist");
+					throw new WrongConfigurationException("Schema reference '{$c['schemaReferenceId']}' for table '{$tableId}' is not in tables to export");
 				}
 			}
 		}
