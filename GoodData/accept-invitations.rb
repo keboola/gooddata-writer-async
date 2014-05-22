@@ -9,7 +9,7 @@ require 'uri'
 
 options = {}
 optparse = OptionParser.new do |opts|
-  opts.banner = "Usage: run.rb [options]"
+  opts.banner = 'Usage: run.rb [options]'
   opts.on('-gu', '--gd_username USERNAME', 'GoodData username') { |v| options[:gd_username] = v }
   opts.on('-gp', '--gd_password PASSWORD', 'GoodData password') { |v| options[:gd_password] = v }
   opts.on('-ep', '--email_username USERNAME', 'Email username') { |v| options[:email_username] = v }
@@ -62,7 +62,7 @@ begin
   begin
     imap = Net::IMAP.new options[:host], options[:port], true, nil, false
   	imap.login options[:email_username], options[:email_password]
-  rescue => e
+  rescue StandardError, Net::IMAP::IOError => e
     last_error = e
     imap.disconnect if imap
     next
