@@ -632,12 +632,11 @@ class RestApi
 			// SUCCESS
 			// Sometimes API does not return
 		} else {
-			$this->logAlert('addUserToProject() has not added user to project', array(
-				'uri' => $uri,
-				'params' => $params,
-				'result' => $result
-			));
-			throw new RestApiException('Error in addition to project');
+			$errors = array();
+			if (isset($result['projectUsersUpdateResult']['failed'])) foreach ($result['projectUsersUpdateResult']['failed'] as $f) {
+				$errors[] = $f['message'];
+			}
+			throw new RestApiException('Error in addition to project ' . implode('; ', $errors));
 		}
 	}
 
