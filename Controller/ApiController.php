@@ -16,6 +16,8 @@ use Monolog\Logger;
 use Symfony\Component\HttpFoundation\Response,
 	Symfony\Component\HttpKernel\Exception\HttpException,
 	Symfony\Component\Stopwatch\Stopwatch;
+use Symfony\Component\Translation\Loader\YamlFileLoader;
+use Symfony\Component\Translation\Translator;
 
 use Syrup\ComponentBundle\Exception\SyrupComponentException;
 use Keboola\GoodDataWriter\GoodData\RestApi,
@@ -57,6 +59,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	private $queue;
 
+	/**
+	 * @var \Symfony\Component\Translation\IdentityTranslator
+	 */
+	private $translator;
+
 	private $method;
 	private $params;
 
@@ -73,6 +80,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	{
 		parent::preExecute();
 
+		$this->translator = $this->container->get('translator');
+
 		if (!defined('JSON_PRETTY_PRINT')) {
 			// fallback for PHP <= 5.3
 			define('JSON_PRETTY_PRINT', 0);
@@ -88,7 +97,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		});
 
 		if (isset($this->params['queue']) && !in_array($this->params['queue'], array(SharedConfig::PRIMARY_QUEUE, SharedConfig::SECONDARY_QUEUE))) {
-			throw new WrongParametersException('Wrong parameter \'queue\'. Must be one of: ' . SharedConfig::PRIMARY_QUEUE . ', ' . SharedConfig::SECONDARY_QUEUE);
+			throw new WrongParametersException($this->translator->trans('error.parameters.queue %1', array('%1' => SharedConfig::PRIMARY_QUEUE . ', ' . SharedConfig::SECONDARY_QUEUE)));
 		}
 
 		$this->appConfiguration = $this->container->get('gooddata_writer.app_configuration');
