@@ -64,7 +64,11 @@ begin
   	imap.login options[:email_username], options[:email_password]
   rescue StandardError, Net::IMAP::IOError => e
     last_error = e
-    imap.disconnect if imap
+    begin
+      imap.disconnect if imap
+    rescue Net::IMAP::IOError => e
+      #ignore
+    end
     next
   end
 

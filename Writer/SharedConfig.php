@@ -11,7 +11,6 @@ use Keboola\GoodDataWriter\GoodData\User;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\Service\StorageApiConfiguration;
-use Symfony\Component\Templating\Storage\Storage;
 use Syrup\ComponentBundle\Service\Encryption\EncryptorFactory;
 
 
@@ -52,7 +51,7 @@ class SharedConfig extends StorageApiConfiguration
 			'url' => $appConfiguration->sharedSapi_url,
 			'userAgent' => $appConfiguration->userAgent
 		));
-		$this->encryptor = $encryptorFactory->get('gooddata-writer'); //@TODO component name
+		$this->encryptor = $encryptorFactory->get('gooddata-writer'); //@TODO $appConfiguration->appName // will need to re-encrypt passwords in testing environments
 	}
 
 	public static function isJobFinished($status)

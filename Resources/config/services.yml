@@ -38,7 +38,7 @@ services:
 
   gooddata_writer.job_executor:
     class: Keboola\GoodDataWriter\Writer\JobExecutor
-    arguments: [@gooddata_writer.app_configuration, @gooddata_writer.shared_config, @gooddata_writer.rest_api, @logger, @syrup.temp_factory, @gooddata_writer.jobs_queue]
+    arguments: [@gooddata_writer.app_configuration, @gooddata_writer.shared_config, @gooddata_writer.rest_api, @logger, @syrup.temp_factory, @gooddata_writer.jobs_queue, @translator]
 
   gooddata_writer.jobs_queue:
     class: Keboola\GoodDataWriter\Service\Queue

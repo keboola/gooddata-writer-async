@@ -16,8 +16,6 @@ use Monolog\Logger;
 use Symfony\Component\HttpFoundation\Response,
 	Symfony\Component\HttpKernel\Exception\HttpException,
 	Symfony\Component\Stopwatch\Stopwatch;
-use Symfony\Component\Translation\Loader\YamlFileLoader;
-use Symfony\Component\Translation\Translator;
 
 use Syrup\ComponentBundle\Exception\SyrupComponentException;
 use Keboola\GoodDataWriter\GoodData\RestApi,
@@ -60,7 +58,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	private $queue;
 
 	/**
-	 * @var \Symfony\Component\Translation\IdentityTranslator
+	 * @var \Symfony\Component\Translation\Translator
 	 */
 	private $translator;
 
@@ -97,7 +95,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		});
 
 		if (isset($this->params['queue']) && !in_array($this->params['queue'], array(SharedConfig::PRIMARY_QUEUE, SharedConfig::SECONDARY_QUEUE))) {
-			throw new WrongParametersException($this->translator->trans('error.parameters.queue %1', array('%1' => SharedConfig::PRIMARY_QUEUE . ', ' . SharedConfig::SECONDARY_QUEUE)));
+			throw new WrongParametersException($this->translator->trans('parameters.queue %1', array('%1' => SharedConfig::PRIMARY_QUEUE . ', ' . SharedConfig::SECONDARY_QUEUE)));
 		}
 
 		$this->appConfiguration = $this->container->get('gooddata_writer.app_configuration');
@@ -144,10 +142,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$this->checkParams(array('writerId'));
 		if (!preg_match('/^[a-zA-Z0-9_]+$/', $this->params['writerId'])) {
-			throw new WrongParametersException('Parameter writerId may contain only basic letters, numbers and underscores');
+			throw new WrongParametersException($this->translator->trans('parameters.writerId.format'));
 		}
 		/*if (strlen($this->params['writerId'] > 20)) {
-			throw new WrongParametersException('Parameter writerId may contain 20 characters at most');
+			throw new WrongParametersException($this->translator->trans('parameters.writerId.length'));
 		}*/
 
 		try {
@@ -179,13 +177,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 			if (!empty($this->params['username']) || !empty($this->params['password']) || !empty($this->params['pid'])) {
 				if (empty($this->params['username'])) {
-					throw new WrongParametersException('Missing parameter username, add it or remove parameters password and pid');
+					throw new WrongParametersException($this->translator->trans('parameters.username_missing'));
 				}
 				if (empty($this->params['password'])) {
-					throw new WrongParametersException('Missing parameter password, add it or remove parameter username and pid');
+					throw new WrongParametersException($this->translator->trans('parameters.password_missing'));
 				}
 				if (empty($this->params['pid'])) {
-					throw new WrongParametersException('Missing parameter pid, add it or remove parameter password and pid');
+					throw new WrongParametersException($this->translator->trans('parameters.pid_missing'));
 				}
 
 				$jobData['parameters']['pid'] = $this->params['pid'];
@@ -206,11 +204,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				} else {
 					$result = $this->waitForJob($jobInfo['id'], false);
 					if (isset($result['result']['pid'])) {
-						return $this->createApiResponse(array('pid' => $result['result']['pid']));
+						return $this->createApiResponse(array(
+							'pid' => $result['result']['pid']
+						));
 					} else {
-						$e = new JobProcessException('Job failed');
-						$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
-						throw $e;
+						return $this->waitingFinishedWithoutResult($result);
 					}
 				}
 			} else {
@@ -341,9 +339,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 					'pid' => $result['result']['pid']
 				));
 			} else {
-				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
-				throw $e;
+				return $this->waitingFinishedWithoutResult($result);
 			}
 		}
 	}
@@ -381,10 +377,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$allowedRoles = array_keys(RestApi::$userRoles);
 		if (!in_array($this->params['role'], $allowedRoles)) {
-			throw new WrongParametersException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
+			throw new WrongParametersException($this->translator->trans('parameters.role %1', array('%1' => implode(', ', $allowedRoles))));
 		}
 		if (!$this->getConfiguration()->getProject($this->params['pid'])) {
-			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $this->params['pid']));
+			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
 		}
 		$this->getConfiguration()->checkBucketAttributes();
 		$this->getConfiguration()->checkProjectsTable();
@@ -428,10 +424,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkParams(array('writerId', 'pid', 'email'));
 		$this->checkWriterExistence();
 		if (!$this->getConfiguration()->getProject($this->params['pid'])) {
-			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $this->params['pid']));
+			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
 		}
 		if (!$this->getConfiguration()->isProjectUser($this->params['email'], $this->params['pid'])) {
-			throw new WrongParametersException(sprintf("Project user '%s' is not configured for the writer", $this->params['email']));
+			throw new WrongParametersException($this->translator->trans('parameters.email_not_configured'));
 		}
 		$this->getConfiguration()->checkBucketAttributes();
 		$this->getConfiguration()->checkProjectsTable();
@@ -449,27 +445,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if (empty($this->params['wait'])) {
 			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 		} else {
-			$jobId = $jobInfo['id'];
-			$jobFinished = false;
-			do {
-				$job = $this->getSharedConfig()->fetchJob($jobId, $this->getConfiguration()->writerId, $this->getConfiguration()->projectId);
-				if (!$job) {
-					throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
-				}
-				$jobInfo = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
-				if (isset($jobInfo['status']) && ($jobInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS || $jobInfo['status'] == SharedConfig::JOB_STATUS_ERROR)) {
-					$jobFinished = true;
-				}
-				if (!$jobFinished) sleep(30);
-			} while(!$jobFinished);
-
-			if ($jobInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS) {
-				return $this->createApiResponse();
-			} else {
-				$e = new JobProcessException('Remove Project User job failed');
-				$e->setData(array('result' => $jobInfo['result'], 'logs' => $jobInfo['logs']));
-				throw $e;
-			}
+			return $this->waitForJob($jobInfo['id']);
 		}
 	}
 
@@ -505,7 +481,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkParams(array('writerId', 'firstName', 'lastName', 'email', 'password'));
 		$this->checkWriterExistence();
 		if (strlen($this->params['password']) < 7) {
-			throw new WrongParametersException("Parameter 'password' must have at least seven characters");
+			throw new WrongParametersException($this->translator->trans('parameters.password_length'));
 		}
 		$this->getConfiguration()->checkBucketAttributes();
 		$this->getConfiguration()->checkUsersTable();
@@ -536,9 +512,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 					'alreadyExists' => isset($result['result']['alreadyExists']) ? (bool)$result['result']['alreadyExists'] : false
 				));
 			} else {
-				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
-				throw $e;
+				return $this->waitingFinishedWithoutResult($result);
 			}
 		}
 	}
@@ -581,7 +555,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkWriterExistence();
 
 		if (!$this->getSharedConfig()->projectBelongsToWriter($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->params['pid'])) {
-			throw new WrongParametersException(sprintf("Project '%s' was not created by this writer and cannot be accessed using sso therefore.", $this->params['pid']));
+			throw new WrongParametersException($this->translator->trans('parameters.sso_wrong_pid'));
 		}
 
 		if (!empty($this->params['createUser']) && $this->params['createUser'] == 1) {
@@ -591,7 +565,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 
 		if (!$this->getSharedConfig()->userBelongsToWriter($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->params['email'])) {
-			throw new WrongParametersException(sprintf("User '%s' was not created by this writer and cannot be used for sso access therefore.", $this->params['email']));
+			throw new WrongParametersException($this->translator->trans('parameters.sso_wrong_email'));
 		}
 
 		$targetUrl = isset($this->params['targetUrl'])? $this->params['targetUrl'] : '/#s=/gdc/projects/' . $this->params['pid'];
@@ -602,7 +576,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$ssoLink = $sso->url($targetUrl, $this->params['email'], $validity);
 
 		if (null == $ssoLink) {
-			$e = new SyrupComponentException(500, "Can't generate SSO link. Something is broken.");
+			$e = new SyrupComponentException(500, $this->translator->trans('error.sso_unknown'));
 			$e->setData(array('params' => $this->params));
 			throw $e;
 		}
@@ -643,13 +617,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 			if (isset($result['result']['response'])) {
 				return $this->createApiResponse(array(
-					'message'   => 'proxy call executed',
 					'response'  => $result['result']['response']
 				));
 			} else {
-				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
-				throw $e;
+				return $this->waitingFinishedWithoutResult($result);
 			}
 		}
 	}
@@ -675,7 +646,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				'query' => $query->getQuery(),
 			));
 		} catch (InvalidArgumentException $e) {
-			throw new WrongParametersException("Wrong value for 'query' parameter given");
+			throw new WrongParametersException($this->translator->trans('parameters.query'));
 		}
 
 		/** @var RestApi $restApi */
@@ -717,12 +688,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$attr = explode('.', $this->params['attribute']);
 		if (count($attr) != 4) {
-			throw new WrongParametersException("Parameter 'attribute' should contain identifier of column in Storage API, e.g. out.c-main.table.column");
+			throw new WrongParametersException($this->translator->trans('parameters.attribute'));
 		}
 		$tableId = sprintf('%s.%s.%s', $attr[0], $attr[1], $attr[2]);
 		$sapiTable = $this->getConfiguration()->getSapiTable($tableId);
 		if (!in_array($attr[3], $sapiTable['columns'])) {
-			throw new WrongParametersException(sprintf("Column '%s' of parameter 'attribute' does not exist in table '%s'", $attr[3], $tableId));
+			throw new WrongParametersException($this->translator->trans('parameters.attribute_not_found'));
 		}
 
 		$jobInfo = $this->createJob(array(
@@ -750,9 +721,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 					'uri' => $result['result']['uri']
 				));
 			} else {
-				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
-				throw $e;
+				return $this->waitingFinishedWithoutResult($result);
 			}
 		}
 	}
@@ -792,9 +761,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 					'uri' => $result['result']['uri']
 				));
 			} else {
-				$e = new JobProcessException('Job failed');
-				$e->setData(array('result' => $result['result'], 'logs' => $result['logs']));
-				throw $e;
+				return $this->waitingFinishedWithoutResult($result);
 			}
 		}
 	}
@@ -842,7 +809,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$this->checkParams(array('writerId', 'userEmail', 'pid'));
 		if (!isset($this->params['filters'])) {
-			throw new WrongParametersException("Parameter 'filters' is missing");
+			throw new WrongParametersException($this->translator->trans('parameters.filters'));
 		}
 		$this->checkWriterExistence();
 
@@ -931,7 +898,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->getConfiguration()->checkBucketAttributes();
 		$dateDimensions = $this->getConfiguration()->getDateDimensions();
 		if (!in_array($this->params['name'], array_keys($dateDimensions))) {
-			throw new WrongParametersException(sprintf("Date dimension '%s' does not exist in configuration", $this->params['name']));
+			throw new WrongParametersException($this->translator->trans('parameters.dimension_name'));
 		}
 
 		$jobInfo = $this->createJob(array(
@@ -984,7 +951,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 			$dimension = $column['schemaReference'];
 			if (!isset($dateDimensions[$dimension])) {
-				throw new WrongParametersException(sprintf("Date dimension '%s' defined for column '%s' does not exist in configuration", $dimension, $column['name']));
+				throw new WrongParametersException($this->translator->trans('configuration.dimension_not_found %d %c', array('%d' => $dimension, '%c' => $column['name'])));
 			}
 
 			if (!$dateDimensions[$dimension]['isExported'] && !in_array($dimension, $dateDimensionsToLoad)) {
@@ -1076,7 +1043,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 				$dimension = $column['schemaReference'];
 				if (!isset($dateDimensions[$dimension])) {
-					throw new WrongParametersException(sprintf("Date dimension '%s' defined for table '%s' and column '%s' does not exist in configuration", $dimension, $dataSet['tableId'], $column['name']));
+					throw new WrongParametersException($this->translator->trans('configuration.dimension_not_found %d %c %t', array('%d' => $dimension, '%c' => $column['name'], '%t' => $dataSet['tableId'])));
 				}
 
 				if (!$dateDimensions[$dimension]['isExported'] && !in_array($dimension, $dateDimensionsToLoad)) {
@@ -1223,11 +1190,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$project = $this->getConfiguration()->getProject($this->params['pid']);
 		if (!$project) {
-			throw new WrongParametersException(sprintf("Project '%s' is not configured for the writer", $this->params['pid']));
+			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
 		}
 
 		if (!$project['active']) {
-			throw new WrongParametersException(sprintf("Project '%s' is not active", $this->params['pid']));
+			throw new WrongParametersException($this->translator->trans('configuration.project_not_active'));
 		}
 
 		$reports = array();
@@ -1236,7 +1203,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 			foreach ($reports AS $reportLink) {
 				if (!preg_match('/^\/gdc\/md\/' . $this->params['pid'] . '\//', $reportLink)) {
-					throw new WrongParametersException("Parameter 'reports' is not valid; report uri '" .$reportLink . "' does not belong to the project");
+					throw new WrongParametersException($this->translator->trans('parameters.report_not_valid %1'));
 				}
 			}
 		}
@@ -1370,7 +1337,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkParams(array('writerId', 'tableId'));
 		$this->checkWriterExistence();
 		if (!in_array($this->params['tableId'], $this->getConfiguration()->getOutputSapiTables())) {
-			throw new WrongParametersException(sprintf("Table '%s' does not exist", $this->params['tableId']));
+			throw new WrongParametersException($this->translator->trans('parameters.tableId'));
 		}
 
 		$tableId = $this->params['tableId'];
@@ -1445,12 +1412,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$dimensions = $this->getConfiguration()->getDateDimensions();
 		if (isset($dimensions[$this->params['name']])) {
 			if (!empty($dimensions[$this->params['name']]['isExported'])) {
-				throw new WrongParametersException(sprintf("Dimension '%s' is already uploaded and cannot be deleted.", $this->params['name']));
+				throw new WrongParametersException($this->translator->trans('error.dimension_uploaded'));
 			}
 			$this->getConfiguration()->deleteDateDimension($this->params['name']);
 			return $this->createApiResponse();
 		} else {
-			throw new WrongParametersException(sprintf("Dimension '%s' does not exist", $this->params['name']));
+			throw new WrongParametersException($this->translator->trans('parameters.dimension_name'));
 		}
 	}
 
@@ -1518,11 +1485,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			));
 		} else {
 			if (is_array($this->params['jobId'])) {
-				throw new WrongParametersException("Parameter 'jobId' has to be a number");
+				throw new WrongParametersException($this->translator->trans('parameters.jobId_number'));
 			}
 			$job = $this->getSharedConfig()->fetchJob($this->params['jobId'], $this->getConfiguration()->writerId, $this->getConfiguration()->projectId);
 			if (!$job) {
-				throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
+				throw new WrongParametersException($this->translator->trans('parameters.job'));
 			}
 
 			$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
@@ -1615,7 +1582,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	private function getConfiguration()
 	{
 		if (!isset($this->params['writerId'])) {
-			throw new WrongParametersException('Parameter \'writerId\' is missing');
+			throw new WrongParametersException($this->translator->trans('parameters.writerId.required'));
 		}
 		if (!$this->configuration) {
 			$this->configuration = new Configuration($this->storageApi, $this->params['writerId'], $this->appConfiguration->scriptsPath);
@@ -1663,7 +1630,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	{
 		foreach($required as $k) {
 			if (empty($this->params[$k])) {
-				throw new WrongParametersException("Parameter '" . $k . "' is missing");
+				throw new WrongParametersException($this->translator->trans('parameters.required %1', array('%1' => $k)));
 			}
 		}
 	}
@@ -1671,7 +1638,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	private function checkWriterExistence()
 	{
 		if (!$this->getConfiguration()->bucketId) {
-			throw new WrongParametersException(sprintf("Writer '%s' does not exist", $this->params['writerId']));
+			throw new WrongParametersException($this->translator->trans('parameters.writerId.not_found'));
 		}
 	}
 
@@ -1679,7 +1646,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	{
 		$job = $this->getSharedConfig()->createJob($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->storageApi, $params);
 
-		$this->container->get('logger')->log(Logger::INFO, 'Job created ' . $job['id'], array(
+		$this->container->get('logger')->log(Logger::INFO, $this->translator->trans('log.job.created %1', array('%1' => $job['id'])), array(
 			'writerId' => $this->getConfiguration()->writerId,
 			'runId' => $this->storageApi->getRunId(),
 			'command' => $params['command'],
@@ -1721,18 +1688,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$i++;
 		} while(!$jobFinished);
 
-		if ($returnResponse) {
-			if ($jobInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS) {
-				return $this->createApiResponse($jobInfo);
-			} elseif ($jobInfo['status'] == SharedConfig::JOB_STATUS_CANCELLED) {
-				throw new JobProcessException('Job processing cancelled');
-			} else {
-				$e = new JobProcessException('Job processing failed');
-				$e->setData(array('result' => $jobInfo['result'], 'logs' => $jobInfo['logs']));
-				throw $e;
-			}
+		if ($jobInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS) {
+			return $returnResponse? $this->createApiResponse($jobInfo) : $jobInfo;
+		} elseif ($jobInfo['status'] == SharedConfig::JOB_STATUS_CANCELLED) {
+			throw new JobProcessException($this->translator->trans('result.cancelled'));
 		} else {
-			return $jobInfo;
+			$e = new JobProcessException(!empty($jobInfo['result']['error'])? $jobInfo['result']['error'] : $this->translator->trans('result.unknown'));
+			$e->setData(array('result' => $jobInfo['result'], 'logs' => $jobInfo['logs']));
+			throw $e;
 		}
 	}
 
@@ -1752,13 +1715,24 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if ($jobsInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS) {
 			return $this->createApiResponse($jobsInfo);
 		} elseif ($jobsInfo['status'] == SharedConfig::JOB_STATUS_CANCELLED) {
-			throw new JobProcessException('Batch processing cancelled');
+			throw new JobProcessException($this->translator->trans('result.cancelled'));
 
 		} else {
-			$e = new JobProcessException('Batch processing failed');
+			$e = new JobProcessException(!empty($jobInfo['result']['error'])? $jobInfo['result']['error'] : $this->translator->trans('result.unknown'));
 			$e->setData(array('result' => $jobsInfo['result'], 'logs' => $jobsInfo['logs']));
 			throw $e;
 		}
+	}
+
+
+	protected function waitingFinishedWithoutResult($result)
+	{
+		$e = new JobProcessException($this->translator->trans('result.missing'));
+		$e->setData(array(
+			'result' => $result['result'],
+			'logs' => $result['logs'])
+		);
+		throw $e;
 	}
 
 }

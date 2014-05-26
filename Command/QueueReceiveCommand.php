@@ -23,6 +23,11 @@ class QueueReceiveCommand extends ContainerAwareCommand
 	protected $queue;
 
 	/**
+	 * @var \Symfony\Component\Translation\Translator
+	 */
+	private $translator;
+
+	/**
 	 * @var OutputInterface
 	 */
 	protected $output;
@@ -44,6 +49,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 		$this->getContainer()->get('syrup.monolog.json_formatter')->setComponentName('gooddata-writer');
 
 		$this->queue = $this->getContainer()->get('gooddata_writer.jobs_queue');
+		$this->translator = $this->getContainer()->get('translator');
 
 		$this->output = $output;
 		$startTime = time();
@@ -69,7 +75,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 		try {
 			$this->output->writeln(sprintf('Received message: %s { batch: %s, project: %s, writer: %s }', $message->getId()
 				, $message->getBody()->batchId, $message->getBody()->projectId, $message->getBody()->writerId));
-			$log->info("Received message", $logData);
+			$log->info($this->translator->trans('queue.message_received'), $logData);
 			$command = $this->getApplication()->find('gooddata-writer:execute-batch');
 
 			$input = new \Symfony\Component\Console\Input\ArrayInput(array(
@@ -86,7 +92,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 				'writerId' => $message->getBody()->writerId,
 				'batchId' => $message->getBody()->batchId
 			), $delaySecs);
-			$log->info("Batch execution postponed", array_merge($logData, array(
+			$log->info($this->translator->trans('queue.batch_postponed'), array_merge($logData, array(
 				'newMessageId' => $newMessageId
 			)));
 			$this->output->writeln(sprintf("<info>%s</info>", $e->getMessage()));
@@ -94,7 +100,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 			$message->incrementRetries();
 			if ($message->getRetryCount() > self::MAX_EXECUTION_RETRIES) {
 				$this->errorMaximumRetriesExceeded($message->getBody()->batchId);
-				$log->alert("Queue process error (Maximum retries exceeded)", array_merge($logData, array(
+				$log->alert($this->translator->trans('queue.error_max_retries'), array_merge($logData, array(
 					'retryCount' => $message->getRetryCount(),
 					'message' => $message->toArray(),
 					'exception' => $e
@@ -104,7 +110,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 				$delaySecs = 60 * pow(2, $message->getRetryCount());
 				if ($delaySecs > 900) $delaySecs = 900;
 				$newMessageId = $this->queue->enqueue($message->getBody(), $delaySecs);
-				$log->err("Queue process error", array_merge($logData, array(
+				$log->err($this->translator->trans('queue.error'), array_merge($logData, array(
 					'newMessageId' => $newMessageId,
 					'retryCount' => $message->getRetryCount(),
 					'delaySecs' => $delaySecs,
@@ -115,7 +121,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 			$this->output->writeln(sprintf("<error>%s</error>", $e->getMessage()));
 		}
 		$this->queue->deleteMessage($message);
-		$log->info("Deleted message", array(
+		$log->info($this->translator->trans('queue.message_deleted'), array(
 			'messagedId' => $message->getId(),
 			'batchId' => $message->getBody()->batchId,
 			'projectId' => $message->getBody()->projectId,
@@ -135,7 +141,7 @@ class QueueReceiveCommand extends ContainerAwareCommand
 		foreach ($batch as $job) {
 			$sharedConfig->saveJob($job['id'], array(
 				'status' => SharedConfig::JOB_STATUS_ERROR,
-				'error' => 'Maximum execution retries exceeded.'
+				'error' => $this->translator->trans('error.max_retries_exceeded')
 			));
 		}
 	}

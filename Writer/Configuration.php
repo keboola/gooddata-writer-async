@@ -124,7 +124,7 @@ class Configuration extends StorageApiConfiguration
 
 
 	/**
-	 * @return array
+	 *
 	 */
 	public function getWriters()
 	{
@@ -171,9 +171,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Create configuration bucket for writer
-	 * @param $writerId
-	 * @param null $backendUrl
-	 * @throws WrongParametersException
 	 */
 	public function createWriter($writerId, $backendUrl = null)
 	{
@@ -193,7 +190,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Check if writer's bucket have all required attributes
-	 * @throws WrongConfigurationException
 	 */
 	public function checkBucketAttributes()
 	{
@@ -243,7 +239,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Get output tables from SAPI
-	 * @return array
 	 */
 	public function getOutputSapiTables()
 	{
@@ -259,9 +254,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Get info about table in SAPI
-	 * @param $tableId
-	 * @return mixed
-	 * @throws WrongConfigurationException
 	 */
 	public function getSapiTable($tableId)
 	{
@@ -334,8 +326,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Get complete data set definition
-	 * @param $tableId
-	 * @return mixed
 	 */
 	public function getDataSetForApi($tableId)
 	{
@@ -371,7 +361,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Get list of defined data sets
-	 * @return array
 	 */
 	public function getDataSets()
 	{
@@ -425,9 +414,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Get definition of data set
-	 * @param $tableId
-	 * @return bool|mixed
-	 * @throws WrongConfigurationException
 	 */
 	public function getDataSet($tableId)
 	{
@@ -454,8 +440,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Check if data set has connection point
-	 * @param $tableId
-	 * @return array
 	 */
 	public function getDimensionsOfDataSet($tableId)
 	{
@@ -473,11 +457,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Update definition of column of a data set
-	 * @param $tableId
-	 * @param $column
-	 * @param $data
-	 * @throws \Keboola\GoodDataWriter\Exception\WrongParametersException
-	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
 	 */
 	public function updateColumnsDefinition($tableId, $column, $data = null)
 	{
@@ -529,8 +508,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Remove non-sense definitions
-	 * @param $data
-	 * @return mixed
 	 */
 	private function cleanColumnDefinition($data)
 	{
@@ -583,11 +560,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Update definition of data set
-	 * @param $tableId
-	 * @param $name
-	 * @param $value
-	 * @throws \Keboola\GoodDataWriter\Exception\WrongParametersException
-	 * @throws \Keboola\GoodDataWriter\Exception\WrongConfigurationException
 	 */
 	public function updateDataSetDefinition($tableId, $name, $value = null)
 	{
@@ -625,8 +597,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Delete definition for columns removed from data table
-	 * @param $tableId
-	 * @throws WrongConfigurationException
 	 */
 	public function updateDataSetFromSapi($tableId)
 	{
@@ -862,8 +832,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Get defined date dimensions
-	 * @param bool $usage
-	 * @return array
 	 */
 	public function getDateDimensions($usage = false)
 	{
@@ -888,7 +856,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Get defined date dimensions with usage in data sets
-	 * @return array
 	 */
 	public function getDateDimensionsWithUsage()
 	{
@@ -943,7 +910,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Delete date dimension
-	 * @param $name
 	 */
 	public function deleteDateDimension($name)
 	{
@@ -961,8 +927,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Get list of all projects
-	 * @return array
-	 * @throws WrongConfigurationException
 	 */
 	public function getProjects()
 	{
@@ -977,8 +941,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Get project if exists
-	 * @param $pid
-	 * @return bool|array
 	 */
 	public function getProject($pid)
 	{
@@ -991,7 +953,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Check configuration table of projects
-	 * @throws WrongConfigurationException
 	 */
 	public function checkProjectsTable()
 	{
@@ -1010,7 +971,7 @@ class Configuration extends StorageApiConfiguration
 
 
 	/**
-	 * @param $pid
+	 *
 	 */
 	public function saveProject($pid)
 	{
@@ -1031,8 +992,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Get list of all users
-	 * @return array
-	 * @throws WrongConfigurationException
 	 */
 	public function getUsers()
 	{
@@ -1051,8 +1010,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Get user if exists
-	 * @param $email
-	 * @return bool|array
 	 */
 	public function getUser($email)
 	{
@@ -1064,7 +1021,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Check configuration table of users
-	 * @throws WrongConfigurationException
 	 */
 	public function checkUsersTable()
 	{
@@ -1076,13 +1032,7 @@ class Configuration extends StorageApiConfiguration
 	}
 
 	/**
-<<<<<<< HEAD
-	 * Get users of specified project
-=======
 	 * Check if user was invited/added to project by writer
-	 * @param $email
-	 * @param $pid
-	 * @return bool
 	 */
 	public function isProjectUser($email, $pid)
 	{
@@ -1095,9 +1045,7 @@ class Configuration extends StorageApiConfiguration
 	}
 
 	/**
-	 * @param null $pid
-	 * @throws WrongConfigurationException
-	 * @return array
+	 *
 	 */
 	public function getProjectUsers($pid = null)
 	{
@@ -1132,7 +1080,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Check configuration table of users
-	 * @throws WrongConfigurationException
 	 */
 	public function checkProjectUsersTable()
 	{
@@ -1146,8 +1093,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Save user to configuration
-	 * @param $email
-	 * @param $uid
 	 */
 	public function saveUser($email, $uid)
 	{
@@ -1161,9 +1106,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Save project user to configuration
-	 * @param $pid
-	 * @param $email
-	 * @param $role
 	 */
 	public function saveProjectUser($pid, $email, $role)
 	{
@@ -1183,9 +1125,7 @@ class Configuration extends StorageApiConfiguration
 	}
 
 	/**
-	 * @param $pid
-	 * @param $email
-	 * @param $role
+	 *
 	 */
 	public function saveProjectInvite($pid, $email, $role)
 	{
@@ -1214,8 +1154,7 @@ class Configuration extends StorageApiConfiguration
 	}
 
 	/**
-	 * @param $pid
-	 * @param $email
+	 *
 	 */
 	public function removeProjectUserAdd($pid, $email)
 	{
@@ -1241,8 +1180,7 @@ class Configuration extends StorageApiConfiguration
 	}
 
 	/**
-	 * @param $pid
-	 * @param $email
+	 *
 	 */
 	public function removeProjectUserInvite($pid, $email)
 	{
@@ -1277,8 +1215,7 @@ class Configuration extends StorageApiConfiguration
 
 
 	/**
-	 * @param $name
-	 * @return bool|array
+	 *
 	 */
 	public function getFilter($name)
 	{
@@ -1287,9 +1224,7 @@ class Configuration extends StorageApiConfiguration
 	}
 
 	/**
-	 * @param $userEmail
-	 * @param null $pid
-	 * @return array
+	 *
 	 */
 	public function getFiltersForUser($userEmail, $pid = null)
 	{
@@ -1310,7 +1245,7 @@ class Configuration extends StorageApiConfiguration
 
 
 	/**
-	 * @return array
+	 *
 	 */
 	public function getFilters()
 	{
@@ -1324,7 +1259,7 @@ class Configuration extends StorageApiConfiguration
 
 
 	/**
-	 * @return array
+	 *
 	 */
 	public function getFiltersUsers()
 	{
@@ -1332,7 +1267,7 @@ class Configuration extends StorageApiConfiguration
 	}
 
 	/**
-	 * @return array
+	 *
 	 */
 	public function getFiltersProjects()
 	{
@@ -1341,12 +1276,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 *
-	 * @param string $name
-	 * @param string $attribute
-	 * @param string $element
-	 * @param string $operator
-	 * @param string $uri
-	 * @throws \Keboola\GoodDataWriter\Exception\WrongParametersException
 	 */
 	public function saveFilter($name, $attribute, $element, $operator, $uri)
 	{
@@ -1382,12 +1311,6 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Update URI of the filter
-	 *
-	 * @param $name
-	 * @param $attribute
-	 * @param $element
-	 * @param $operator
-	 * @param $uri
 	 */
 	public function updateFilters($name, $attribute, $element, $operator, $uri)
 	{
@@ -1405,8 +1328,7 @@ class Configuration extends StorageApiConfiguration
 	}
 
 	/**
-	 * @param array $filters
-	 * @param $userEmail
+	 *
 	 */
 	public function saveFilterUser(array $filters, $userEmail)
 	{
@@ -1494,8 +1416,6 @@ class Configuration extends StorageApiConfiguration
 	 * Translates attribute name from SAPI form to GD form
 	 * Example: out.c-main.users.id -> attr.outcmainusers.id
 	 * If name is set on SAPI table (name = users): out.c-main.users.id -> attr.users.id
-	 * @param $attribute
-	 * @return string
 	 */
 	public function translateAttributeName($attribute)
 	{

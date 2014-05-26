@@ -20,6 +20,7 @@ use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Exception as StorageApiException;
 use Keboola\GoodDataWriter\Service\Lock;
 use Monolog\Logger;
+use Symfony\Component\Translation\Translator;
 use Syrup\ComponentBundle\Filesystem\TempServiceFactory;
 
 
@@ -64,12 +65,16 @@ class JobExecutor
 	 * @var \Keboola\GoodDataWriter\Service\Queue
 	 */
 	protected $queue;
+	/**
+	 * @var \Symfony\Component\Translation\Translator
+	 */
+	private $translator;
 
 
 	/**
 	 *
 	 */
-	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, Logger $logger, TempServiceFactory $tempServiceFactory, Queue $queue)
+	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, Logger $logger, TempServiceFactory $tempServiceFactory, Queue $queue, Translator $translator)
 	{
 		if (!defined('JSON_PRETTY_PRINT')) {
 			// fallback for PHP <= 5.3
@@ -82,6 +87,7 @@ class JobExecutor
 		$this->logger = $logger;
 		$this->tempServiceFactory = $tempServiceFactory;
 		$this->queue = $queue;
+		$this->translator = $translator;
 
 		$this->storageApiEvent = new StorageApiEvent();
 	}
@@ -101,7 +107,7 @@ class JobExecutor
 		$pdo->exec('SET wait_timeout = 31536000;');
 		$lock = new Lock($pdo, $batch['queueId']);
 		if (!$lock->lock()) {
-			throw new QueueUnavailableException("Batch {$batchId} cannot be executed, another job already in progress in the same queue.");
+			throw new QueueUnavailableException($this->translator->trans('queue.in_use %1', array('%1' => $batchId)));
 		}
 
 		foreach ($batch['jobs'] as $jobId) {
@@ -119,7 +125,7 @@ class JobExecutor
 	{
 		$job = $this->sharedConfig->fetchJob($jobId);
 		if (!$job) {
-			throw new JobProcessException("Job $jobId not found");
+			throw new JobProcessException($this->translator->trans('job_executor.not_found %1', array('%1' => $jobId)));
 		}
 
 		// Job already executed?
@@ -146,7 +152,7 @@ class JobExecutor
 				if ($job['parameters']) {
 					$parameters = json_decode($job['parameters'], true);
 					if ($parameters === false) {
-						throw new JobProcessException("Parameters decoding failed");
+						throw new JobProcessException($this->translator->trans('job_executor.bad_parameters'));
 					}
 				} else {
 					$parameters = array();
@@ -159,7 +165,7 @@ class JobExecutor
 				$configuration = new Configuration($this->storageApiClient, $job['writerId'], $this->appConfiguration->scriptsPath);
 				$bucketAttributes = $configuration->bucketAttributes();
 				if (!$serviceRun && !empty($bucketAttributes['maintenance'])) {
-					throw new QueueUnavailableException('Writer is undergoing maintenance');
+					throw new QueueUnavailableException($this->translator->trans('queue.maintenance'));
 				}
 
 				$this->sharedConfig->saveJob($jobId, array(
@@ -168,12 +174,15 @@ class JobExecutor
 					'endTime' => null
 				));
 				$logParams = $parameters;
-				$this->logEvent('start', $job, array('command' => $job['command'], 'params' => $logParams));
+				$this->logEvent($this->translator->trans('log.job.started %1', array('%1' => $job['id'])), $job, array(
+					'command' => $job['command'],
+					'params' => $logParams
+				));
 
 				$commandName = ucfirst($job['command']);
 				$commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
 				if (!class_exists($commandClass)) {
-					throw new JobProcessException(sprintf('Command %s does not exist', $commandName));
+					throw new JobProcessException($this->translator->trans('job_executor.command_not_found %1', array('%1' => $commandName)));
 				}
 
 				$s3Client = new S3Client(
@@ -193,17 +202,6 @@ class JobExecutor
 				if (!empty($token['owner']['features']) && in_array('gdwr-academy', $token['owner']['features'])) {
 					$appConfiguration->gd_domain = 'keboola-academy';
 				}
-
-				//@TODO bug with switching to academy domain
-				if ($appConfiguration->gd_domain == 'keboola-academy' && $configuration->projectId != 292) {
-					$this->logger->debug('Academy domain job in different project', array(
-						'token' => $this->storageApiClient->getLogData(),
-						'token2' => $token,
-						'job' => $job,
-						'parameters' => $parameters
-					));
-				}
-				//@TODO bug with switching to academy domain
 
 				/**
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
@@ -231,13 +229,13 @@ class JobExecutor
 					if ($e instanceof RestApiException) {
 						$command->logEvent('restApi', array('error' => $e->getMessage()), $this->restApi->getLogPath());
 
-						$jobData['result']['error'] = 'Rest API Error. ' . $e->getMessage();
+						$jobData['result']['error'] = $this->translator->trans('error.rest_api') . '. ' . $e->getMessage();
 						$debug['details'] = $e->getDetails();
 					} elseif ($e instanceof CLToolApiErrorException) {
-						$jobData['result']['error'] = 'CL Tool Error. ' . $e->getMessage();
+						$jobData['result']['error'] = $this->translator->trans('error.cl_tool') . '. ' . $e->getMessage();
 						$debug['details'] = $e->getData();
 					} elseif ($e instanceof StorageApiClientException) {
-						$jobData['result']['error'] = 'Storage API Error. ' . $e->getMessage();
+						$jobData['result']['error'] = $this->translator->trans('error.storage_api') . '. ' . $e->getMessage();
 						if ($e->getPrevious() instanceof CurlException) {
 							/* @var CurlException $curlException */
 							$curlException = $e->getPrevious();
@@ -262,17 +260,17 @@ class JobExecutor
 				if ($e instanceof QueueUnavailableException) {
 					throw $e;
 				} else {
-					$this->logger->alert('Job execution error', array(
+					$this->logger->alert($e->getMessage(), array(
 						'jobId' => $job,
 						'exception' => $e,
 						'runId' => $this->storageApiClient->getRunId()
 					));
-					$jobData['result']['error'] = 'Application error';
+					$jobData['result']['error'] = $this->translator->trans('error.application');
 				}
 			}
 
 		} catch(StorageApiException $e) {
-			$jobData['result']['error'] = "Storage API error: " . $e->getMessage();
+			$jobData['result']['error'] = $this->translator->trans('error.storage_api') . ': ' . $e->getMessage();
 		}
 
 		$jobData['status'] = empty($jobData['result']['error']) ? StorageApiEvent::TYPE_SUCCESS : StorageApiEvent::TYPE_ERROR;
@@ -285,7 +283,11 @@ class JobExecutor
 		$this->sharedConfig->saveJob($jobId, $jobData);
 
 		$this->storageApiEvent->setDuration(time() - $startTime);
-		$this->logEvent('end', $job, array('command' => $job['command'], 'params' => $logParams, 'result' => $jobData['result']));
+		$this->logEvent($this->translator->trans('log.job.finished %1', array('%1' => $job['id'])), $job, array(
+			'command' => $job['command'],
+			'params' => $logParams,
+			'result' => $jobData['result']
+		));
 	}
 
 
@@ -295,7 +297,7 @@ class JobExecutor
 	protected function logEvent($message, $job, $data = null)
 	{
 		$this->storageApiEvent
-			->setMessage(sprintf('Job %d %s', $job['id'], $message))
+			->setMessage($message)
 			->setComponent($this->appConfiguration->appName)
 			->setConfigurationId($job['writerId'])
 			->setRunId($job['runId']);
@@ -311,7 +313,7 @@ class JobExecutor
 		if ($data) {
 			$logData = array_merge($logData, $data);
 		}
-		$this->logger->log($priority, sprintf('Job %s %d', $message, $job['id']), $logData);
+		$this->logger->log($priority, $message, $logData);
 	}
 
 }
