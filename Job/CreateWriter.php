@@ -32,7 +32,7 @@ class CreateWriter extends AbstractJob
 		if ($existingProject) {
 			try {
 				$this->restApi->login($params['username'], $params['password']);
-			} catch (RestApiException $e) {
+			} catch (\Exception $e) {
 				throw new JobProcessException('Given GoodData credentials does not work');
 			}
 			try {

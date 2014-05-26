@@ -313,6 +313,9 @@ class JobExecutor
 		if ($data) {
 			$logData = array_merge($logData, $data);
 		}
+		array_walk($logData['params'], function(&$val, $key) {
+			if ($key == 'password') $val = '***';
+		});
 		$this->logger->log($priority, $message, $logData);
 	}
 

@@ -1646,11 +1646,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	{
 		$job = $this->getSharedConfig()->createJob($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->storageApi, $params);
 
+		$inputParams = isset($params['parameters'])? $params['parameters'] : array();
+		array_walk($inputParams, function(&$val, $key) {
+			if ($key == 'password') $val = '***';
+		});
 		$this->container->get('logger')->log(Logger::INFO, $this->translator->trans('log.job.created %1', array('%1' => $job['id'])), array(
 			'writerId' => $this->getConfiguration()->writerId,
 			'runId' => $this->storageApi->getRunId(),
 			'command' => $params['command'],
-			'params' => $this->params
+			'params' => $inputParams
 		));
 
 		return $job;
