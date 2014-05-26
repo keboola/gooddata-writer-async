@@ -78,7 +78,7 @@ class CreateWriter extends AbstractJob
 				'projectId' => $waitJob['projectId'],
 				'writerId' => $waitJob['writerId'],
 				'batchId' => $waitJob['batchId']
-			));
+			), 30);
 
 		} else {
 			$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken'], json_encode(array(
