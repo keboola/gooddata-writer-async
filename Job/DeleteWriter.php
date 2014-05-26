@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Keboola\GoodDataWriter\GoodData\RestApiException;
 
 class DeleteWriter extends AbstractJob
 {
@@ -30,11 +31,15 @@ class DeleteWriter extends AbstractJob
 				$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid']);
 
 				// Disable users in project
-				$projectUsers = $this->restApi->get(sprintf('/gdc/projects/%s/users', $project['pid']));
-				foreach ($projectUsers['users'] as $user) {
-					if ($user['user']['content']['email'] != $this->domainUser->username) {
-						$this->restApi->disableUserInProject($user['user']['links']['self'], $project['pid']);
+				try {
+					$projectUsers = $this->restApi->get(sprintf('/gdc/projects/%s/users', $project['pid']));
+					foreach ($projectUsers['users'] as $user) {
+						if ($user['user']['content']['email'] != $this->domainUser->username) {
+							$this->restApi->disableUserInProject($user['user']['links']['self'], $project['pid']);
+						}
 					}
+				} catch (RestApiException $e) {
+					// Ignore, project may have been already deleted
 				}
 			}
 		}
