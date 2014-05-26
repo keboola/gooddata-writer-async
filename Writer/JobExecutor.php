@@ -20,7 +20,7 @@ use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Exception as StorageApiException;
 use Keboola\GoodDataWriter\Service\Lock;
 use Monolog\Logger;
-use Symfony\Component\Translation\Translator;
+use Symfony\Component\Translation\TranslatorInterface;
 use Syrup\ComponentBundle\Filesystem\TempServiceFactory;
 
 
@@ -66,7 +66,7 @@ class JobExecutor
 	 */
 	protected $queue;
 	/**
-	 * @var \Symfony\Component\Translation\Translator
+	 * @var \Symfony\Component\Translation\TranslatorInterface
 	 */
 	private $translator;
 
@@ -74,7 +74,7 @@ class JobExecutor
 	/**
 	 *
 	 */
-	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, Logger $logger, TempServiceFactory $tempServiceFactory, Queue $queue, Translator $translator)
+	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, Logger $logger, TempServiceFactory $tempServiceFactory, Queue $queue, TranslatorInterface $translator)
 	{
 		if (!defined('JSON_PRETTY_PRINT')) {
 			// fallback for PHP <= 5.3
