@@ -421,6 +421,20 @@ class RestApi
 		return false;
 	}
 
+	public function hasAccessToProject($pid)
+	{
+		$accountInfo = $this->jsonRequest('/gdc/account/profile/current');
+		if (isset($accountInfo['accountSetting']['links']['projects'])) {
+			$projects = $this->jsonRequest($accountInfo['accountSetting']['links']['projects']);
+			foreach($projects['projects'] as $p) {
+				if ($p['project']['links']['self'] == '/gdc/projects/' . $pid) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 
 	/**
 	 * Creates user in the domain

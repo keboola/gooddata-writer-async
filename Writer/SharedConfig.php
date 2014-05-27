@@ -318,7 +318,9 @@ class SharedConfig extends StorageApiConfiguration
 			elseif ($job['status'] == self::JOB_STATUS_CANCELLED) $cancelledJobs++;
 			elseif ($job['status'] == self::JOB_STATUS_ERROR) {
 				$errorJobs++;
-				$data['result'] = $job['result'];
+				if ($job['createdTime'] < $data['createdTime']) {
+					$data['result'] = $job['result'];
+				}
 			}
 			else $successJobs++;
 		}

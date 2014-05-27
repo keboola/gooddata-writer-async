@@ -26,7 +26,11 @@ class DeleteWriter extends AbstractJob
 		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) if (!$project['keepAfterRemoval']) {
 
 			if ($this->isTesting) {
-				$this->restApi->dropProject($project['pid']);
+				try {
+					$this->restApi->dropProject($project['pid']);
+				} catch (RestApiException $e) {
+					// Ignore, project may have been already deleted
+				}
 			} else {
 				$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid']);
 

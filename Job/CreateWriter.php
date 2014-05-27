@@ -35,12 +35,11 @@ class CreateWriter extends AbstractJob
 			} catch (\Exception $e) {
 				throw new JobProcessException('Given GoodData credentials does not work');
 			}
-			try {
-				if (!in_array('admin', $this->restApi->getUserRolesInProject($params['username'], $params['pid']))) {
-					throw new JobProcessException('Given GoodData credentials must have admin access to the project');
-				}
-			} catch (RestApiException $e) {
+			if (!$this->restApi->hasAccessToProject($params['pid'])) {
 				throw new JobProcessException('GoodData project is not accessible under given credentials');
+			}
+			if (!in_array('admin', $this->restApi->getUserRolesInProject($params['username'], $params['pid']))) {
+				throw new JobProcessException('Given GoodData credentials must have admin access to the project');
 			}
 		} else {
 			$this->checkParams($params, array('accessToken', 'projectName'));

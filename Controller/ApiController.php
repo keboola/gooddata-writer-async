@@ -165,8 +165,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		} else {
 			// Create new writer
 
-			$this->getConfiguration()->createWriter($this->params['writerId']);
-
 			$batchId = $this->storageApi->generateId();
 			$jobData = array(
 				'batchId' => $batchId,
@@ -189,10 +187,26 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				$jobData['parameters']['pid'] = $this->params['pid'];
 				$jobData['parameters']['username'] = $this->params['username'];
 				$jobData['parameters']['password'] = $this->params['password'];
+
+				/** @var RestApi $restApi */
+				$restApi = $this->container->get('gooddata_writer.rest_api');
+				try {
+					$restApi->login($this->params['username'], $this->params['password']);
+				} catch (\Exception $e) {
+					throw new WrongParametersException('Given GoodData credentials does not work');
+				}
+				if (!$restApi->hasAccessToProject($this->params['pid'])) {
+					throw new WrongParametersException('GoodData project is not accessible under given credentials');
+				}
+				if (!in_array('admin', $restApi->getUserRolesInProject($this->params['username'], $this->params['pid']))) {
+					throw new WrongParametersException('Given GoodData credentials must have admin access to the project');
+				}
 			} else {
 				$jobData['parameters']['accessToken'] = !empty($this->params['accessToken'])? $this->params['accessToken'] : $this->appConfiguration->gd_accessToken;
 				$jobData['parameters']['projectName'] = sprintf($this->appConfiguration->gd_projectNameTemplate, $this->getConfiguration()->tokenInfo['owner']['name'], $this->getConfiguration()->writerId);
 			}
+
+			$this->getConfiguration()->createWriter($this->params['writerId']);
 
 			$jobInfo = $this->createJob($jobData);
 
