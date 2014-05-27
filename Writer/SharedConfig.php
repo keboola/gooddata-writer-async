@@ -336,21 +336,18 @@ class SharedConfig extends StorageApiConfiguration
 
 
 	/**
-	 * @param $pid
-	 * @param $accessToken
-	 * @param $backendUrl
-	 * @param $job
+	 * Save project to shared config
 	 */
-	public function saveProject($pid, $accessToken=null, $job)
+	public function saveProject($projectId, $writerId, $pid, $accessToken=null, $keepAfterRemoval = false)
 	{
 		$data = array(
 			'pid' => $pid,
-			'projectId' => $job['projectId'],
-			'writerId' => $job['writerId'],
-			'backendUrl' => null,
+			'projectId' => $projectId,
+			'writerId' => $writerId,
 			'accessToken' => $accessToken,
 			'createdTime' => date('c'),
-			'projectIdWriterId' => $job['projectId'] . '.' . $job['writerId']
+			'projectIdWriterId' => $projectId . '.' . $writerId,
+			'keepAfterRemoval' => $keepAfterRemoval
 		);
 		$this->updateTableRow(self::PROJECTS_TABLE_ID, 'pid', $data);
 	}

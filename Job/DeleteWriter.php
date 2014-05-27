@@ -23,7 +23,7 @@ class DeleteWriter extends AbstractJob
 
 		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
 
-		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) {
+		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) if (!$project['keepAfterRemoval']) {
 
 			if ($this->isTesting) {
 				$this->restApi->dropProject($project['pid']);

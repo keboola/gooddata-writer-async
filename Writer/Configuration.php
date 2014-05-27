@@ -87,7 +87,7 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Prepare configuration
-	 * Get bucket attributes and backendUrl for Rest API calls
+	 * Get bucket attributes for Rest API calls
 	 */
 	public function __construct(StorageApiClient $storageApiClient, $writerId = null, $scriptsPath)
 	{
@@ -172,7 +172,7 @@ class Configuration extends StorageApiConfiguration
 	/**
 	 * Create configuration bucket for writer
 	 */
-	public function createWriter($writerId, $backendUrl = null)
+	public function createWriter($writerId)
 	{
 		if ($this->configurationBucket($writerId)) {
 			throw new WrongParametersException(sprintf("Writer with id '%s' already exists", $writerId));
@@ -181,9 +181,6 @@ class Configuration extends StorageApiConfiguration
 		$this->storageApiClient->createBucket('wr-gooddata-' . $writerId, 'sys', 'GoodData Writer Configuration');
 		$this->storageApiClient->setBucketAttribute('sys.c-wr-gooddata-' . $writerId, 'writer', self::WRITER_NAME);
 		$this->storageApiClient->setBucketAttribute('sys.c-wr-gooddata-' . $writerId, 'writerId', $writerId);
-		if ($backendUrl) {
-			$this->storageApiClient->setBucketAttribute('sys.c-wr-gooddata-' . $writerId, 'gd.backendUrl', $backendUrl);
-		}
 		$this->bucketId = 'sys.c-wr-gooddata-' . $writerId;
 	}
 

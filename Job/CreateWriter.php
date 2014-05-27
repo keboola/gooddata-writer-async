@@ -97,7 +97,7 @@ class CreateWriter extends AbstractJob
 		$this->configuration->updateWriter('gd.uid', $userId);
 
 
-		$this->sharedConfig->saveProject($projectPid, isset($params['accessToken'])? $params['accessToken'] : null, $job);
+		$this->sharedConfig->saveProject($job['projectId'], $job['writerId'], $projectPid, isset($params['accessToken'])? $params['accessToken'] : null, $existingProject);
 		$this->sharedConfig->saveUser($userId, $username, $job);
 
 

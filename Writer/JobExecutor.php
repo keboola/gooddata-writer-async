@@ -190,9 +190,6 @@ class JobExecutor
 					$job['projectId'] . '.' . $job['writerId']
 				);
 
-				if (isset($bucketAttributes['gd']['backendUrl'])) {
-					$this->restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
-				}
 				$this->restApi->setJobId($job['id']);
 				$this->restApi->initLog();
 				$token = $this->storageApiClient->getLogData();

@@ -93,8 +93,7 @@ class UploadDateDimension extends AbstractJob
 
 			if ($includeTime) {
 				// Upload to WebDav
-				$webDavUrl = $this->getWebDavUrl($bucketAttributes);
-				$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl);
+				$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 				// Upload time dimension data
 				$stopWatchId = 'uploadTimeDimension-' . $params['name'];

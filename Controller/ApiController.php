@@ -165,7 +165,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		} else {
 			// Create new writer
 
-			$this->getConfiguration()->createWriter($this->params['writerId'], isset($this->params['backendUrl']) ? $this->params['backendUrl'] : null);
+			$this->getConfiguration()->createWriter($this->params['writerId']);
 
 			$batchId = $this->storageApi->generateId();
 			$jobData = array(
@@ -213,7 +213,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				}
 			} else {
 
-				$users = explode(',', $this->params['users']);
+				$users = is_array($this->params['users'])? $this->params['users'] : explode(',', $this->params['users']);
 				foreach ($users as $user) {
 					$this->createJob(array(
 						'batchId' => $batchId,

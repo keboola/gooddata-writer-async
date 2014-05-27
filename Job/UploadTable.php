@@ -65,7 +65,6 @@ class UploadTable extends AbstractJob
 		$filterColumn = $this->getFilterColumn($params['tableId'], $tableDefinition, $bucketAttributes);
 		$ldmChange = false;
 
-		$webDavUrl = $this->getWebDavUrl($bucketAttributes);
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$e = $stopWatch->stop($stopWatchId);
@@ -196,12 +195,6 @@ class UploadTable extends AbstractJob
 		if (!$this->preRelease) {
 			$clToolApi = new CLToolApi($this->logger, $this->appConfiguration->clPath);
 			$clToolApi->s3client = $this->s3Client;
-			if (isset($bucketAttributes['gd']['backendUrl'])) {
-				$urlParts = parse_url($bucketAttributes['gd']['backendUrl']);
-				if ($urlParts && !empty($urlParts['host'])) {
-					$clToolApi->setBackendUrl($urlParts['host']);
-				}
-			}
 			$clToolApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		}
 		//@TODO REMOVE WITH CL TOOL
@@ -283,8 +276,8 @@ class UploadTable extends AbstractJob
 
 
 			// Upload to WebDav
-			$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl);
-			if (!$webDavUrl) $webDavUrl = $webDav->url;
+			$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+			$webDavUrl = $webDav->url;
 
 			// Upload dataSets
 			foreach ($loadDataJobs as $gdJob) {
