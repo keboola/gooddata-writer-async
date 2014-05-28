@@ -135,15 +135,18 @@ GET /writers?writerId={writerId}
 
 
 ### Create writer
-Creates new configuration bucket and creates GoodData project and dedicated GoodData user. Credentials and PID are stored to bucket attributes.
+Creates new configuration bucket and either uses existing GoodData project or creates new one along with dedicated GoodData user. Credentials and PID are stored to bucket attributes.
 
 #### Parameters
 
 * **writerId** (required)
-* **backendUrl** (optional) - url of backend (secure.gooddata.com by default)
-* **accessToken** (optional) - GoodData access token (main Keboola by default)
 * **users** (optional) - comma-separated list of users emails which should be added to main project
-* **queue** (optional) - with value **secondary** will put job in secondary queue
+* if you want to create new GD project:
+  * **accessToken** (optional) - GoodData access token (main Keboola by default)
+* if you have existing project:
+  * **pid** (required) - pid of the project
+  * **username** (required) - username of your user with admin access to the project
+  * **password** (required) - password of your user
 POST /writers
 > X-StorageApi-Token: your_token
 > Accept: application/json
@@ -626,38 +629,55 @@ GET /jobs?writerId={writerId}&jobId={jobId}
 < 200
 < Content-Type: application/json
 {
-    "job": {
-        "id": 762909,
-        "runId": 762908,
-        "projectId": 265,
-        "writerId": "wr9",
-        "token": {
-            "id": 2352,
-            "description": "Master Token"
-        },
-        "createdTime": "2013-04-05T10:15:48+02:00",
-        "startTime": "2013-04-05T10:45:06+02:00",
-        "endTime": "2013-04-05T10:45:17+02:00",
-        "command": "addUserToProject",
-        "parameters": {
-            "writerId": "wr9",
-            "email": "11112@test.keboola.com",
-            "pid": "xjywplmhejceb6j3ezzlxiganmjavqio",
-            "role": "editor"
-        },
-        "result": {
-            "id": "762909",
-            "status": "ok",
-            "response": [],
-            "duration": 8
-        },
-        "gdWriteStartTime": "2013-04-05T10:45:12+02:00",
-        "status": "success",
-        "log": "url to log"
+    "id": 762909,
+    "runId": 762908,
+    "projectId": 265,
+    "writerId": "wr9",
+    "token": {
+        "id": 2352,
+        "description": "Master Token"
     },
-    "status": "ok",
-    "duration": 1.4656889438629
+    "createdTime": "2013-04-05T10:15:48+02:00",
+    "startTime": "2013-04-05T10:45:06+02:00",
+    "endTime": "2013-04-05T10:45:17+02:00",
+    "command": "addUserToProject",
+    "parameters": {
+        "writerId": "wr9",
+        "email": "11112@test.keboola.com",
+        "pid": "xjywplmhejceb6j3ezzlxiganmjavqio",
+        "role": "editor"
+    },
+    "result": {
+        "id": "762909",
+        "status": "ok",
+        "response": [],
+        "duration": 8
+    },
+    "gdWriteStartTime": "2013-04-05T10:45:12+02:00",
+    "status": "success",
+    "log": "url to log"
 }
+
+
+
+### Get batch detail
+
+GET /batch?writerId={writerId}&batchId={batchId}
+> X-StorageApi-Token: your_token
+< 200
+< Content-Type: application/json
+{
+    "batchId": 762909,
+    "projectId": 265,
+    "writerId": "wr9",
+    "createdTime": "2013-04-05T10:15:48+02:00",
+    "startTime": "2013-04-05T10:45:06+02:00",
+    "endTime": "2013-04-05T10:45:17+02:00",
+    "status": "success",
+    "jobs": [762910, 762911, 762912]
+}
+
+
 
 --
 User Filters
@@ -762,6 +782,16 @@ POST /filters
 < 200
 < Content-Type: application/json
 { "status": "ok", "uri": "gdc/md/p1d_0f_y0u2_6d_p20j3ct/obj/12" }
+
+
+### Delete Filter
+DELETE /filters?writerId={writerId}&uri={filterUri}
+> X-StorageApi-Token: your_token
+< 200
+< Content-Type: application/json
+{
+    "status": "ok"
+}
 
 
 ### Assign Filter to User

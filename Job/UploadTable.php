@@ -51,7 +51,7 @@ class UploadTable extends AbstractJob
 		// Init
 		$tmpFolderName = basename($this->tmpDir);
 		$this->goodDataModel = new Model($this->appConfiguration);
-		$this->csvHandler = new CsvHandler($this->scriptsPath, $this->storageApiClient, $this->logger);
+		$this->csvHandler = new CsvHandler($this->appConfiguration->scriptsPath, $this->storageApiClient);
 		$this->csvHandler->setJobId($job['id']);
 		$this->csvHandler->setRunId($job['runId']);
 		$projects = $this->configuration->getProjects();

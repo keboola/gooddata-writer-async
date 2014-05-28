@@ -158,6 +158,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if ($writerExists) {
 			// Update writer configuration
 			foreach ($this->params as $key => $value) if ($key != 'writerId') {
+				if (is_array($value)) $value = json_encode($value);
 				$this->getConfiguration()->updateWriter($key, $value);
 			}
 			return $this->createApiResponse();
@@ -193,13 +194,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				try {
 					$restApi->login($this->params['username'], $this->params['password']);
 				} catch (\Exception $e) {
-					throw new WrongParametersException('Given GoodData credentials does not work');
+					throw new WrongParametersException($this->translator->trans('parameters.gd_credentials'));
 				}
 				if (!$restApi->hasAccessToProject($this->params['pid'])) {
-					throw new WrongParametersException('GoodData project is not accessible under given credentials');
+					throw new WrongParametersException($this->translator->trans('parameters.gd_project_inaccessible'));
 				}
 				if (!in_array('admin', $restApi->getUserRolesInProject($this->params['username'], $this->params['pid']))) {
-					throw new WrongParametersException('Given GoodData credentials must have admin access to the project');
+					throw new WrongParametersException($this->translator->trans('parameters.gd_user_not_admin'));
 				}
 			} else {
 				$jobData['parameters']['accessToken'] = !empty($this->params['accessToken'])? $this->params['accessToken'] : $this->appConfiguration->gd_accessToken;
@@ -1658,7 +1659,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 	private function createJob($params)
 	{
-		$job = $this->getSharedConfig()->createJob($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->storageApi, $params);
+		$tokenData = $this->storageApi->getLogData();
+		$job = $this->getSharedConfig()->createJob($this->getConfiguration()->projectId, $this->getConfiguration()->writerId,
+			$this->storageApi->getRunId(), $this->storageApi->token, $tokenData['id'], $tokenData['description'], $params);
 
 		$inputParams = isset($params['parameters'])? $params['parameters'] : array();
 		array_walk($inputParams, function(&$val, $key) {

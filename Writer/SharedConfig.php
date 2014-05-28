@@ -131,24 +131,23 @@ class SharedConfig extends StorageApiConfiguration
 	}
 
 	/**
-	 *
+	 * Create new job
 	 */
-	public function createJob($projectId, $writerId, StorageApiClient $storageApiClient, $params)
+	public function createJob($projectId, $writerId, $runId, $token, $tokenId, $tokenOwner, $params)
 	{
 		$jobId = $this->storageApiClient->generateId();
 		if (!isset($params['batchId'])) {
 			$params['batchId'] = $jobId;
 		}
 
-		$tokenInfo = $storageApiClient->getLogData();
 		$jobInfo = array(
 			'id' => $jobId,
-			'runId' => $storageApiClient->getRunId(),
+			'runId' => $runId,
 			'projectId' => $projectId,
 			'writerId' => $writerId,
-			'token' => $storageApiClient->token,
-			'tokenId' => $tokenInfo['id'],
-			'tokenDesc' => $tokenInfo['description'],
+			'token' => $token,
+			'tokenId' => $tokenId,
+			'tokenDesc' => $tokenOwner,
 			'createdTime' => null,
 			'startTime' => null,
 			'gdWriteStartTime' => null,
@@ -171,7 +170,7 @@ class SharedConfig extends StorageApiConfiguration
 	}
 
 	/**
-	 *
+	 * Update existing job
 	 */
 	public function saveJob($jobId, $fields)
 	{

@@ -7,7 +7,6 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\GoodData\RestApi;
-use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\GoodData\UserAlreadyExistsException;
 use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Writer\SharedConfig;
@@ -65,7 +64,9 @@ class CreateWriter extends AbstractJob
 			$this->configuration->updateWriter('waitingForInvitation', '1');
 			$this->configuration->updateWriter('maintenance', '1');
 
-			$waitJob = $this->sharedConfig->createJob($this->configuration->projectId, $this->configuration->writerId, $this->storageApiClient, array(
+			$tokenData = $this->storageApiClient->getLogData();
+			$waitJob = $this->sharedConfig->createJob($this->configuration->projectId, $this->configuration->writerId,
+				$this->storageApiClient->getRunId(), $this->storageApiClient->token, $tokenData['id'], $tokenData['description'], array(
 				'command' => 'waitForInvitation',
 				'createdTime' => date('c'),
 				'parameters' => array(

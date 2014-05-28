@@ -6,7 +6,6 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Service\Queue;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
@@ -15,7 +14,9 @@ use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\StorageApi\Client as StorageApiClient;
-use Syrup\ComponentBundle\Filesystem\TempServiceFactory;
+use Monolog\Logger;
+use Symfony\Component\Translation\TranslatorInterface;
+use Syrup\ComponentBundle\Filesystem\TempService;
 
 abstract class AbstractJob
 {
@@ -40,85 +41,74 @@ abstract class AbstractJob
 	 */
 	protected $s3Client;
 	/**
-	 * @var \Monolog\Logger
+	 * @var TempService
+	 */
+	protected $tempService;
+	/**
+	 * @var TranslatorInterface
+	 */
+	protected $translator;
+	/**
+	 * @var Logger
 	 */
 	protected $logger;
-	/**
-	 * @var TempServiceFactory
-	 */
-	protected $tempServiceFactory;
-
 	/**
 	 * @var StorageApiClient $storageApiClient
 	 */
 	protected $storageApiClient;
-
-	protected $tmpDir;
-	protected $rootPath;
-	protected $scriptsPath;
+	/**
+	 * @var Queue
+	 */
+	protected $queue;
 	/**
 	 * @var \Keboola\GoodDataWriter\GoodData\User
 	 */
 	protected $domainUser;
 
 	/**
-	 * @var \Syrup\ComponentBundle\Filesystem\TempService
-	 */
-	private $tempService;
-	/**
 	 * @var \SplFileObject
 	 */
 	private $logFile;
-	/**
-	 * @var Queue
-	 */
-	protected $queue;
-
 	protected $logs;
 
+	protected $tmpDir;
+	protected $scriptsPath;
 	protected $preRelease;
 	protected $isTesting;
 
+
+
+
 	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedConfig $sharedConfig,
-								RestApi $restApi, S3Client $s3Client, TempServiceFactory $tempServiceFactory)
+								RestApi $restApi, S3Client $s3Client, TempService $tempService, TranslatorInterface $translator,
+								StorageApiClient $storageApiClient, $jobId)
 	{
 		$this->configuration = $configuration;
 		$this->appConfiguration = $appConfiguration;
 		$this->sharedConfig = $sharedConfig;
 		$this->restApi = $restApi;
 		$this->s3Client = $s3Client;
-		$this->tempServiceFactory = $tempServiceFactory;
-		$this->tempService = $tempServiceFactory->get('gooddata_writer');
+		$this->tempService = $tempService;
+		$this->translator = $translator;
+		$this->storageApiClient = $storageApiClient;
 
 		$this->domainUser = $this->sharedConfig->getDomainUser($appConfiguration->gd_domain);
 
 		$this->initLog();
 		$this->logs = array();
+
+		$this->tmpDir = sprintf('%s/%s', $this->appConfiguration->tmpPath, $jobId);
+		if (!file_exists($this->tmpDir)) mkdir($this->tmpDir);
+		if (!file_exists($this->appConfiguration->tmpPath)) mkdir($this->appConfiguration->tmpPath);
 	}
 
 
 	abstract function run($job, $params);
 
 
-
-	public function setTmpDir($tmpDir)
-	{
-		$this->tmpDir = $tmpDir;
-	}
-
-	public function setScriptsPath($scriptsPath)
-	{
-		$this->scriptsPath = $scriptsPath;
-	}
-
 	public function setLogger($logger)
 	{
 		$this->logger = $logger;
-	}
-
-	public function setStorageApiClient($storageApiClient)
-	{
-		$this->storageApiClient = $storageApiClient;
 	}
 
 	public function setQueue(Queue $queue)

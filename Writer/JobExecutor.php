@@ -74,7 +74,8 @@ class JobExecutor
 	/**
 	 *
 	 */
-	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, Logger $logger, TempServiceFactory $tempServiceFactory, Queue $queue, TranslatorInterface $translator)
+	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, Logger $logger,
+								TempServiceFactory $tempServiceFactory, Queue $queue, TranslatorInterface $translator)
 	{
 		if (!defined('JSON_PRETTY_PRINT')) {
 			// fallback for PHP <= 5.3
@@ -123,9 +124,11 @@ class JobExecutor
 	 */
 	public function runJob($jobId, $forceRun = false)
 	{
+		$startTime = time();
+
 		$job = $this->sharedConfig->fetchJob($jobId);
 		if (!$job) {
-			throw new JobProcessException($this->translator->trans('job_executor.not_found %1', array('%1' => $jobId)));
+			throw new JobProcessException($this->translator->trans('job_executor.job_not_found %1', array('%1' => $jobId)));
 		}
 
 		// Job already executed?
@@ -135,8 +138,6 @@ class JobExecutor
 
 		$queueIdArray = explode('.', $job['queueId']);
 		$serviceRun = isset($queueIdArray[2]) && $queueIdArray[2] == SharedConfig::SERVICE_QUEUE;
-
-		$startTime = time();
 
 		$jobData = array('result' => array());
 		$logParams = $job['parameters'];
@@ -157,10 +158,6 @@ class JobExecutor
 				} else {
 					$parameters = array();
 				}
-
-				$tmpDir = sprintf('%s/%s', $this->appConfiguration->tmpPath, $job['id']);
-				if (!file_exists($this->appConfiguration->tmpPath)) mkdir($this->appConfiguration->tmpPath);
-				if (!file_exists($tmpDir)) mkdir($tmpDir);
 
 				$configuration = new Configuration($this->storageApiClient, $job['writerId'], $this->appConfiguration->scriptsPath);
 				$bucketAttributes = $configuration->bucketAttributes();
@@ -200,18 +197,18 @@ class JobExecutor
 					$appConfiguration->gd_domain = 'keboola-academy';
 				}
 
+				$tempService = $this->tempServiceFactory->get('gooddata_writer');
+				$preRelease = !empty($token['owner']['features']) && in_array('gdwr-prerelease', $token['owner']['features']);
+				$isTesting = !empty($token['owner']['features']) && in_array('gdwr-testing', $token['owner']['features']);
 				/**
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 				 */
-				$command = new $commandClass($configuration, $appConfiguration, $this->sharedConfig, $this->restApi, $s3Client, $this->tempServiceFactory);
-				$command->setTmpDir($tmpDir);
-				$command->setScriptsPath($this->appConfiguration->scriptsPath);
-				$command->setLogger($this->logger);
-				$command->setStorageApiClient($this->storageApiClient);
+				$command = new $commandClass($configuration, $appConfiguration, $this->sharedConfig, $this->restApi, $s3Client,
+					$tempService, $this->translator, $this->storageApiClient, $job['id']);
+				$command->setLogger($this->logger); //@TODO deprecated - only for CL tool
 				$command->setQueue($this->queue);
-
-				$command->setPreRelease(!empty($token['owner']['features']) && in_array('gdwr-prerelease', $token['owner']['features']));
-				$command->setIsTesting(!empty($token['owner']['features']) && in_array('gdwr-testing', $token['owner']['features']));
+				$command->setPreRelease($preRelease);
+				$command->setIsTesting($isTesting);
 
 				$error = null;
 

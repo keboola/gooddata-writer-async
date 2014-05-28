@@ -15,7 +15,7 @@ error:
 job_executor:
   bad_parameters: Parameters decoding failed. Contact support please
   command_not_found %1: Command %1 does not exist
-  not_found %1: Job %1 not found
+  job_not_found %1: Job %1 not found
 
 log:
   job:
@@ -29,6 +29,9 @@ parameters:
   dimension_name: Parameter 'name' does not correspond with any date dimension configured for the writer
   email_not_configured: Parameter 'email' does not correspond with any user configured for the writer
   filters: Parameter 'filters' is required
+  gd_credentials: Given GoodData credentials does not work
+  gd_project_inaccessible: GoodData project is not accessible under given credentials
+  gd_user_not_admin: Given GoodData credentials must have admin access to the project
   job: Parameter 'jobId' does not correspond with any job of the writer
   jobId_number: Parameter 'jobId' has to be a number
   password_length: Parameter 'password' must have at least seven characters

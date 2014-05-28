@@ -20,7 +20,6 @@ class CsvHandler
 {
 	private $scriptPath;
 	private $storageApiClient;
-	private $logger;
 
 	private $jobId;
 	private $runId;
@@ -28,11 +27,10 @@ class CsvHandler
 	private $command;
 
 
-	public function __construct($scriptsPath, Client $storageApi, Logger $logger)
+	public function __construct($scriptsPath, Client $storageApi)
 	{
 		$this->scriptPath = $scriptsPath . '/convert_csv.php';
 		$this->storageApiClient = $storageApi;
-		$this->logger = $logger;
 
 		if (!file_exists($this->scriptPath))
 			throw new \Exception('Conversion script for csv handling in pipe does not exist: ' . $this->scriptPath);
@@ -171,14 +169,14 @@ class CsvHandler
 		$command = sprintf('gzip -c | curl -s -S -T - --header %s --retry 12 --user %s:%s %s',
 			escapeshellarg('Content-encoding: gzip'), escapeshellarg($username), escapeshellarg($password),
 			escapeshellarg($url . $uri . '/data.csv'));
-		$command = sprintf('curl -s -S -T - --retry 12 --user %s:%s %s',
+		/*$command = sprintf('curl -s -S -T - --retry 12 --user %s:%s %s',
 			escapeshellarg($username), escapeshellarg($password),
-			escapeshellarg($url . $uri . '/data.csv'));
+			escapeshellarg($url . $uri . '/data.csv'));*/
 
 		$this->command .= ' | ' . $command;
 
 		$error = null;
-		for ($i = 0; $i < 5; $i++) {
+		for ($i = 0; $i < 10; $i++) {
 			$process = new Process($this->command);
 			$process->setTimeout(null);
 			$process->run();
@@ -193,14 +191,7 @@ class CsvHandler
 					// Retry after any curl error
 					$retry = true;
 				}
-				if ($retry) {
-					$this->logger->error('Curl error during csv handling, will be retried', array(
-						'command' => $this->command,
-						'error' => $error ? $error : 'No error output',
-						'jobId' => $this->jobId,
-						'runId' => $this->runId,
-					));
-				} else {
+				if (!$retry) {
 					break;
 				}
 			}
@@ -208,17 +199,16 @@ class CsvHandler
 			sleep($i * 60);
 		}
 
-		$e = new CsvHandlerException('CSV handling failed. ' . $error);
 		if (!$error || substr($error, 0, 7) == 'curl: (') {
-			$this->logger->alert('Curl error during csv handling', array(
+			throw new \Exception(json_encode(array(
+				'error' => 'Curl error during csv handling: ' . ($error? $error : 'No error output'),
 				'command' => $this->command,
-				'error' => $error? $error : 'No error output',
 				'jobId' => $this->jobId,
 				'runId' => $this->runId,
-			));
+			)));
+		} else {
+			throw new CsvHandlerException('CSV handling failed. ' . $error);
 		}
-		$this->command = null;
-		throw $e;
 	}
 
 }

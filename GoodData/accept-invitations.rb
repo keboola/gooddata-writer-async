@@ -66,7 +66,7 @@ begin
     last_error = e
     begin
       imap.disconnect if imap
-    rescue Net::IMAP::IOError => e
+    rescue IOError => e
       #ignore
     end
     next

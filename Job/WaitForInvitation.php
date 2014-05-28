@@ -22,24 +22,21 @@ class WaitForInvitation extends AbstractJob
 		$bucketAttributes = $this->configuration->bucketAttributes();
 
 		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
-		try {
-			$res = $this->restApi->get(sprintf('/gdc/md/%s', $bucketAttributes['gd']['pid']));
+		if ($this->restApi->hasAccessToProject($bucketAttributes['gd']['pid'])) {
 
 			$this->restApi->addUserToProject($bucketAttributes['gd']['uid'], $bucketAttributes['gd']['pid']);
 			$this->configuration->updateWriter('maintenance', null);
 			$this->configuration->updateWriter('waitingForInvitation', null);
 
-		} catch (RestApiException $e) {
-
-			if ($e->getCode() != 403) {
-				throw $e;
-			}
+		} else {
 
 			if ($params['try'] > 5) {
 				throw new WrongConfigurationException('Writer is waiting for access to your project too long. Contact support please.');
 			}
 
-			$waitJob = $this->sharedConfig->createJob($this->configuration->projectId, $this->configuration->writerId, $this->storageApiClient, array(
+			$tokenData = $this->storageApiClient->getLogData();
+			$waitJob = $this->sharedConfig->createJob($this->configuration->projectId, $this->configuration->writerId,
+				$this->storageApiClient->getRunId(), $this->storageApiClient->token, $tokenData['id'], $tokenData['description'], array(
 				'command' => 'waitForInvitation',
 				'createdTime' => date('c'),
 				'parameters' => array(
@@ -55,7 +52,7 @@ class WaitForInvitation extends AbstractJob
 
 			return array(
 				'status' => SharedConfig::JOB_STATUS_ERROR,
-				'error' => 'Access to project is not granted yet.'
+				'error' => 'Access to project is not granted yet'
 			);
 
 		}

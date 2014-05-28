@@ -8,7 +8,6 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\Model;
-use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Writer\SharedConfig;
 
 class OptimizeSliHash extends AbstractJob

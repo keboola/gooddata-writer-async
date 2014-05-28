@@ -6,8 +6,6 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-
 class CloneProject extends AbstractJob
 {
 	/**

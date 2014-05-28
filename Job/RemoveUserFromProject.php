@@ -6,8 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
-	Keboola\GoodDataWriter\Exception\WrongParametersException;
+use Keboola\GoodDataWriter\Exception\WrongParametersException;
 
 class RemoveUserFromProject extends AbstractJob
 {
