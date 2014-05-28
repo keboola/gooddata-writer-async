@@ -161,11 +161,10 @@ class WritersTest extends AbstractControllerTest
 		/**
 		 * Set configuration
 		 */
-		$this->_postWriterApi('/gooddata-writer/writers', array(
-			'writerId' => $writerId,
+		$this->_postWriterApi('/gooddata-writer/writers/' . $writerId, array(
 			'attribute' => 1
 		));
-		$writerInfo = $this->_getWriterApi('/gooddata-writer/writers?writerId=' . $writerId);
+		$writerInfo = $this->_getWriterApi('/gooddata-writer/writers/' . $writerId);
 		$this->assertArrayHasKey('writer', $writerInfo, "Writer should have set attribute 'writer'");
 		$this->assertArrayHasKey('attribute', $writerInfo['writer'], "Writer should have set attribute 'writer.attribute'");
 		$this->assertEquals(1, $writerInfo['writer']['attribute'], "Writer should have set attribute 'writer.attribute' with value '1'");

@@ -166,12 +166,11 @@ Sets attributes to writer's configuration
 
 #### Parameters
 
-* **writerId** (required)
 * **attribute** (required) - attribute which you want to set
-POST /writers
+POST /writers/{writerId}
 > X-StorageApi-Token: your_token
 > Accept: application/json
-{ "writerId": "writer1", "maintenance": 1 }
+{ "maintenance": 1 }
 < 202
 < Content-Type: application/json
 { 
