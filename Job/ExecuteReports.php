@@ -6,38 +6,32 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Exception\WrongParametersException,
 	Keboola\GoodDataWriter\GoodData\RestApiException;
 
 class ExecuteReports extends AbstractJob
 {
 	/**
-	 * required:
-	 * optional: pid, reports
+	 * required: pid
+	 * optional: reports
 	 */
 	public function run($job, $params)
 	{
+		$this->checkParams($params, array('pid'));
 		$this->configuration->checkBucketAttributes();
 		$this->configuration->checkProjectsTable();
 
-		$pids = array();
-		if (empty($params['pid'])) {
-			$projects = $this->configuration->getProjects();
-			foreach ($projects as $project) if ($project['active']) {
-				$pids[] = $project['pid'];
-			}
-		} else {
-			$project = $this->configuration->getProject($params['pid']);
-			if ($project && $project['active']) {
-				$pids[] = $project['pid'];
-			}
+		$project = $this->configuration->getProject($params['pid']);
+		if (!$project) {
+			throw new WrongConfigurationException($this->translator->trans('parameters.pid_not_configured'));
+		}
 
-			// reports uri validation if pid was specified
-			if (!empty($params['reports'])) {
-				foreach ((array) $params['reports'] AS $reportLink) {
-					if (!preg_match('/^\/gdc\/md\/' . $project['pid'] . '\//', $reportLink)) {
-						throw new WrongParametersException("Parameter 'reports' is not valid; report uri '" .$reportLink . "' does not belong to the project");
-					}
+		// reports uri validation if pid was specified
+		if (!empty($params['reports'])) {
+			foreach ((array) $params['reports'] AS $reportUri) {
+				if (!preg_match('/^\/gdc\/md\/' . $project['pid'] . '\//', $reportUri)) {
+					throw new WrongParametersException($this->translator->trans('parameters.report.not_valid %1', array('%1' => $reportUri)));
 				}
 			}
 		}
@@ -46,22 +40,20 @@ class ExecuteReports extends AbstractJob
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		foreach ($pids as $pid) {
-			if (!empty($params['pid']) && !empty($params['reports'])) {
-				// specified reports
-				foreach ($params['reports'] as $reportLink) {
-					$this->restApi->executeReport($reportLink);
+		if (!empty($params['reports'])) {
+			// specified reports
+			foreach ($params['reports'] as $reportUri) {
+				$this->restApi->executeReport($reportUri);
+			}
+		} else {
+			// all reports
+			$reports = $this->restApi->get(sprintf('/gdc/md/%s/query/reports', $params['pid']));
+			if (isset($reports['query']['entries'])) {
+				foreach ($reports['query']['entries'] as $report) {
+					$this->restApi->executeReport($report['link']);
 				}
 			} else {
-				// all reports
-				$reports = $this->restApi->get(sprintf('/gdc/md/%s/query/reports', $pid));
-				if (isset($reports['query']['entries'])) {
-					foreach ($reports['query']['entries'] as $report) {
-						$this->restApi->executeReport($report['link']);
-					}
-				} else {
-					throw new RestApiException('Bad format of response, missing query.entries key.');
-				}
+				throw new RestApiException('Bad format of response, missing query.entries key.');
 			}
 		}
 

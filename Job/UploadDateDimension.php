@@ -43,7 +43,7 @@ class UploadDateDimension extends AbstractJob
 
 		$dateDimensions = $this->configuration->getDateDimensions();
 		if (!in_array($params['name'], array_keys($dateDimensions))) {
-			throw new WrongConfigurationException(sprintf("Date dimension '%s' does not exist in configuration", $params['name']));
+			throw new WrongConfigurationException($this->translator->trans('parameters.dimension_name'));
 		}
 
 		// Init
@@ -55,7 +55,7 @@ class UploadDateDimension extends AbstractJob
 		$projectsToLoad = array();
 		foreach ($this->configuration->getProjects() as $project) if ($project['active']) {
 			if (in_array($project['pid'], $projectsToLoad)) {
-				throw new WrongConfigurationException("Project '" . $project['pid'] . "' is duplicated in configuration");
+				throw new WrongConfigurationException($this->translator->trans('configuration.project.duplicated %1', array('%1' => $project['pid'])));
 			}
 
 			if (!isset($params['pid']) || $project['pid'] == $params['pid']) {
@@ -63,7 +63,7 @@ class UploadDateDimension extends AbstractJob
 			}
 		}
 		if (isset($params['pid']) && !count($projectsToLoad)) {
-			throw new WrongConfigurationException("Project '" . $params['pid'] . "' was not found in configuration");
+			throw new WrongConfigurationException($this->translator->trans('parameters.pid_not_configured'));
 		}
 
 		$includeTime = $dateDimensions[$params['name']]['includeTime'];

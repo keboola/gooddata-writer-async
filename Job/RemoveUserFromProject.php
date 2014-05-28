@@ -23,7 +23,7 @@ class RemoveUserFromProject extends AbstractJob
 
 		$gdWriteStartTime = date('c');
 		if (!$this->configuration->isProjectUser($params['email'], $params['pid'])) {
-			throw new WrongParametersException(sprintf("Project user '%s' is not configured for the writer", $params['email']));
+			throw new WrongParametersException($this->translator->trans('parameters.email_not_configured_in_project'));
 		}
 
 		$userId = false;

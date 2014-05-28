@@ -167,7 +167,7 @@ abstract class AbstractJob
 	{
 		foreach($required as $k) {
 			if (empty($params[$k])) {
-				throw new WrongConfigurationException("Parameter '" . $k . "' is missing");
+				throw new WrongConfigurationException($this->translator->trans('parameters.required %1', array('%1' => $k)));
 			}
 		}
 	}

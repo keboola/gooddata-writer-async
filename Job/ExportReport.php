@@ -36,7 +36,7 @@ class ExportReport extends AbstractJob
 		$report = $this->restApi->get($params['report']);
 
 		if (!isset($report['report']['content']['definitions'][0])) {
-			throw new RestApiException("Report definition not found");
+			throw new RestApiException($this->translator->trans('parameters.report.no_definitions %1', array('%1' => $params['report'])));
 		}
 		$reportDefinitions = $report['report']['content']['definitions'];
 		$reportDefinitionUri = array_pop($reportDefinitions);

@@ -1,16 +1,29 @@
 configuration:
+  data_sets_not_found %1: Following data sets from project does not exist in writer's configuration: %1
   dimension_not_found %d %c: Date dimension '%d' defined for column '%c' does not exist in configuration
   dimension_not_found %d %c %t: Date dimension '%d' defined for table '%t' and column '%c' does not exist in configuration
-  project_not_active: Project is not configured as active
+  filter:
+    missing_uri %1: Filter '%1' is missing it's 'uri' in configuration
+  project:
+    duplicated %1: Project '%1' is duplicated in configuration
+    not_active: Project is not configured as active
+  upload:
+    filter_index_missing: Filter column does not have indexą
+    filter_missing: Filter column does not exist in the table
+  writer_attributes_wrong: Writer is missing required configuration attributes, must contain 'gooddata.pid', 'gooddata.username', 'gooddata.uid' and 'gooddata.password'
 
 error:
   application: Application Error
   cl_tool: CL Tool Error
+  csv_not_uploaded %1: Csv file has not been uploaded to '%1'
   dimension_uploaded: Dimension is already uploaded to GoodData and cannot be removed from configuration
   max_retries_exceeded: Maximum execution retries exceeded. Contact support please
   rest_api: Rest API Error
+  s3_download_fail: Download from S3 failed
   sso_unknown: SSO link could not be generated. Contact support please
   storage_api: Storage API Error
+  user:
+    in_other_domain: User already exists and belongs to other domain
 
 job_executor:
   bad_parameters: Parameters decoding failed. Contact support please
@@ -24,14 +37,19 @@ log:
     started %1: Job started (%1)
 
 parameters:
-  attribute: Parameter 'attribute' should contain identifier of column in Storage API, e.g. out.c-main.table.column
-  attribute_not_found: Parameter 'attribute' contains column which does not exist in given table
+  attribute:
+    format: Parameter 'attribute' should contain identifier of column in Storage API, e.g. out.c-main.table.column
+    not_found: Parameter 'attribute' contains column which does not exist in given table
   dimension_name: Parameter 'name' does not correspond with any date dimension configured for the writer
   email_not_configured: Parameter 'email' does not correspond with any user configured for the writer
-  filters: Parameter 'filters' is required
-  gd_credentials: Given GoodData credentials does not work
-  gd_project_inaccessible: GoodData project is not accessible under given credentials
-  gd_user_not_admin: Given GoodData credentials must have admin access to the project
+  email_not_configured_in_project: Parameter 'email' does not correspond with any user configured for the project in parameter 'pid'
+  filters:
+    not_array: Parameter 'filters' must be an array
+    required: Parameter 'filters' is required
+  gd:
+    credentials: Given GoodData credentials does not work
+    project_inaccessible: GoodData project is not accessible under given credentials
+    user_not_admin: Given GoodData credentials must have admin access to the project
   job: Parameter 'jobId' does not correspond with any job of the writer
   jobId_number: Parameter 'jobId' has to be a number
   password_length: Parameter 'password' must have at least seven characters
@@ -40,7 +58,9 @@ parameters:
   pid_not_configured: Parameter 'pid' does not correspond with any project configured for the writer
   queue %1: Parameter 'queue' is not valid, must be one of: %1
   query: Parameter 'query' must contain valid uri to GoodData API
-  report_not_valid %1: Parameter 'reports' is not valid. Report uri '%1' does not belong to the project
+  report:
+    no_definitions %1: Report '%1' has no definitions to export
+    not_valid %1: Parameter 'reports' is not valid. Report uri '%1' does not belong to the project
   required %1: Parameter '%1' is required
   role %1: Parameter 'role' is not valid, must be one of: %1
   sso_wrong_pid: Parameter 'pid' does not correspond with any project created by the writer and cannot be used for sso access
@@ -66,3 +86,7 @@ result:
   cancelled: Job processing cancelled by user
   missing: Job processing ended without required result. Contact support please
   unknown: Job processing failed with unknown reason. Contact support please
+
+wait_for_invitation:
+  lasts_too_long: Writer is waiting for access to your project too long. Contact support please
+  not_yet_ready: Access to project is not granted yet

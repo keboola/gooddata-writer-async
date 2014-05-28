@@ -32,13 +32,13 @@ class CreateWriter extends AbstractJob
 			try {
 				$this->restApi->login($params['username'], $params['password']);
 			} catch (\Exception $e) {
-				throw new JobProcessException('Given GoodData credentials does not work');
+				throw new JobProcessException($this->translator->trans('parameters.gd.credentials'));
 			}
 			if (!$this->restApi->hasAccessToProject($params['pid'])) {
-				throw new JobProcessException('GoodData project is not accessible under given credentials');
+				throw new JobProcessException($this->translator->trans('parameters.gd.project_inaccessible'));
 			}
 			if (!in_array('admin', $this->restApi->getUserRolesInProject($params['username'], $params['pid']))) {
-				throw new JobProcessException('Given GoodData credentials must have admin access to the project');
+				throw new JobProcessException($this->translator->trans('parameters.gd.user_not_admin'));
 			}
 		} else {
 			$this->checkParams($params, array('accessToken', 'projectName'));
@@ -51,7 +51,7 @@ class CreateWriter extends AbstractJob
 		} catch (UserAlreadyExistsException $e) {
 			$userId = $e->getMessage();
 			if (!$userId) {
-				throw new \Exception(sprintf("User '%s' already exists and does not belong to domain '%s'", $username, $this->domainUser->domain));
+				throw new \Exception($this->translator->trans('error.user.in_other_domain') . ': ' . $username);
 			}
 		}
 

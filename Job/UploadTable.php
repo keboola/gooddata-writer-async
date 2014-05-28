@@ -84,23 +84,19 @@ class UploadTable extends AbstractJob
 		$process->run();
 		$error = $process->getErrorOutput();
 		if (!$process->isSuccessful() || $error) {
-			$e = new JobProcessException('Definition download from S3 failed.');
-			$e->setData(array(
+			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . json_encode(array(
 				'command' => $command,
 				'error' => $error,
 				'output' => $process->getOutput()
-			));
-			throw $e;
+			)));
 		}
 		$definition = json_decode($process->getOutput(), true);
 		if (!$definition) {
-			$e = new JobProcessException('Definition download from S3 failed.');
-			$e->setData(array(
+			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . json_encode(array(
 				'command' => $command,
 				'error' => $error,
 				'output' => $process->getOutput()
-			));
-			throw $e;
+			)));
 		}
 
 		$e = $stopWatch->stop($stopWatchId);
@@ -132,7 +128,7 @@ class UploadTable extends AbstractJob
 		$projectsToLoad = array();
 		foreach ($projects as $project) if ($project['active']) {
 			if (in_array($project['pid'], array_keys($projectsToLoad))) {
-				throw new WrongConfigurationException("Project '" . $project['pid'] . "' is duplicated in configuration");
+				throw new WrongConfigurationException($this->translator->trans('configuration.project.duplicated %1', array('%1' => $project['pid'])));
 			}
 
 			if (!isset($params['pid']) || $project['pid'] == $params['pid']) {
@@ -144,7 +140,7 @@ class UploadTable extends AbstractJob
 			}
 		}
 		if (isset($params['pid']) && !count($projectsToLoad)) {
-			throw new WrongConfigurationException("Project '" . $params['pid'] . "' was not found in configuration");
+			throw new WrongConfigurationException($this->translator->trans('parameters.pid_not_configured'));
 		}
 
 
@@ -291,7 +287,7 @@ class UploadTable extends AbstractJob
 				$this->csvHandler->prepareTransformation($definition);
 				$this->csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDavUrl, '/uploads/' . $webDavFolder);
 				if (!$webDav->fileExists($webDavFolder . '/data.csv')) {
-					throw new WebDavException(sprintf("Csv file has not been uploaded to '%s/uploads/%s/data.csv'", $webDavUrl, $webDavFolder));
+					throw new WrongConfigurationException($this->translator->trans('error.csv_not_uploaded %1', array('%1' => sprintf('%s/uploads/%s/data.csv', $webDavUrl, $webDavFolder))));
 				}
 
 				$e = $stopWatch->stop($stopWatchId);
@@ -406,10 +402,10 @@ class UploadTable extends AbstractJob
 			$filterColumn = $bucketAttributes['filterColumn'];
 			$tableInfo = $this->configuration->getSapiTable($tableId);
 			if (!in_array($filterColumn, $tableInfo['columns'])) {
-				throw new WrongConfigurationException("Filter column does not exist in the table");
+				throw new WrongConfigurationException($this->translator->trans('configuration.upload.filter_missing'));
 			}
 			if (!in_array($filterColumn, $tableInfo['indexedColumns'])) {
-				throw new WrongConfigurationException("Filter column does not have index");
+				throw new WrongConfigurationException($this->translator->trans('configuration.upload.filter_index_missing'));
 			}
 		}
 		return $filterColumn;

@@ -31,7 +31,7 @@ class CreateUser extends AbstractJob
 			$userId = $e->getMessage();
 			$alreadyExists = true;
 			if (!$userId) {
-				throw new JobProcessException(sprintf("User '%s' already exists and belongs to other domain", $params['email']));
+				throw new JobProcessException($this->translator->trans('error.user.in_other_domain'));
 			}
 		}
 

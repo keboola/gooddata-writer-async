@@ -64,7 +64,7 @@ class OptimizeSliHash extends AbstractJob
 			}
 			if (count($missing)) {
 				sort($missing);
-				throw new WrongConfigurationException("Following dataSets from project does not exist in writer's configuration: " . implode(', ', $missing));
+				throw new WrongConfigurationException($this->translator->trans('configuration.data_sets_not_found %1', array('%1' => implode(', ', $missing))));
 			}
 
 			$this->restApi->optimizeSliHash($bucketAttributes['gd']['pid'], $manifests);

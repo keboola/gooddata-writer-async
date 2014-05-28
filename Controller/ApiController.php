@@ -177,13 +177,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			try {
 				$restApi->login($this->params['username'], $this->params['password']);
 			} catch (\Exception $e) {
-				throw new WrongParametersException($this->translator->trans('parameters.gd_credentials'));
+				throw new WrongParametersException($this->translator->trans('parameters.gd.credentials'));
 			}
 			if (!$restApi->hasAccessToProject($this->params['pid'])) {
-				throw new WrongParametersException($this->translator->trans('parameters.gd_project_inaccessible'));
+				throw new WrongParametersException($this->translator->trans('parameters.gd.project_inaccessible'));
 			}
 			if (!in_array('admin', $restApi->getUserRolesInProject($this->params['username'], $this->params['pid']))) {
-				throw new WrongParametersException($this->translator->trans('parameters.gd_user_not_admin'));
+				throw new WrongParametersException($this->translator->trans('parameters.gd.user_not_admin'));
 			}
 		} else {
 			$jobData['parameters']['accessToken'] = !empty($this->params['accessToken'])? $this->params['accessToken'] : $this->appConfiguration->gd_accessToken;
@@ -707,12 +707,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$attr = explode('.', $this->params['attribute']);
 		if (count($attr) != 4) {
-			throw new WrongParametersException($this->translator->trans('parameters.attribute'));
+			throw new WrongParametersException($this->translator->trans('parameters.attribute.format'));
 		}
 		$tableId = sprintf('%s.%s.%s', $attr[0], $attr[1], $attr[2]);
 		$sapiTable = $this->getConfiguration()->getSapiTable($tableId);
 		if (!in_array($attr[3], $sapiTable['columns'])) {
-			throw new WrongParametersException($this->translator->trans('parameters.attribute_not_found'));
+			throw new WrongParametersException($this->translator->trans('parameters.attribute.not_found'));
 		}
 
 		$jobInfo = $this->createJob(array(
@@ -828,7 +828,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$this->checkParams(array('writerId', 'userEmail', 'pid'));
 		if (!isset($this->params['filters'])) {
-			throw new WrongParametersException($this->translator->trans('parameters.filters'));
+			throw new WrongParametersException($this->translator->trans('parameters.filters.required'));
 		}
 		$this->checkWriterExistence();
 
@@ -1213,7 +1213,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 
 		if (!$project['active']) {
-			throw new WrongParametersException($this->translator->trans('configuration.project_not_active'));
+			throw new WrongParametersException($this->translator->trans('configuration.project.not_active'));
 		}
 
 		$reports = array();
@@ -1222,7 +1222,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 			foreach ($reports AS $reportLink) {
 				if (!preg_match('/^\/gdc\/md\/' . $this->params['pid'] . '\//', $reportLink)) {
-					throw new WrongParametersException($this->translator->trans('parameters.report_not_valid %1'));
+					throw new WrongParametersException($this->translator->trans('parameters.report.not_valid %1'));
 				}
 			}
 		}

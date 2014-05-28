@@ -31,7 +31,7 @@ class WaitForInvitation extends AbstractJob
 		} else {
 
 			if ($params['try'] > 5) {
-				throw new WrongConfigurationException('Writer is waiting for access to your project too long. Contact support please.');
+				throw new WrongConfigurationException($this->translator->trans('wait_for_invitation.lasts_too_long'));
 			}
 
 			$tokenData = $this->storageApiClient->getLogData();
@@ -52,7 +52,7 @@ class WaitForInvitation extends AbstractJob
 
 			return array(
 				'status' => SharedConfig::JOB_STATUS_ERROR,
-				'error' => 'Access to project is not granted yet'
+				'error' => $this->translator->trans('wait_for_invitation.not_yet_ready')
 			);
 
 		}

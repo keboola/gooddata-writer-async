@@ -22,14 +22,14 @@ class InviteUserToProject extends AbstractJob
 
 		$allowedRoles = array_keys(RestApi::$userRoles);
 		if (!in_array($params['role'], $allowedRoles)) {
-			throw new WrongConfigurationException("Parameter 'role' is not valid; it has to be one of: " . implode(', ', $allowedRoles));
+			throw new WrongConfigurationException($this->translator->trans('role %1', array('%1' => implode(', ', $allowedRoles))));
 		}
 		$this->configuration->checkBucketAttributes();
 		$bucketAttributes = $this->configuration->bucketAttributes();
 
 		if (empty($params['pid'])) {
 			if (empty($bucketAttributes['gd']['pid'])) {
-				throw new WrongConfigurationException("Parameter 'pid' is missing and writer does not have primary project");
+				throw new WrongConfigurationException($this->translator->trans('configuration.writer_attributes_wrong'));
 			}
 			$params['pid'] = $bucketAttributes['gd']['pid'];
 		}
