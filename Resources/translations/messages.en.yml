@@ -82,6 +82,9 @@ queue:
   message_deleted: Deleted message
   message_received: Received message
 
+rest_api:
+  reports_list_bad_response: Bad format of response, missing 'query.entries' key
+
 result:
   cancelled: Job processing cancelled by user
   missing: Job processing ended without required result. Contact support please
