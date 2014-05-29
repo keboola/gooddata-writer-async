@@ -1,5 +1,5 @@
 configuration:
-  data_sets_not_found %1: Following data sets from project does not exist in writer's configuration: %1
+  data_sets_not_found %1: "Following data sets from project does not exist in writer's configuration: %1"
   dimension_not_found %d %c: Date dimension '%d' defined for column '%c' does not exist in configuration
   dimension_not_found %d %c %t: Date dimension '%d' defined for table '%t' and column '%c' does not exist in configuration
   filter:
@@ -56,13 +56,13 @@ parameters:
   password_missing: Missing parameter 'password', add it or remove parameters 'username' and 'pid'
   pid_missing: Missing parameter 'pid', add it or remove parameters 'password' and 'pid'
   pid_not_configured: Parameter 'pid' does not correspond with any project configured for the writer
-  queue %1: Parameter 'queue' is not valid, must be one of: %1
+  queue %1: "Parameter 'queue' is not valid, must be one of: %1"
   query: Parameter 'query' must contain valid uri to GoodData API
   report:
     no_definitions %1: Report '%1' has no definitions to export
     not_valid %1: Parameter 'reports' is not valid. Report uri '%1' does not belong to the project
   required %1: Parameter '%1' is required
-  role %1: Parameter 'role' is not valid, must be one of: %1
+  role %1: "Parameter 'role' is not valid, must be one of: %1"
   sso_wrong_pid: Parameter 'pid' does not correspond with any project created by the writer and cannot be used for sso access
   sso_wrong_email: Parameter 'email' does not correspond with any user created by the writer and cannot be used for sso access
   tableId: Parameter 'tableId' does not correspond with any table configured by the writer
