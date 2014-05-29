@@ -166,12 +166,12 @@ class CsvHandler
 		$urlParts = parse_url($url);
 		$url = 'https://' . $urlParts['host'];
 
-		$command = sprintf('gzip -c | curl -s -S -T - --header %s --retry 12 --user %s:%s %s',
+		/*$command = sprintf('gzip -c | curl -s -S -T - --header %s --retry 12 --user %s:%s %s',
 			escapeshellarg('Content-encoding: gzip'), escapeshellarg($username), escapeshellarg($password),
-			escapeshellarg($url . $uri . '/data.csv'));
-		/*$command = sprintf('curl -s -S -T - --retry 12 --user %s:%s %s',
-			escapeshellarg($username), escapeshellarg($password),
 			escapeshellarg($url . $uri . '/data.csv'));*/
+		$command = sprintf('curl -s -S -T - --retry 12 --user %s:%s %s',
+			escapeshellarg($username), escapeshellarg($password),
+			escapeshellarg($url . $uri . '/data.csv'));
 
 		$this->command .= ' | ' . $command;
 
