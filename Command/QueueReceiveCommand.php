@@ -76,27 +76,28 @@ class QueueReceiveCommand extends ContainerAwareCommand
 			$this->output->writeln(sprintf('Received message: %s { batch: %s, project: %s, writer: %s }', $message->getId()
 				, $message->getBody()->batchId, $message->getBody()->projectId, $message->getBody()->writerId));
 			$log->info($this->translator->trans('queue.message_received'), $logData);
-			$command = $this->getApplication()->find('gooddata-writer:execute-batch');
 
-			$input = new \Symfony\Component\Console\Input\ArrayInput(array(
+			/** @var \Keboola\GoodDataWriter\Command\ExecuteBatchCommand $command */
+			$command = $this->getApplication()->find('gooddata-writer:execute-batch');
+			$input = array(
 				$command->getName(),
-				'batchId' => $message->getBody()->batchId,
-			));
-			$command->run($input, $this->output);
+				'batchId' => $message->getBody()->batchId
+			);
+			if (!empty($message->getBody()->force)) {
+				$input['--force'] = true;
+			}
+			$command->run(new \Symfony\Component\Console\Input\ArrayInput($input), $this->output);
 
 		} catch (QueueUnavailableException $e) {
 			// enqueue again
 			$delaySecs = 60;
-			$newMessageId = $this->queue->enqueue(array(
-				'projectId' => $message->getBody()->projectId,
-				'writerId' => $message->getBody()->writerId,
-				'batchId' => $message->getBody()->batchId
-			), $delaySecs);
+			$newMessageId = $this->queue->enqueue($message->getBody(), $delaySecs);
 			$log->info($this->translator->trans('queue.batch_postponed'), array_merge($logData, array(
 				'newMessageId' => $newMessageId
 			)));
 			$this->output->writeln(sprintf("<info>%s</info>", $e->getMessage()));
 		} catch(\Exception $e) {
+			$message->setForceRun();
 			$message->incrementRetries();
 			if ($message->getRetryCount() > self::MAX_EXECUTION_RETRIES) {
 				$this->errorMaximumRetriesExceeded($message->getBody()->batchId);

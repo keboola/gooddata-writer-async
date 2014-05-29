@@ -9,23 +9,23 @@ namespace Keboola\GoodDataWriter\Service;
 
 class QueueMessage
 {
-	private $_id;
-	private $_body;
-	private $_receiptHandle;
-	private $_queueUrl;
+	private $id;
+	private $body;
+	private $receiptHandle;
+	private $queueUrl;
 
 
 	public function __construct($id, \stdClass $body, $receiptHandle, $queueUrl)
 	{
-		$this->_id = $id;
-		$this->_body = $body;
-		$this->_receiptHandle = $receiptHandle;
-		$this->_queueUrl = $queueUrl;
+		$this->id = $id;
+		$this->body = $body;
+		$this->receiptHandle = $receiptHandle;
+		$this->queueUrl = $queueUrl;
 	}
 
 	public function getId()
 	{
-		return $this->_id;
+		return $this->id;
 	}
 
 	/**
@@ -33,17 +33,17 @@ class QueueMessage
 	 */
 	public function getBody()
 	{
-		return $this->_body;
+		return $this->body;
 	}
 
 	public function getReceiptHandle()
 	{
-		return $this->_receiptHandle;
+		return $this->receiptHandle;
 	}
 
 	public function getQueueUrl()
 	{
-		return $this->_queueUrl;
+		return $this->queueUrl;
 	}
 
 	/**
@@ -51,7 +51,7 @@ class QueueMessage
 	 */
 	public function getRetryCount()
 	{
-		return isset($this->_body->retryCount) ? (int) $this->_body->retryCount : 0;
+		return isset($this->body->retryCount) ? (int) $this->body->retryCount : 0;
 	}
 
 	/**
@@ -59,7 +59,16 @@ class QueueMessage
 	 */
 	public function incrementRetries()
 	{
-		$this->_body->retryCount = isset($this->_body->retryCount) ? $this->_body->retryCount + 1 : 1;
+		$this->body->retryCount = isset($this->body->retryCount) ? $this->body->retryCount + 1 : 1;
+		return $this;
+	}
+
+	/**
+	 *
+	 */
+	public function setForceRun()
+	{
+		$this->body->force = 1;
 		return $this;
 	}
 
