@@ -7,17 +7,15 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
-	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException;
-use Keboola\GoodDataWriter\GoodData\CLToolApi,
-	Keboola\GoodDataWriter\GoodData\CsvHandler,
+use Keboola\GoodDataWriter\GoodData\CsvHandler,
 	Keboola\GoodDataWriter\GoodData\WebDav;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\WebDavException;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Stopwatch\Stopwatch;
 
-class UploadTable extends AbstractJob
+class LoadData extends AbstractJob
 {
 	/**
 	 * @var CsvHandler
@@ -55,14 +53,12 @@ class UploadTable extends AbstractJob
 		$this->csvHandler->setRunId($job['runId']);
 		$projects = $this->configuration->getProjects();
 
-		$updateModelJobs = array();
 		$loadDataJobs = array();
 
 		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
 			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
 		$filterColumn = $this->getFilterColumn($params['tableId'], $tableDefinition, $bucketAttributes);
-		$ldmChange = false;
 
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
@@ -84,18 +80,18 @@ class UploadTable extends AbstractJob
 		$error = $process->getErrorOutput();
 		if (!$process->isSuccessful() || $error) {
 			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . json_encode(array(
-				'command' => $command,
-				'error' => $error,
-				'output' => $process->getOutput()
-			)));
+					'command' => $command,
+					'error' => $error,
+					'output' => $process->getOutput()
+				)));
 		}
 		$definition = json_decode($process->getOutput(), true);
 		if (!$definition) {
 			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . json_encode(array(
-				'command' => $command,
-				'error' => $error,
-				'output' => $process->getOutput()
-			)));
+					'command' => $command,
+					'error' => $error,
+					'output' => $process->getOutput()
+				)));
 		}
 
 		$e = $stopWatch->stop($stopWatchId);
@@ -143,31 +139,9 @@ class UploadTable extends AbstractJob
 		}
 
 
-		// Enqueue jobs for creation/update of dataSet and load data
-		$modelChangeDecisionsLog = array();
+		// Enqueue jobs for load data
 		foreach ($projectsToLoad as $project) {
 			$dataSetExists = in_array($dataSetId, array_keys($project['existingDataSets']));
-			$lastGoodDataUpdate = empty($project['existingDataSets'][$dataSetId]['lastChangeDate'])? null : Model::getTimestampFromApiDate($project['existingDataSets'][$dataSetId]['lastChangeDate']);
-
-			$lastConfigurationUpdate = empty($tableDefinition['lastChangeDate'])? null : strtotime($tableDefinition['lastChangeDate']);
-			$doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
-
-			if ($dataSetExists) {
-				if ($doUpdate) {
-					$updateModelJobs[] = array(
-						'command' => 'update',
-						'pid' => $project['pid'],
-						'mainProject' => !empty($project['main'])
-					);
-				}
-			} else {
-				$updateModelJobs[] = array(
-					'command' => 'create',
-					'pid' => $project['pid'],
-					'mainProject' => !empty($project['main'])
-				);
-			}
-
 			$loadDataJobs[] = array(
 				'command' => 'loadData',
 				'pid' => $project['pid'],
@@ -175,101 +149,14 @@ class UploadTable extends AbstractJob
 				'mainProject' => !empty($project['main']),
 				'incrementalLoad' => ($dataSetExists && $incrementalLoad) ? $incrementalLoad : 0
 			);
-
-			$modelChangeDecisionsLog[$project['pid']] = array(
-				'dataSetExists' => $dataSetExists,
-				'lastGoodDataUpdate' => $lastGoodDataUpdate . ($lastGoodDataUpdate? ' - ' . strtotime($lastGoodDataUpdate) : null),
-				'lastConfigurationUpdate' => $lastConfigurationUpdate . ($lastConfigurationUpdate? ' - ' . strtotime($lastConfigurationUpdate) : null),
-				'doUpdate' => $doUpdate
-			);
 		}
-
-
-		//@TODO REMOVE WITH CL TOOL
-		$clToolApi = null;
-		if (!$this->preRelease) {
-			$clToolApi = new CLToolApi($this->logger, $this->appConfiguration->clPath);
-			$clToolApi->s3client = $this->s3Client;
-			$clToolApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		}
-		//@TODO REMOVE WITH CL TOOL
 
 		$e = $stopWatch->stop($stopWatchId);
 		$this->logEvent($stopWatchId, array(
-			'duration' => $e->getDuration(),
-			'modelChangeDecisions' => $modelChangeDecisionsLog
+			'duration' => $e->getDuration()
 		));
 
-
-		$updateOperations = array();
 		try {
-			// Update model
-			foreach ($updateModelJobs as $gdJob) {
-				$stopWatchId = $gdJob['command'] . 'DataSet'.'-'.$gdJob['pid'];
-				$stopWatch->start($stopWatchId);
-
-				if ($this->preRelease) {
-					$this->restApi->initLog();
-
-					$result = $this->restApi->updateDataSet($gdJob['pid'], $definition);
-					if ($result) {
-						$updateOperations[$gdJob['pid']] = $result;
-					}
-
-					if (empty($tableDefinition['isExported'])) {
-						// Save export status to definition
-						$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
-					}
-
-					$e = $stopWatch->stop($stopWatchId);
-					$this->logEvent($stopWatchId, array(
-						'duration' => $e->getDuration()
-					), $this->restApi->getLogPath());
-
-				//@TODO REMOVE WITH CL TOOL
-				} else {
-					$clToolApi->debugLogUrl = null;
-					$this->restApi->initLog();
-					$clToolApi->s3Dir = $tmpFolderName . '/' . $gdJob['pid'];
-					$clToolApi->tmpDir = $this->tmpDir . '/' . $gdJob['pid'];
-					if (!file_exists($clToolApi->tmpDir)) mkdir($clToolApi->tmpDir);
-					$xml = CLToolApi::getXml($definition);
-					if ($gdJob['command'] == 'create') {
-						$maql = $clToolApi->createDataSetMaql($gdJob['pid'], $xml, $dataSetName);
-						$this->restApi->executeMaql($gdJob['pid'], $maql);
-
-						if (empty($tableDefinition['isExported'])) {
-							// Save export status to definition
-							$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
-						}
-					} else {
-						$maql = $clToolApi->updateDataSetMaql($gdJob['pid'], $xml, 1, $dataSetName);
-						if ($maql) {
-							$this->restApi->executeMaql($gdJob['pid'], $maql);
-						}
-					}
-					if ($clToolApi->debugLogUrl) {
-						if ($gdJob['mainProject']) {
-							$this->logs['CL ' . $gdJob['command'] . ' DataSet'] = $clToolApi->debugLogUrl;
-						} else {
-							$this->logs[$gdJob['pid']]['CL ' . $gdJob['command'] . ' DataSet'] = $clToolApi->debugLogUrl;
-						}
-						$clToolApi->debugLogUrl = null;
-					}
-					$e = $stopWatch->stop($stopWatchId);
-					$this->logEvent($stopWatchId, array(
-						'duration' => $e->getDuration(),
-						'xml' => $xml,
-						'clTool' => $clToolApi->output
-					), $this->restApi->getLogPath());
-				}
-				//@TODO REMOVE WITH CL TOOL
-
-				$ldmChange = true;
-			}
-
-
-
 			// Upload to WebDav
 			$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			$webDavUrl = $webDav->url;
@@ -355,39 +242,25 @@ class UploadTable extends AbstractJob
 			$eventDetails = array(
 				'duration' => $event->getDuration()
 			);
-			if ($e instanceof CLToolApiErrorException) {
-				if ($clToolApi->debugLogUrl) {
-					$this->logs['CL Tool Error'] = $clToolApi->debugLogUrl;
-					$clToolApi->debugLogUrl = null;
-				}
-				$eventDetails['clTool'] = $clToolApi->output;
-				$data = $e->getData();
-				if (count($data)) {
-					$this->logs['CL Tool Debug'] = $this->s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($data));
-				}
-			} elseif ($e instanceof RestApiException) {
+			if ($e instanceof RestApiException) {
 				$error = $e->getDetails();
 				$restApiLogPath = $this->restApi->getLogPath();
 			}
 			$this->logEvent($stopWatchId, $eventDetails, $restApiLogPath);
 
-			if (!($e instanceof CLToolApiErrorException) && !($e instanceof RestApiException) && !($e instanceof WebDavException)) {
+			if (!($e instanceof RestApiException) && !($e instanceof WebDavException)) {
 				throw $e;
 			}
 		}
 
 		$result = array(
-			'incrementalLoad' => (int) $incrementalLoad,
-			'ldmChange' => (bool) $ldmChange,
+			'incrementalLoad' => (int) $incrementalLoad
 		);
 		if (!empty($error)) {
 			$result['error'] = $error;
 		}
 		if (!empty($gdWriteStartTime)) {
 			$result['gdWriteStartTime'] = $gdWriteStartTime;
-		}
-		if (count($updateOperations)) {
-			$result['info'] = $updateOperations;
 		}
 
 		return $result;

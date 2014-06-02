@@ -161,7 +161,7 @@ abstract class AbstractControllerTest extends WebTestCase
 		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->appConfiguration->scriptsPath);
 
 		// Init writer
-		$this->_processJob('/gooddata-writer/writers', array());
+		$this->processJob('/writers', array());
 
 		// Reset configuration
 		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->appConfiguration->scriptsPath);
@@ -171,7 +171,7 @@ abstract class AbstractControllerTest extends WebTestCase
 	/**
 	 * Prepare data bucket and it's configuration
 	 */
-	protected function _prepareData()
+	protected function prepareData()
 	{
 		$this->storageApi->createBucket($this->dataBucketName, 'out', 'Writer Test');
 
@@ -255,9 +255,9 @@ abstract class AbstractControllerTest extends WebTestCase
 	 * @param $url
 	 * @return mixed
 	 */
-	protected function _getWriterApi($url)
+	protected function getWriterApi($url)
 	{
-		return $this->_callWriterApi($url, 'GET');
+		return $this->callWriterApi($url, 'GET');
 	}
 
 	/**
@@ -266,9 +266,9 @@ abstract class AbstractControllerTest extends WebTestCase
 	 * @param $params
 	 * @return mixed
 	 */
-	protected function _postWriterApi($url, $params = array())
+	protected function postWriterApi($url, $params = array())
 	{
-		return $this->_callWriterApi($url, 'POST', $params);
+		return $this->callWriterApi($url, 'POST', $params);
 	}
 
 	/**
@@ -278,9 +278,9 @@ abstract class AbstractControllerTest extends WebTestCase
 	 * @param array $params
 	 * @return mixed
 	 */
-	protected function _callWriterApi($url, $method = 'POST', $params = array())
+	protected function callWriterApi($url, $method = 'POST', $params = array())
 	{
-		$this->httpClient->request($method, $url, array(), array(), array(), json_encode($params));
+		$this->httpClient->request($method, '/gooddata-writer' . $url, array(), array(), array(), json_encode($params));
 		$response = $this->httpClient->getResponse();
 		/* @var \Symfony\Component\HttpFoundation\Response $response */
 
@@ -299,23 +299,23 @@ abstract class AbstractControllerTest extends WebTestCase
 	 * @param string $method
 	 * @return null
 	 */
-	protected function _processJob($url, $params = array(), $method = 'POST')
+	protected function processJob($url, $params = array(), $method = 'POST')
 	{
 		$writerId = isset($params['writerId']) ? $params['writerId'] : $this->writerId;
 
 		$params['writerId'] = $writerId;
-		$responseJson = $this->_callWriterApi($url, $method, $params);
+		$responseJson = $this->callWriterApi($url, $method, $params);
 		$this->configuration->clearCache();
 
 		$resultId = null;
 		if (isset($responseJson['job'])) {
-			$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/jobs?writerId=%s&jobId=%d', $writerId, $responseJson['job']));
+			$responseJson = $this->getWriterApi(sprintf('/jobs?writerId=%s&jobId=%d', $writerId, $responseJson['job']));
 
 			$this->commandTester->execute(array(
 				'command' => 'gooddata-writer:execute-batch',
-				'batchId' => $responseJson['job']['batchId']
+				'batchId' => $responseJson['batchId']
 			));
-			$resultId = $responseJson['job']['id'];
+			$resultId = $responseJson['id'];
 		} else if (isset($responseJson['batch'])) {
 			$this->commandTester->execute(array(
 				'command' => 'gooddata-writer:execute-batch',
@@ -328,7 +328,7 @@ abstract class AbstractControllerTest extends WebTestCase
 		return $resultId;
 	}
 
-	protected  function _createUser($ssoProvider = null)
+	protected  function createUser($ssoProvider = null)
 	{
 		$params = array(
 			'email' => 'test' . time() . uniqid() . '@test.keboola.com',
@@ -339,18 +339,18 @@ abstract class AbstractControllerTest extends WebTestCase
 		if ($ssoProvider) {
 			$params['ssoProvider'] = $ssoProvider;
 		}
-		$this->_processJob('/gooddata-writer/users', $params);
+		$this->processJob('/users', $params);
 
 		$usersList = $this->configuration->getUsers();
 		$this->assertGreaterThanOrEqual(2, $usersList, "Response for writer call '/users' should return at least two GoodData users.");
 		return $usersList[count($usersList)-1];
 	}
 
-	protected function _getAttributes($pid)
+	protected function getAttributes($pid)
 	{
 		$query = sprintf('/gdc/md/%s/query/attributes', $pid);
 
-		$result = $this->_getWriterApi('/gooddata-writer/proxy?writerId=' . $this->writerId . '&query=' . $query);
+		$result = $this->getWriterApi('/proxy?writerId=' . $this->writerId . '&query=' . $query);
 
 		if (isset($result['response']['query']['entries'])) {
 			return $result['response']['query']['entries'];
@@ -359,11 +359,11 @@ abstract class AbstractControllerTest extends WebTestCase
 		}
 	}
 
-	protected function _getAttributeByTitle($pid, $title)
+	protected function getAttributeByTitle($pid, $title)
 	{
-		foreach ($this->_getAttributes($pid) as $attr) {
+		foreach ($this->getAttributes($pid) as $attr) {
 			if ($attr['title'] == $title) {
-				$result = $this->_getWriterApi('/gooddata-writer/proxy?writerId=' . $this->writerId . '&query=' . $attr['link']);
+				$result = $this->getWriterApi('/proxy?writerId=' . $this->writerId . '&query=' . $attr['link']);
 				return $result['response'];
 			}
 		}

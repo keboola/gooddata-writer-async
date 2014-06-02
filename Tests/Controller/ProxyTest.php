@@ -12,7 +12,7 @@ class ProxyTest extends AbstractControllerTest
 {
 	public function testProxy()
 	{
-		$user = $this->_createUser();
+		$user = $this->createUser();
 
 		/**
 		 * Get proxy
@@ -30,7 +30,7 @@ class ProxyTest extends AbstractControllerTest
 
 		$url = sprintf('/gdc/projects/%s/users?offset=0&limit=2', $project['pid']);
 
-		$responseJson = $this->_getWriterApi('/gooddata-writer/proxy?writerId=' . $this->writerId . '&query=' . urlencode($url));
+		$responseJson = $this->getWriterApi('/proxy?writerId=' . $this->writerId . '&query=' . urlencode($url));
 
 		$this->assertArrayHasKey('response', $responseJson, "Response for writer call '/proxy' should contain 'response' key.");
 		$this->assertArrayHasKey('users', $responseJson['response'], "Response for writer call '/proxy' should contain 'users' key users in GD reponse.");
@@ -41,25 +41,25 @@ class ProxyTest extends AbstractControllerTest
 		 * Post proxy
 		 */
 		// Upload data
-		$this->_prepareData();
-		$this->_processJob('/gooddata-writer/upload-project');
+		$this->prepareData();
+		$this->processJob('/upload-project');
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$pid = $bucketAttributes['gd']['pid'];
 
-		$attr = $this->_getAttributeByTitle($pid, 'Id (Categories)');
+		$attr = $this->getAttributeByTitle($pid, 'Id (Categories)');
 
 		$attrUri = $attr['attribute']['meta']['uri'];
 
 		// repost attribute to GD
-		$jobId = $this->_processJob('/gooddata-writer/proxy', array(
+		$jobId = $this->processJob('/proxy', array(
 			'writerId'  => $this->writerId,
 			'query'     => $attrUri,
 			'payload'   => $attr
 		), 'POST');
 
-		$jobStatus = $this->_getWriterApi('/gooddata-writer/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
+		$jobStatus = $this->getWriterApi('/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
 
-		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $jobStatus['job']['status']);
+		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $jobStatus['status']);
 	}
 }

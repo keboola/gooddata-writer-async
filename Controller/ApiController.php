@@ -938,6 +938,94 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 	}
 
+	/**
+	 * @Route("/update-model")
+	 * @Method({"POST"})
+	 * params: pid, queue
+	 */
+	public function postUpdateModel()
+	{
+		$createdTime = time();
+
+		$this->checkWriterExistence();
+		$this->getConfiguration()->checkBucketAttributes();
+
+		$batchId = $this->storageApi->generateId();
+		$definition = $this->getConfiguration()->getDataSetDefinition($this->params['tableId']);
+		$tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
+		$jobData = array(
+			'batchId' => $batchId,
+			'command' => 'updateModel',
+			'dataset' => !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'],
+			'createdTime' => date('c', $createdTime),
+			'parameters' => array(
+				'tableId' => $this->params['tableId']
+			),
+			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
+		);
+		if (isset($this->params['pid'])) {
+			$jobData['parameters']['pid'] = $this->params['pid'];
+		}
+		$jobInfo = $this->createJob($jobData);
+
+		$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $this->params['tableId']), json_encode($definition));
+		$this->sharedConfig->saveJob($jobInfo['id'], array(
+			'definition' => $definitionUrl
+		));
+
+		$this->enqueue($batchId);
+		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+	}
+
+	/**
+	 * @Route("/load-data")
+	 * @Method({"POST"})
+	 * params: pid, queue
+	 */
+	public function postLoadData()
+	{
+		$createdTime = time();
+
+		// Init parameters
+		$this->checkParams(array('writerId', 'tableId'));
+		$this->checkWriterExistence();
+
+		$this->getConfiguration()->checkBucketAttributes();
+
+		$batchId = $this->storageApi->generateId();
+
+		$definition = $this->getConfiguration()->getDataSetDefinition($this->params['tableId']);
+
+		$tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
+		$jobData = array(
+			'batchId' => $batchId,
+			'command' => 'loadData',
+			'dataset' => !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'],
+			'createdTime' => date('c', $createdTime),
+			'parameters' => array(
+				'tableId' => $this->params['tableId']
+			),
+			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
+		);
+		if (isset($this->params['pid'])) {
+			$jobData['parameters']['pid'] = $this->params['pid'];
+		}
+		if (isset($this->params['incrementalLoad'])) {
+			$jobData['parameters']['incrementalLoad'] = $this->params['incrementalLoad'];
+		}
+		$jobInfo = $this->createJob($jobData);
+
+
+		$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $this->params['tableId']), json_encode($definition));
+		$this->sharedConfig->saveJob($jobInfo['id'], array(
+			'definition' => $definitionUrl
+		));
+
+		$this->enqueue($batchId);
+
+		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+	}
+
 
 	/**
 	 * Upload dataSet to GoodData
@@ -997,7 +1085,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
 		$jobData = array(
 			'batchId' => $batchId,
-			'command' => 'uploadTable',
+			'command' => 'updateModel',
 			'dataset' => !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'],
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
@@ -1013,6 +1101,26 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 		$jobInfo = $this->createJob($jobData);
 
+		$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $this->params['tableId']), json_encode($definition));
+		$this->sharedConfig->saveJob($jobInfo['id'], array(
+			'definition' => $definitionUrl
+		));
+
+
+		$jobData = array(
+			'batchId' => $batchId,
+			'command' => 'loadData',
+			'dataset' => !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'],
+			'createdTime' => date('c', $createdTime),
+			'parameters' => array(
+				'tableId' => $this->params['tableId']
+			),
+			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
+		);
+		if (isset($this->params['pid'])) {
+			$jobData['parameters']['pid'] = $this->params['pid'];
+		}
+		$jobInfo = $this->createJob($jobData);
 
 		$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $this->params['tableId']), json_encode($definition));
 		$this->sharedConfig->saveJob($jobInfo['id'], array(
@@ -1023,9 +1131,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 
 		if (empty($this->params['wait'])) {
-			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+			return $this->getPollResult($batchId, $this->params['writerId'], true);
 		} else {
-			return $this->waitForJob($jobInfo['id']);
+			return $this->waitForBatch($batchId);
 		}
 	}
 
@@ -1091,7 +1199,32 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$jobData = array(
 				'batchId' => $batchId,
 				'runId' => $runId,
-				'command' => 'uploadTable',
+				'command' => 'updateModel',
+				'dataset' => $dataSet['title'],
+				'createdTime' => date('c', $createdTime),
+				'parameters' => array(
+					'tableId' => $dataSet['tableId']
+				),
+				'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
+			);
+			if (isset($this->params['pid'])) {
+				$jobData['parameters']['pid'] = $this->params['pid'];
+			}
+			if (isset($this->params['incrementalLoad'])) {
+				$jobData['parameters']['incrementalLoad'] = $this->params['incrementalLoad'];
+			}
+			$jobInfo = $this->createJob($jobData);
+
+			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $dataSet['tableId']), json_encode($dataSet['definition']));
+			$this->sharedConfig->saveJob($jobInfo['id'], array(
+				'definition' => $definitionUrl
+			));
+
+
+			$jobData = array(
+				'batchId' => $batchId,
+				'runId' => $runId,
+				'command' => 'loadData',
 				'dataset' => $dataSet['title'],
 				'createdTime' => date('c', $createdTime),
 				'parameters' => array(
@@ -1512,7 +1645,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			}
 
 			$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
-			$job['job'] = $job; //@TODO backwards compatibility, remove soon
 			return $this->createJsonResponse($job);
 		}
 	}
@@ -1529,7 +1661,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkWriterExistence();
 
 		$batch = $this->getSharedConfig()->batchToApiResponse($this->params['batchId'], $this->getS3Client());
-		$batch['batch'] = $batch; //@TODO backwards compatibility, remove soon
 		return $this->createJsonResponse($batch);
 	}
 

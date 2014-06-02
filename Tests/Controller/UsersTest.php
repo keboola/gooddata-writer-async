@@ -14,7 +14,7 @@ class UsersTest extends AbstractControllerTest
 		 * Create user
 		 */
 		$ssoProvider = 'keboola.com';
-		$user = $this->_createUser($ssoProvider);
+		$user = $this->createUser($ssoProvider);
 
 		// Check of GoodData
 		$bucketAttributes = $this->configuration->bucketAttributes();
@@ -24,7 +24,7 @@ class UsersTest extends AbstractControllerTest
 
 
 		// Check of Writer API
-		$responseJson = $this->_getWriterApi('/gooddata-writer/users?writerId=' . $this->writerId);
+		$responseJson = $this->getWriterApi('/users?writerId=' . $this->writerId);
 		$this->assertArrayHasKey('users', $responseJson, "Response for writer call '/users' should contain 'users' key.");
 		$this->assertCount(2, $responseJson['users'], "Response for writer call '/users' should return two users.");
 		$userFound = false;
@@ -35,7 +35,7 @@ class UsersTest extends AbstractControllerTest
 		}
 		$this->assertTrue($userFound, "Response for writer call '/users' should return tested user.");
 
-		$responseJson = $this->_getWriterApi('/gooddata-writer/users?writerId=' . $this->writerId . '&userEmail=' . $user['email']);
+		$responseJson = $this->getWriterApi('/users?writerId=' . $this->writerId . '&userEmail=' . $user['email']);
 		$this->assertArrayHasKey('user', $responseJson, "Response for writer call '/users' with 'userEmail' filter should contain 'user' key.");
 		$this->assertNotNull($responseJson['user'], "Response for writer call '/users' with 'userEmail' filter should return one user data.");
 		$this->assertEquals($user['email'], $responseJson['user']['email'], "Response for writer call '/users' with 'userEmail' filter should return user data of test user.");
@@ -49,7 +49,7 @@ class UsersTest extends AbstractControllerTest
 		$project = $projectsList[count($projectsList)-1];
 
 		// Case 1  - User exists
-		$this->_processJob('/gooddata-writer/project-users', array(
+		$this->processJob('/project-users', array(
 			'email' => $user['email'],
 			'pid' => $project['pid'],
 			'role' => 'editor'
@@ -72,7 +72,7 @@ class UsersTest extends AbstractControllerTest
 
 
 		// Check Writer API
-		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
+		$responseJson = $this->getWriterApi('/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
 		$this->assertArrayHasKey('users', $responseJson, "Response for writer call '/project-users' should contain 'users' key.");
 		$this->greaterThanOrEqual(1, $responseJson['users'], "Response for writer call '/project-users' should return at least one result.");
 		$userInProject = false;
@@ -97,7 +97,7 @@ class UsersTest extends AbstractControllerTest
 
 		$this->assertFalse($otherUserId, "Invited user for writer call '/project-users' should not exist in same domain.");
 
-		$this->_processJob('/gooddata-writer/project-users', array(
+		$this->processJob('/project-users', array(
 			'email' => $otherUser,
 			'pid' => $project['pid'],
 			'role' => 'editor'
@@ -106,7 +106,7 @@ class UsersTest extends AbstractControllerTest
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		// Check Writer API
-		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
+		$responseJson = $this->getWriterApi('/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
 		$this->assertArrayHasKey('users', $responseJson, "Response for writer call '/project-users' should contain 'users' key.");
 		$this->greaterThanOrEqual(2, $responseJson['users'], "Response for writer call '/project-users' should return at least one result.");
 		$userInvited = false;
@@ -135,7 +135,7 @@ class UsersTest extends AbstractControllerTest
 
 		// Case 3  - User does not exists
 		$otherUser = 'testcreate' . $user['email'];
-		$this->_processJob('/gooddata-writer/project-users', array(
+		$this->processJob('/project-users', array(
 			'email' => $otherUser,
 			'pid' => $project['pid'],
 			'role' => 'editor',
@@ -157,7 +157,7 @@ class UsersTest extends AbstractControllerTest
 
 
 		// Check Writer API
-		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
+		$responseJson = $this->getWriterApi('/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
 		$this->assertArrayHasKey('users', $responseJson, "Response for writer call '/project-users' should contain 'users' key.");
 		$this->greaterThanOrEqual(3, $responseJson['users'], "Response for writer call '/project-users' should return at least one result.");
 		$userInProject = false;
@@ -175,7 +175,7 @@ class UsersTest extends AbstractControllerTest
 		 */
 
 		// Case 1  - User exists
-		$this->_processJob('/gooddata-writer/project-users', array(
+		$this->processJob('/project-users', array(
 			'email' => $user['email'],
 			'pid' => $project['pid'],
 			'role' => 'editor'
@@ -197,7 +197,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertTrue($userInProject, "Response for GoodData API project users call should return tested user.");
 
 		// Check Writer API
-		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
+		$responseJson = $this->getWriterApi('/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
 		$this->assertArrayHasKey('users', $responseJson, "Response for writer call '/project-users' should contain 'users' key.");
 		$this->greaterThanOrEqual(1, $responseJson['users'], "Response for writer call '/project-users' should return at least one result.");
 		$userInProject = false;
@@ -215,7 +215,7 @@ class UsersTest extends AbstractControllerTest
 			'email=' . $user['email'],
 		);
 
-		$this->_processJob('/gooddata-writer/project-users?' . implode('&', $params), array(), 'DELETE');
+		$this->processJob('/project-users?' . implode('&', $params), array(), 'DELETE');
 
 		// Check GoodData
 		$userProjectsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/users');
@@ -236,7 +236,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertFalse($userInProject, "Response for GoodData API project users call should return disabled tested user.");
 
 		// Check Writer API
-		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
+		$responseJson = $this->getWriterApi('/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
 		$this->assertArrayHasKey('users', $responseJson, "Response for writer call '/project-users' should contain 'users' key.");
 		$this->assertCount(2, $responseJson['users'], "Response for writer call '/project-users' should return two results.");
 		$userInProject = false;
@@ -261,7 +261,7 @@ class UsersTest extends AbstractControllerTest
 
 		$this->assertFalse($otherUserId, "Invited user for writer call '/project-users' should not exist in same domain.");
 
-		$this->_processJob('/gooddata-writer/project-users', array(
+		$this->processJob('/project-users', array(
 			'email' => $otherUser,
 			'pid' => $project['pid'],
 			'role' => 'editor'
@@ -270,7 +270,7 @@ class UsersTest extends AbstractControllerTest
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		// Check Writer API
-		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
+		$responseJson = $this->getWriterApi('/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
 		$this->assertArrayHasKey('users', $responseJson, "Response for writer call '/project-users' should contain 'users' key.");
 		$this->greaterThanOrEqual(2, $responseJson['users'], "Response for writer call '/project-users' should return at least one result.");
 		$userInvited = false;
@@ -304,7 +304,7 @@ class UsersTest extends AbstractControllerTest
 			'email=' . $otherUser,
 		);
 
-		$this->_processJob('/gooddata-writer/project-users?' . implode('&', $params), array(), 'DELETE');
+		$this->processJob('/project-users?' . implode('&', $params), array(), 'DELETE');
 
 		// Check GoodData
 		$userProjectsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/users');
@@ -326,7 +326,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertFalse($userInProject, "Response for GoodData API project users call should return disabled tested user.");
 
 		// Check Writer API
-		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
+		$responseJson = $this->getWriterApi('/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
 		$this->assertArrayHasKey('users', $responseJson, "Response for writer call '/project-users' should contain 'users' key.");
 		$this->assertCount(1, $responseJson['users'], "Response for writer call '/project-users' should return one result.");
 		$userInProject = false;
@@ -357,7 +357,7 @@ class UsersTest extends AbstractControllerTest
 
 		// Case 3  - User does not exists
 		$otherUser = 'testcreate' . $user['email'];
-		$this->_processJob('/gooddata-writer/project-users', array(
+		$this->processJob('/project-users', array(
 			'email' => $otherUser,
 			'pid' => $project['pid'],
 			'role' => 'editor',
@@ -379,7 +379,7 @@ class UsersTest extends AbstractControllerTest
 
 
 		// Check Writer API
-		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
+		$responseJson = $this->getWriterApi('/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
 		$this->assertArrayHasKey('users', $responseJson, "Response for writer call '/project-users' should contain 'users' key.");
 		$this->greaterThanOrEqual(3, $responseJson['users'], "Response for writer call '/project-users' should return at least one result.");
 		$userInProject = false;
@@ -397,7 +397,7 @@ class UsersTest extends AbstractControllerTest
 			'email=' . $otherUser,
 		);
 
-		$this->_processJob('/gooddata-writer/project-users?' . implode('&', $params), array(), 'DELETE');
+		$this->processJob('/project-users?' . implode('&', $params), array(), 'DELETE');
 
 		// Check GoodData
 		$userProjectsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/users');
@@ -419,7 +419,7 @@ class UsersTest extends AbstractControllerTest
 		$this->assertFalse($userInProject, "Response for GoodData API project users call should return disabled tested user.");
 
 		// Check Writer API
-		$responseJson = $this->_getWriterApi('/gooddata-writer/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
+		$responseJson = $this->getWriterApi('/project-users?writerId=' . $this->writerId . '&pid=' . $project['pid']);
 		$this->assertArrayHasKey('users', $responseJson, "Response for writer call '/project-users' should contain 'users' key.");
 		$this->assertCount(1, $responseJson['users'], "Response for writer call '/project-users' should return one result.");
 		$userInProject = false;
@@ -452,12 +452,7 @@ class UsersTest extends AbstractControllerTest
 		/**
 		 * Test SSO
 		 */
-		$responseJson = $this->_getWriterApi(
-			'/gooddata-writer/sso'
-			. '?writerId=' . $this->writerId
-			. '&pid=' . $project['pid']
-			. '&email=' . $user['email']
-		);
+		$responseJson = $this->getWriterApi(sprintf('/sso?writerId=%s&pid=%s&email=%s', $this->writerId, $project['pid'], $user['email']));
 
 		$this->assertArrayHasKey('ssoLink', $responseJson, "No ssoLink in response");
 		$this->assertNotNull($responseJson['ssoLink'], "SSO Link is NULL");

@@ -64,7 +64,7 @@ class WritersTest extends AbstractControllerTest
 		$user2 = 'user2' . $uniqId . '@test.keboola.com';
 
 		// Create new writer and new configuration
-		$this->_processJob('/gooddata-writer/writers', array(
+		$this->processJob('/writers', array(
 			'writerId' => $writerId,
 			'users' => $user1 . ',' . $user2
 		));
@@ -93,7 +93,7 @@ class WritersTest extends AbstractControllerTest
 		/**
 		 * Test writers configuration
 		 */
-		$responseJson = $this->_getWriterApi('/gooddata-writer/writers');
+		$responseJson = $this->getWriterApi('/writers');
 
 		$this->assertArrayHasKey('writers', $responseJson, "Response for writer call '/writers' should contain 'writers' key.");
 		$this->assertCount(2, $responseJson['writers'], "Response for writer call '/writers' should contain two writers.");
@@ -103,7 +103,7 @@ class WritersTest extends AbstractControllerTest
 		$this->assertEquals($this->bucketId, $responseJson['writers'][0]['bucket'], "Response for writer call '/writers' should contain bucket of created writer.");
 
 
-		$responseJson = $this->_getWriterApi('/gooddata-writer/writers?writerId=' . $this->writerId);
+		$responseJson = $this->getWriterApi('/writers?writerId=' . $this->writerId);
 
 		$this->assertArrayHasKey('writer', $responseJson, "Response for writer call '/writers?writerId=' should contain 'writer' key.");
 		$this->assertArrayHasKey('writer', $responseJson['writer'], "Response for writer call '/writers?writerId=' should contain 'writer.writer' key.");
@@ -117,13 +117,13 @@ class WritersTest extends AbstractControllerTest
 		 */
 		$existingPid = $bucketAttributes['gd']['pid'];
 		$existingProjectWriterId = self::WRITER_ID_PREFIX . 'exist_' . uniqid();
-		$this->_processJob('/gooddata-writer/writers', array(
+		$this->processJob('/writers', array(
 			'writerId' => $existingProjectWriterId,
 			'username' => $bucketAttributes['gd']['username'],
 			'password' => $bucketAttributes['gd']['password'],
 			'pid' => $existingPid
 		));
-		$responseJson = $this->_getWriterApi('/gooddata-writer/writers?writerId=' . $existingProjectWriterId);
+		$responseJson = $this->getWriterApi('/writers?writerId=' . $existingProjectWriterId);
 		$this->assertArrayHasKey('writer', $responseJson, "Response for writer call '/writers?writerId=' should contain 'writer' key.");
 		$this->assertArrayHasKey('gd', $responseJson['writer'], "Response for writer call '/writers?writerId=' should contain 'writer.gd' key.");
 		$this->assertArrayHasKey('username', $responseJson['writer']['gd'], "Response for writer call '/writers?writerId=' should contain 'writer.gd.username' key.");
@@ -136,14 +136,14 @@ class WritersTest extends AbstractControllerTest
 			$this->assertLessThanOrEqual(10, $i, 'Waited for getting access to existing project too long');
 			sleep ($i * 10);
 			$jobsFinished = true;
-			$jobs = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $existingProjectWriterId);
+			$jobs = $this->getWriterApi('/jobs?writerId=' . $existingProjectWriterId);
 			foreach($jobs['jobs'] as $job) {
 				if (!SharedConfig::isJobFinished($job['status'])) {
 					$this->commandTester->execute(array(
 						'command' => 'gooddata-writer:execute-job',
 						'batchId' => $job['id']
 					));
-					$jobInfo = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $existingProjectWriterId . '&jobId=' . $job['id']);
+					$jobInfo = $this->getWriterApi('/jobs?writerId=' . $existingProjectWriterId . '&jobId=' . $job['id']);
 					if ($jobInfo['job']['status'] != SharedConfig::JOB_STATUS_SUCCESS)
 						$jobsFinished = false;
 				}
@@ -161,10 +161,10 @@ class WritersTest extends AbstractControllerTest
 		/**
 		 * Set configuration
 		 */
-		$this->_postWriterApi('/gooddata-writer/writers/' . $writerId, array(
+		$this->postWriterApi('/writers/' . $writerId, array(
 			'attribute' => 1
 		));
-		$writerInfo = $this->_getWriterApi('/gooddata-writer/writers/' . $writerId);
+		$writerInfo = $this->getWriterApi('/writers/' . $writerId);
 		$this->assertArrayHasKey('writer', $writerInfo, "Writer should have set attribute 'writer'");
 		$this->assertArrayHasKey('attribute', $writerInfo['writer'], "Writer should have set attribute 'writer.attribute'");
 		$this->assertEquals(1, $writerInfo['writer']['attribute'], "Writer should have set attribute 'writer.attribute' with value '1'");
@@ -173,7 +173,7 @@ class WritersTest extends AbstractControllerTest
 		/**
 		 * Delete writer
 		 */
-		$this->_processJob('/gooddata-writer/writers?writerId=' . $this->writerId, array(), 'DELETE');
+		$this->processJob('/writers?writerId=' . $this->writerId, array(), 'DELETE');
 		// Check non-existence of configuration
 		$this->assertFalse($this->configuration->configurationBucket($this->writerId), "Writer configuration should not exist anymore.");
 	}

@@ -9,7 +9,7 @@ class FiltersTest extends AbstractControllerTest
 {
 	protected function _createFilter($pid)
 	{
-		$this->_processJob('/gooddata-writer/filters', array(
+		$this->processJob('/filters', array(
 			"pid"       => $pid,
 			"name"      => "filter",
 			"attribute" => $this->dataBucketId . '.' . 'products' . '.' . 'name',
@@ -28,7 +28,7 @@ class FiltersTest extends AbstractControllerTest
 		$filter = $filters[0];
 
 		// Create and process job
-		$this->_processJob('/gooddata-writer/filters-user', array(
+		$this->processJob('/filters-user', array(
 			"pid"       => $pid,
 			"filters"   => array($filter['name']),
 			"userEmail"    => $user['email']
@@ -41,8 +41,8 @@ class FiltersTest extends AbstractControllerTest
 		$pid = $bucketAttributes['gd']['pid'];
 
 		// Upload data
-		$this->_prepareData();
-		$this->_processJob('/gooddata-writer/upload-project');
+		$this->prepareData();
+		$this->processJob('/upload-project');
 
 
 		/**
@@ -73,7 +73,7 @@ class FiltersTest extends AbstractControllerTest
 		/**
 		 * Sync filters
 		 */
-		$this->_processJob('/gooddata-writer/sync-filters', array(
+		$this->processJob('/sync-filters', array(
 			"pid"   => $pid,
 		));
 
@@ -89,7 +89,7 @@ class FiltersTest extends AbstractControllerTest
 		/**
 		 * Get filters
 		 */
-		$responseJson = $this->_getWriterApi('/gooddata-writer/filters?writerId=' . $this->writerId);
+		$responseJson = $this->getWriterApi('/filters?writerId=' . $this->writerId);
 		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters should contain 'filters' key.");
 		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
 
@@ -97,7 +97,7 @@ class FiltersTest extends AbstractControllerTest
 		$usersList = $this->configuration->getUsers();
 		$user = $usersList[0];
 
-		$responseJson = $this->_getWriterApi('/gooddata-writer/filters?writerId=' . $this->writerId . '&userEmail=' . $user['email'] . '&pid=' . $pid);
+		$responseJson = $this->getWriterApi('/filters?writerId=' . $this->writerId . '&userEmail=' . $user['email'] . '&pid=' . $pid);
 		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters should contain 'filters' key.");
 		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
 
@@ -108,8 +108,8 @@ class FiltersTest extends AbstractControllerTest
 		$filter = $filterList[0];
 
 		// Create and process job
-		$this->_processJob(
-			'/gooddata-writer/filters?writerId=' . $this->writerId . '&uri=' . $filter['uri'] . '&dev=1',
+		$this->processJob(
+			'/filters?writerId=' . $this->writerId . '&uri=' . $filter['uri'] . '&dev=1',
 			array(),
 			'DELETE'
 		);

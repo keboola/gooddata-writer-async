@@ -91,59 +91,59 @@ class ReportsTest extends AbstractControllerTest
 
 	public function testReports()
 	{
-		$user = $this->_createUser();
+		$user = $this->createUser();
 
 		// Check of GoodData
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		// Upload data
-		$this->_prepareData();
-		$this->_processJob('/gooddata-writer/upload-project');
+		$this->prepareData();
+		$this->processJob('/upload-project');
 
 		$pid = $bucketAttributes['gd']['pid'];
 
 		// Create Report Definition
-		$attribute1 = $this->_getAttributeByTitle($pid, $this->attribute1Title);
-		$attribute2 = $this->_getAttributeByTitle($pid, $this->attribute2Title);
+		$attribute1 = $this->getAttributeByTitle($pid, $this->attribute1Title);
+		$attribute2 = $this->getAttributeByTitle($pid, $this->attribute2Title);
 
 		$this->reportDefinition = str_replace("%attribute1%", $attribute1['attribute']['content']['displayForms'][0]['meta']['uri'], $this->reportDefinition);
 		$this->reportDefinition = str_replace("%attribute2%", $attribute2['attribute']['content']['displayForms'][0]['meta']['uri'], $this->reportDefinition);
 
 		// Post report definition to GD project
-		$jobId = $this->_processJob('/gooddata-writer/proxy', array(
+		$jobId = $this->processJob('/proxy', array(
 			'writerId'  => $this->writerId,
 			'query'     => '/gdc/md/' . $pid . '/obj',
 			'payload'   => json_decode($this->reportDefinition, true)
 		), 'POST');
-		$jobStatus = $this->_getWriterApi('/gooddata-writer/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
+		$jobStatus = $this->getWriterApi('/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
 
-		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $jobStatus['job']['status'], "Error posting report definition to project");
-		$reportDefinitionUri = $jobStatus['job']['result']['response']['uri'];
+		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $jobStatus['status'], "Error posting report definition to project");
+		$reportDefinitionUri = $jobStatus['result']['response']['uri'];
 
 		// Post report
 		$this->report = str_replace("%reportDefinition%", $reportDefinitionUri, $this->report);
 
-		$jobId = $this->_processJob('/gooddata-writer/proxy', array(
+		$jobId = $this->processJob('/proxy', array(
 			'writerId'  => $this->writerId,
 			'query'     => '/gdc/md/' . $pid . '/obj',
 			'payload'   => json_decode($this->report, true)
 		), 'POST');
-		$jobStatus = $this->_getWriterApi('/gooddata-writer/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
+		$jobStatus = $this->getWriterApi('/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
 
-		$reportUri = $jobStatus['job']['result']['response']['uri'];
+		$reportUri = $jobStatus['result']['response']['uri'];
 
 		$tableId = $this->configuration->bucketId . '.' . 'reportExport';
 
-		$jobId = $this->_processJob('/gooddata-writer/export-report', array(
+		$jobId = $this->processJob('/export-report', array(
 			'writerId'  => $this->writerId,
 			'pid'       => $pid,
 			'report'    => $reportUri,
 			'table'     => $tableId
 		), 'POST');
-		$jobStatus = $this->_getWriterApi('/gooddata-writer/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
+		$jobStatus = $this->getWriterApi('/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
 
-		$this->assertEquals('success', $jobStatus['job']['status'], "Error exporting report.");
+		$this->assertEquals('success', $jobStatus['status'], "Error exporting report.");
 	}
 
 } 

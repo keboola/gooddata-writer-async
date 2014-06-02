@@ -19,7 +19,7 @@ class ProjectsTest extends AbstractControllerTest
 		/**
 		 * Create project
 		 */
-		$this->_processJob('/gooddata-writer/projects', array());
+		$this->processJob('/projects', array());
 
 		// Check of configuration
 		$clonedPid = null;
@@ -43,7 +43,7 @@ class ProjectsTest extends AbstractControllerTest
 
 
 		// Check of Writer API
-		$responseJson = $this->_getWriterApi('/gooddata-writer/projects?writerId=' . $this->writerId);
+		$responseJson = $this->getWriterApi('/projects?writerId=' . $this->writerId);
 		$this->assertArrayHasKey('projects', $responseJson, "Response for writer call '/projects' should contain 'projects' key.");
 		$this->assertCount(2, $responseJson['projects'], "Response for writer call '/projects' should return two projects.");
 		$projectFound = false;
@@ -121,12 +121,10 @@ class ProjectsTest extends AbstractControllerTest
 		 * Upload single project
 		 */
 		// Test if upload went only to clone
-		$jobId = $this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.' . $filteredTableName, 'pid' => $clonedPid));
-		$response = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
-		$this->assertArrayHasKey('job', $response, "Response for writer call '/jobs?jobId=' should contain key 'job'.");
-		$this->assertArrayHasKey('result', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.result'.");
-		$this->assertArrayHasKey('status', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.status'.");
-		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $response['job']['status'], "Response for writer call '/jobs?jobId=' should contain key 'job.status' with value 'success'.");
+		$batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.' . $filteredTableName, 'pid' => $clonedPid));
+		$response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
+		$this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
+		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -152,34 +150,32 @@ class ProjectsTest extends AbstractControllerTest
 		 * Filtered tables
 		 */
 		// Test if upload of not-filtered table without 'ignoreFilter' attribute fails
-		$jobId = $this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.' . $notFilteredTableName));
-		$response = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
-		$this->assertArrayHasKey('job', $response, "Response for writer call '/jobs?jobId=' should contain key 'job'.");
-		$this->assertArrayHasKey('result', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.result'.");
-		$this->assertArrayHasKey('status', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.status'.");
-		$this->assertEquals(SharedConfig::JOB_STATUS_ERROR, $response['job']['status'], "Response for writer call '/jobs?jobId=' should contain key 'job.status' with value 'error'.");
+		$batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.' . $notFilteredTableName));
+		$response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
+		$this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
+		$this->assertEquals(SharedConfig::JOB_STATUS_ERROR, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
 
 		// Now add the attribute and try if it succeeds
 		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.' . $notFilteredTableName, 'ignoreFilter', 1);
 
-		$jobId = $this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.' . $notFilteredTableName));
-		$response = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
-		$this->assertArrayHasKey('job', $response, "Response for writer call '/jobs?jobId=' should contain key 'job'.");
-		$this->assertArrayHasKey('result', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.result'.");
-		$this->assertArrayHasKey('status', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.status'.");
-		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $response['job']['status'], "Response for writer call '/jobs?jobId=' should contain key 'job.status' with value 'success'.");
+		$batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.' . $notFilteredTableName));
+		$response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
+		$this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
+		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
 
 
 		// Upload and test filtered tables
-		$jobId = $this->_processJob('/gooddata-writer/upload-table', array('tableId' => $this->dataBucketId . '.' . $filteredTableName));
-		$response = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
-		$this->assertArrayHasKey('job', $response, "Response for writer call '/jobs?jobId=' should contain key 'job'.");
-		$this->assertArrayHasKey('result', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.result'.");
-		$this->assertArrayHasKey('status', $response['job'], "Response for writer call '/jobs?jobId=' should contain key 'job.status'.");
-		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $response['job']['status'], "Response for writer call '/jobs?jobId=' should contain key 'job.status' with value 'success'.");
+		$batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.' . $filteredTableName));
+		$response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
+		$this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
+		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+
+
+		// Get load data job id
+		$jobId = end($response['jobs']);
 
 		// Check csv of main project if contains all rows
 		$csv = $webDav->get(sprintf('%s-%s/data.csv', $jobId, $mainPid));
@@ -210,12 +206,12 @@ class ProjectsTest extends AbstractControllerTest
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$oldPid = $bucketAttributes['gd']['pid'];
 
-		$this->_processJob('/gooddata-writer/reset-project');
+		$this->processJob('/reset-project');
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$newPid = $bucketAttributes['gd']['pid'];
 		$this->assertNotEquals($newPid, $oldPid, 'Project reset failed');
 
-		$this->_processJob('/gooddata-writer/reset-project', array('removeClones' => true));
+		$this->processJob('/reset-project', array('removeClones' => true));
 		$allProjects = $this->configuration->getProjects();
 		$this->assertCount(1, $allProjects, 'Reset of project clones failed');
 	}

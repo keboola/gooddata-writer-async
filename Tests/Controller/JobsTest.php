@@ -14,30 +14,30 @@ class JobsTest extends AbstractControllerTest
 
 	public function testJobs()
 	{
-		$this->_prepareData();
+		$this->prepareData();
 
 
 		/**
 		 * Jobs info
 		 */
-		$responseJson = $this->_postWriterApi('/gooddata-writer/upload-table', array(
+		$responseJson = $this->postWriterApi('/upload-table', array(
 			'writerId' => $this->writerId,
 			'tableId' => $this->dataBucketId . '.categories'
 		));
 
-		$this->assertArrayHasKey('job', $responseJson, "Response for GoodData API call '/upload-table' should contain 'job' key.");
-		$jobId = $responseJson['job'];
+		$this->assertArrayHasKey('status', $responseJson, "Response for GoodData API call '/upload-table' should contain 'status' key.");
+		$batchId = $responseJson['batch'];
 
 
 		// Get all jobs
-		$responseJson = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId);
+		$responseJson = $this->getWriterApi('/jobs?writerId=' . $this->writerId);
 		$this->assertArrayHasKey('jobs', $responseJson, "Response for GoodData API call '/jobs' should contain 'jobs' key.");
-		$this->assertCount(2, $responseJson['jobs'], "Response for GoodData API call '/jobs' should contain two jobs.");
+		$this->assertCount(3, $responseJson['jobs'], "Response for GoodData API call '/jobs' should contain three jobs.");
 		$uploadTableFound = false;
 		foreach ($responseJson['jobs'] as $job) {
 			$this->assertArrayHasKey('id', $job, "Response for GoodData API call '/jobs' should contain 'id' key in jobs list.");
 			$this->assertArrayHasKey('command', $job, "Response for GoodData API call '/jobs' should contain 'id' key in jobs list.");
-			if ($job['id'] == $jobId && $job['command'] == 'uploadTable') {
+			if ($job['batchId'] == $batchId && $job['command'] == 'loadData') {
 				$uploadTableFound = true;
 			}
 		}
@@ -45,31 +45,30 @@ class JobsTest extends AbstractControllerTest
 
 
 		// Get batch
-		$responseJson = $this->_postWriterApi('/gooddata-writer/upload-project', array('writerId' => $this->writerId));
+		$responseJson = $this->postWriterApi('/upload-project', array('writerId' => $this->writerId));
 
 		$this->assertArrayHasKey('batch', $responseJson, "Response for GoodData API call '/upload-project' should contain 'batch' key.");
 		$batchId = $responseJson['batch'];
 
-		$responseJson = $this->_getWriterApi('/gooddata-writer/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-		$this->assertArrayHasKey('batch', $responseJson, "Response for GoodData API call '/batch' should contain 'batch' key.");
-		$this->assertArrayHasKey('jobs', $responseJson['batch'], "Response for GoodData API call '/batch' should contain 'batch.jobs' key.");
-		$this->assertCount(4, $responseJson['batch']['jobs'], "Response for GoodData API call '/batch' should contain four jobs.");
+		$responseJson = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
+		$this->assertArrayHasKey('status', $responseJson, "Response for GoodData API call '/batch' should contain 'status' key.");
+		$this->assertArrayHasKey('jobs', $responseJson, "Response for GoodData API call '/batch' should contain 'jobs' key.");
+		$this->assertCount(6, $responseJson['jobs'], "Response for GoodData API call '/batch' should contain six jobs.");
 
 		$uploadCategoriesFound = false;
 		$uploadProductsFound = false;
-		foreach ($responseJson['batch']['jobs'] as $jobId) {
+		foreach ($responseJson['jobs'] as $jobId) {
 			// Get job
-			$jobResponse = $this->_getWriterApi('/gooddata-writer/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
-			$this->assertArrayHasKey('job', $jobResponse, "Response for GoodData API call '/jobs?jobId=' should contain 'job' key.");
-			$this->assertArrayHasKey('command', $jobResponse['job'], "Response for GoodData API call '/jobs?jobId=' should contain 'job.command' key.");
-			if ($jobResponse['job']['command'] == 'uploadTable') {
-				$this->assertArrayHasKey('parameters', $jobResponse['job'], "Response for GoodData API call '/jobs?jobId=' should contain 'job.parameters' key.");
-				$this->assertArrayHasKey('tableId', $jobResponse['job']['parameters'], "Response for GoodData API call '/jobs?jobId=' should contain 'job.parameters.tableId' key.");
+			$jobResponse = $this->getWriterApi('/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
+			$this->assertArrayHasKey('command', $jobResponse, "Response for GoodData API call '/jobs?jobId=' should contain 'command' key.");
+			if ($jobResponse['command'] == 'loadData') {
+				$this->assertArrayHasKey('parameters', $jobResponse, "Response for GoodData API call '/jobs?jobId=' should contain 'parameters' key.");
+				$this->assertArrayHasKey('tableId', $jobResponse['parameters'], "Response for GoodData API call '/jobs?jobId=' should contain 'parameters.tableId' key.");
 			}
-			if ($jobResponse['job']['command'] == 'uploadTable' && $jobResponse['job']['parameters']['tableId'] == $this->dataBucketId . '.categories') {
+			if ($jobResponse['command'] == 'loadData' && $jobResponse['parameters']['tableId'] == $this->dataBucketId . '.categories') {
 				$uploadCategoriesFound = true;
 			}
-			if ($jobResponse['job']['command'] == 'uploadTable' && $jobResponse['job']['parameters']['tableId'] == $this->dataBucketId . '.products') {
+			if ($jobResponse['command'] == 'loadData' && $jobResponse['parameters']['tableId'] == $this->dataBucketId . '.products') {
 				$uploadProductsFound = true;
 			}
 		}
@@ -82,7 +81,7 @@ class JobsTest extends AbstractControllerTest
 		 * Cancel jobs
 		 */
 		// Upload project
-		$responseJson = $this->_postWriterApi('/gooddata-writer/upload-project', array(
+		$responseJson = $this->postWriterApi('/upload-project', array(
 			'writerId' => $this->writerId
 		));
 
@@ -90,27 +89,24 @@ class JobsTest extends AbstractControllerTest
 
 
 		// Get jobs of upload call
-		$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/batch?writerId=%s&batchId=%d', $this->writerId, $responseJson['batch']));
+		$responseJson = $this->getWriterApi(sprintf('/batch?writerId=%s&batchId=%d', $this->writerId, $responseJson['batch']));
 
-		$this->assertArrayHasKey('batch', $responseJson, "Response for writer call '/batch' should contain 'batch' key.");
-		$this->assertArrayHasKey('jobs', $responseJson['batch'], "Response for writer call '/batch' should contain 'batch.jobs' key.");
-		$jobs = $responseJson['batch']['jobs'];
+		$this->assertArrayHasKey('jobs', $responseJson, "Response for writer call '/batch' should contain 'jobs' key.");
+		$jobs = $responseJson['jobs'];
 
 
 		// Cancel jobs in queue
-		$this->_postWriterApi('/gooddata-writer/cancel-jobs', array(
+		$this->postWriterApi('/cancel-jobs', array(
 			'writerId' => $this->writerId
 		));
 
 
 		// Check status of the jobs
 		foreach ($jobs as $jobId) {
-			$responseJson = $this->_getWriterApi(sprintf('/gooddata-writer/jobs?writerId=%s&jobId=%d', $this->writerId, $jobId));
+			$responseJson = $this->getWriterApi(sprintf('/jobs?writerId=%s&jobId=%d', $this->writerId, $jobId));
 
 			$this->assertArrayHasKey('status', $responseJson, "Response for writer call '/jobs' should contain 'status' key.");
-			$this->assertArrayHasKey('job', $responseJson, "Response for writer call '/jobs' should contain 'job' key.");
-			$this->assertArrayHasKey('status', $responseJson['job'], "Response for writer call '/jobs' should contain 'job.status' key.");
-			$this->assertEquals(SharedConfig::JOB_STATUS_CANCELLED, $responseJson['job']['status'], "Response for writer call '/jobs' should have key 'job.status' with value 'cancelled'.");
+			$this->assertEquals(SharedConfig::JOB_STATUS_CANCELLED, $responseJson['status'], "Response for writer call '/jobs' should have key 'status' with value 'cancelled'.");
 		}
 	}
 

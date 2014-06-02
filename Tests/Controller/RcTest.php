@@ -24,14 +24,14 @@ class RcTest extends AbstractControllerTest
 
 	public function testRcWriter()
 	{
-		$this->_prepareData();
+		$this->prepareData();
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		/**
 		 * Upload whole project
 		 */
-		$this->_processJob('/gooddata-writer/upload-project');
+		$this->processJob('/upload-project');
 
 		// Check existence of datasets in the project
 		$data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
@@ -72,11 +72,10 @@ class RcTest extends AbstractControllerTest
 		/**
 		 * Upload whole project once again
 		 */
-		$batchId = $this->_processJob('/gooddata-writer/upload-project');
-		$response = $this->_getWriterApi('/gooddata-writer/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-		$this->assertArrayHasKey('batch', $response, "Response for writer call '/batch?batchId=' should contain key 'batch'.");
-		$this->assertArrayHasKey('status', $response['batch'], "Response for writer call '/jobs?jobId=' should contain key 'batch.status'.");
-		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $response['batch']['status'], "Result of request /upload-project should be 'success'.");
+		$batchId = $this->processJob('/upload-project');
+		$response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
+		$this->assertArrayHasKey('status', $response, "Response for writer call '/jobs?jobId=' should contain key 'batch.status'.");
+		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $response['status'], "Result of request /upload-project should be 'success'.");
 
 
 		// Check validity of foreign keys (including time dimension during daylight saving switch values)
