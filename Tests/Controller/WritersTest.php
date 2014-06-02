@@ -144,7 +144,7 @@ class WritersTest extends AbstractControllerTest
 						'batchId' => $job['id']
 					));
 					$jobInfo = $this->getWriterApi('/jobs?writerId=' . $existingProjectWriterId . '&jobId=' . $job['id']);
-					if ($jobInfo['job']['status'] != SharedConfig::JOB_STATUS_SUCCESS)
+					if ($jobInfo['status'] != SharedConfig::JOB_STATUS_SUCCESS)
 						$jobsFinished = false;
 				}
 			}
