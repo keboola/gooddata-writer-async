@@ -479,7 +479,52 @@ POST /upload-table
 < Content-Type: application/json
 { 
     "status": "ok", 
-    "jobId": job_id,
+    "batch": batch_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/batch?writerId=writer1&batchId=batch_id",
+    "duration": 35.12 
+}
+
+
+### Update model of selected table
+
+#### Parameters
+
+* **tableId** (required) - name of table to upload
+* **writerId** (required)
+* **pid** (optional) - filter rows from data table by filter column (see [Project clones](#projectclones))
+* **queue** (optional) - with value **secondary** will put job in secondary queue
+POST /update-model
+> X-StorageApi-Token: your_token
+> Accept: application/json
+{ "tableId": "out.c-main-products", "writerId": "123" }
+< 202
+< Content-Type: application/json
+{ 
+    "status": "ok", 
+    "job": job_id,
+    "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
+    "duration": 35.12 
+}
+
+
+### Load data to selected table
+
+#### Parameters
+
+* **tableId** (required) - name of table to upload
+* **writerId** (required)
+* **incrementalLoad** (optional) - force incremental or full load
+* **pid** (optional) - filter rows from data table by filter column (see [Project clones](#projectclones))
+* **queue** (optional) - with value **secondary** will put job in secondary queue
+POST /load-data
+> X-StorageApi-Token: your_token
+> Accept: application/json
+{ "tableId": "out.c-main-products", "writerId": "123" }
+< 202
+< Content-Type: application/json
+{ 
+    "status": "ok", 
+    "job": job_id,
     "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
     "duration": 35.12 
 }
