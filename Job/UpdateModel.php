@@ -168,6 +168,7 @@ class UpdateModel extends AbstractJob
 
 		$gdWriteStartTime = date('c');
 		$updateOperations = array();
+		$ldmChange = false;
 		try {
 			// Update model
 			foreach ($updateModelJobs as $gdJob) {
@@ -231,6 +232,7 @@ class UpdateModel extends AbstractJob
 				}
 				//@TODO REMOVE WITH CL TOOL
 
+				$ldmChange = true;
 			}
 		} catch (\Exception $e) {
 			$error = $e->getMessage();
@@ -270,6 +272,9 @@ class UpdateModel extends AbstractJob
 		}
 		if (count($updateOperations)) {
 			$result['info'] = $updateOperations;
+		}
+		if ($ldmChange) {
+			$result['ldmChange'] = true;
 		}
 
 		return $result;
