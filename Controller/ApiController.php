@@ -1022,7 +1022,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$this->enqueue($batchId);
 
-		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+		return $this->getPollResult($batchId, $this->params['writerId'], true);
 	}
 
 
