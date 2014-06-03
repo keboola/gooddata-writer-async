@@ -507,11 +507,11 @@ POST /update-model
 }
 
 
-### Load data to selected table
+### Load data to selected tables
 
 #### Parameters
 
-* **tableId** (required) - name of table to upload
+* **tables** (required) - array of tables to upload
 * **writerId** (required)
 * **incrementalLoad** (optional) - force incremental or full load
 * **pid** (optional) - filter rows from data table by filter column (see [Project clones](#projectclones))
@@ -519,7 +519,7 @@ POST /update-model
 POST /load-data
 > X-StorageApi-Token: your_token
 > Accept: application/json
-{ "tableId": "out.c-main-products", "writerId": "123" }
+{ "tables": ["out.c-main.products", "out.c-main.categories"], "writerId": "123" }
 < 202
 < Content-Type: application/json
 { 

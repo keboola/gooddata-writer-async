@@ -987,39 +987,38 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$createdTime = time();
 
 		// Init parameters
-		$this->checkParams(array('writerId', 'tableId'));
+		$this->checkParams(array('writerId', 'tables'));
 		$this->checkWriterExistence();
 
 		$this->getConfiguration()->checkBucketAttributes();
 
-		$batchId = $this->storageApi->generateId();
+		foreach ($this->params['tables'] as $tableId) {
+			$batchId = $this->storageApi->generateId();
+			$definition = $this->getConfiguration()->getDataSetDefinition($tableId);
+			$tableConfiguration = $this->getConfiguration()->getDataSet($tableId);
+			$jobData = array(
+				'batchId' => $batchId,
+				'command' => 'loadData',
+				'dataset' => !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'],
+				'createdTime' => date('c', $createdTime),
+				'parameters' => array(
+					'tableId' => $tableId
+				),
+				'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
+			);
+			if (isset($this->params['pid'])) {
+				$jobData['parameters']['pid'] = $this->params['pid'];
+			}
+			if (isset($this->params['incrementalLoad'])) {
+				$jobData['parameters']['incrementalLoad'] = $this->params['incrementalLoad'];
+			}
+			$jobInfo = $this->createJob($jobData);
 
-		$definition = $this->getConfiguration()->getDataSetDefinition($this->params['tableId']);
-
-		$tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
-		$jobData = array(
-			'batchId' => $batchId,
-			'command' => 'loadData',
-			'dataset' => !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'],
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'tableId' => $this->params['tableId']
-			),
-			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-		);
-		if (isset($this->params['pid'])) {
-			$jobData['parameters']['pid'] = $this->params['pid'];
+			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $tableId), json_encode($definition));
+			$this->sharedConfig->saveJob($jobInfo['id'], array(
+				'definition' => $definitionUrl
+			));
 		}
-		if (isset($this->params['incrementalLoad'])) {
-			$jobData['parameters']['incrementalLoad'] = $this->params['incrementalLoad'];
-		}
-		$jobInfo = $this->createJob($jobData);
-
-
-		$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $this->params['tableId']), json_encode($definition));
-		$this->sharedConfig->saveJob($jobInfo['id'], array(
-			'definition' => $definitionUrl
-		));
 
 		$this->enqueue($batchId);
 
@@ -1280,9 +1279,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkParams(array('writerId', 'tableId'));
 		$this->checkWriterExistence();
 
+		$tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
 		$jobInfo = $this->createJob(array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
+			'dataset' => !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'],
 			'parameters' => array(
 				'tableId' => $this->params['tableId']
 			),
@@ -1805,6 +1806,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			if ($key == 'password') $val = '***';
 		});
 		$this->container->get('logger')->log(Logger::INFO, $this->translator->trans('log.job.created %1', array('%1' => $job['id'])), array(
+			'projectId' => $this->getConfiguration()->projectId,
 			'writerId' => $this->getConfiguration()->writerId,
 			'runId' => $this->storageApi->getRunId(),
 			'command' => $params['command'],
