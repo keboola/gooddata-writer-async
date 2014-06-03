@@ -301,6 +301,7 @@ class JobExecutor
 		$priority = $this->storageApiEvent->getType() == StorageApiEvent::TYPE_ERROR ? Logger::ERROR : Logger::INFO;
 		$logData = array(
 			'jobId' => $job['id'],
+			'projectId' => $job['projectId'],
 			'writerId' => $job['writerId'],
 			'runId' => $job['runId']
 		);
