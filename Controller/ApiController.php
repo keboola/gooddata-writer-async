@@ -1131,7 +1131,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 
 		if (empty($this->params['wait'])) {
-			return $this->getPollResult($batchId, $this->params['writerId'], true);
+			return $this->getPollResult($batchId, $this->params['writerId'], true, $jobInfo['id']);
 		} else {
 			return $this->waitForBatch($batchId);
 		}
@@ -1717,16 +1717,18 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		return $this->createJsonResponse($responseBody, $statusCode);
 	}
 
-	private function getPollResult($id, $writerId, $isBatch = false)
+	private function getPollResult($id, $writerId, $isBatch = false, $jobId=null)
 	{
 		/** @var \Symfony\Component\Routing\RequestContext $context */
 		$context = $this->container->get('router')->getContext();
 
-		return $this->createApiResponse(array(
+		$result = array(
 			($isBatch? 'batch' : 'job') => (int)$id,
 			'url' => sprintf('https://%s%s/gooddata-writer/%s?writerId=%s&%s=%s', $context->getHost(), $context->getBaseUrl(),
 				$isBatch? 'batch' : 'jobs', $writerId, $isBatch? 'batchId' : 'jobId', $id)
-		), 202);
+		);
+		if ($jobId) $result['job'] = (int)$jobId;
+		return $this->createApiResponse($result, 202);
 	}
 
 	private function getConfiguration()
