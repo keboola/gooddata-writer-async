@@ -992,8 +992,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$this->getConfiguration()->checkBucketAttributes();
 
+		$batchId = $this->storageApi->generateId();
 		foreach ($this->params['tables'] as $tableId) {
-			$batchId = $this->storageApi->generateId();
 			$definition = $this->getConfiguration()->getDataSetDefinition($tableId);
 			$tableConfiguration = $this->getConfiguration()->getDataSet($tableId);
 			$jobData = array(
