@@ -1095,9 +1095,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if (isset($this->params['pid'])) {
 			$jobData['parameters']['pid'] = $this->params['pid'];
 		}
-		if (isset($this->params['incrementalLoad'])) {
-			$jobData['parameters']['incrementalLoad'] = $this->params['incrementalLoad'];
-		}
 		$jobInfo = $this->createJob($jobData);
 
 		$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $this->params['tableId']), json_encode($definition));
@@ -1118,6 +1115,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		);
 		if (isset($this->params['pid'])) {
 			$jobData['parameters']['pid'] = $this->params['pid'];
+		}
+		if (isset($this->params['incrementalLoad'])) {
+			$jobData['parameters']['incrementalLoad'] = $this->params['incrementalLoad'];
 		}
 		$jobInfo = $this->createJob($jobData);
 
@@ -1208,9 +1208,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			);
 			if (isset($this->params['pid'])) {
 				$jobData['parameters']['pid'] = $this->params['pid'];
-			}
-			if (isset($this->params['incrementalLoad'])) {
-				$jobData['parameters']['incrementalLoad'] = $this->params['incrementalLoad'];
 			}
 			$jobInfo = $this->createJob($jobData);
 
