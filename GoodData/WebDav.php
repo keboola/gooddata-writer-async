@@ -71,11 +71,7 @@ class WebDav
 			if (!$process->isSuccessful() || $error) {
 				$retry = false;
 				if (substr($error, 0, 7) == 'curl: (') {
-					$curlErrorNumber = substr($error, 7, strpos($error, ')') - 7);
-					if (in_array((int)$curlErrorNumber, array(18, 52, 55))) {
-						// Retry for curl 18 (CURLE_PARTIAL_FILE), 52 (CURLE_GOT_NOTHING) and 55 (CURLE_SEND_ERROR)
-						$retry = true;
-					}
+					$retry = true;
 				}
 				if (!$retry) {
 					break;
