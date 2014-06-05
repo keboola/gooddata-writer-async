@@ -106,13 +106,10 @@ class FiltersTest extends AbstractControllerTest
 		 * Delete filter
 		 */
 		$filter = $filterList[0];
-
-		// Create and process job
-		$this->processJob(
-			'/filters?writerId=' . $this->writerId . '&uri=' . $filter['uri'] . '&dev=1',
-			array(),
-			'DELETE'
-		);
+		$this->processJob('/filters?writerId=' . $this->writerId . '&uri=' . $filter['uri'], array(), 'DELETE');
+		$this->assertFalse($this->configuration->getFilter($filter['name']), 'Writer should have no filter configured');
+		$this->assertEmpty($this->configuration->getFiltersProjects(), 'Writer should have no filter-project relation configured');
+		$this->assertEmpty($this->configuration->getFiltersUsers(), 'Writer should have no filter-user relation configured');
 	}
 
 }

@@ -1362,50 +1362,20 @@ class Configuration extends StorageApiConfiguration
 
 	public function deleteFilter($filterUri)
 	{
-		$filters = array();
-
 		$filterName = null;
 		foreach ($this->getFilters() as $filter) {
-			if ($filter['uri'] != $filterUri) {
-				$filters[] = $filter;
-			} else {
+			if ($filter['uri'] == $filterUri) {
 				$filterName = $filter['name'];
 			}
 		}
 
-		if (empty($filters)) {
-			$this->storageApiClient->dropTable($this->bucketId . '.' . self::FILTERS_TABLE_NAME);
-		} else {
-			$this->updateConfigTable(self::FILTERS_TABLE_NAME, $filters);
+		if (!$filterName) {
+			throw new WrongParametersException('Such filter does not exist in configuration');
 		}
 
-		// Update filtersUsers table
-		$filtersUsers = array();
-		foreach ($this->getFiltersUsers() as $row) {
-			if ($row['filterName'] != $filterName) {
-				$filtersUsers[] = $row;
-			}
-		}
-
-		if (empty($filtersUsers)) {
-			$this->storageApiClient->dropTable($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME);
-		} else {
-			$this->updateConfigTable(self::FILTERS_USERS_TABLE_NAME, $filtersUsers);
-		}
-
-		// Update filtersProjects table
-		$filtersProjects = array();
-		foreach ($this->getFiltersProjects() as $row) {
-			if ($row['filterName'] != $filterName) {
-				$filtersProjects[] = $row;
-			}
-		}
-
-		if (empty($filtersProjects)) {
-			$this->storageApiClient->dropTable($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME);
-		} else {
-			$this->updateConfigTable(self::FILTERS_PROJECTS_TABLE_NAME, $filtersProjects);
-		}
+		$this->deleteTableRow($this->bucketId . '.' . self::FILTERS_TABLE_NAME, 'name', $filterName);
+		$this->deleteTableRow($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'filterName', $filterName);
+		$this->deleteTableRow($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'filterName', $filterName);
 	}
 
 	/**
