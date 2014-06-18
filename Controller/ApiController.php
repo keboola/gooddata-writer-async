@@ -1088,7 +1088,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
 		$run = !$dataSetExists || $doUpdate);*/
 		$tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
-
 		foreach ($projectsToUse as $pid) {
 			$jobData = array(
 				'batchId' => $batchId,
