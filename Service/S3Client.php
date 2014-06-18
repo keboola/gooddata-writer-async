@@ -6,9 +6,13 @@
 
 namespace Keboola\GoodDataWriter\Service;
 
+use Aws\Common\Enum\ClientOptions;
 use Aws\S3\S3Client as Client,
 	Aws\S3\Enum\CannedAcl;
+use Keboola\GoodDataWriter\Service\Aws\BackoffLogAdapter;
+use Keboola\GoodDataWriter\Service\Aws\BackoffPlugin;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
+use Monolog\Logger;
 
 class S3Client
 {
@@ -26,11 +30,13 @@ class S3Client
 	protected $path;
 
 
-	public function __construct(AppConfiguration $appConfiguration, $path)
+	public function __construct(AppConfiguration $appConfiguration, $path, Logger $logger)
 	{
 		$this->client = Client::factory(array(
 			'key' => $appConfiguration->aws_accessKey,
-			'secret' => $appConfiguration->aws_secretKey
+			'secret' => $appConfiguration->aws_secretKey,
+			ClientOptions::BACKOFF => BackoffPlugin::factory(),
+			ClientOptions::BACKOFF_LOGGER => new BackoffLogAdapter($logger)
 		));
 		$this->bucket = $appConfiguration->aws_s3Bucket;
 		$this->path = $path;

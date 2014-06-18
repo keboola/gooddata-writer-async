@@ -10,7 +10,7 @@ services:
 
   gooddata_writer.rest_api.s3_client:
     class: Keboola\GoodDataWriter\Service\S3Client
-    arguments: [@gooddata_writer.app_configuration, "RestAPI"]
+    arguments: [@gooddata_writer.app_configuration, "RestAPI", @logger]
   gooddata_writer.rest_api.log_formatter:
     class: Keboola\GoodDataWriter\Service\RestAPILogFormatter
     arguments: [@gooddata_writer.rest_api.s3_client]

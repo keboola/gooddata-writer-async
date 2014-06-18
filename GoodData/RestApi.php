@@ -1289,11 +1289,6 @@ class RestApi
 		if (isset($result['userFiltersUpdateResult']['successful']) && count($result['userFiltersUpdateResult']['successful'])) {
 			// SUCCESS
 		} else {
-			$this->logAlert('assignFiltersToUser() has bad response', array(
-				'uri' => $uri,
-				'params' => $params,
-				'result' => $result
-			));
 			throw new RestApiException('Error in attempt to assign filters to user');
 		}
 	}

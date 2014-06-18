@@ -12,8 +12,6 @@
 
 namespace Keboola\GoodDataWriter\Service;
 
-use Keboola\GoodDataWriter\Exception\JobProcessException;
-
 class Lock
 {
 

@@ -184,7 +184,8 @@ class JobExecutor
 
 				$s3Client = new S3Client(
 					$this->appConfiguration,
-					$job['projectId'] . '.' . $job['writerId']
+					$job['projectId'] . '.' . $job['writerId'],
+					$this->logger
 				);
 
 				$this->restApi->setJobId($job['id']);

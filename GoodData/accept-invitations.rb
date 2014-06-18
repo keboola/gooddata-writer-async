@@ -62,6 +62,56 @@ begin
   begin
     imap = Net::IMAP.new options[:host], options[:port], true, nil, false
   	imap.login options[:email_username], options[:email_password]
+
+  	imap.select 'INBOX'
+    imap.search(['NOT', 'SEEN']).each do |message_id|
+      catch :invitation_ok do
+        envelope = imap.fetch(message_id, 'ENVELOPE')[0].attr['ENVELOPE']
+        if envelope.from[0]['host'] == 'gooddata.com' && envelope.from[0]['mailbox'] == 'invitation'
+          message = imap.fetch(message_id, 'RFC822')[0].attr['RFC822']
+          mail = Mail.read_from_string message
+          mail.body.decoded.split(' ').each { |mail_part|
+            if mail_part =~ URI::regexp && mail_part.start_with?('https://secure.gooddata.com')
+              invitation_id = mail_part.split('/').last
+
+              GoodData.connect options[:gd_username], options[:gd_password]
+              invitation = GoodData.get '/gdc/account/invitations/' + invitation_id
+
+              if invitation['invitation']['content']['status'] == 'ACCEPTED'
+                throw :invitation_ok
+              end
+
+              result = {
+                  'pid' => invitation['invitation']['links']['project'].split('/').last,
+                  'sender' => invitation['invitation']['meta']['author']['email'],
+                  'createDate' => invitation['invitation']['meta']['created']
+              }
+
+              begin
+                GoodData.post '/gdc/account/invitations/' + invitation_id, {
+                    'invitationStatusAccept' => {
+                        'status' => 'ACCEPTED'
+                    }
+                }
+                  result['status'] = 'ok'
+              rescue Exception => e
+                result['status'] = 'error'
+                result['error'] = e.message
+              end
+
+              puts JSON.generate(result)
+
+              imap.store message_id, '+FLAGS', [:Seen]
+            end
+          }
+        end
+      end
+    end
+    imap.logout
+    imap.disconnect
+    repeat += 1
+    sleep 10
+
   rescue StandardError, Net::IMAP::IOError => e
     last_error = e
     begin
@@ -71,55 +121,6 @@ begin
     end
     next
   end
-
-  imap.select 'INBOX'
-  imap.search(['NOT', 'SEEN']).each do |message_id|
-    catch :invitation_ok do
-      envelope = imap.fetch(message_id, 'ENVELOPE')[0].attr['ENVELOPE']
-      if envelope.from[0]['host'] == 'gooddata.com' && envelope.from[0]['mailbox'] == 'invitation'
-        message = imap.fetch(message_id, 'RFC822')[0].attr['RFC822']
-        mail = Mail.read_from_string message
-        mail.body.decoded.split(' ').each { |mail_part|
-          if mail_part =~ URI::regexp && mail_part.start_with?('https://secure.gooddata.com')
-            invitation_id = mail_part.split('/').last
-
-            GoodData.connect options[:gd_username], options[:gd_password]
-            invitation = GoodData.get '/gdc/account/invitations/' + invitation_id
-
-            if invitation['invitation']['content']['status'] == 'ACCEPTED'
-              throw :invitation_ok
-            end
-
-            result = {
-                'pid' => invitation['invitation']['links']['project'].split('/').last,
-                'sender' => invitation['invitation']['meta']['author']['email'],
-                'createDate' => invitation['invitation']['meta']['created']
-            }
-
-            begin
-              GoodData.post '/gdc/account/invitations/' + invitation_id, {
-                  'invitationStatusAccept' => {
-                      'status' => 'ACCEPTED'
-                  }
-              }
-                result['status'] = 'ok'
-            rescue Exception => e
-              result['status'] = 'error'
-              result['error'] = e.message
-            end
-
-            puts JSON.generate(result)
-
-            imap.store message_id, '+FLAGS', [:Seen]
-          end
-        }
-      end
-    end
-  end
-  imap.logout
-  imap.disconnect
-  repeat += 1
-  sleep 10
 end while ((Time.now - start_time) < 300)
 
 if repeat == 0

@@ -1755,7 +1755,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			}
 			$this->s3Client = new S3Client(
 				$this->appConfiguration,
-				$this->getConfiguration()->projectId . '.' . $this->getConfiguration()->writerId
+				$this->getConfiguration()->projectId . '.' . $this->getConfiguration()->writerId,
+				$this->container->get('logger')
 			);
 		}
 		return $this->s3Client;
