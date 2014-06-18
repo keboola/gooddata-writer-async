@@ -57,18 +57,17 @@ class JobsTest extends AbstractControllerTest
 
 		$uploadCategoriesFound = false;
 		$uploadProductsFound = false;
-		foreach ($responseJson['jobs'] as $jobId) {
+		foreach ($responseJson['jobs'] as $job) {
 			// Get job
-			$jobResponse = $this->getWriterApi('/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
-			$this->assertArrayHasKey('command', $jobResponse, "Response for GoodData API call '/jobs?jobId=' should contain 'command' key.");
-			if ($jobResponse['command'] == 'loadData') {
-				$this->assertArrayHasKey('parameters', $jobResponse, "Response for GoodData API call '/jobs?jobId=' should contain 'parameters' key.");
-				$this->assertArrayHasKey('tableId', $jobResponse['parameters'], "Response for GoodData API call '/jobs?jobId=' should contain 'parameters.tableId' key.");
+			$this->assertArrayHasKey('command', $job, "Response for GoodData API call '/jobs?jobId=' should contain 'command' key.");
+			if ($job['command'] == 'loadData') {
+				$this->assertArrayHasKey('parameters', $job, "Response for GoodData API call '/jobs?jobId=' should contain 'parameters' key.");
+				$this->assertArrayHasKey('tableId', $job['parameters'], "Response for GoodData API call '/jobs?jobId=' should contain 'parameters.tableId' key.");
 			}
-			if ($jobResponse['command'] == 'loadData' && $jobResponse['parameters']['tableId'] == $this->dataBucketId . '.categories') {
+			if ($job['command'] == 'loadData' && $job['parameters']['tableId'] == $this->dataBucketId . '.categories') {
 				$uploadCategoriesFound = true;
 			}
-			if ($jobResponse['command'] == 'loadData' && $jobResponse['parameters']['tableId'] == $this->dataBucketId . '.products') {
+			if ($job['command'] == 'loadData' && $job['parameters']['tableId'] == $this->dataBucketId . '.products') {
 				$uploadProductsFound = true;
 			}
 		}
@@ -102,8 +101,8 @@ class JobsTest extends AbstractControllerTest
 
 
 		// Check status of the jobs
-		foreach ($jobs as $jobId) {
-			$responseJson = $this->getWriterApi(sprintf('/jobs?writerId=%s&jobId=%d', $this->writerId, $jobId));
+		foreach ($jobs as $job) {
+			$responseJson = $this->getWriterApi(sprintf('/jobs?writerId=%s&jobId=%d', $this->writerId, $job['id']));
 
 			$this->assertArrayHasKey('status', $responseJson, "Response for writer call '/jobs' should contain 'status' key.");
 			$this->assertEquals(SharedConfig::JOB_STATUS_CANCELLED, $responseJson['status'], "Response for writer call '/jobs' should have key 'status' with value 'cancelled'.");

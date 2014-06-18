@@ -9,6 +9,7 @@ namespace Keboola\GoodDataWriter\Job;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException;
+use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\CLToolApi;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Symfony\Component\Process\Process;
@@ -19,45 +20,39 @@ class UpdateModel extends AbstractJob
 	private $goodDataModel;
 
 	/**
-	 * required: tableId
-	 * optional: pid
+	 * required: pid, tableId
+	 * optional:
 	 */
 	public function run($job, $params)
 	{
-		$this->checkParams($params, array('tableId'));
+		$this->checkParams($params, array('pid', 'tableId'));
+		$project = $this->configuration->getProject($params['pid']);
+		if (!$project) {
+			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
+		}
+		if (empty($job['definition'])) {
+			throw new WrongConfigurationException($this->translator->trans('job_executor.data_set_definition_missing'));
+		}
+
+		$this->configuration->checkBucketAttributes();
+		$this->configuration->updateDataSetsFromSapi();
 
 		$this->logEvent('start', array(
 			'duration' => 0
 		));
 		$stopWatch = new Stopwatch();
-		$stopWatchId = 'prepareJob';
-		$stopWatch->start($stopWatchId);
 
-		if (empty($job['definition'])) {
-			throw new WrongConfigurationException("Definition for data set is missing. Try the upload again please.");
-		}
-		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->configuration->checkBucketAttributes();
-		$this->configuration->updateDataSetsFromSapi();
 
 		// Init
+		$bucketAttributes = $this->configuration->bucketAttributes();
 		$tmpFolderName = basename($this->tmpDir);
 		$this->goodDataModel = new Model($this->appConfiguration);
-		$projects = $this->configuration->getProjects();
-
-		$updateModelJobs = array();
+		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
 
-		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-
-		$e = $stopWatch->stop($stopWatchId);
-		$this->logEvent($stopWatchId, array(
-			'duration' => $e->getDuration()
-		), $this->restApi->getLogPath());
-
 		// Get definition
-		$stopWatchId = 'getDefinition';
+		$stopWatchId = 'get_definition';
 		$stopWatch->start($stopWatchId);
 		$definitionFile = $job['definition'];
 
@@ -93,64 +88,6 @@ class UpdateModel extends AbstractJob
 		$dataSetId = Model::getDatasetId($dataSetName);
 
 
-
-
-		$stopWatchId = 'prepareLoads';
-		$stopWatch->start($stopWatchId);
-		// Choose projects to load
-		$projectsToLoad = array();
-		foreach ($projects as $project) if ($project['active']) {
-			if (in_array($project['pid'], array_keys($projectsToLoad))) {
-				throw new WrongConfigurationException($this->translator->trans('configuration.project.duplicated %1', array('%1' => $project['pid'])));
-			}
-
-			if (!isset($params['pid']) || $project['pid'] == $params['pid']) {
-				$projectsToLoad[$project['pid']] = array(
-					'pid' => $project['pid'],
-					'main' => !empty($project['main']),
-					'existingDataSets' => $this->restApi->getDataSets($project['pid'])
-				);
-			}
-		}
-		if (isset($params['pid']) && !count($projectsToLoad)) {
-			throw new WrongConfigurationException($this->translator->trans('parameters.pid_not_configured'));
-		}
-
-
-		// Enqueue jobs for creation/update of dataSet
-		$modelChangeDecisionsLog = array();
-		foreach ($projectsToLoad as $project) {
-			$dataSetExists = in_array($dataSetId, array_keys($project['existingDataSets']));
-			$lastGoodDataUpdate = empty($project['existingDataSets'][$dataSetId]['lastChangeDate'])? null : Model::getTimestampFromApiDate($project['existingDataSets'][$dataSetId]['lastChangeDate']);
-
-			$lastConfigurationUpdate = empty($tableDefinition['lastChangeDate'])? null : strtotime($tableDefinition['lastChangeDate']);
-			$doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
-
-			if ($dataSetExists) {
-				if ($doUpdate) {
-					$updateModelJobs[] = array(
-						'command' => 'update',
-						'pid' => $project['pid'],
-						'mainProject' => !empty($project['main'])
-					);
-				}
-			} else {
-				$updateModelJobs[] = array(
-					'command' => 'create',
-					'pid' => $project['pid'],
-					'mainProject' => !empty($project['main'])
-				);
-			}
-
-			$modelChangeDecisionsLog[$project['pid']] = array(
-				'dataSetExists' => $dataSetExists,
-				'lastGoodDataUpdate' => $lastGoodDataUpdate . ($lastGoodDataUpdate? ' - ' . strtotime($lastGoodDataUpdate) : null),
-				'lastConfigurationUpdate' => $lastConfigurationUpdate . ($lastConfigurationUpdate? ' - ' . strtotime($lastConfigurationUpdate) : null),
-				'doUpdate' => $doUpdate
-			);
-		}
-
-
 		//@TODO REMOVE WITH CL TOOL
 		$clToolApi = null;
 		if (!$this->preRelease) {
@@ -160,80 +97,69 @@ class UpdateModel extends AbstractJob
 		}
 		//@TODO REMOVE WITH CL TOOL
 
-		$e = $stopWatch->stop($stopWatchId);
-		$this->logEvent($stopWatchId, array(
-			'duration' => $e->getDuration(),
-			'modelChangeDecisions' => $modelChangeDecisionsLog
-		));
 
 		$gdWriteStartTime = date('c');
 		$updateOperations = array();
 		$ldmChange = false;
 		try {
 			// Update model
-			foreach ($updateModelJobs as $gdJob) {
-				$stopWatchId = $gdJob['command'] . 'DataSet'.'-'.$gdJob['pid'];
-				$stopWatch->start($stopWatchId);
+			$stopWatchId = 'GoodData';
+			$stopWatch->start($stopWatchId);
 
-				if ($this->preRelease) {
-					$this->restApi->initLog();
+			if ($this->preRelease) {
+				$this->restApi->initLog();
 
-					$result = $this->restApi->updateDataSet($gdJob['pid'], $definition);
-					if ($result) {
-						$updateOperations[$gdJob['pid']] = $result;
-					}
-
-					if (empty($tableDefinition['isExported'])) {
-						// Save export status to definition
-						$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
-					}
-
-					$e = $stopWatch->stop($stopWatchId);
-					$this->logEvent($stopWatchId, array(
-						'duration' => $e->getDuration()
-					), $this->restApi->getLogPath());
-
-					//@TODO REMOVE WITH CL TOOL
-				} else {
-					$clToolApi->debugLogUrl = null;
-					$this->restApi->initLog();
-					$clToolApi->s3Dir = $tmpFolderName . '/' . $gdJob['pid'];
-					$clToolApi->tmpDir = $this->tmpDir . '/' . $gdJob['pid'];
-					if (!file_exists($clToolApi->tmpDir)) mkdir($clToolApi->tmpDir);
-					$xml = CLToolApi::getXml($definition);
-					if ($gdJob['command'] == 'create') {
-						$maql = $clToolApi->createDataSetMaql($gdJob['pid'], $xml, $dataSetName);
-						$this->restApi->executeMaql($gdJob['pid'], $maql);
-
-						if (empty($tableDefinition['isExported'])) {
-							// Save export status to definition
-							$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
-						}
-					} else {
-						$maql = $clToolApi->updateDataSetMaql($gdJob['pid'], $xml, 1, $dataSetName);
-						if ($maql) {
-							$this->restApi->executeMaql($gdJob['pid'], $maql);
-						}
-					}
-					if ($clToolApi->debugLogUrl) {
-						if ($gdJob['mainProject']) {
-							$this->logs['CL ' . $gdJob['command'] . ' DataSet'] = $clToolApi->debugLogUrl;
-						} else {
-							$this->logs[$gdJob['pid']]['CL ' . $gdJob['command'] . ' DataSet'] = $clToolApi->debugLogUrl;
-						}
-						$clToolApi->debugLogUrl = null;
-					}
-					$e = $stopWatch->stop($stopWatchId);
-					$this->logEvent($stopWatchId, array(
-						'duration' => $e->getDuration(),
-						'xml' => $xml,
-						'clTool' => $clToolApi->output
-					), $this->restApi->getLogPath());
+				$result = $this->restApi->updateDataSet($params['pid'], $definition);
+				if ($result) {
+					$updateOperations[] = $result;
 				}
-				//@TODO REMOVE WITH CL TOOL
 
-				$ldmChange = true;
+				if (empty($tableDefinition['isExported'])) {
+					// Save export status to definition
+					$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
+				}
+
+				$e = $stopWatch->stop($stopWatchId);
+				$this->logEvent($stopWatchId, array(
+					'duration' => $e->getDuration()
+				), $this->restApi->getLogPath());
+
+			//@TODO REMOVE WITH CL TOOL
+			} else {
+				$clToolApi->debugLogUrl = null;
+				$this->restApi->initLog();
+				$clToolApi->s3Dir = $tmpFolderName;
+				$clToolApi->tmpDir = $this->tmpDir;
+				if (!file_exists($clToolApi->tmpDir)) mkdir($clToolApi->tmpDir);
+				$xml = CLToolApi::getXml($definition);
+
+				$existingDataSets = $this->restApi->getDataSets($params['pid']);
+				$dataSetExists = in_array($dataSetId, array_keys($existingDataSets));
+
+				$maql = $dataSetExists? $clToolApi->updateDataSetMaql($params['pid'], $xml, 1, $dataSetName)
+					: $clToolApi->createDataSetMaql($params['pid'], $xml, $dataSetName);
+				if ($maql) {
+					$this->restApi->executeMaql($params['pid'], $maql);
+				}
+				if (empty($tableDefinition['isExported'])) {
+					// Save export status to definition
+					$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
+				}
+				if ($clToolApi->debugLogUrl) {
+					$this->logs['CL Tool'] = $clToolApi->debugLogUrl;
+					$clToolApi->debugLogUrl = null;
+				}
+				$e = $stopWatch->stop($stopWatchId);
+				$this->logEvent($stopWatchId, array(
+					'duration' => $e->getDuration(),
+					'xml' => $xml,
+					'clTool' => $clToolApi->output
+				), $this->restApi->getLogPath());
 			}
+			//@TODO REMOVE WITH CL TOOL
+
+			$ldmChange = true;
+
 		} catch (\Exception $e) {
 			$error = $e->getMessage();
 			$event = $stopWatch->stop($stopWatchId);

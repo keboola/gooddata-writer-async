@@ -26,7 +26,8 @@ class DatasetsTest extends AbstractControllerTest
 		$batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.categories'));
 
 		$response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-		$jobId = end($response['jobs']);
+		$lastJob = end($response['jobs']);
+		$jobId = $lastJob['id'];
 
 		// Check existence of datasets in the project
 		$data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
@@ -35,10 +36,10 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertCount(1, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with one value.");
 		$this->assertEquals('dataset.categories', $data['dataSetsInfo']['sets'][0]['meta']['identifier'], "GoodData project should contain dataSet 'Categories'.");
 
-		$csv = $webDav->get(sprintf('%s-%s/data.csv', $jobId, $bucketAttributes['gd']['pid']));
+		$csv = $webDav->get(sprintf('%s/data.csv', $jobId));
 
 		if (!$csv) {
-			$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s-%s/data.csv' should exist.", $jobId, $bucketAttributes['gd']['pid']));
+			$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/data.csv' should exist.", $jobId));
 		}
 		$rowsNumber = 0;
 		foreach (explode("\n", $csv) as $row) {
@@ -390,9 +391,9 @@ class DatasetsTest extends AbstractControllerTest
 
 		// Upload created date do GoodData
 		$jobId = $this->processJob('/upload-date-dimension', array('tableId' => $tableId, 'name' => $dimensionName));
-		$response = $this->getWriterApi('/jobs?writerId=' . $this->writerId . '&jobId=' . $jobId);
-		$this->assertArrayHasKey('status', $response, "Response for writer call '/jobs?jobId=' should contain key 'job.status'.");
-		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $response['status'], "Result of request /upload-table should be 'success'.");
+		$response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $jobId);
+		$this->assertArrayHasKey('status', $response, "Response for writer call '/batch?batchId=' should contain key 'job.status'.");
+		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $response['status'], "Result of request /upload-date-dimension should be 'success'.");
 
 		$data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
 		$this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
@@ -432,13 +433,12 @@ class DatasetsTest extends AbstractControllerTest
 
 
 		/**
-		 * Test
+		 * @TODO Test update model
 		 */
-		$this->postWriterApi('/date-dimensions', array(
-			'writerId' => $this->writerId,
-			'name' => $dimensionName,
-			'includeTime' => true
-		));
+
+		/**
+		 * @TODO Test load data
+		 */
 	}
 
 

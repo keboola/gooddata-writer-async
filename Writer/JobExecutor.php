@@ -111,8 +111,8 @@ class JobExecutor
 			throw new QueueUnavailableException($this->translator->trans('queue.in_use %1', array('%1' => $batchId)));
 		}
 
-		foreach ($batch['jobs'] as $jobId) {
-			$this->runJob($jobId, $forceRun);
+		foreach ($batch['jobs'] as $job) {
+			$this->runJob($job['id'], $forceRun);
 		}
 
 		$lock->unlock();

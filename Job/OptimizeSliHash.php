@@ -13,6 +13,7 @@ use Keboola\GoodDataWriter\Writer\SharedConfig;
 class OptimizeSliHash extends AbstractJob
 {
 	/**
+	 * @TODO works only with main project
 	 * required: email, role
 	 * optional: pid
 	 */

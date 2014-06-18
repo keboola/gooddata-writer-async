@@ -28,6 +28,7 @@ error:
 job_executor:
   bad_parameters: Parameters decoding failed. Contact support please
   command_not_found %1: Command %1 does not exist
+  data_set_definition_missing: Definition for data set is missing. Try the upload again please.
   job_not_found %1: Job %1 not found
 
 log:

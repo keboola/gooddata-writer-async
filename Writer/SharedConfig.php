@@ -311,7 +311,7 @@ class SharedConfig extends StorageApiConfiguration
 			if ($job['createdTime'] < $data['createdTime']) $data['createdTime'] = $job['createdTime'];
 			if ($job['startTime'] < $data['startTime']) $data['startTime'] = $job['startTime'];
 			if ($job['endTime'] > $data['endTime']) $data['endTime'] = $job['endTime'];
-			$data['jobs'][] = (int)$job['id'];
+			$data['jobs'][] = $job;
 			if ($job['status'] == self::JOB_STATUS_WAITING) $waitingJobs++;
 			elseif ($job['status'] == self::JOB_STATUS_PROCESSING) $processingJobs++;
 			elseif ($job['status'] == self::JOB_STATUS_CANCELLED) $cancelledJobs++;

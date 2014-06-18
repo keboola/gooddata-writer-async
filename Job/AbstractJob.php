@@ -98,8 +98,8 @@ abstract class AbstractJob
 		$this->logs = array();
 
 		$this->tmpDir = sprintf('%s/%s', $this->appConfiguration->tmpPath, $jobId);
-		if (!file_exists($this->tmpDir)) mkdir($this->tmpDir);
 		if (!file_exists($this->appConfiguration->tmpPath)) mkdir($this->appConfiguration->tmpPath);
+		if (!file_exists($this->tmpDir)) mkdir($this->tmpDir);
 	}
 
 

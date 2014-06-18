@@ -18,6 +18,7 @@ use Keboola\StorageApi\Table;
 class ExportReport extends AbstractJob
 {
 	/**
+	 * @TODO works only with main project
 	 * required: report, table
 	 * optional:
 	 */

@@ -12,32 +12,24 @@ use Keboola\GoodDataWriter\Exception\WrongParametersException,
 class ExecuteReports extends AbstractJob
 {
 	/**
-	 * required:
-	 * optional: pid, reports
+	 * required: pid
+	 * optional: reports
 	 */
 	public function run($job, $params)
 	{
+		$this->checkParams($params, array('pid'));
+		$project = $this->configuration->getProject($params['pid']);
+		if (!$project) {
+			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
+		}
 		$this->configuration->checkBucketAttributes();
 		$this->configuration->checkProjectsTable();
 
-		$pids = array();
-		if (empty($params['pid'])) {
-			$projects = $this->configuration->getProjects();
-			foreach ($projects as $project) if ($project['active']) {
-				$pids[] = $project['pid'];
-			}
-		} else {
-			$project = $this->configuration->getProject($params['pid']);
-			if ($project && $project['active']) {
-				$pids[] = $project['pid'];
-			}
-
-			// reports uri validation if pid was specified
-			if (!empty($params['reports'])) {
-				foreach ((array) $params['reports'] AS $reportUri) {
-					if (!preg_match('/^\/gdc\/md\/' . $project['pid'] . '\//', $reportUri)) {
-						throw new WrongParametersException($this->translator->trans('parameters.report.not_valid %1', array('%1' => $reportUri)));
-					}
+		// reports uri validation
+		if (!empty($params['reports'])) {
+			foreach ((array) $params['reports'] AS $reportUri) {
+				if (!preg_match('/^\/gdc\/md\/' . $project['pid'] . '\//', $reportUri)) {
+					throw new WrongParametersException($this->translator->trans('parameters.report.not_valid %1', array('%1' => $reportUri)));
 				}
 			}
 		}
@@ -46,15 +38,14 @@ class ExecuteReports extends AbstractJob
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		foreach ($pids as $pid) {
-			if (!empty($params['pid']) && !empty($params['reports'])) {
+			if (!empty($params['reports'])) {
 				// specified reports
 				foreach ($params['reports'] as $reportUri) {
 					$this->restApi->executeReport($reportUri);
 				}
 			} else {
 				// all reports
-				$reports = $this->restApi->get(sprintf('/gdc/md/%s/query/reports', $pid));
+				$reports = $this->restApi->get(sprintf('/gdc/md/%s/query/reports', $params['pid']));
 				if (isset($reports['query']['entries'])) {
 					foreach ($reports['query']['entries'] as $report) {
 						$this->restApi->executeReport($report['link']);
@@ -63,9 +54,8 @@ class ExecuteReports extends AbstractJob
 					throw new RestApiException($this->translator->trans('rest_api.reports_list_bad_response'));
 				}
 			}
-		}
 
-		$this->logEvent('executeReports', array(
+		$this->logEvent('execute_reports', array(
 			'duration' => time() - strtotime($gdWriteStartTime)
 		), $this->restApi->getLogPath());
 		return array(

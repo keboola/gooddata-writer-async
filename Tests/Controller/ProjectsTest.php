@@ -174,30 +174,31 @@ class ProjectsTest extends AbstractControllerTest
 		$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 
-		// Get load data job id
-		$jobId = end($response['jobs']);
+		$checkMainProjectLoad = false;
+		$checkFilteredProjectLoad = false;
+		foreach ($response['jobs'] as $job) {
+			if ($job['command'] == 'loadData') {
+				$csv = $webDav->get(sprintf('%s/data.csv', $job['id']));
+				if (!$csv) {
+					$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/data.csv' should exist.", $job['id']));
+				}
+				$rowsNumber = 0;
+				foreach (explode("\n", $csv) as $row) {
+					if ($row) $rowsNumber++;
+				}
 
-		// Check csv of main project if contains all rows
-		$csv = $webDav->get(sprintf('%s-%s/data.csv', $jobId, $mainPid));
-		if (!$csv) {
-			$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s-%s/data.csv' should exist.", $jobId, $bucketAttributes['gd']['pid']));
+				if ($job['parameters']['pid'] == $bucketAttributes['gd']['pid']) {
+					$this->assertEquals(3, $rowsNumber, "Csv of main project should contain two rows with header.");
+					$checkMainProjectLoad = true;
+				} else {
+					$this->assertEquals(2, $rowsNumber, "Csv of cloned project should contain only one row with header.");
+					$checkFilteredProjectLoad = true;
+				}
+			}
 		}
-		$rowsNumber = 0;
-		foreach (explode("\n", $csv) as $row) {
-			if ($row) $rowsNumber++;
-		}
-		$this->assertEquals(3, $rowsNumber, "Csv of main project should contain two rows with header.");
+		$this->assertTrue($checkMainProjectLoad, 'Data load of main project was not found in the batch');
+		$this->assertTrue($checkFilteredProjectLoad, 'Data load of filtered project was not found in the batch');
 
-		// Check csv of clone if contains only filtered rows
-		$csv = $webDav->get(sprintf('%s-%s/data.csv', $jobId, $clonedPid));
-		if (!$csv) {
-			$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s-%s/data.csv' should exist.", $jobId, $bucketAttributes['gd']['pid']));
-		}
-		$rowsNumber = 0;
-		foreach (explode("\n", $csv) as $row) {
-			if ($row) $rowsNumber++;
-		}
-		$this->assertEquals(2, $rowsNumber, "Csv of cloned project should contain only one row with header.");
 
 
 		/**
