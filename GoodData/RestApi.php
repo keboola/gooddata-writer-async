@@ -1332,44 +1332,38 @@ class RestApi
 
 	public function getAttributeById($pid, $id)
 	{
-		$attributes = $this->getAttributes($pid);
-
-		foreach ($attributes as $attr) {
-			$object = $this->jsonRequest($attr['link']);
-			if (isset($object['attribute']['meta']['identifier'])) {
-				if ($object['attribute']['meta']['identifier'] == $id) {
-					return $object['attribute'];
-				}
-			}
-		}
-
-		throw new JobProcessException('Attribute ' . $id . ' not found in project.');
+		return $this->getAttribute($pid, 'identifier', $id);
 	}
 
 	public function getAttributeByTitle($pid, $title)
+	{
+		return $this->getAttribute($pid, 'title', $title);
+	}
+
+	public function getAttribute($pid, $field=null, $search=null)
 	{
 		$attributes = $this->getAttributes($pid);
 		$attrUri = null;
 
 		foreach ($attributes as $attr) {
-			if ($attr['title'] == $title) {
+			if (isset($attr[$field]) && $attr[$field] == $search) {
 				$attrUri = $attr['link'];
 				break;
 			}
 		}
 
 		if (null == $attrUri) {
-			throw new JobProcessException('Attribute ' . $title . ' not found in project');
+			throw new JobProcessException(sprintf('Attribute with %s = %s not found in project', $field, $search));
 		} else {
 			$result = $this->jsonRequest($attrUri);
 			if (isset($result['attribute'])) {
 				return $result['attribute'];
 			} else {
-				$this->logAlert('getAttributeByTitle() bad response', array(
+				$this->logAlert('getAttribute() has bad response', array(
 					'uri' => $attrUri,
 					'result' => $result
 				));
-				throw new RestApiException('Attribute ' . $attrUri . ' could not be fetched');
+				throw new RestApiException(sprintf("Attribute '%s' with uri '%s' could not be fetched", $search, $attrUri));
 			}
 		}
 	}
