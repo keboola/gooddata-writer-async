@@ -45,6 +45,7 @@ parameters:
   email_not_configured: Parameter 'email' does not correspond with any user configured for the writer
   email_not_configured_in_project: Parameter 'email' does not correspond with any user configured for the project in parameter 'pid'
   filters:
+    already_exists: Filter with such name is already configured in the writer
     not_array: Parameter 'filters' must be an array
     required: Parameter 'filters' is required
   gd:

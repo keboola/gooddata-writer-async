@@ -62,7 +62,11 @@ abstract class StorageApiConfiguration
 		if (count($options)) {
 			$exportOptions = array_merge($exportOptions, $options);
 		}
-		return $this->sapi_exportTable($tableId, $exportOptions, $cache);
+		try {
+			return $this->sapi_exportTable($tableId, $exportOptions, $cache);
+		} catch (\Keboola\StorageApi\ClientException $e) {
+			return array();
+		}
 	}
 
 	/**

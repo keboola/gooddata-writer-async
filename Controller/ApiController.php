@@ -580,6 +580,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 
 		if (!empty($this->params['createUser']) && $this->params['createUser'] == 1) {
+
 			$this->params['wait'] = 1;
 			$this->postUsersAction();
 			$this->postProjectUsersAction();
@@ -705,6 +706,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkWriterExistence();
 		if (!isset($this->params['operator'])) {
 			$this->params['operator'] = '=';
+		}
+
+		if ($this->getConfiguration()->getFilter($this->params['name'])) {
+			throw new WrongParametersException($this->translator->trans('parameters.filter.already_exists'));
 		}
 
 		$attr = explode('.', $this->params['attribute']);

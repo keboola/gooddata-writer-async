@@ -6,7 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Keboola\GoodDataWriter\Exception\WrongParametersException;
 
 class createFilter extends AbstractJob
 {
@@ -18,14 +18,18 @@ class createFilter extends AbstractJob
 	{
 		$this->checkParams($params, array('name', 'attribute', 'element', 'pid', 'operator'));
 
+		if ($this->configuration->getFilter($params['name'])) {
+			throw new WrongParametersException($this->translator->trans('parameters.filter.already_exists'));
+		}
+
 		$attr = explode('.', $params['attribute']);
 		if (count($attr) != 4) {
-			throw new WrongConfigurationException($this->translator->trans('parameters.attribute.format'));
+			throw new WrongParametersException($this->translator->trans('parameters.attribute.format'));
 		}
 		$tableId = sprintf('%s.%s.%s', $attr[0], $attr[1], $attr[2]);
 		$sapiTable = $this->configuration->getSapiTable($tableId);
 		if (!in_array($attr[3], $sapiTable['columns'])) {
-			throw new WrongConfigurationException($this->translator->trans('parameters.attribute.not_found'));
+			throw new WrongParametersException($this->translator->trans('parameters.attribute.not_found'));
 		}
 
 		$attrId = $this->configuration->translateAttributeName($params['attribute']);
