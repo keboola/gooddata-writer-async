@@ -7,7 +7,8 @@ namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\WebDav;
-use Keboola\GoodDataWriter\Writer\SharedConfig;
+use Keboola\GoodDataWriter\Writer\SharedConfig,
+	Keboola\StorageApi\Table as StorageApiTable;
 
 class DatasetsTest extends AbstractControllerTest
 {
@@ -104,13 +105,78 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertTrue($productsDataLoad, "Data to dataset 'Products' has not been loaded to GoodData");
 
 
+
 		/**
-		 * Upload whole project once again
+		 * Check if upload table contains updateModel when needed
 		 */
-		$batchId = $this->processJob('/upload-project');
-		$response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-		$this->assertArrayHasKey('status', $response, "Response for writer call '/jobs?jobId=' should contain key 'status'.");
-		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $response['status'], "Result of request /upload-project should be 'success'.");
+		$tableId = $this->dataBucketId . '.products';
+		$response = $this->postWriterApi('/upload-table', array(
+			'writerId' => $this->writerId,
+			'tableId' => $tableId
+		));
+
+		$batch = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $response['batch']);
+		$this->assertCount(1, $batch['jobs'], 'Upload table should contain only loadData job');
+
+		$this->configuration->updateColumnsDefinition($tableId, 'id', array('gdName' => 'ID'));
+
+		$response = $this->postWriterApi('/upload-table', array(
+			'writerId' => $this->writerId,
+			'tableId' => $tableId
+		));
+		$batch = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $response['batch']);
+		$this->assertCount(2, $batch['jobs'], 'Upload table should contain updateModel and loadData job');
+
+		$table = new StorageApiTable($this->storageApi, 'sys.c-wr-gooddata-' . $this->writerId . '.data_sets', null, 'id');
+		$table->setHeader(array('id', 'lastChangeDate'));
+		$table->setFromArray(array(
+				array($tableId, date('c', time()-86400)))
+		);
+		$table->setIncremental(true);
+		$table->setPartial(true);
+		$table->save();
+
+		$response = $this->postWriterApi('/upload-table', array(
+			'writerId' => $this->writerId,
+			'tableId' => $tableId
+		));
+		$batch = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $response['batch']);
+		$this->assertCount(1, $batch['jobs'], 'Upload table should contain only loadData job');
+
+
+		/**
+		 * Check if upload project contains updateModel when needed
+		 */
+		$response = $this->postWriterApi('/upload-project', array(
+			'writerId' => $this->writerId
+		));
+
+		$batch = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $response['batch']);
+		$this->assertCount(3, $batch['jobs'], 'Upload project should contain two loadData jobs');
+
+		$this->configuration->updateColumnsDefinition($tableId, 'id', array('gdName' => 'ID'));
+
+		$response = $this->postWriterApi('/upload-project', array(
+			'writerId' => $this->writerId
+		));
+		$batch = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $response['batch']);
+		$this->assertCount(4, $batch['jobs'], 'Upload project should contain one updateModel and two loadData jobs');
+
+		$table = new StorageApiTable($this->storageApi, 'sys.c-wr-gooddata-' . $this->writerId . '.data_sets', null, 'id');
+		$table->setHeader(array('id', 'lastChangeDate'));
+		$table->setFromArray(array(
+				array($tableId, date('c', time()-86400)))
+		);
+		$table->setIncremental(true);
+		$table->setPartial(true);
+		$table->save();
+
+		$response = $this->postWriterApi('/upload-project', array(
+			'writerId' => $this->writerId
+		));
+		$batch = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $response['batch']);
+		$this->assertCount(3, $batch['jobs'], 'Upload project should contain two loadData jobs');
+
 
 
 		// Check validity of foreign keys (including time dimension during daylight saving switch values)

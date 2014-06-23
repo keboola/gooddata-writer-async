@@ -764,7 +764,7 @@ class Configuration extends StorageApiConfiguration
 		}
 
 		$dataSets = array();
-		// Include dataset if not excluded and is included or if we do not want included only then look to export flag
+		// Include data set if not excluded and is included or if we do not want included only then look to export flag
 		foreach ($this->getDataSets() as $dataSet) if (!in_array($dataSet['id'], $exclude) && (in_array($dataSet['id'], $include) || (!$include && !empty($dataSet['export'])))) {
 			try {
 				$definition = $this->getDataSetDefinition($dataSet['id']);
@@ -775,7 +775,8 @@ class Configuration extends StorageApiConfiguration
 			$dataSets[$dataSet['id']] = array(
 				'tableId' => $dataSet['id'],
 				'title' => $definition['name'],
-				'definition' => $definition
+				'definition' => $definition,
+				'lastChangeDate' => $dataSet['lastChangeDate']
 			);
 		}
 
