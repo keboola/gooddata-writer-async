@@ -16,7 +16,7 @@ class createFilter extends AbstractJob
 	 */
 	public function run($job, $params)
 	{
-		$this->checkParams($params, array('name', 'attribute', 'element', 'pid', 'operator'));
+		$this->checkParams($params, array('name', 'attribute', 'operator', 'value', 'pid'));
 
 		if ($this->configuration->getFilter($params['name'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.filter.already_exists'));
@@ -38,23 +38,10 @@ class createFilter extends AbstractJob
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$gdWriteStartTime = date('c');
-		$filterUri = $this->restApi->createFilter(
-			$params['name'],
-			$attrId,
-			$params['element'],
-			$params['operator'],
-			$params['pid']
-		);
+		$filterUri = $this->restApi->createFilter($params['name'], $attrId, $params['operator'], $params['value'], $params['pid']);
 
-		$this->configuration->saveFilter(
-			$params['name'],
-			$params['attribute'],
-			$params['element'],
-			$params['operator'],
-			$filterUri
-		);
-
-		$this->configuration->saveFiltersProjects($params['name'], $params['pid']);
+		$this->configuration->saveFilter($params['name'], $params['attribute'], $params['operator'], $params['value']);
+		$this->configuration->saveFiltersProjects($filterUri, $params['name'], $params['pid']);
 
 		$this->logEvent('createFilter', array(
 			'duration' => time() - strtotime($gdWriteStartTime)

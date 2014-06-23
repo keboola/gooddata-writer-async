@@ -20,63 +20,52 @@ class SyncFilters extends AbstractJob
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
-		$projects = $this->configuration->getProjects();
-		if (!empty($params['pid'])) {
-			$projects = array($this->configuration->getProject($params['pid']));
+		// Delete all filters from project
+		$gdFilters = $this->restApi->getFilters($params['pid']);
+		foreach ($gdFilters as $gdf) {
+			$this->restApi->deleteFilter($gdf['link']);
 		}
 
-		foreach($projects as $p) {
-
-			// Delete filters from project
-			$gdFilters = $this->restApi->getFilters($p['pid']);
-			foreach ($gdFilters as $gdf) {
-				$this->restApi->deleteFilter($gdf['link']);
+		// Create filters
+		$filterUris = array();
+		$filtersToCreate = array();
+		foreach ($this->configuration->getFiltersInProject($params['pid']) as $fp) {
+			$filtersToCreate[] = $fp['filter'];
+			$this->configuration->deleteFilterFromProject($fp['uri']);
+		}
+		foreach ($this->configuration->getFilters() as $f) if (in_array($f['name'], $filtersToCreate)) {
+			$value = json_decode($f['value'], true);
+			if (!is_array($value)) {
+				$value = $f['value'];
 			}
+			$filterUris[$f['name']] = $this->restApi->createFilter(
+				$f['name'],
+				$this->configuration->translateAttributeName($f['attribute']),
+				$f['operator'],
+				$value,
+				$params['pid']
+			);
+			$this->configuration->saveFiltersProjects($filterUris[$f['name']], $f['name'], $params['pid']);
+		}
 
-			// get users in project
-			foreach($this->configuration->getProjectUsers() as $pu) {
+		// Assign filters to users
+		$filtersUsers = $this->configuration->getFiltersUsers();
+		$filtersProjects = $this->configuration->getFiltersInProject($params['pid']);
+		foreach($this->configuration->getProjectUsers($params['pid']) as $pu) {
+			$user = $this->configuration->getUser($pu['email']);
 
-				if ($pu['pid'] == $p['pid']) {
-					$user = $this->configuration->getUser($pu['email']);
-
-					// get filters for user
-					$filters = array();
-					foreach($this->configuration->getFiltersUsers() as $fu) {
-						if ($fu['userEmail'] == $user['email'] && $this->isFilterInProject($fu['filterName'], $p['pid'])) {
-
-							// Create filter
-							$filter = $this->configuration->getFilter($fu['filterName']);
-							$attrId = $this->configuration->translateAttributeName($filter['attribute']);
-							$element = json_decode($filter['element'], true);
-							if (!is_array($element)) {
-								$element = $filter['element'];
-							}
-							$filterUri = $this->restApi->createFilter(
-								$filter['name'],
-								$attrId,
-								$element,
-								$filter['operator'],
-								$p['pid']
-							);
-
-							// Update filter uri
-							$this->configuration->updateFilters(
-								$filter['name'],
-								$filter['attribute'],
-								$filter['element'],
-								$filter['operator'],
-								$filterUri
-							);
-
-							$filters[] = $filterUri;
-						}
-					}
-
-					if (count($filters)) {
-						$this->restApi->assignFiltersToUser($filters, $user['uid'], $p['pid']);
-					}
+			// get filters for user
+			$filters = array();
+			foreach($filtersUsers as $fu) if ($fu['email'] == $user['email']) {
+				foreach ($filtersProjects as $fp) if ($fp['filter'] == $fu['filter']) {
+					$filters[] = $fu['uri'];
 				}
 			}
+
+			if (count($filters)) {
+				$this->restApi->assignFiltersToUser($filters, $user['uid'], $params['pid']);
+			}
+
 		}
 
 		$this->logEvent('syncFilters', array(
@@ -85,13 +74,5 @@ class SyncFilters extends AbstractJob
 		return array(
 			'gdWriteStartTime'  => $gdWriteStartTime
 		);
-	}
-	protected function isFilterInProject($filterName, $pid) {
-		foreach ($this->configuration->getFiltersProjects() as $fp) {
-			if ($fp['filterName'] == $filterName && $fp['pid'] == $pid) {
-				return true;
-			}
-		}
-		return false;
 	}
 }

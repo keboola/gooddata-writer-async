@@ -50,19 +50,19 @@ class Configuration extends StorageApiConfiguration
 			'indices' => array('pid', 'email')
 		),
 		self::FILTERS_TABLE_NAME => array(
-			'columns' => array('name', 'attribute', 'element', 'operator', 'uri'),
+			'columns' => array('name', 'attribute', 'operator', 'value'),
 			'primaryKey' => 'name',
 			'indices' => array()
 		),
 		self::FILTERS_USERS_TABLE_NAME => array(
-			'columns' => array('filterName', 'userEmail'),
-			'primaryKey' => 'filterName',
-			'indices' => array()
+			'columns' => array('id', 'filter', 'email'),
+			'primaryKey' => 'id',
+			'indices' => array('filter', 'email')
 		),
 		self::FILTERS_PROJECTS_TABLE_NAME => array(
-			'columns' => array('filterName', 'pid'),
-			'primaryKey' => 'filterName',
-			'indices' => array()
+			'columns' => array('uri', 'filter', 'pid'),
+			'primaryKey' => 'uri',
+			'indices' => array('filter', 'pid')
 		),
         self::DATE_DIMENSIONS_TABLE_NAME => array(
             'columns' => array('name', 'includeTime', 'template', 'isExported'),
@@ -910,7 +910,7 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function deleteDateDimension($name)
 	{
-		$this->deleteTableRow($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME, 'name', $name);
+		$this->deleteTableRows($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME, 'name', $name);
 	}
 
 
@@ -1210,6 +1210,14 @@ class Configuration extends StorageApiConfiguration
 	 * @section Filters
 	 ********************/
 
+	public function checkFiltersTable()
+	{
+		$tableId = $this->bucketId . '.' . self::FILTERS_TABLE_NAME;
+		if ($this->sapi_tableExists($tableId)) {
+			$table = $this->getSapiTable($tableId);
+			$this->checkConfigTable(self::FILTERS_TABLE_NAME, $table['columns']);
+		}
+	}
 
 	/**
 	 *
@@ -1220,24 +1228,38 @@ class Configuration extends StorageApiConfiguration
 		return count($filters) ? current($filters) : false;
 	}
 
+	public function getFilterInProjects($filter)
+	{
+		$filters = $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'filter', $filter);
+		return $filters;
+	}
+
+	public function checkFilterUri($uri)
+	{
+		$filters = $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri);
+		return count($filters) > 0;
+	}
+
 	/**
 	 *
 	 */
-	public function getFiltersForUser($userEmail, $pid = null)
+	public function getFiltersForUser($email, $pid = null)
 	{
-		$filtersUsers = $this->getFiltersUsers();
-
 		$filters = array();
-		foreach ($filtersUsers as $fu) {
-			if (strtolower($fu['userEmail']) == strtolower($userEmail)) {
-				$filter = $this->getFilter($fu['filterName']);
-				if (null == $pid || strstr($filter['uri'], $pid)) {
-					$filters[] = $filter;
-				}
-			}
+		foreach ($this->fetchTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'email', $email) as $fu) {
+			$filters[] = $fu['filter'];
 		}
 
-		return $filters;
+		if ($pid) {
+			$filtersInProjects = array();
+			foreach ($this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'pid', $pid) as $fp) {
+				$filtersInProjects[] = $fp['filter'];
+			}
+
+			$filters = array_intersect($filters, $filtersInProjects);
+		}
+
+		return $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_TABLE_NAME, 'name', $filters);
 	}
 
 
@@ -1248,10 +1270,15 @@ class Configuration extends StorageApiConfiguration
 	{
 		$filters = $this->getConfigTable(self::FILTERS_TABLE_NAME);
 		foreach ($filters as &$filter) {
-			if (in_array(substr($filter['element'], 0, 1), array('[', '{')))
-				$filter['element'] = json_decode($filter['element'], true);
+			if (in_array(substr($filter['value'], 0, 1), array('[', '{')))
+				$filter['value'] = json_decode($filter['value'], true);
 		}
 		return $filters;
+	}
+
+	public function getFiltersInProject($pid)
+	{
+		return $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'pid', $pid);
 	}
 
 
@@ -1274,33 +1301,31 @@ class Configuration extends StorageApiConfiguration
 	/**
 	 *
 	 */
-	public function saveFilter($name, $attribute, $element, $operator, $uri)
+	public function saveFilter($name, $attribute, $operator, $value)
 	{
-		// check for existing name
-		if ($this->sapi_tableExists($this->bucketId . '.' . self::FILTERS_TABLE_NAME) && $this->getFilter($name)) {
+		if ($this->sapi_tableExists($this->bucketId . '.' . self::FILTERS_TABLE_NAME)) {
 			throw new WrongParametersException("Filter of that name already exists.");
 		}
 
 		$data = array(
 			'name' => $name,
 			'attribute' => $attribute,
-			'element' => is_array($element)? json_encode($element) : $element,
 			'operator' => $operator,
-			'uri' => $uri
+			'value' => is_array($value)? json_encode($value) : $value
 		);
 		$this->updateConfigTableRow(self::FILTERS_TABLE_NAME, $data);
 	}
 
-	public function saveFiltersProjects($filterName, $pid)
+	public function saveFiltersProjects($uri, $filter, $pid)
 	{
-		foreach($this->getFiltersProjects() as $fp) {
-			if ($fp['filterName'] == $filterName && $fp['pid'] == $pid) {
-				throw new WrongParametersException("Filter " . $filterName . " is already assigned to project " . $pid);
-			}
+		if ($this->sapi_tableExists($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME)
+			&& count($this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri))) {
+			throw new WrongParametersException("Filter is already assigned to the project.");
 		}
 
 		$data = array(
-			'filterName' => $filterName,
+			'uri' => $uri,
+			'filter' => $filter,
 			'pid' => $pid
 		);
 		$this->updateConfigTableRow(self::FILTERS_PROJECTS_TABLE_NAME, $data);
@@ -1327,55 +1352,32 @@ class Configuration extends StorageApiConfiguration
 	/**
 	 *
 	 */
-	public function saveFilterUser(array $filters, $userEmail)
+	public function saveFiltersToUser(array $filters, $email)
 	{
-		$filterNames = array();
-		foreach ($filters as $filterUri) {
-			foreach ($this->getFilters() as $filter) {
-				if ($filter['uri'] == $filterUri) {
-					$filterNames[] = $filter['name'];
-				}
+		$this->deleteTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'email', $email);
+		if (count($filters)) {
+			$data = array();
+			foreach ($filters as $f) {
+				$data[] = array(
+					'id' => sha1($f . '.' . $email),
+					'filter' => $f,
+					'email' => $email
+				);
 			}
-		}
-
-		$filtersUsers = $this->getFiltersUsers();
-
-		// remove all filters for user
-		foreach ($filtersUsers as $k => $v) {
-			if (strtolower($v['userEmail']) == strtolower($userEmail)) {
-				unset($filtersUsers[$k]);
-			}
-		}
-
-		// add filters
-		foreach ($filterNames as $fn) {
-			$filtersUsers[] = array($fn, strtolower($userEmail));
-		}
-
-		if (empty($filtersUsers)) {
-			$tableId = $this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME;
-			$this->saveTable($tableId, null, array('filterName', 'userEmail'), array(), false);
-		} else {
-			$this->updateConfigTable(self::FILTERS_USERS_TABLE_NAME, $filtersUsers, false);
+			$this->updateConfigTable(self::FILTERS_USERS_TABLE_NAME, $data);
 		}
 	}
 
-	public function deleteFilter($filterUri)
+	public function deleteFilter($name)
 	{
-		$filterName = null;
-		foreach ($this->getFilters() as $filter) {
-			if ($filter['uri'] == $filterUri) {
-				$filterName = $filter['name'];
-			}
-		}
+		$this->deleteTableRows($this->bucketId . '.' . self::FILTERS_TABLE_NAME, 'name', $name);
+		$this->deleteTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'filter', $name);
+		$this->deleteTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'filter', $name);
+	}
 
-		if (!$filterName) {
-			throw new WrongParametersException('Such filter does not exist in configuration');
-		}
-
-		$this->deleteTableRow($this->bucketId . '.' . self::FILTERS_TABLE_NAME, 'name', $filterName);
-		$this->deleteTableRow($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'filterName', $filterName);
-		$this->deleteTableRow($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'filterName', $filterName);
+	public function deleteFilterFromProject($uri)
+	{
+		$this->deleteTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri);
 	}
 
 	/**

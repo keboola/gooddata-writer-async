@@ -47,6 +47,7 @@ parameters:
   filters:
     already_exists: Filter with such name is already configured in the writer
     not_array: Parameter 'filters' must be an array
+    not_exist %1: Filter '%1' is not configured in the writer
     required: Parameter 'filters' is required
   gd:
     credentials: Given GoodData credentials does not work

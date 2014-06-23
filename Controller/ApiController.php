@@ -702,7 +702,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$createdTime = time();
 
 		// Init parameters
-		$this->checkParams(array('writerId', 'name', 'attribute', 'element', 'pid'));
+		if (isset($this->params['element'])) {
+			$this->params['value'] = $this->params['element'];
+			unset($this->params['element']);
+		}
+		$this->checkParams(array('writerId', 'name', 'attribute', 'value', 'pid'));
 		$this->checkWriterExistence();
 		if (!isset($this->params['operator'])) {
 			$this->params['operator'] = '=';
@@ -728,7 +732,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			'parameters' => array(
 				'name' => $this->params['name'],
 				'attribute' => $this->params['attribute'],
-				'element' => $this->params['element'],
+				'value' => $this->params['value'],
 				'pid' => $this->params['pid'],
 				'operator' => $this->params['operator']
 			),
@@ -763,18 +767,32 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$command = 'deleteFilter';
 		$createdTime = time();
 
-		// Init parameters
-		$this->checkParams(array('writerId', 'uri'));
 		$this->checkWriterExistence();
 
-		$jobInfo = $this->createJob(array(
+		if (isset($this->params['name'])) {
+			if (!$this->getConfiguration()->getFilter($this->params['name'])) {
+				throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $this->params['name'])));
+			}
+			$this->checkParams(array('writerId'));
+		} else {
+			$this->checkParams(array('writerId', 'uri'));
+			if (!$this->getConfiguration()->checkFilterUri($this->params['uri'])) {
+				throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $this->params['uri'])));
+			}
+		}
+
+		$jobData = array(
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'uri' => $this->params['uri']
-			),
+			'parameters' => array(),
 			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-		));
+		);
+		if (isset($this->params['name'])) {
+			$jobData['parameters']['name'] = $this->params['name'];
+		} else {
+			$jobData['parameters']['uri'] = $this->params['uri'];
+		}
+		$jobInfo = $this->createJob($jobData);
 		$this->enqueue($jobInfo['batchId']);
 
 
@@ -805,10 +823,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkWriterExistence();
 
 		if (isset($this->params['userEmail'])) {
+			$this->params['email'] = $this->params['userEmail'];
+			unset($this->params['userEmail']);
+		}
+
+		if (isset($this->params['email'])) {
 			if (isset($this->params['pid'])) {
-				$filters = $this->getConfiguration()->getFiltersForUser($this->params['userEmail'], $this->params['pid']);
+				$filters = $this->getConfiguration()->getFiltersForUser($this->params['email'], $this->params['pid']);
 			} else {
-				$filters = $this->getConfiguration()->getFiltersForUser($this->params['userEmail']);
+				$filters = $this->getConfiguration()->getFiltersForUser($this->params['email']);
 			}
 		} else {
 			$filters = $this->getConfiguration()->getFilters();
@@ -833,9 +856,25 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$command = 'assignFiltersToUser';
 		$createdTime = time();
 
-		$this->checkParams(array('writerId', 'userEmail', 'pid'));
+		////
+		if (isset($this->params['userEmail'])) {
+			$this->params['email'] = $this->params['userEmail'];
+			unset($this->params['userEmail']);
+		}
+		////
+
+		$this->checkParams(array('writerId', 'email', 'pid'));
 		if (!isset($this->params['filters'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.filters.required'));
+		}
+		$configuredFilters = array();
+		foreach ($this->getConfiguration()->getFilters() as $f) {
+			$configuredFilters[] = $f['name'];
+		}
+		foreach ($this->params['filters'] as $f) {
+			if (!in_array($f, $configuredFilters)) {
+				throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $this->params['uri'])));
+			}
 		}
 		$this->checkWriterExistence();
 
@@ -844,7 +883,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
 				'filters' => $this->params['filters'],
-				'userEmail' => $this->params['userEmail'],
+				'email' => $this->params['email'],
 				'pid' => $this->params['pid']
 			),
 			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
@@ -873,21 +912,25 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkParams(array('writerId'));
 		$this->checkWriterExistence();
 
-		$jobInfo = $this->createJob(array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'pid' => isset($this->params['pid']) ? $this->params['pid'] : null
-			),
-			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-		));
-		$this->enqueue($jobInfo['batchId']);
+		$batchId = $this->storageApi->generateId();
+		$projects = empty($this->params['pid'])? $this->getProjectsToUse() : array($this->params['pid']);
+		foreach ($projects as $pid) {
+			$this->createJob(array(
+				'batchId' => $batchId,
+				'command' => $command,
+				'createdTime' => date('c', $createdTime),
+				'parameters' => array(
+					'pid' => $pid
+				),
+				'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
+			));
+		}
 
-
+		$this->enqueue($batchId);
 		if (empty($this->params['wait'])) {
-			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+			return $this->getPollResult($batchId, $this->params['writerId'], true);
 		} else {
-			return $this->waitForJob($jobInfo['id']);
+			return $this->waitForJob($batchId);
 		}
 	}
 
@@ -1365,7 +1408,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 			foreach ($reports AS $reportLink) {
 				if (!preg_match('/^\/gdc\/md\/' . $this->params['pid'] . '\//', $reportLink)) {
-					throw new WrongParametersException($this->translator->trans('parameters.report.not_valid %1'));
+					throw new WrongParametersException($this->translator->trans('parameters.report.not_valid %1', array('%1' => $reportLink)));
 				}
 			}
 		}

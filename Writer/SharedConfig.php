@@ -425,7 +425,7 @@ class SharedConfig extends StorageApiConfiguration
 
 	public function enqueueProjectToDelete($projectId, $writerId, $pid)
 	{
-		$this->deleteTableRow(self::PROJECTS_TABLE_ID, 'pid', $pid);
+		$this->deleteTableRows(self::PROJECTS_TABLE_ID, 'pid', $pid);
 		$this->updateTableRow(self::PROJECTS_TO_DELETE_TABLE_ID, 'pid', array(
 			'pid' => $pid,
 			'projectId' => $projectId,
@@ -493,7 +493,7 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function enqueueUserToDelete($projectId, $writerId, $uid, $email)
 	{
-		$this->deleteTableRow(self::USERS_TABLE_ID, 'uid', $uid);
+		$this->deleteTableRows(self::USERS_TABLE_ID, 'uid', $uid);
 		$this->updateTableRow(self::USERS_TO_DELETE_TABLE_ID, 'uid', array(
 			'uid' => $uid,
 			'projectId' => $projectId,

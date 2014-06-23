@@ -12,13 +12,13 @@ use Keboola\GoodDataWriter\Exception\WrongParametersException;
 class assignFiltersToUser extends AbstractJob
 {
 	/**
-	 * required: userEmail, pid, filters
+	 * required: email, pid, filters
 	 * optional:
 	 */
 	public function run($job, $params)
 	{
-		$this->checkParams($params, array('userEmail', 'pid'));
-		$params['userEmail'] = strtolower($params['userEmail']);
+		$this->checkParams($params, array('email', 'pid'));
+		$params['email'] = strtolower($params['email']);
 
 		if (!is_array($params['filters'])) {
 			throw new WrongParametersException($this->translator->trans('configuration.filters.not_array'));
@@ -29,27 +29,36 @@ class assignFiltersToUser extends AbstractJob
 			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
 		}
 
-		$user = $this->configuration->getUser($params['userEmail']);
+		$user = $this->configuration->getUser($params['email']);
 		if ($user == false) {
 			throw new WrongParametersException($this->translator->trans('parameters.email_not_configured'));
 		}
 
-		$filterUris = array();
+		$configuredFilters = array();
+		foreach ($this->configuration->getFilters() as $f) {
+			$configuredFilters[] = $f['name'];
+		}
+
+		$uris = array();
 		foreach ($params['filters'] as $name) {
-			$filter = $this->configuration->getFilter($name);
-			if (!$filter['uri']) {
-				throw new WrongConfigurationException($this->translator->trans('configuration.filter.missing_uri %1', array('%1' => $name)));
+			if (!in_array($name, $configuredFilters)) {
+				throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $name)));
 			}
-			$filterUris[] = $filter['uri'];
+			foreach ($this->configuration->getFilterInProjects($name) as $fp) {
+				if (!$fp['uri']) {
+					throw new WrongConfigurationException($this->translator->trans('configuration.filter.missing_uri %1', array('%1' => $name)));
+				}
+				$uris[] = $fp['uri'];
+			}
 		}
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$gdWriteStartTime = date('c');
-		$this->restApi->assignFiltersToUser($filterUris, $user['uid'], $params['pid']);
+		$this->restApi->assignFiltersToUser($uris, $user['uid'], $params['pid']);
 
-		$this->configuration->saveFilterUser($filterUris, $params['userEmail']);
+		$this->configuration->saveFiltersToUser($params['filters'], $params['email']);
 
 		$this->logEvent('assignFilterToUser', array(
 			'duration' => time() - strtotime($gdWriteStartTime)

@@ -56,7 +56,7 @@ abstract class StorageApiConfiguration
 		if ($whereColumn) {
 			$exportOptions = array_merge($exportOptions, array(
 				'whereColumn' => $whereColumn,
-				'whereValues' => array($whereValue)
+				'whereValues' => !is_array($whereValue) ? array($whereValue) : $whereValue
 			));
 		}
 		if (count($options)) {
@@ -70,23 +70,22 @@ abstract class StorageApiConfiguration
 	}
 
 	/**
-	 * Delete row from SAPI table
-	 */
-	protected function deleteTableRow($tableId, $whereColumn, $whereValue)
-	{
-		$this->deleteTableRows($tableId, $whereColumn, array($whereValue));
-	}
-
-	/**
 	 * Delete rows from SAPI table
 	 */
 	protected function deleteTableRows($tableId, $whereColumn, $whereValues)
 	{
 		$options = array(
 			'whereColumn' => $whereColumn,
-			'whereValues' => $whereValues
+			'whereValues' => is_array($whereValues)? $whereValues : array($whereValues)
 		);
-		$this->storageApiClient->deleteTableRows($tableId, $options);
+		try {
+			$this->storageApiClient->deleteTableRows($tableId, $options);
+		} catch (ClientException $e) {
+			// Ignore if table does not exist
+			if (!in_array($e->getCode(), array(400, 404))) {
+				throw $e;
+			}
+		}
 	}
 
 	/**
@@ -226,6 +225,64 @@ abstract class StorageApiConfiguration
 	protected function checkConfigTable($tableName, $columns)
 	{
 		if (!isset($this->tables[$tableName])) return false;
+
+		//@TODO Remove sometimes in october ;o)
+		// MIGRATE FILTERS CONFIGURATION
+		if (($tableName == 'filters_projects' && count($columns) == 2)
+			|| ($tableName == 'filters_users' && count($columns) == 2)
+			|| ($tableName == 'filters' && in_array('uri', $columns))) {
+			try {
+				$oldFilters = $this->fetchTableRows($this->bucketId . '.filters');
+				$oldFiltersUsers = $this->fetchTableRows($this->bucketId . '.filters_users');
+
+				$this->storageApiClient->dropTable($this->bucketId . '.filters');
+				$this->storageApiClient->dropTable($this->bucketId . '.filters_projects');
+				$this->storageApiClient->dropTable($this->bucketId . '.filters_users');
+
+				$filtersData = array();
+				$filtersProjectsData = array();
+				$filtersUsersData = array();
+
+				$filtersTable = new StorageApiTable($this->storageApiClient, $this->bucketId . '.filters', null, 'name');
+				$filtersTable->setHeader(array('name', 'attribute', 'operator', 'value'));
+
+				$filtersProjectsTable = new StorageApiTable($this->storageApiClient, $this->bucketId . '.filters_projects', null, 'uri');
+				$filtersProjectsTable->setHeader(array('uri', 'filter', 'pid'));
+				$filtersProjectsTable->setIndices(array('filter', 'pid'));
+
+				foreach ($oldFilters as $f) {
+					preg_match('/^\/gdc\/md\/([a-z0-9]+)\/obj\/([0-9]+)$/', $f['uri'], $uri);
+					if (count($uri) == 3) {
+						$filtersData[] = array($f['name'], $f['attribute'], $f['operator'], $f['element']);
+						$filtersProjectsData[] = array($f['uri'], $f['name'], $uri[1]);
+					} else {
+						throw new WrongConfigurationException('Filters configuration could not be migrated. Filters uri ' . $f['uri'] . ' does not seem valid');
+					}
+				}
+
+				$filtersProjectsTable->setFromArray($filtersProjectsData);
+				$filtersProjectsTable->save();
+				$filtersTable->setFromArray($filtersData);
+				$filtersTable->save();
+
+
+				$filtersUsersTable = new StorageApiTable($this->storageApiClient, $this->bucketId . '.filters_users', null, 'id');
+				$filtersUsersTable->setHeader(array('id', 'filter', 'email'));
+				$filtersUsersTable->setIndices(array('filter', 'email'));
+				foreach ($oldFiltersUsers as $fu) {
+					$filtersUsersData[] = array(sha1($fu['filterName'] . '.' . $fu['userEmail']), $fu['filterName'], $fu['userEmail']);
+				}
+				$filtersUsersTable->setFromArray($filtersUsersData);
+				$filtersUsersTable->save();
+
+			} catch (\Exception $e) {
+				echo $e->getMessage().PHP_EOL;die();
+				// ignore - race condition
+			}
+
+			return true;
+		}
+		//@TODO Remove sometimes in october ;o)
 
 		//@TODO Remove sometimes in july ;o)
 		if ($tableName == 'date_dimensions' && !in_array('template', $columns)) {

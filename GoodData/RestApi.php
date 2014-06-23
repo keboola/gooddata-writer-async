@@ -1212,35 +1212,21 @@ class RestApi
 	/**
 	 * Creates new Mandatory User Filter
 	 *
-	 * @param $name
-	 * @param $attribute
-	 * @param $element
-	 * @param $operator
-	 * @param $pid
-	 * @throws RestApiException
-	 * @return mixed
 	 */
-	public function createFilter($name, $attribute, $element, $operator, $pid)
+	public function createFilter($name, $attribute, $operator, $value, $pid)
 	{
 		$gdAttribute = $this->getAttributeById($pid, $attribute);
 
-		if (is_array($element)) {
+		if (is_array($value)) {
 			$elementArr = array();
-			foreach ($element as $e) {
-				$elementArr[] = '[' . $this->getElementUriByTitle(
-						$gdAttribute['content']['displayForms'][0]['links']['elements'],
-						$e
-					) . ']';
+			foreach ($value as $v) {
+				$elementArr[] = '[' . $this->getElementUriByTitle($gdAttribute['content']['displayForms'][0]['links']['elements'], $v) . ']';
 			}
 
 			$elementsUri = implode(',', $elementArr);
 			$expression = "[" . $gdAttribute['meta']['uri'] . "]" . $operator . "(" . $elementsUri . ")";
 		} else {
-			$elementUri = $this->getElementUriByTitle(
-				$gdAttribute['content']['displayForms'][0]['links']['elements'],
-				$element
-			);
-
+			$elementUri = $this->getElementUriByTitle($gdAttribute['content']['displayForms'][0]['links']['elements'], $value);
 			$expression = "[" . $gdAttribute['meta']['uri'] . "]" . $operator . "[" . $elementUri . "]";
 		}
 

@@ -218,7 +218,7 @@ class JobExecutor
 				} catch (\Exception $e) {
 					$debug = array(
 						'message' => $e->getMessage(),
-						'trace' => $e->getTrace()
+						'trace' => explode("\n", $e->getTraceAsString())
 					);
 
 					if ($e instanceof RestApiException) {
@@ -244,6 +244,7 @@ class JobExecutor
 					}
 
 					$jobData['debug'] = $s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($debug, JSON_PRETTY_PRINT));
+					$jobData['debug'] = $s3Client->url($jobData['debug']);
 				}
 
 				$apiLog = $s3Client->uploadFile($command->getLogPath(), 'text/plain', $job['id'] . '/log.json');
@@ -278,11 +279,13 @@ class JobExecutor
 		$this->sharedConfig->saveJob($jobId, $jobData);
 
 		$this->storageApiEvent->setDuration(time() - $startTime);
-		$this->logEvent($this->translator->trans('log.job.finished %1', array('%1' => $job['id'])), $job, array(
+		$log = array(
 			'command' => $job['command'],
 			'params' => $logParams,
 			'result' => $jobData['result']
-		));
+		);
+		if (isset($jobData['debug'])) $log['debug'] = $jobData['debug'];
+		$this->logEvent($this->translator->trans('log.job.finished %1', array('%1' => $job['id'])), $job, $log);
 	}
 
 
