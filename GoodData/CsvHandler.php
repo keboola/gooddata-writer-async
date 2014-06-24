@@ -180,15 +180,19 @@ class CsvHandler
 			$process->run();
 			$currentError = $process->getErrorOutput();
 
-			if ($process->isSuccessful() && !$currentError) {
-				return;
-			} else {
-				$curlError = substr($currentError, 0, 7) == 'curl: (';
-				if (!$currentError || $curlError) {
+
+			if ($currentError) {
+				$curlError = strpos($currentError, 'curl: (') !== false;
+				if ($curlError) {
 					$appError = true;
-				}
-				if (!$curlError) {
+				} else {
 					break;
+				}
+			} else {
+				if ($process->isSuccessful()) {
+					return;
+				} else {
+					$appError = true;
 				}
 			}
 
@@ -202,7 +206,7 @@ class CsvHandler
 			$this->logger->error('csv transfer backoff', $error);
 			$error['date'] = date('c');
 			$errors[] = $error;
-			sleep($i * 60);
+			sleep(30);
 		}
 
 		if ($appError) {
