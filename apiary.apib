@@ -732,27 +732,28 @@ Commands for manipulation with GoodData's Mandatory User Filters
 
 ## filters
 
-Table is used for list of all filters associated with particualr writer. When you [create new filter](#post-%2Fgooddata-writer%2Ffilters) Writer will create new row in this table. It's columns are:
+Table is used for list of all filters associated with particular writer. When you [create new filter](#post-%2Fgooddata-writer%2Ffilters) Writer will create new row in this table. It's columns are:
 
 * **name** (primary key) - Name of the filter (unique)
 * **attribute** - attribute to be filtered, in SAPI notation
-* **element** - value of attribute
 * **operator** - operator, one of =,>,<,<>, IN, NOT IN. Default "="
-* **uri** - after filter is created in GD, it has this uri
+* **value** - value of attribute
 
 ## filters_projects
 
 Reference table between filters and projects. Row in this table added when new filter is created using [create filter api call](#post-%2Fgooddata-writer%2Ffilters). Columns:
 
-* **filterName** - filter name
+* **uri** (primary key) - after filter is created in GD, it has this uri
+* **name** - filter name
 * **pid** - GD project id
 
 ## filters_users
 
 Reference table between filters and users. You can assing filter(s) to user using [add filter to user](#post-%2Fgooddata-writer%2Ffilters-user). Columns:
 
-* **filterName** - filter name
-* **userEmail** - user email
+* **id** (primary key) - generated automatically by Writer
+* **name** - filter name
+* **email** - user email
 
 --
 
@@ -867,7 +868,7 @@ POST /filters-user
 
 
 ### Synchronize Filters
-Synchronize filters in Storage API with GoodData project
+Synchronizes filters in GoodData project according to writer's configuration
 
 #### Parameters
 

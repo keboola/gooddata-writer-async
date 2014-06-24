@@ -12,6 +12,7 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\StorageApi\ClientException as StorageApiClientException;
+use Keboola\GoodDataWriter\GoodData\CsvHandlerException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Service\Queue;
 use Keboola\GoodDataWriter\Service\S3Client;
@@ -235,6 +236,12 @@ class JobExecutor
 							/* @var CurlException $curlException */
 							$curlException = $e->getPrevious();
 							$debug['curl'] = $curlException->getCurlInfo();
+						}
+					} elseif ($e instanceof CsvHandlerException) {
+						$jobData['result']['error'] = $e->getMessage();
+						$debug['details'] = $e->getData();
+						if (isset($debug['details']['log'])) {
+							throw $e;
 						}
 					} elseif ($e instanceof ClientException) {
 						$jobData['result']['error'] = $e->getMessage();

@@ -175,39 +175,42 @@ class CsvHandler
 
 		$this->command .= ' | ' . $command;
 
-		$error = null;
+		$appError = false;
+		$errors = array();
 		for ($i = 0; $i < 10; $i++) {
 			$process = new Process($this->command);
 			$process->setTimeout(null);
 			$process->run();
-			$error = $process->getErrorOutput();
+			$currentError = $process->getErrorOutput();
 
-			if ($process->isSuccessful() && !$error) {
+			if ($process->isSuccessful() && !$currentError) {
 				$this->command = null;
 				return;
 			} else {
-				$retry = false;
-				if (substr($error, 0, 7) == 'curl: (') {
-					// Retry after any curl error
-					$retry = true;
+				$curlError = substr($currentError, 0, 7) == 'curl: (';
+				if (!$currentError || $curlError) {
+					$appError = true;
 				}
-				if (!$retry) {
+				if (!$curlError) {
 					break;
 				}
 			}
 
+			$errors[date('c')] = str_replace("\ngzip: stdin: unexpected end of file\n", "", $currentError);
 			sleep($i * 60);
 		}
 
-		if (!$error || substr($error, 0, 7) == 'curl: (') {
-			throw new \Exception(json_encode(array(
-				'error' => 'Curl error during csv handling: ' . ($error? $error : 'No error output'),
+		if ($appError) {
+			$e = new CsvHandlerException('Network Error');
+			$e->setData(array(
+				'log' => $errors,
 				'command' => $this->command,
 				'jobId' => $this->jobId,
 				'runId' => $this->runId,
-			)));
+			));
+			throw $e;
 		} else {
-			throw new CsvHandlerException('CSV handling failed. ' . $error);
+			throw new CsvHandlerException('CSV handling failed. ' . end($errors));
 		}
 	}
 
