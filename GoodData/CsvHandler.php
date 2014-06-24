@@ -165,7 +165,7 @@ class CsvHandler
 		/*$command = sprintf('gzip -c | curl -s -S -T - --header %s --retry 12 --user %s:%s %s',
 			escapeshellarg('Content-encoding: gzip'), escapeshellarg($username), escapeshellarg($password),
 			escapeshellarg($url . $uri . '/data.csv'));*/
-		$command = sprintf('curl -s -S -T - --retry 12 --user %s:%s %s',
+		$uploadCommand = sprintf('curl -s -S -T - --retry 12 --user %s:%s %s',
 			escapeshellarg($username), escapeshellarg($password),
 			escapeshellarg($url . $uri . '/data.csv'));
 
@@ -174,7 +174,7 @@ class CsvHandler
 		$appError = false;
 		$errors = array();
 		for ($i = 0; $i < 10; $i++) {
-			$command = $this->initDownload($fileId) . ' | ' .  $this->prepareTransformation($definition) . ' | ' . $command;
+			$command = $this->initDownload($fileId) . ' | ' .  $this->prepareTransformation($definition) . ' | ' . $uploadCommand;
 			$process = new Process($command);
 			$process->setTimeout(null);
 			$process->run();
