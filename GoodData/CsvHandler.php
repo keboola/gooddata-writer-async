@@ -20,17 +20,17 @@ class CsvHandler
 {
 	private $scriptPath;
 	private $storageApiClient;
+	private $logger;
 
 	private $jobId;
 	private $runId;
 
-	private $command;
 
-
-	public function __construct($scriptsPath, Client $storageApi)
+	public function __construct($scriptsPath, Client $storageApi, Logger $logger)
 	{
 		$this->scriptPath = $scriptsPath . '/convert_csv.php';
 		$this->storageApiClient = $storageApi;
+		$this->logger = $logger;
 
 		if (!file_exists($this->scriptPath))
 			throw new \Exception('Conversion script for csv handling in pipe does not exist: ' . $this->scriptPath);
@@ -46,13 +46,8 @@ class CsvHandler
 		$this->runId = $id;
 	}
 
-	/**
-	 * Assemble curl to download csv from SAPI and ungzip it
-	 * There is approx. 38 minutes backoff for 5xx errors from SAPI (via --retry 12)
-	 */
-	public function initDownload($tableId, $incrementalLoad = false, $filterColumn = false, $filterValue = null)
+	public function exportTable($tableId, $incrementalLoad = false, $filterColumn = false, $filterValue = null)
 	{
-		// run async export and get file id
 		$params = array(
 			'gzip' => true,
 			'format' => 'escaped'
@@ -70,13 +65,22 @@ class CsvHandler
 			throw new \Exception('Async export from SAPI returned bad response: '. json_encode($result));
 		}
 
+		return $result['file']['id'];
+	}
+
+	/**
+	 * Assemble curl to download csv from SAPI and ungzip it
+	 * There is approx. 38 minutes backoff for 5xx errors from SAPI (via --retry 12)
+	 */
+	public function initDownload($fileId)
+	{
 		// get file's s3 url
-		$result = $this->storageApiClient->getFile($result['file']['id']);
+		$result = $this->storageApiClient->getFile($fileId);
 		if (empty($result['url'])) {
 			throw new \Exception('Get file after async export from SAPI returned bad response: '. json_encode($result));
 		}
 
-		$this->command = sprintf('curl -s -S -f --header %s --retry 12 %s | gzip -d', escapeshellarg('Accept-encoding: gzip'), escapeshellarg($result['url']));
+		return sprintf('curl -s -S -f --header %s --retry 12 %s | gzip -d', escapeshellarg('Accept-encoding: gzip'), escapeshellarg($result['url']));
 	}
 
 
@@ -85,10 +89,6 @@ class CsvHandler
 	 */
 	public function prepareTransformation($definition)
 	{
-		if (!$this->command) {
-			throw new CsvHandlerException('You must init the download first');
-		}
-
 		$csvHeaders = array();
 		$ignoredColumnsIndices = array();
 		$dateColumnsIndices = array();
@@ -146,7 +146,7 @@ class CsvHandler
 			$command .= ' -i' . implode(',', $ignoredColumnsIndices);
 		}
 
-		$this->command .= ' | ' . $command;
+		return $command;
 	}
 
 
@@ -154,12 +154,8 @@ class CsvHandler
 	 * Assemble curl to upload wo GD WebDav and run whole command
 	 * There is approx. 38 minutes backoff for 5xx errors from WebDav (via --retry 12)
 	 */
-	public function runUpload($username, $password, $url, $uri)
+	public function runUpload($username, $password, $url, $uri, $definition, $tableId, $incrementalLoad = false, $filterColumn = false, $filterValue = null)
 	{
-		if (!$this->command) {
-			throw new CsvHandlerException('You must init the download first');
-		}
-
 		if (substr($url, 0, 8) != 'https://') {
 			$url = 'https://' . $url;
 		}
@@ -173,18 +169,18 @@ class CsvHandler
 			escapeshellarg($username), escapeshellarg($password),
 			escapeshellarg($url . $uri . '/data.csv'));
 
-		$this->command .= ' | ' . $command;
+		$fileId = $this->exportTable($tableId, $incrementalLoad, $filterColumn, $filterColumn);
 
 		$appError = false;
 		$errors = array();
 		for ($i = 0; $i < 10; $i++) {
-			$process = new Process($this->command);
+			$command = $this->initDownload($fileId) . ' | ' .  $this->prepareTransformation($definition) . ' | ' . $command;
+			$process = new Process($command);
 			$process->setTimeout(null);
 			$process->run();
 			$currentError = $process->getErrorOutput();
 
 			if ($process->isSuccessful() && !$currentError) {
-				$this->command = null;
 				return;
 			} else {
 				$curlError = substr($currentError, 0, 7) == 'curl: (';
@@ -196,7 +192,13 @@ class CsvHandler
 				}
 			}
 
-			$errors[date('c')] = str_replace("\ngzip: stdin: unexpected end of file\n", "", $currentError);
+			$error = array(
+				'error' => str_replace("\ngzip: stdin: unexpected end of file\n", "", $currentError),
+				'command' => $command
+			);
+			$this->logger->error('csv transfer backoff', $error);
+			$error['date'] = date('c');
+			$errors[] = $error;
 			sleep($i * 60);
 		}
 
@@ -204,13 +206,13 @@ class CsvHandler
 			$e = new CsvHandlerException('Network Error');
 			$e->setData(array(
 				'log' => $errors,
-				'command' => $this->command,
 				'jobId' => $this->jobId,
 				'runId' => $this->runId,
 			));
 			throw $e;
 		} else {
-			throw new CsvHandlerException('CSV handling failed. ' . end($errors));
+			$currentError = end($errors);
+			throw new CsvHandlerException('CSV handling failed. ' . (isset($currentError['error'])? $currentError['error'] : ''));
 		}
 	}
 

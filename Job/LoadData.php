@@ -18,10 +18,6 @@ use Symfony\Component\Stopwatch\Stopwatch;
 
 class LoadData extends AbstractJob
 {
-	/**
-	 * @var CsvHandler
-	 */
-	private $csvHandler;
 	private $goodDataModel;
 
 	/**
@@ -52,9 +48,9 @@ class LoadData extends AbstractJob
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$tmpFolderName = basename($this->tmpDir);
 		$this->goodDataModel = new Model($this->appConfiguration);
-		$this->csvHandler = new CsvHandler($this->appConfiguration->scriptsPath, $this->storageApiClient);
-		$this->csvHandler->setJobId($job['id']);
-		$this->csvHandler->setRunId($job['runId']);
+		$csvHandler = new CsvHandler($this->appConfiguration->scriptsPath, $this->storageApiClient, $this->logger);
+		$csvHandler->setJobId($job['id']);
+		$csvHandler->setRunId($job['runId']);
 
 		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
 		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
@@ -122,9 +118,9 @@ class LoadData extends AbstractJob
 
 			$webDav->prepareFolder($tmpFolderName);
 
-			$this->csvHandler->initDownload($params['tableId'], $incrementalLoad, $filterColumn, $params['pid']);
-			$this->csvHandler->prepareTransformation($definition);
-			$this->csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'], $webDav->url, '/uploads/' . $tmpFolderName);
+			$csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'],
+				$webDav->url, '/uploads/' . $tmpFolderName, $definition, $params['tableId'], $incrementalLoad,
+				$filterColumn, $params['pid']);
 			if (!$webDav->fileExists($tmpFolderName . '/data.csv')) {
 				throw new WrongConfigurationException($this->translator->trans('error.csv_not_uploaded %1', array('%1' => sprintf('%s/uploads/%s/data.csv', $webDav->url, $tmpFolderName))));
 			}
