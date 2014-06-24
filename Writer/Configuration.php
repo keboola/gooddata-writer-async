@@ -158,6 +158,9 @@ class Configuration extends StorageApiConfiguration
 		if (!empty($attributes['delete']) || !empty($attributes['toDelete'])) {
 			$attributes['status'] = 'Writer is scheduled for removal';
 		}
+		if (!empty($attributes['failure'])) {
+			$attributes['status'] = 'Writer failure. ' . $attributes['failure'];
+		}
 
 		if (!isset($attributes['writer']))
 			$attributes['writer'] = self::WRITER_NAME;
