@@ -29,7 +29,7 @@ class BackoffLogAdapter extends AbstractLogAdapter
 	 */
 	public function log($message, $priority = LOG_INFO, $extras = array())
 	{
-		$this->logger->log('backoff', $priority, array(
+		$this->logger->error('backoff', $priority, array(
 			'backoff' => $message,
 		));
 	}

@@ -754,6 +754,7 @@ Reference table between filters and users. You can assing filter(s) to user usin
 * **id** (primary key) - generated automatically by Writer
 * **name** - filter name
 * **email** - user email
+* **pid** - pid for filtering user filters
 
 --
 
@@ -768,16 +769,14 @@ GET /filters?writerId={writerId}
         {
             "name": "filter2",
             "attribute": "out.c-main.users.name",
-            "element": "miro",
             "operator": "<>",
-            "uri": ""
+            "value": "miro"
         },
         {
             "name": "filter1",
             "attribute": "out.c-main.users.name",
-            "element": "miro",
             "operator": "=",
-            "uri": "/gdc/md/fem1t9ff4krg********/obj/85"
+            "value": "miro"
         }
     ],
     "status": "ok",
@@ -785,7 +784,7 @@ GET /filters?writerId={writerId}
 }
 
 ### Get Filters for user
-GET /filters?writerId={writerId}&userEmail={userEmail}
+GET /filters?writerId={writerId}&email={userEmail}
 > X-StorageApi-Token: your_token
 < 200
 < Content-Type: application/json
@@ -794,9 +793,8 @@ GET /filters?writerId={writerId}&userEmail={userEmail}
         {
             "name": "filter1",
             "attribute": "out.c-main.users.name",
-            "element": "miro",
             "operator": "=",
-            "uri": "/gdc/md/fem1t9ff4krg********/obj/85"
+            "value": "miro"
         }
     ],
     "status": "ok",
@@ -811,8 +809,8 @@ GET /filters?writerId={writerId}&userEmail={userEmail}
 * **pid** (required) - PID of the project, in which the filter will be created
 * **name** (required) - Name of the filter
 * **attribute** (required) - Name of the attribute in SAPI notation (stage.c-bucket.table.column)
-* **element** (required) - Value of the attribute, could be an array in combination with operators "IN" or "NOT IN"
 * **operator** (optional) - One of =,>,<,<>, IN, NOT IN. Default "=".
+* **value** (required) - Value of the attribute, could be an array in combination with operators "IN" or "NOT IN"
 * **queue** (optional) - with value **secondary** will put job in secondary queue
 POST /filters
 > X-StorageApi-Token: your_token
@@ -822,7 +820,7 @@ POST /filters
     "pid": "p1d_0f_y0u2_6d_p20j3ct", 
     "name": "myFilter", 
     "attribute": "out.c-main.users.name", 
-    "element": "John Smith" 
+    "value": "John Smith" 
 }
 < 200
 < Content-Type: application/json
@@ -846,7 +844,7 @@ DELETE /filters?writerId={writerId}&uri={filterUri}
 * **writerId** (required)
 * **pid** (required) - PID of the project, in which the filter exists
 * **filters** (required) - Array of filters to assign
-* **userEmail** (required) - email of the User, who will be affected by the filter(s)
+* **email** (required) - email of the User, who will be affected by the filter(s)
 * **queue** (optional) - with value **secondary** will put job in secondary queue
 
 POST /filters-user
@@ -856,7 +854,7 @@ POST /filters-user
     "writerId": "123", 
     "pid": "p1d_0f_y0u2_6d_p20j3ct", 
     "filters": ["myFilter"], 
-    "userEmail": "john.smith@keboola.com" }
+    "email": "john.smith@keboola.com" }
 < 202
 < Content-Type: application/json
 { 

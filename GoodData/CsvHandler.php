@@ -169,7 +169,7 @@ class CsvHandler
 			escapeshellarg($username), escapeshellarg($password),
 			escapeshellarg($url . $uri . '/data.csv'));
 
-		$fileId = $this->exportTable($tableId, $incrementalLoad, $filterColumn, $filterColumn);
+		$fileId = $this->exportTable($tableId, $incrementalLoad, $filterColumn, $filterValue);
 
 		$appError = false;
 		$errors = array();
