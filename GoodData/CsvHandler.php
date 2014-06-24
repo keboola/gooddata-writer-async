@@ -16,6 +16,11 @@ class CsvHandlerException extends ClientException
 
 }
 
+class CsvHandlerNetworkException extends ClientException
+{
+
+}
+
 class CsvHandler
 {
 	private $scriptPath;
@@ -210,7 +215,7 @@ class CsvHandler
 		}
 
 		if ($appError) {
-			$e = new CsvHandlerException('Network Error');
+			$e = new CsvHandlerNetworkException('Network Error');
 			$e->setData(array(
 				'log' => $errors,
 				'jobId' => $this->jobId,

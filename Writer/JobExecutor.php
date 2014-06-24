@@ -13,6 +13,7 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\StorageApi\ClientException as StorageApiClientException;
 use Keboola\GoodDataWriter\GoodData\CsvHandlerException;
+use Keboola\GoodDataWriter\GoodData\CsvHandlerNetworkException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Service\Queue;
 use Keboola\GoodDataWriter\Service\S3Client;
@@ -237,12 +238,14 @@ class JobExecutor
 							$curlException = $e->getPrevious();
 							$debug['curl'] = $curlException->getCurlInfo();
 						}
-					} elseif ($e instanceof CsvHandlerException) {
+					} elseif ($e instanceof CsvHandlerNetworkException) {
 						$jobData['result']['error'] = $e->getMessage();
 						$debug['details'] = $e->getData();
-						if (!isset($debug['details']['log'])) {
-							throw $e;
-						}
+						$this->logger->alert($e->getMessage(), array(
+							'job' => $job,
+							'exception' => $e,
+							'runId' => $this->storageApiClient->getRunId()
+						));
 					} elseif ($e instanceof ClientException) {
 						$jobData['result']['error'] = $e->getMessage();
 						$debug['details'] = $e->getData();
@@ -264,7 +267,7 @@ class JobExecutor
 					throw $e;
 				} else {
 					$this->logger->alert($e->getMessage(), array(
-						'jobId' => $job,
+						'job' => $job,
 						'exception' => $e,
 						'runId' => $this->storageApiClient->getRunId()
 					));
