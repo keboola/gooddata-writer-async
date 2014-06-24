@@ -240,7 +240,7 @@ class JobExecutor
 					} elseif ($e instanceof CsvHandlerException) {
 						$jobData['result']['error'] = $e->getMessage();
 						$debug['details'] = $e->getData();
-						if (isset($debug['details']['log'])) {
+						if (!isset($debug['details']['log'])) {
 							throw $e;
 						}
 					} elseif ($e instanceof ClientException) {

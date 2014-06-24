@@ -194,7 +194,8 @@ class CsvHandler
 
 			$error = array(
 				'error' => str_replace("\ngzip: stdin: unexpected end of file\n", "", $currentError),
-				'command' => $command
+				'command' => str_replace($password, '***', $command),
+				'retry' => $i+1
 			);
 			$this->logger->error('csv transfer backoff', $error);
 			$error['date'] = date('c');
