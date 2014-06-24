@@ -18,8 +18,13 @@ class createFilter extends AbstractJob
 	{
 		$this->checkParams($params, array('name', 'attribute', 'operator', 'value', 'pid'));
 
-		if ($this->configuration->getFilter($params['name'])) {
-			throw new WrongParametersException($this->translator->trans('parameters.filter.already_exists'));
+		$filter = $this->configuration->getFilter($params['name']);
+		if ($filter) {
+			foreach ($this->configuration->getFilterInProjects($params['name']) as $fp) {
+				if ($fp == $params['pid']) {
+					throw new WrongParametersException($this->translator->trans('parameters.filter.already_exists'));
+				}
+			}
 		}
 
 		$attr = explode('.', $params['attribute']);
