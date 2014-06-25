@@ -1223,84 +1223,110 @@ class Configuration extends StorageApiConfiguration
 		}
 	}
 
-	/**
-	 *
-	 */
-	public function getFilter($name)
-	{
-		$filters = $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_TABLE_NAME, 'name', $name);
-		return count($filters) ? current($filters) : false;
-	}
-
-	public function getFilterInProjects($filter)
-	{
-		$filters = $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'filter', $filter);
-		return $filters;
-	}
-
-	public function checkFilterUri($uri)
-	{
-		$filters = $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri);
-		return count($filters) > 0;
-	}
-
-	/**
-	 *
-	 */
-	public function getFiltersForUser($email, $pid = null)
-	{
-		$filters = array();
-		foreach ($this->fetchTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'email', $email) as $fu) {
-			$filters[] = $fu['filter'];
-		}
-
-		if ($pid) {
-			$filtersInProjects = array();
-			foreach ($this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'pid', $pid) as $fp) {
-				$filtersInProjects[] = $fp['filter'];
-			}
-
-			$filters = array_intersect($filters, $filtersInProjects);
-		}
-
-		return $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_TABLE_NAME, 'name', $filters);
-	}
 
 
 	/**
-	 *
+	 * Get all filters
 	 */
-	public function getFilters()
+	public function getFilters($names=array())
 	{
-		$filters = $this->getConfigTable(self::FILTERS_TABLE_NAME);
+		$filters = count($names)? $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_TABLE_NAME, 'name', $names)
+			: $this->getConfigTable(self::FILTERS_TABLE_NAME);
 		foreach ($filters as &$filter) {
 			if (in_array(substr($filter['value'], 0, 1), array('[', '{')))
 				$filter['value'] = json_decode($filter['value'], true);
 		}
 		return $filters;
 	}
-
-	public function getFiltersInProject($pid)
-	{
-		return $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'pid', $pid);
-	}
-
-
 	/**
-	 *
+	 * Get filter by name
 	 */
-	public function getFiltersUsers()
+	public function getFilter($name)
 	{
-		return $this->getConfigTable(self::FILTERS_USERS_TABLE_NAME);
+		$filters = $this->getFilters(array($name));
+		return count($filters)? end($filters) : false;
+	}
+	/**
+	 * Get filters by email
+	 */
+	public function getFiltersForUser($email)
+	{
+		$filters = array();
+		foreach ($this->fetchTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'email', $email) as $fu) {
+			$filters[] = $fu['filter'];
+		}
+
+		return count($filters)? $this->getFilters($filters) : array();
+	}
+	/**
+	 * Get filters by pid
+	 */
+	public function getFiltersForProject($pid)
+	{
+		$filters = array();
+		foreach ($this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'pid', $pid) as $fp) {
+			$filters[] = $fp['filter'];
+		}
+
+		return count($filters)? $this->getFilters($filters) : array();
 	}
 
+
 	/**
-	 *
+	 * Get all filters_projects
 	 */
 	public function getFiltersProjects()
 	{
 		return $this->getConfigTable(self::FILTERS_PROJECTS_TABLE_NAME);
 	}
+	/**
+	 * Get filters_projects by pid
+	 */
+	public function getFiltersProjectsByPid($pid)
+	{
+		return $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'pid', $pid);
+	}
+	/**
+	 * Get filters_projects by filter
+	 */
+	public function getFiltersProjectsByFilter($filter)
+	{
+		return $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'filter', $filter);
+	}
+
+
+	/**
+	 * Get all filters_users
+	 */
+	public function getFiltersUsers()
+	{
+		return $this->getConfigTable(self::FILTERS_USERS_TABLE_NAME);
+	}
+	/**
+	 * Get filters_users by email
+	 */
+	public function getFiltersUsersByEmail($email)
+	{
+		return $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'email', $email);
+	}
+	/**
+	 * Get filters_users by filter
+	 */
+	public function getFiltersUsersByFilter($filter)
+	{
+		return $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'filter', $filter);
+	}
+
+
+	/**
+	 * Check if filter uri is in filters_projects table
+	 */
+	public function checkFilterUri($uri)
+	{
+		$filters = $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri);
+		return count($filters) > 0;
+	}
+
 
 	/**
 	 *
@@ -1383,6 +1409,9 @@ class Configuration extends StorageApiConfiguration
 	{
 		$this->deleteTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri);
 	}
+
+
+
 
 	/**
 	 * @TODO should be moved to RestApi class

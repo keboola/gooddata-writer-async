@@ -22,7 +22,7 @@ class DeleteFilter extends AbstractJob
 		$uris = array();
 		if (isset($params['name'])) {
 			// Delete filter in all projects
-			foreach ($this->configuration->getFilterInProjects($params['name']) as $fp) {
+			foreach ($this->configuration->getFiltersProjectsByFilter($params['name']) as $fp) {
 				$uris[] = $fp['uri'];
 			}
 		} else {

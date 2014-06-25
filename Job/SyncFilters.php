@@ -29,7 +29,7 @@ class SyncFilters extends AbstractJob
 		// Create filters
 		$filterUris = array();
 		$filtersToCreate = array();
-		foreach ($this->configuration->getFiltersInProject($params['pid']) as $fp) {
+		foreach ($this->configuration->getFiltersProjectsByPid($params['pid']) as $fp) {
 			$filtersToCreate[] = $fp['filter'];
 			$this->configuration->deleteFilterFromProject($fp['uri']);
 		}
@@ -50,7 +50,7 @@ class SyncFilters extends AbstractJob
 
 		// Assign filters to users
 		$filtersUsers = $this->configuration->getFiltersUsers();
-		$filtersProjects = $this->configuration->getFiltersInProject($params['pid']);
+		$filtersProjects = $this->configuration->getFiltersProjectsByPid($params['pid']);
 		foreach($this->configuration->getProjectUsers($params['pid']) as $pu) {
 			$user = $this->configuration->getUser($pu['email']);
 

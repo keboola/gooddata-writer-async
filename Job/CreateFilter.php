@@ -20,7 +20,7 @@ class createFilter extends AbstractJob
 
 		$filter = $this->configuration->getFilter($params['name']);
 		if ($filter) {
-			foreach ($this->configuration->getFilterInProjects($params['name']) as $fp) {
+			foreach ($this->configuration->getFiltersProjectsByFilter($params['name']) as $fp) {
 				if ($fp == $params['pid']) {
 					throw new WrongParametersException($this->translator->trans('parameters.filter.already_exists'));
 				}

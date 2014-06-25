@@ -813,7 +813,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 	/**
 	 * Returns list of filters configured in writer
-	 * If 'userEmail' parameter is specified, only returns filters for specified user
+	 * Can be filtered by email or pid
 	 *
 	 * @Route("/filters")
 	 * @Method({"GET"})
@@ -829,11 +829,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 
 		if (isset($this->params['email'])) {
-			if (isset($this->params['pid'])) {
-				$filters = $this->getConfiguration()->getFiltersForUser($this->params['email'], $this->params['pid']);
-			} else {
-				$filters = $this->getConfiguration()->getFiltersForUser($this->params['email']);
-			}
+			$filters = $this->getConfiguration()->getFiltersForUser($this->params['email']);
+		} elseif (isset($this->params['pid'])) {
+			$filters = $this->getConfiguration()->getFiltersForProject($this->params['pid']);
 		} else {
 			$filters = $this->getConfiguration()->getFilters();
 		}
@@ -843,6 +841,56 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		));
 	}
 
+	/**
+	 * Returns list of filters in projects
+	 * Can be filtered by pid
+	 *
+	 * @Route("/filters-projects")
+	 * @Method({"GET"})
+	 */
+	public function getFiltersProjectsAction()
+	{
+		$this->checkParams(array('writerId'));
+		$this->checkWriterExistence();
+
+		if (isset($this->params['pid'])) {
+			$filters = $this->getConfiguration()->getFiltersProjectsByPid($this->params['pid']);
+		} elseif (isset($this->params['filter'])) {
+			$filters = $this->getConfiguration()->getFiltersProjectsByFilter($this->params['filter']);
+		} else {
+			$filters = $this->getConfiguration()->getFiltersProjects();
+		}
+
+		return $this->createApiResponse(array(
+			'filters' => $filters
+		));
+	}
+
+
+	/**
+	 * Returns list of filters for users
+	 * Can be filtered by email
+	 *
+	 * @Route("/filters-users")
+	 * @Method({"GET"})
+	 */
+	public function getFiltersUsersAction()
+	{
+		$this->checkParams(array('writerId'));
+		$this->checkWriterExistence();
+
+		if (isset($this->params['email'])) {
+			$filters = $this->getConfiguration()->getFiltersUsersByEmail($this->params['email']);
+		} elseif (isset($this->params['filter'])) {
+			$filters = $this->getConfiguration()->getFiltersUsersByFilter($this->params['filter']);
+		} else {
+			$filters = $this->getConfiguration()->getFiltersUsers();
+		}
+
+		return $this->createApiResponse(array(
+			'filters' => $filters
+		));
+	}
 
 
 	/**

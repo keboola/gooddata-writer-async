@@ -100,7 +100,7 @@ class FiltersTest extends AbstractControllerTest
 		$this->assertGreaterThan(0, $filters, "Writer should have at least one filter.");
 		$filter = $filters[0];
 
-		$this->processJob('/filters-user', array(
+		$this->processJob('/filters-users', array(
 			'pid' => $pid,
 			'filters' => array($filter['name']),
 			'email' => $user['email']
@@ -109,7 +109,7 @@ class FiltersTest extends AbstractControllerTest
 		// Check configuration
 		$this->assertCount(1, $this->configuration->getFiltersUsers(), 'List of users from getFiltersUsers() should contain the test user');
 		$this->assertCount(1, $this->configuration->getFiltersForUser($user['email']), 'List of users from getFiltersForUser() should contain the test user');
-		$this->assertCount(1, $this->configuration->getFiltersInProject($pid), 'List of users from getFiltersInProject() should contain the test user');
+		$this->assertCount(1, $this->configuration->getFiltersProjectsByPid($pid), 'List of users from getFiltersProjectsByPid() should contain the test user');
 
 
 
@@ -123,14 +123,14 @@ class FiltersTest extends AbstractControllerTest
 		$gdFilters = $this->restApi->getFilters($pid);
 		$this->assertCount(2, $gdFilters, 'Project should contain two created filter before the sync');
 
-		$fp = $this->configuration->getFiltersInProject($pid);
+		$fp = $this->configuration->getFiltersProjectsByPid($pid);
 		$oldFilterProject = current($fp);
 
 		$this->processJob('/sync-filters', array(
 			'pid' => $pid
 		));
 
-		$fp = $this->configuration->getFiltersInProject($pid);
+		$fp = $this->configuration->getFiltersProjectsByPid($pid);
 		$newFilterProject = current($fp);
 		$this->assertNotEquals($oldFilterProject['uri'], $newFilterProject['uri'], 'Filter should have different uri after the sync');
 		$gdFilters = $this->restApi->getFilters($pid);
@@ -138,18 +138,50 @@ class FiltersTest extends AbstractControllerTest
 
 
 		/**
-		 * Get filters
+		 * Configuration
 		 */
-		$responseJson = $this->getWriterApi('/filters?writerId=' . $this->writerId);
-		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters should contain 'filters' key.");
-		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
-
-		// Get filters for user and pid
 		$usersList = $this->configuration->getUsers();
 		$user = $usersList[0];
 
-		$responseJson = $this->getWriterApi('/filters?writerId=' . $this->writerId . '&userEmail=' . $user['email'] . '&pid=' . $pid);
+		$responseJson = $this->getWriterApi('/filters?writerId=' . $this->writerId);
 		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters should contain 'filters' key.");
+		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
+		$this->assertArrayHasKey('name', current($responseJson['filters']), "Row of /filters should contain 'name' key.");
+
+		$responseJson = $this->getWriterApi(sprintf('/filters?writerId=%s&email=%s', $this->writerId, $user['email']));
+		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters should contain 'filters' key.");
+		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
+
+		$responseJson = $this->getWriterApi(sprintf('/filters?writerId=%s&pid=%s', $this->writerId, $pid));
+		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters should contain 'filters' key.");
+		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
+
+
+		$responseJson = $this->getWriterApi(sprintf('/filters-projects?writerId=%s', $this->writerId));
+		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters-projects should contain 'filters' key.");
+		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
+		$this->assertArrayHasKey('uri', current($responseJson['filters']), "Row of /filters-projects should contain 'pid' key.");
+
+		$responseJson = $this->getWriterApi(sprintf('/filters-projects?writerId=%s&filter=%s', $this->writerId, $filterName));
+		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters-projects should contain 'filters' key.");
+		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
+
+		$responseJson = $this->getWriterApi(sprintf('/filters-projects?writerId=%s&pid=%s', $this->writerId, $pid));
+		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters-projects should contain 'filters' key.");
+		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
+
+
+		$responseJson = $this->getWriterApi(sprintf('/filters-users?writerId=%s', $this->writerId));
+		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters-users should contain 'filters' key.");
+		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
+		$this->assertArrayHasKey('id', current($responseJson['filters']), "Row of /filters-users should contain 'name' key.");
+
+		$responseJson = $this->getWriterApi(sprintf('/filters-users?writerId=%s&filter=%s', $this->writerId, $filterName));
+		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters-users should contain 'filters' key.");
+		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
+
+		$responseJson = $this->getWriterApi(sprintf('/filters-users?writerId=%s&email=%s', $this->writerId, $user['email']));
+		$this->assertArrayHasKey('filters', $responseJson, "Response for API call /filters-users should contain 'filters' key.");
 		$this->assertNotEmpty($responseJson['filters'], "Response should not be empty.");
 
 

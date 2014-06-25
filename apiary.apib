@@ -749,7 +749,7 @@ Reference table between filters and projects. Row in this table added when new f
 
 ## filters_users
 
-Reference table between filters and users. You can assing filter(s) to user using [add filter to user](#post-%2Fgooddata-writer%2Ffilters-user). Columns:
+Reference table between filters and users. You can assing filter(s) to user using [add filter to user](#post-%2Fgooddata-writer%2Ffilters-users). Columns:
 
 * **id** (primary key) - generated automatically by Writer
 * **name** - filter name
@@ -760,6 +760,13 @@ Reference table between filters and users. You can assing filter(s) to user usin
 
 
 ### Get Filters
+
+#### Parameters
+
+* **writerId** (required)
+* **pid** (optional) - to filter by project
+* **email** (optional) - to filter by user
+
 GET /filters?writerId={writerId}
 > X-StorageApi-Token: your_token
 < 200
@@ -783,18 +790,48 @@ GET /filters?writerId={writerId}
     "duration": 1.1255049705505
 }
 
-### Get Filters for user
-GET /filters?writerId={writerId}&email={userEmail}
+### Get Filters Projects
+
+#### Parameters
+
+* **writerId** (required)
+* **pid** (optional) - to filter by project
+* **filter** (optional) - to filter by filter name
+
+GET /filters-projects?writerId={writerId}
 > X-StorageApi-Token: your_token
 < 200
 < Content-Type: application/json
 {
-    "filters": [        
+    "filters": [
         {
-            "name": "filter1",
-            "attribute": "out.c-main.users.name",
-            "operator": "=",
-            "value": "miro"
+            "uri": "/gdc/md/PID/obj/123"
+            "filter": "filter1",
+            "pid": "PID"
+        }
+    ],
+    "status": "ok",
+    "duration": 1.1255049705505
+}
+
+### Get Filters Users
+
+#### Parameters
+
+* **writerId** (required)
+* **email** (optional) - to filter by user email
+* **filter** (optional) - to filter by filter name
+
+GET /filters-users?writerId={writerId}
+> X-StorageApi-Token: your_token
+< 200
+< Content-Type: application/json
+{
+    "filters": [
+        {
+            "id": "idopsfiui78ufdisfo"
+            "filter": "filter1",
+            "email": "user@domain.com"
         }
     ],
     "status": "ok",
@@ -847,7 +884,7 @@ DELETE /filters?writerId={writerId}&name={filterName}
 * **email** (required) - email of the User, who will be affected by the filter(s)
 * **queue** (optional) - with value **secondary** will put job in secondary queue
 
-POST /filters-user
+POST /filters-users
 > X-StorageApi-Token: your_token
 > Accept: application/json
 { 

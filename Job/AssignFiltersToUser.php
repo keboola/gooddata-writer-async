@@ -44,7 +44,7 @@ class assignFiltersToUser extends AbstractJob
 			if (!in_array($name, $configuredFilters)) {
 				throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $name)));
 			}
-			foreach ($this->configuration->getFilterInProjects($name) as $fp) {
+			foreach ($this->configuration->getFiltersProjectsByFilter($name) as $fp) {
 				if (!$fp['uri']) {
 					throw new WrongConfigurationException($this->translator->trans('configuration.filter.missing_uri %1', array('%1' => $name)));
 				}

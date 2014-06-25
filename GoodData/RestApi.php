@@ -281,8 +281,6 @@ class RestApi
 	 */
 	public function createProject($name, $authToken, $description = null)
 	{
-		$this->clearFromLog[] = $authToken;
-
 		$uri = '/gdc/projects';
 		$params = array(
 			'project' => array(
