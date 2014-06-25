@@ -879,9 +879,8 @@ DELETE /filters?writerId={writerId}&name={filterName}
 #### Parameters
 
 * **writerId** (required)
-* **pid** (required) - PID of the project, in which the filter exists
-* **filters** (required) - Array of filters to assign
 * **email** (required) - email of the User, who will be affected by the filter(s)
+* **filters** (required) - Array of filters to assign
 * **queue** (optional) - with value **secondary** will put job in secondary queue
 
 POST /filters-users
@@ -889,9 +888,9 @@ POST /filters-users
 > Accept: application/json
 { 
     "writerId": "123", 
-    "pid": "p1d_0f_y0u2_6d_p20j3ct", 
-    "filters": ["myFilter"], 
-    "email": "john.smith@keboola.com" }
+    "email": "john.smith@keboola.com",
+    "filters": ["myFilter"]
+}
 < 202
 < Content-Type: application/json
 { 

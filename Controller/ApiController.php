@@ -912,7 +912,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 		////
 
-		$this->checkParams(array('writerId', 'email', 'pid'));
+		$this->checkParams(array('writerId', 'email'));
 		if (!isset($this->params['filters'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.filters.required'));
 		}
@@ -927,23 +927,23 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 		$this->checkWriterExistence();
 
-		$jobInfo = $this->createJob(array(
+		$batchId = $this->storageApi->generateId();
+		$this->createJob(array(
+			'batchId' => $batchId,
 			'command' => $command,
 			'createdTime' => date('c', $createdTime),
 			'parameters' => array(
 				'filters' => $this->params['filters'],
-				'email' => $this->params['email'],
-				'pid' => $this->params['pid']
+				'email' => $this->params['email']
 			),
 			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
 		));
-		$this->enqueue($jobInfo['batchId']);
 
-
+		$this->enqueue($batchId);
 		if (empty($this->params['wait'])) {
-			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+			return $this->getPollResult($batchId, $this->params['writerId'], true);
 		} else {
-			return $this->waitForJob($jobInfo['id']);
+			return $this->waitForJob($batchId);
 		}
 	}
 
