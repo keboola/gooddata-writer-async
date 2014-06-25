@@ -5,16 +5,13 @@
 	<target name="build"
 			depends="prepare,update,phpunit"/>
 
-	<target name="update"
-			depends="prepare,composerInstall"
-			description="update application"/>
+	<target name="update" depends="prepare,composerInstall" description="update application"/>
 
 	<target name="clean" description="Cleanup build artifacts">
 		<delete file="${basedir}/composer.phar"/>
 	</target>
 
-	<target name="prepare" depends="clean"
-			description="Prepare for build">
+	<target name="prepare" depends="clean" description="Prepare for build">
 		<exec executable="bash">
 			<arg value="-c"/>
 			<arg value="curl -s http://getcomposer.org/installer | php"/>
@@ -34,6 +31,51 @@
 		<exec executable="phpunit" failonerror="true">
 			<arg value="--configuration"/>
 			<arg path="${basedir}/phpunit.xml.dist"/>
+		</exec>
+	</target>
+
+	<target name="phpunit-1" depends="prepare,update">
+		<exec executable="phpunit" failonerror="true">
+			<arg value="--configuration"/>
+			<arg path="${basedir}/phpunit.xml.dist"/>
+			<arg value="--testsuite"/>
+			<arg value="part-1"/>
+		</exec>
+	</target>
+
+	<target name="phpunit-2" depends="prepare,update">
+		<exec executable="phpunit" failonerror="true">
+			<arg value="--configuration"/>
+			<arg path="${basedir}/phpunit.xml.dist"/>
+			<arg value="--testsuite"/>
+			<arg value="part-2"/>
+		</exec>
+	</target>
+
+	<target name="phpunit-3" depends="prepare,update">
+		<exec executable="phpunit" failonerror="true">
+			<arg value="--configuration"/>
+			<arg path="${basedir}/phpunit.xml.dist"/>
+			<arg value="--testsuite"/>
+			<arg value="part-3"/>
+		</exec>
+	</target>
+
+	<target name="phpunit-4" depends="prepare,update">
+		<exec executable="phpunit" failonerror="true">
+			<arg value="--configuration"/>
+			<arg path="${basedir}/phpunit.xml.dist"/>
+			<arg value="--testsuite"/>
+			<arg value="part-4"/>
+		</exec>
+	</target>
+
+	<target name="phpunit-5" depends="prepare,update">
+		<exec executable="phpunit" failonerror="true">
+			<arg value="--configuration"/>
+			<arg path="${basedir}/phpunit.xml.dist"/>
+			<arg value="--testsuite"/>
+			<arg value="part-5"/>
 		</exec>
 	</target>
 </project>

@@ -702,6 +702,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$createdTime = time();
 
 		// Init parameters
+		//@TODO backwards compatibility, REMOVE SOON
 		if (isset($this->params['element'])) {
 			$this->params['value'] = $this->params['element'];
 			unset($this->params['element']);
@@ -775,6 +776,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			}
 			$this->checkParams(array('writerId'));
 		} else {
+			//@TODO backwards compatibility, REMOVE SOON
 			$this->checkParams(array('writerId', 'uri'));
 			if (!$this->getConfiguration()->checkFilterUri($this->params['uri'])) {
 				throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $this->params['uri'])));
@@ -904,7 +906,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$command = 'assignFiltersToUser';
 		$createdTime = time();
 
-		////
+		//@TODO backwards compatibility, REMOVE SOON
 		if (isset($this->params['userEmail'])) {
 			$this->params['email'] = $this->params['userEmail'];
 			unset($this->params['userEmail']);
