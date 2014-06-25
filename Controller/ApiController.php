@@ -580,8 +580,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			throw new WrongParametersException($this->translator->trans('parameters.sso_wrong_pid'));
 		}
 
-		if (!empty($this->params['createUser']) && $this->params['createUser'] == 1) {
-
+		if (!empty($this->params['createUser']) && $this->params['createUser'] == 1 && !$this->getConfiguration()->getUser($this->params['email'])) {
 			$this->params['wait'] = 1;
 			$this->postUsersAction();
 			$this->postProjectUsersAction();
