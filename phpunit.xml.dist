@@ -16,20 +16,20 @@
 	</php>
 	<testsuites>
 		<testsuite name="part-1">
-			<file>Tests/Controller/WritersTest.php</file>
-			<file>Tests/Controller/ProjectsTest.php</file>
+			<file>Tests/GraphTest.php</file>
 			<file>Tests/Controller/DatasetsTest.php</file>
+			<file>Tests/Controller/JobsTest.php</file>
+			<file>Tests/Controller/ReportsTest.php</file>
 		</testsuite>
 		<testsuite name="part-2">
-			<file>Tests/Controller/UsersTest.php</file>
+			<file>Tests/Controller/ProjectsTest.php</file>
 			<file>Tests/Controller/FiltersTest.php</file>
-			<file>Tests/Controller/ProxyTest.php</file>
 		</testsuite>
 		<testsuite name="part-3">
-			<file>Tests/Controller/ReportsTest.php</file>
-			<file>Tests/Controller/JobsTest.php</file>
+			<file>Tests/Controller/WritersTest.php</file>
+			<file>Tests/Controller/UsersTest.php</file>
+			<file>Tests/Controller/ProxyTest.php</file>
 			<file>Tests/Controller/RcTest.php</file>
-			<file>Tests/GraphTest.php</file>
 		</testsuite>
 	</testsuites>
 </phpunit>
