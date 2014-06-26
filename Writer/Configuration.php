@@ -149,8 +149,8 @@ class Configuration extends StorageApiConfiguration
 			}
 		}
 
-		if (!empty($attributes['waitingForInvitation'])) {
-			$attributes['status'] = 'Writer is processing invitation to your project';
+		if (empty($attributes['gd']) || empty($attributes['gd']['pid']) || empty($attributes['gd']['username']) || empty($attributes['gd']['password'])) {
+			$attributes['status'] = 'GoodData project is being prepared or there is an error in writer\'s configuration. You cannot perform any GoodData operations now.';
 		}
 		if (!empty($attributes['maintenance'])) {
 			$attributes['status'] = 'Writer is undergoing maintenance, jobs execution will be postponed';
