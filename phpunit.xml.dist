@@ -1,39 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <phpunit backupGlobals="false"
-         backupStaticAttributes="false"
-         colors="true"
-         convertErrorsToExceptions="true"
-         convertNoticesToExceptions="true"
-         convertWarningsToExceptions="true"
-         processIsolation="false"
-         stopOnFailure="true"
-         syntaxCheck="false"
-         bootstrap="Tests/bootstrap.php">
+		 backupStaticAttributes="false"
+		 colors="true"
+		 convertErrorsToExceptions="true"
+		 convertNoticesToExceptions="true"
+		 convertWarningsToExceptions="true"
+		 processIsolation="false"
+		 stopOnFailure="true"
+		 syntaxCheck="false"
+		 bootstrap="Tests/bootstrap.php">
 	<php>
 		<server name="KERNEL_DIR" value="vendor/keboola/syrup/app/" />
-        <ini name="display_errors" value="true"/>
+		<ini name="display_errors" value="true"/>
 	</php>
-    <testsuites>
-        <testsuite name="part-1">
+	<testsuites>
+		<testsuite name="part-1">
 			<file>Tests/Controller/WritersTest.php</file>
 			<file>Tests/Controller/ProjectsTest.php</file>
+			<file>Tests/Controller/DatasetsTest.php</file>
 		</testsuite>
 		<testsuite name="part-2">
 			<file>Tests/Controller/UsersTest.php</file>
 			<file>Tests/Controller/FiltersTest.php</file>
+			<file>Tests/Controller/ProxyTest.php</file>
 		</testsuite>
 		<testsuite name="part-3">
-			<file>Tests/Controller/DatasetsTest.php</file>
-		</testsuite>
-		<testsuite name="part-4">
-			<file>Tests/Controller/ProxyTest.php</file>
 			<file>Tests/Controller/ReportsTest.php</file>
-		</testsuite>
-		<testsuite name="part-5">
 			<file>Tests/Controller/JobsTest.php</file>
 			<file>Tests/Controller/RcTest.php</file>
 			<file>Tests/GraphTest.php</file>
-        </testsuite>
-    </testsuites>
+		</testsuite>
+	</testsuites>
 </phpunit>

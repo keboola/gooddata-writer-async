@@ -60,22 +60,4 @@
 			<arg value="part-3"/>
 		</exec>
 	</target>
-
-	<target name="phpunit-4" depends="prepare,update">
-		<exec executable="phpunit" failonerror="true">
-			<arg value="--configuration"/>
-			<arg path="${basedir}/phpunit.xml.dist"/>
-			<arg value="--testsuite"/>
-			<arg value="part-4"/>
-		</exec>
-	</target>
-
-	<target name="phpunit-5" depends="prepare,update">
-		<exec executable="phpunit" failonerror="true">
-			<arg value="--configuration"/>
-			<arg path="${basedir}/phpunit.xml.dist"/>
-			<arg value="--testsuite"/>
-			<arg value="part-5"/>
-		</exec>
-	</target>
 </project>
