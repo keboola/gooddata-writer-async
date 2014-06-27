@@ -12,9 +12,9 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\StorageApi\ClientException as StorageApiClientException;
-use Keboola\GoodDataWriter\GoodData\CsvHandlerException;
 use Keboola\GoodDataWriter\GoodData\CsvHandlerNetworkException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Service\Queue;
 use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\StorageApi\Client as StorageApiClient,
@@ -60,24 +60,25 @@ class JobExecutor
 	 */
 	protected $storageApiClient;
 	/**
-	 * @var StorageApiEvent
-	 */
-	protected $storageApiEvent;
-	/**
 	 * @var \Keboola\GoodDataWriter\Service\Queue
 	 */
 	protected $queue;
 	/**
 	 * @var \Symfony\Component\Translation\TranslatorInterface
 	 */
-	private $translator;
+	protected $translator;
+	/**
+	 * @var EventLogger
+	 */
+	protected $eventLogger;
 
 
 	/**
 	 *
 	 */
-	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi, Logger $logger,
-								TempServiceFactory $tempServiceFactory, Queue $queue, TranslatorInterface $translator)
+	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi,
+								EventLogger $eventLogger, Logger $logger, TempServiceFactory $tempServiceFactory,
+								Queue $queue, TranslatorInterface $translator)
 	{
 		if (!defined('JSON_PRETTY_PRINT')) {
 			// fallback for PHP <= 5.3
@@ -87,12 +88,11 @@ class JobExecutor
 		$this->appConfiguration = $appConfiguration;
 		$this->sharedConfig = $sharedConfig;
 		$this->restApi = $restApi;
+		$this->eventLogger = $eventLogger;
 		$this->logger = $logger;
 		$this->tempServiceFactory = $tempServiceFactory;
 		$this->queue = $queue;
 		$this->translator = $translator;
-
-		$this->storageApiEvent = new StorageApiEvent();
 	}
 
 	public function runBatch($batchId, $forceRun = false)
@@ -207,7 +207,7 @@ class JobExecutor
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 				 */
 				$command = new $commandClass($configuration, $appConfiguration, $this->sharedConfig, $this->restApi, $s3Client,
-					$tempService, $this->translator, $this->storageApiClient, $job['id']);
+					$tempService, $this->translator, $this->storageApiClient, $job['id'], $this->eventLogger);
 				$command->setLogger($this->logger); //@TODO deprecated - only for CL tool
 				$command->setQueue($this->queue);
 				$command->setPreRelease($preRelease);
@@ -288,31 +288,21 @@ class JobExecutor
 		}
 		$this->sharedConfig->saveJob($jobId, $jobData);
 
-		$this->storageApiEvent->setDuration(time() - $startTime);
 		$log = array(
 			'command' => $job['command'],
 			'params' => $logParams,
 			'result' => $jobData['result']
 		);
 		if (isset($jobData['debug'])) $log['debug'] = $jobData['debug'];
-		$this->logEvent($this->translator->trans('log.job.finished %1', array('%1' => $job['id'])), $job, $log);
+		$this->logEvent($this->translator->trans('log.job.finished %1', array('%1' => $job['id'])), $job, $log, $startTime);
 	}
 
 
 	/**
 	 * Log event to client SAPI and to system log
 	 */
-	protected function logEvent($message, $job, $data = null)
+	protected function logEvent($message, $job, $data = null, $startTime = null)
 	{
-		$this->storageApiEvent
-			->setMessage($message)
-			->setComponent($this->appConfiguration->appName)
-			->setConfigurationId($job['writerId'])
-			->setRunId($job['runId']);
-
-		$this->storageApiClient->createEvent($this->storageApiEvent);
-
-		$priority = $this->storageApiEvent->getType() == StorageApiEvent::TYPE_ERROR ? Logger::ERROR : Logger::INFO;
 		$logData = array(
 			'jobId' => $job['id'],
 			'projectId' => $job['projectId'],
@@ -325,7 +315,12 @@ class JobExecutor
 		array_walk($logData['params'], function(&$val, $key) {
 			if ($key == 'password') $val = '***';
 		});
-		$this->logger->log($priority, $message, $logData);
+
+		$this->logger->log(Logger::INFO, $message, $logData);
+
+		if (isset($data['debug']))
+			unset($data['debug']);
+		$this->eventLogger->log($job['id'], $job['runId'], $message, null, $data, $startTime);
 	}
 
 }

@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Service\Queue;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\Configuration,
@@ -64,6 +65,10 @@ abstract class AbstractJob
 	 * @var \Keboola\GoodDataWriter\GoodData\User
 	 */
 	protected $domainUser;
+	/**
+	 * @var \Keboola\GoodDataWriter\Service\EventLogger
+	 */
+	protected $eventLogger;
 
 	/**
 	 * @var \SplFileObject
@@ -81,7 +86,7 @@ abstract class AbstractJob
 
 	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedConfig $sharedConfig,
 								RestApi $restApi, S3Client $s3Client, TempService $tempService, TranslatorInterface $translator,
-								StorageApiClient $storageApiClient, $jobId)
+								StorageApiClient $storageApiClient, $jobId, EventLogger $eventLogger)
 	{
 		$this->configuration = $configuration;
 		$this->appConfiguration = $appConfiguration;
@@ -91,6 +96,7 @@ abstract class AbstractJob
 		$this->tempService = $tempService;
 		$this->translator = $translator;
 		$this->storageApiClient = $storageApiClient;
+		$this->eventLogger = $eventLogger;
 
 		$this->domainUser = $this->sharedConfig->getDomainUser($appConfiguration->gd_domain);
 
