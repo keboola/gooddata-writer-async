@@ -94,8 +94,7 @@ class UploadDateDimension extends AbstractJob
 				$e = $stopWatch->stop($stopWatchId);
 				$this->logEvent($stopWatchId, array(
 					'duration' => $e->getDuration(),
-					'url' => $webDav->url,
-					'folder' => '/uploads/' . $tmpFolderNameDimension)
+					'url' => $webDav->getUrl() . '/uploads/' . $tmpFolderNameDimension)
 				);
 
 				// Run ETL task of time dimensions

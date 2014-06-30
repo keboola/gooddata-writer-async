@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
@@ -118,11 +119,11 @@ class LoadData extends AbstractJob
 
 			$webDav->prepareFolder($tmpFolderName);
 
+			$webDavFileUrl = sprintf('%s/%s/data.csv', $webDav->getUrl(), $tmpFolderName);
 			$csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'],
-				$webDav->url, '/uploads/' . $tmpFolderName, $definition, $params['tableId'], $incrementalLoad,
-				$filterColumn, $params['pid']);
+				$webDavFileUrl, $definition, $params['tableId'], $incrementalLoad, $filterColumn, $params['pid']);
 			if (!$webDav->fileExists($tmpFolderName . '/data.csv')) {
-				throw new WrongConfigurationException($this->translator->trans('error.csv_not_uploaded %1', array('%1' => sprintf('%s/uploads/%s/data.csv', $webDav->url, $tmpFolderName))));
+				throw new JobProcessException($this->translator->trans('error.csv_not_uploaded %1', array('%1' => $webDavFileUrl)));
 			}
 
 			$e = $stopWatch->stop($stopWatchId);
@@ -137,8 +138,7 @@ class LoadData extends AbstractJob
 			$e = $stopWatch->stop($stopWatchId);
 			$this->logEvent($stopWatchId, array(
 				'duration' => $e->getDuration(),
-				'url' => $webDav->url,
-				'folder' => '/uploads/' . $tmpFolderName
+				'url' => $webDavFileUrl
 			));
 
 

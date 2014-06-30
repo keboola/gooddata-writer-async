@@ -4,7 +4,6 @@
  * Arguments:
  * -h names of columns to header separated by comma
  * -d orders of date columns separated by comma
- * -i orders of ignored columns separated by comma
  */
 date_default_timezone_set('UTC');
 
@@ -16,7 +15,7 @@ if (!$fh) {
 	die(1);
 }
 
-$options = getopt('h:i::d::t::');
+$options = getopt('d::t::');
 
 $dateColumns = array();
 if (isset($options['d'])) {
@@ -26,55 +25,45 @@ $timeColumns = array();
 if (isset($options['t'])) {
 	$timeColumns = explode(',', $options['t']);
 }
-$ignoredColumns = array();
-if (isset($options['i'])) {
-	$ignoredColumns = explode(',', $options['i']);
-}
 
-$startDate = new DateTime('1900-01-01 00:00:00');
+$start = strtotime('1900-01-01 00:00:00');
 
 $rowNumber = 1;
-while ($line = fgetcsv($fh)) {
-	if ($rowNumber > 1) {
-		$resultLine = array();
-		foreach ($line as $i => $column) {
-			if (in_array($i+1, $dateColumns)) {
-				// Add date fact (number of days since 1900-01-01 plus one)
-				try {
-					$columnDate = new DateTime($column);
-				} catch(Exception $e) {
-					fwrite($stdErr, sprintf('Error in date column value: "%s" on row %d', $column, $rowNumber));
-					die(1);
-				}
+while ($line = fgets($fh)) {
+	$resultLine = '';
+	$line = trim($line, "\"\t\n\r");
+	$line = explode('","', $line);
+	foreach ($line as $i => $column) {
+		$resultLine .= '"' . str_replace('"', '""', $column) . '",';
+		if (in_array($i+1, $dateColumns)) {
+			// Add date fact (number of days since 1900-01-01 plus one)
 
-				if ($startDate > $columnDate) {
-					fwrite($stdErr, sprintf('Error in date column value: "%s" on row %d', $column, $rowNumber));
-					die(1);
-				}
+			$timestamp = strtotime($column);
+			if ($timestamp === false) {
+				fwrite($stdErr, sprintf('Error in date column value: "%s" on row %d', $column, $rowNumber));
+				die(1);
+			}
 
-				$resultLine[] = $column;
-				$resultLine[] = (int)$columnDate->diff($startDate)->format('%a') + 1;
+			if ($start > $timestamp) {
+				fwrite($stdErr, sprintf('Error in date column value: "%s" on row %d', $column, $rowNumber));
+				die(1);
+			}
 
-				if (in_array($i+1, $timeColumns)) {
-					// Add time fact (number of seconds since midnight)
-					$columnDateTimestamp = $columnDate->getTimestamp();
-					$seconds = $columnDateTimestamp - strtotime(date('Y-m-d 00:00:00', $columnDateTimestamp));
-					$resultLine[] = $seconds;
-					$resultLine[] = $seconds;
-				}
+			$diff = $timestamp - $start;
+			$daysDiff = floor($diff/(60*60*24));
+			$dateFact = $daysDiff + 1;
 
-			} elseif (!in_array($i+1, $ignoredColumns)) {
-				$resultLine[] = $column;
+			$resultLine .= '"' . $dateFact . '",';
+
+			if (in_array($i+1, $timeColumns)) {
+				// Add time fact (number of seconds since midnight)
+				$timeFact = $diff - ($daysDiff * 60*60*24);
+				$resultLine .= '"' . $timeFact . '",';
+				$resultLine .= '"' . $timeFact . '",';
 			}
 		}
-
-		$return = array();
-		foreach ($resultLine as $column) {
-			$return[] = '"' . str_replace('"', '""', $column) . '"';
-		}
-		print implode(',', $return) . "\n";
-	} else {
-		fputcsv($stdOut, explode(',', $options['h']));
 	}
+
+	print rtrim($resultLine, ",") . "\n";
 	$rowNumber++;
 }

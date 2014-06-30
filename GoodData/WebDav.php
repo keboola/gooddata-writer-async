@@ -19,7 +19,7 @@ class WebDavException extends \Exception
 
 class WebDav
 {
-	public $url = 'na1-di.gooddata.com';
+	protected $url = 'https://na1-di.gooddata.com/uploads';
 	protected $username;
 	protected $password;
 
@@ -29,17 +29,15 @@ class WebDav
 	 * @param null $url
 	 * @throws WebDavException
 	 */
-	public function __construct($username, $password, $url = null)
+	public function __construct($username, $password)
 	{
 		$this->username = $username;
 		$this->password = $password;
-		if ($url) {
-			$parsedUrl = parse_url($url);
-			if (!$parsedUrl || empty($parsedUrl['host'])) {
-				throw new WebDavException('Malformed base url: ' . $url);
-			}
-			$this->url = $parsedUrl['host'];
-		}
+	}
+
+	public function getUrl()
+	{
+		return $this->url;
 	}
 
 
@@ -56,7 +54,7 @@ class WebDav
 	{
 		$error = null;
 		for ($i = 0; $i < 5; $i++) {
-			$url = 'https://' . $this->url . '/uploads/' . $uri;
+			$url = $this->url . '/' . $uri;
 			if ($method) {
 				$arguments .= ' -X ' . escapeshellarg($method);
 			}
