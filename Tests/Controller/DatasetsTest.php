@@ -223,7 +223,7 @@ class DatasetsTest extends AbstractControllerTest
 				$tables[] = $t;
 			}
 		}
-print_r($tables);die();
+
 		$this->assertCount(2, $tables, "Response for writer call '/tables' should contain two configured tables.");
 		foreach ($tables as $table) {
 			$this->assertArrayHasKey('name', $table, sprintf("Table '%s' should have 'type' attribute.", $table['id']));
