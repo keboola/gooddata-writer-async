@@ -200,6 +200,13 @@ class CsvHandler
 				if ($curlError) {
 					$appError = true;
 				} else {
+					$errors[] = array(
+						'error' => str_replace(array(
+							"\ngzip: stdin: unexpected end of file\n",
+							"tail: write error: Broken pipe"
+						), "", $currentError),
+						'command' => str_replace($password, '***', $command)
+					);
 					break;
 				}
 			} else {
@@ -211,7 +218,10 @@ class CsvHandler
 			}
 
 			$error = array(
-				'error' => str_replace("\ngzip: stdin: unexpected end of file\n", "", $currentError),
+				'error' => str_replace(array(
+					"\ngzip: stdin: unexpected end of file\n",
+					"tail: write error: Broken pipe"
+				), "", $currentError),
 				'command' => str_replace($password, '***', $command),
 				'retry' => $i+1,
 				'jobId' => $this->jobId,
@@ -232,9 +242,15 @@ class CsvHandler
 			));
 			throw $e;
 		} else {
-			$e = end($errors);
-			$error = ($e && isset($e['error']))? $e['error'] : $currentError;
-			throw new CsvHandlerException('CSV handling failed. ' . $error);
+			$lastError = end($errors);
+			$error = ($lastError && isset($lastError['error']))? $lastError['error'] : $currentError;
+			$e = new CsvHandlerException('CSV handling failed. ' . $error);
+			if (isset($e['command'])) {
+				$e->setData(array(
+					'command' => $lastError['command']
+				));
+			}
+			throw $e;
 		}
 	}
 

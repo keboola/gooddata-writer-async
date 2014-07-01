@@ -28,11 +28,13 @@ if (isset($options['t'])) {
 
 $start = strtotime('1900-01-01 00:00:00');
 
-$rowNumber = 1;
+$rowNumber = 2; // we have to add the header
 while ($line = fgets($fh)) {
 	$resultLine = '';
-	$line = trim($line, "\"\t\n\r");
 	$line = explode('","', $line);
+	$line[0] = trim($line[0], "\"\t\n\r");
+	$line[count($line)-1] = rtrim($line[count($line)-1], "\"\t\n\r");
+
 	foreach ($line as $i => $column) {
 		$resultLine .= '"' . str_replace('\"', '""', $column) . '",';
 		if (in_array($i+1, $dateColumns)) {
