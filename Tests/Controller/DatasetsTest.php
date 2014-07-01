@@ -228,7 +228,8 @@ class DatasetsTest extends AbstractControllerTest
 		foreach ($tables as $table) {
 			$this->assertArrayHasKey('name', $table, sprintf("Table '%s' should have 'type' attribute.", $table['id']));
 			$this->assertTrue(in_array($table['name'], array('Products', 'Categories')), sprintf("Table '%s' does not belong to configured tables.", $table['id']));
-			$this->assertArrayHasKey('lastExportDate', $table, sprintf("Table '%s' should have 'lastExportDate' attribute.", $table['id']));
+			$this->assertArrayHasKey('export', $table, sprintf("Table '%s' should have 'export' attribute.", $table['id']));
+			$this->assertArrayHasKey('isExported', $table, sprintf("Table '%s' should have 'isExported' attribute.", $table['id']));
 		}
 
 
