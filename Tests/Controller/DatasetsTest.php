@@ -223,11 +223,11 @@ class DatasetsTest extends AbstractControllerTest
 				$tables[] = $t;
 			}
 		}
-
+print_r($tables);die();
 		$this->assertCount(2, $tables, "Response for writer call '/tables' should contain two configured tables.");
 		foreach ($tables as $table) {
-			$this->assertArrayHasKey('type', $table, sprintf("Table '%s' should have 'type' attribute.", $table['id']));
-			$this->assertTrue(in_array($table['gdName'], array('Products', 'Categories')), sprintf("Table '%s' does not belong to configured tables.", $table['id']));
+			$this->assertArrayHasKey('name', $table, sprintf("Table '%s' should have 'type' attribute.", $table['id']));
+			$this->assertTrue(in_array($table['name'], array('Products', 'Categories')), sprintf("Table '%s' does not belong to configured tables.", $table['id']));
 			$this->assertArrayHasKey('lastExportDate', $table, sprintf("Table '%s' should have 'lastExportDate' attribute.", $table['id']));
 		}
 
