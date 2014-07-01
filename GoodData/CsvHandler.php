@@ -245,7 +245,7 @@ class CsvHandler
 			$lastError = end($errors);
 			$error = ($lastError && isset($lastError['error']))? $lastError['error'] : $currentError;
 			$e = new CsvHandlerException('CSV handling failed. ' . $error);
-			if (isset($e['command'])) {
+			if (isset($error['command'])) {
 				$e->setData(array(
 					'command' => $lastError['command']
 				));

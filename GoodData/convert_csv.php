@@ -32,8 +32,10 @@ $rowNumber = 2; // we have to add the header
 while ($line = fgets($fh)) {
 	$resultLine = '';
 	$line = explode('","', $line);
-	$line[0] = trim($line[0], "\"\t\n\r");
-	$line[count($line)-1] = rtrim($line[count($line)-1], "\"\t\n\r");
+	$line[0] = substr(trim($line[0], "\t\n\r"), 1);
+	$lastItemIndex = count($line) - 1;
+	$lastItem = rtrim($line[$lastItemIndex], "\t\n\r");
+	$line[$lastItemIndex] = substr($lastItem, 0, strlen($lastItem)-1);
 
 	foreach ($line as $i => $column) {
 		$resultLine .= '"' . str_replace('\"', '""', $column) . '",';
