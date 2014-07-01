@@ -369,7 +369,7 @@ class Configuration extends StorageApiConfiguration
 				'name' => empty($table['name']) ? $table['id'] : $table['name'],
 				'export' => (bool)$table['export'],
 				'isExported' => (bool)$table['isExported'],
-				'lastChangeDate' => $table['lastChangeDate']
+				'lastChangeDate' => $table['lastChangeDate'],
 			);
 		}
 		return $tables;

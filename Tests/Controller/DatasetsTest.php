@@ -242,7 +242,7 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertArrayHasKey('id', $responseJson['table'], "Response for writer call '/tables?tableId=' should contain 'table.id' key.");
 		$this->assertArrayHasKey('name', $responseJson['table'], "Response for writer call '/tables?tableId=' should contain 'table.name' key.");
 		$this->assertArrayHasKey('columns', $responseJson['table'], "Response for writer call '/tables?tableId=' should contain 'table.columns' key.");
-		$this->assertEquals($this->dataBucketId . '.products', $responseJson['table']['tableId'], "Response for writer call '/tables?tableId=' should contain 'table.tableId' key with value of data bucket Products.");
+		$this->assertEquals($this->dataBucketId . '.products', $responseJson['table']['id'], "Response for writer call '/tables?tableId=' should contain 'table.id' key with value of data bucket Products.");
 		$this->assertCount(5, $responseJson['table']['columns'], "Response for writer call '/tables?tableId=' should contain 'table.columns' key with five columns.");
 
 
