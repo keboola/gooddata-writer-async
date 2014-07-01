@@ -431,9 +431,170 @@ DELETE /project-users?writerId={writerId}&pid={pr0j3ct_p1d}&email={user@email.co
 
 
 --
-Project structure
+Project Model
 Commands for manipulation with GoodData project structure and data
 --
+
+### Get tables list
+
+#### Parameters
+* **writerId** (required)
+GET /tables?writerId={writerId}
+> X-StorageApi-Token: your_token
+< 200
+< Content-Type: application/json
+{ "tables": [
+        {
+            "id": "out.c-main.categories",
+            "bucket": "out.c-main",
+            "name": "Categories",
+            "export": true,
+            "isExported": true,
+            "lastChangeDate": "2014-07-01T08:17:45+02:00"
+        },
+        {
+            "id": "out.c-main.products",
+            "bucket": "out.c-main",
+            "name": "Products",
+            "export": true,
+            "isExported": false,
+            "lastChangeDate": "2014-06-21T02:13:25+02:00"
+        }
+    ],
+    "status": "ok", 
+    "duration": 31.54
+}
+
+### Get table detail
+
+#### Parameters
+* **writerId** (required)
+* **tableId** (required)
+GET /tables?writerId={writerId}&tableId={tableId}
+> X-StorageApi-Token: your_token
+< 200
+< Content-Type: application/json
+{ 
+    "table": [
+        "id": "out.c-main.categories",
+        "bucket": "out.c-main",
+        "name": "Categories",
+        "export": true,
+        "isExported": true,
+        "lastChangeDate": "2014-07-01T08:17:45+02:00",
+        "incrementalLoad": false,
+        "ignoreFilter": false,
+        "columns": [
+            {
+                "name":"id",
+                "gdName": "ID",
+                "type": "CONNECTION_POINT",
+                "reference": null,
+                "schemaReference": null,
+                "format": null,
+                "dateDimension": null,
+            },
+            {
+                "name": "name",
+                "gdName": "Name",
+                "type": "ATTRIBUTE",
+                "reference": null,
+                "schemaReference": null, 
+                "format": null,
+                "dateDimension": null,
+            }
+        ]
+    ],
+    "status": "ok", 
+    "duration": 31.54
+}
+
+
+### Update table configuration
+
+#### Parameters
+
+* **writerId** (required)
+* **tableId** (required)
+* **export** (optional)
+* **isExported** (optional)
+* **incrementalLoad** (optional)
+* **ignoreFilter** (optional)
+POST /tables
+> X-StorageApi-Token: your_token
+> Accept: application/json
+{ 
+    "writerId": "123", 
+    "tableId": "out.c-main.categories", 
+    "export": 0 
+}
+< 202
+< Content-Type: application/json
+{ 
+    "status": "ok",
+    "duration": 35.12 
+}
+
+
+### Update table column configuration
+
+#### Parameters
+
+* **writerId** (required)
+* **tableId** (required)
+* **column** (required)
+* **gdName** (optional)
+* **type** (optional)
+* **reference** (optional)
+* **schemaReference** (optional)
+* **format** (optional)
+* **dateDimension** (optional)
+POST /tables
+> X-StorageApi-Token: your_token
+> Accept: application/json
+{ 
+    "writerId": "123", 
+    "tableId": "out.c-main.categories", 
+    "column": "name", 
+    "gdName": "NAME" 
+}
+< 202
+< Content-Type: application/json
+{ 
+    "status": "ok",
+    "duration": 35.12 
+}
+
+
+### Bulk update table column configuration
+
+#### Parameters
+
+* **writerId** (required)
+* **tableId** (required)
+* **columns** (required)
+POST /tables
+> X-StorageApi-Token: your_token
+> Accept: application/json
+{ 
+    "writerId": "123", 
+    "tableId": "out.c-main.categories", 
+    "columns": [
+        {
+            "name": "id", 
+            "gdName": "ID" 
+        },
+        {
+            "name": "name", 
+            "type": "ATTRIBUTE" 
+        }
+< 202
+< Content-Type: application/json
+{ 
+    "status": "ok",
+    "duration": 35.12 
+}
+
 
 
 ### Upload whole project
@@ -1058,4 +1219,3 @@ POST /proxy
     "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
     "duration": 35.12 
 }
-

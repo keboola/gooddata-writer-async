@@ -142,6 +142,10 @@ class CsvHandler
 			$i++;
 		}
 
+		if (!count($dateColumnsIndices)) {
+			return false;
+		}
+
 		// Add column headers according to manifest, calculate date facts and remove ignored columns
 		$command  = 'php ' . escapeshellarg($this->scriptPath);
 		if (count($dateColumnsIndices)) {
@@ -163,12 +167,13 @@ class CsvHandler
 	{
 		$definition = $this->removeIgnoredColumnsFromDefinition($definition);
 		$headersCommand = '"' . implode('","', $this->getHeaders($definition)) . '"';
+		$transformationCommand = $this->prepareTransformation($definition);
 
-		/*$uploadCommand = sprintf('gzip -c | curl -s -S -T - --header %s --retry 12 --user %s:%s %s',
+		$uploadCommand = sprintf('gzip -c | curl -s -S -T - --header %s --retry 12 --user %s:%s %s',
 			escapeshellarg('Content-encoding: gzip'), escapeshellarg($username), escapeshellarg($password),
-			escapeshellarg($fileUrl));*/
-		$uploadCommand = sprintf('curl -s -S -T - --retry 12 --user %s:%s %s',
-			escapeshellarg($username), escapeshellarg($password), escapeshellarg($fileUrl));
+			escapeshellarg($fileUrl));
+		/*$uploadCommand = sprintf('curl -s -S -T - --retry 12 --user %s:%s %s',
+			escapeshellarg($username), escapeshellarg($password), escapeshellarg($fileUrl));*/
 
 		$columns = array();
 		foreach ($definition['columns'] as $c) {
@@ -178,13 +183,17 @@ class CsvHandler
 
 		$appError = false;
 		$errors = array();
+		$currentError = null;
 		for ($i = 0; $i < 10; $i++) {
-			$command = '(echo ' . escapeshellarg($headersCommand) . '; ' . $this->initDownload($fileId) . ' | tail -n +2 | ' .  $this->prepareTransformation($definition) . ') | ' . $uploadCommand;echo $command.PHP_EOL.PHP_EOL;
+			if ($transformationCommand)
+				$command = '(echo ' . escapeshellarg($headersCommand) . '; ' . $this->initDownload($fileId) . ' | tail -n +2 | ' .  $transformationCommand . ') | ' . $uploadCommand;
+			else
+				$command = '(echo ' . escapeshellarg($headersCommand) . '; ' . $this->initDownload($fileId) . ' | tail -n +2) | ' . $uploadCommand;
+echo $command.PHP_EOL.PHP_EOL;
 			$process = new Process($command);
 			$process->setTimeout(null);
 			$process->run();
 			$currentError = $process->getErrorOutput();
-
 
 			if ($currentError) {
 				$curlError = strpos($currentError, 'curl: (') !== false;
@@ -223,8 +232,9 @@ class CsvHandler
 			));
 			throw $e;
 		} else {
-			$currentError = end($errors);
-			throw new CsvHandlerException('CSV handling failed. ' . (isset($currentError['error'])? $currentError['error'] : ''));
+			$e = end($errors);
+			$error = ($e && isset($e['error']))? $e['error'] : $currentError;
+			throw new CsvHandlerException('CSV handling failed. ' . $error);
 		}
 	}
 

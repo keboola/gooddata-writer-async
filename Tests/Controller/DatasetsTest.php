@@ -5,6 +5,7 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
+use Keboola\Csv\CsvFile;
 use Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\WebDav;
@@ -26,7 +27,6 @@ class DatasetsTest extends AbstractControllerTest
 		 * Upload single table
 		 */
 		$batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.categories'));
-
 		$response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
 		$lastJob = end($response['jobs']);
 		$jobId = $lastJob['id'];
@@ -382,7 +382,6 @@ class DatasetsTest extends AbstractControllerTest
 
 		/**
 		 * Set column to ignore and check outgoing csv
-		 * Check date facts
 		 */
 		$tableId = $this->dataBucketId . '.products';
 		$this->configuration->updateColumnsDefinition($tableId, 'price', array('type' => 'IGNORE'));
@@ -400,31 +399,6 @@ class DatasetsTest extends AbstractControllerTest
 		foreach ($rows as $i => $row) {
 			// csv will contain also date facts, therefore number 7 (4 columns are just for date)
 			$this->assertCount(7, $row, 'Table should contain columns without products');
-			$this->assertArrayHasKey('date', $row, 'Row should contain date column');
-			$this->assertArrayHasKey('date_dt', $row, 'Row should contain date fact column date_dt');
-			$this->assertArrayHasKey('date_tm', $row, 'Row should contain time fact column date_tm');
-			$this->assertArrayHasKey('date_id', $row, 'Row should contain time fact column date_id');
-			$date = $row['date'];
-			$dateFact = $row['date_dt'];
-			$timeFact = $row['date_tm'];
-
-			switch ($i) {
-				case 0:
-					$this->assertEquals('2013-01-01 00:01:59', $date, 'Date column on row one should be equal to 2013-01-01 00:01:59');
-					$this->assertEquals(41274, $dateFact, 'Date fact on row one for date 2013-01-01 00:01:59 should be 41274');
-					$this->assertEquals(119, $timeFact, 'Time fact on row one for date 2013-01-01 00:01:59 should be 119');
-					break;
-				case 1:
-					$this->assertEquals('2013-01-03 11:12:05', $date, 'Date column on row one should be equal to 2013-01-03 11:12:05');
-					$this->assertEquals(41276, $dateFact, 'Date fact on row one for date 2013-01-03 11:12:05 should be 41276');
-					$this->assertEquals(40325, $timeFact, 'Time fact on row one for date 2013-01-03 11:12:05 should be 40325');
-					break;
-				case 2:
-					$this->assertEquals('2012-10-28 23:07:06', $date, 'Date column on row one should be equal to 2012-10-28 23:07:06');
-					$this->assertEquals(41209, $dateFact, 'Date fact on row one for date 2012-10-28 23:07:06 should be 41209');
-					$this->assertEquals(83226, $timeFact, 'Time fact on row one for date 2012-10-28 23:07:06 should be 83226');
-					break;
-			}
 		}
 
 

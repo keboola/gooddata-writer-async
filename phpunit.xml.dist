@@ -17,6 +17,7 @@
 	<testsuites>
 		<testsuite name="part-1">
 			<file>Tests/GraphTest.php</file>
+			<file>Tests/CsvConversionTest.php</file>
 			<file>Tests/Controller/DatasetsTest.php</file>
 			<file>Tests/Controller/JobsTest.php</file>
 			<file>Tests/Controller/ReportsTest.php</file>

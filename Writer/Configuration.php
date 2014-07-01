@@ -350,11 +350,7 @@ class Configuration extends StorageApiConfiguration
 			'lastChangeDate' => $dataSet['lastChangeDate'] ? $dataSet['lastChangeDate'] : null,
 			'incrementalLoad' => $dataSet['incrementalLoad'] ? (int)$dataSet['incrementalLoad'] : false,
 			'ignoreFilter' => (bool)$dataSet['ignoreFilter'],
-			'columns' => $columns,
-
-			//@TODO deprecated
-			'tableId' => $tableId,
-			'lastExportDate' => $dataSet['isExported'] ? date('c') : null
+			'columns' => $columns
 		);
 	}
 
@@ -373,9 +369,7 @@ class Configuration extends StorageApiConfiguration
 				'name' => empty($table['name']) ? $table['id'] : $table['name'],
 				'export' => (bool)$table['export'],
 				'isExported' => (bool)$table['isExported'],
-				'lastChangeDate' => $table['lastChangeDate'],
-				'gdName' => $table['name'], //@TODO backwards compatibility with UI, remove soon!!
-				'lastExportDate' => $table['isExported'] ? date('c') : null //@TODO backwards compatibility with UI, remove soon!!
+				'lastChangeDate' => $table['lastChangeDate']
 			);
 		}
 		return $tables;

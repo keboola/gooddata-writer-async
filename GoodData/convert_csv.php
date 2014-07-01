@@ -34,7 +34,7 @@ while ($line = fgets($fh)) {
 	$line = trim($line, "\"\t\n\r");
 	$line = explode('","', $line);
 	foreach ($line as $i => $column) {
-		$resultLine .= '"' . str_replace('"', '""', $column) . '",';
+		$resultLine .= '"' . str_replace('\"', '""', $column) . '",';
 		if (in_array($i+1, $dateColumns)) {
 			// Add date fact (number of days since 1900-01-01 plus one)
 
