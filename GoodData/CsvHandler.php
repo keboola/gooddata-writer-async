@@ -189,7 +189,7 @@ class CsvHandler
 				$command = '(echo ' . escapeshellarg($headersCommand) . '; ' . $this->initDownload($fileId) . ' | tail -n +2 | ' .  $transformationCommand . ') | ' . $uploadCommand;
 			else
 				$command = '(echo ' . escapeshellarg($headersCommand) . '; ' . $this->initDownload($fileId) . ' | tail -n +2) | ' . $uploadCommand;
-echo $command.PHP_EOL.PHP_EOL;
+
 			$process = new Process($command);
 			$process->setTimeout(null);
 			$process->run();
