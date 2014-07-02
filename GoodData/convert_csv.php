@@ -29,14 +29,9 @@ if (isset($options['t'])) {
 $start = strtotime('1900-01-01 00:00:00');
 
 $rowNumber = 2; // we have to add the header
-while ($line = fgets($fh)) {
+while ($line = fgetcsv($fh)) {
 	$resultLine = '';
-	$line = explode('","', $line);
-	$line[0] = substr(trim($line[0], "\t\n\r"), 1);
-	$lastItemIndex = count($line) - 1;
-	$lastItem = rtrim($line[$lastItemIndex], "\t\n\r");
-	$line[$lastItemIndex] = substr($lastItem, 0, strlen($lastItem)-1);
-
+	
 	foreach ($line as $i => $column) {
 		$resultLine .= '"' . str_replace(array('\"','"'), '""', $column) . '",';
 		if (in_array($i+1, $dateColumns)) {
