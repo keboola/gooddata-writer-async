@@ -38,11 +38,11 @@ while ($line = fgets($fh)) {
 	$line[$lastItemIndex] = substr($lastItem, 0, strlen($lastItem)-1);
 
 	foreach ($line as $i => $column) {
-		$resultLine .= '"' . str_replace('\"', '""', $column) . '",';
+		$resultLine .= '"' . stripcslashes($column) . '",';
 		if (in_array($i+1, $dateColumns)) {
 			// Add date fact (number of days since 1900-01-01 plus one)
 
-			$timestamp = strtotime($column);
+			$timestamp = empty($column)? $start : strtotime($column);
 			if ($timestamp === false) {
 				fwrite($stdErr, sprintf('Error in date column value: "%s" on row %d', $column, $rowNumber));
 				die(1);
