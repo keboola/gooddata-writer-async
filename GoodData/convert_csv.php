@@ -38,7 +38,7 @@ while ($line = fgets($fh)) {
 	$line[$lastItemIndex] = substr($lastItem, 0, strlen($lastItem)-1);
 
 	foreach ($line as $i => $column) {
-		$resultLine .= '"' . stripcslashes($column) . '",';
+		$resultLine .= '"' . str_replace(array('\"','"'), '""', $column) . '",';
 		if (in_array($i+1, $dateColumns)) {
 			// Add date fact (number of days since 1900-01-01 plus one)
 
