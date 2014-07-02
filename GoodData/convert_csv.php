@@ -31,10 +31,11 @@ $start = strtotime('1900-01-01 00:00:00');
 $rowNumber = 2; // we have to add the header
 while ($line = fgetcsv($fh)) {
 	$resultLine = '';
-	
+
 	foreach ($line as $i => $column) {
-		$resultLine .= '"' . str_replace(array('\"','"'), '""', $column) . '",';
 		if (in_array($i+1, $dateColumns)) {
+			$resultLine .= '"' . $column . '",';
+
 			// Add date fact (number of days since 1900-01-01 plus one)
 
 			$timestamp = empty($column)? $start : strtotime($column);
@@ -60,6 +61,8 @@ while ($line = fgetcsv($fh)) {
 				$resultLine .= '"' . $timeFact . '",';
 				$resultLine .= '"' . $timeFact . '",';
 			}
+		} else {
+			$resultLine .= '"' . str_replace('"', '""', $column) . '",';
 		}
 	}
 
