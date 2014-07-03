@@ -17,20 +17,17 @@ class EventLogger
 	private $appConfiguration;
 	private $storageApiClient;
 
-	public function __construct(AppConfiguration $appConfiguration)
+	public function __construct(AppConfiguration $appConfiguration, StorageApiClient $storageApiClient)
 	{
 		$this->appConfiguration = $appConfiguration;
-		$this->storageApiClient = new StorageApiClient(array(
-			'token' => $appConfiguration->sharedSapi_token,
-			'url' => $appConfiguration->sharedSapi_url,
-			'userAgent' => $appConfiguration->userAgent
-		));
+		$this->storageApiClient = $storageApiClient;
 	}
 
 	public function log($jobId, $runId, $message, $description=null, $params=array(), $startTime=null)
 	{
 		$event = new StorageApiEvent();
 		$event
+			->setType(StorageApiEvent::TYPE_INFO)
 			->setMessage($message)
 			->setComponent($this->appConfiguration->appName)
 			->setConfigurationId($jobId)

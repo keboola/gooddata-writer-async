@@ -67,33 +67,17 @@ class LoadData extends AbstractJob
 		$stopWatch->start($stopWatchId);
 		$definitionFile = $job['definition'];
 
-		$definitionUrl = $this->s3Client->url($definitionFile);
-		$command = 'curl -sS -L --retry 12 ' . escapeshellarg($definitionUrl);
-		$process = new Process($command);
-		$process->setTimeout(null);
-		$process->run();
-		$error = $process->getErrorOutput();
-		if (!$process->isSuccessful() || $error) {
-			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . json_encode(array(
-				'command' => $command,
-				'error' => $error,
-				'output' => $process->getOutput()
-			)));
-		}
-		$definition = json_decode($process->getOutput(), true);
+		$definition = $this->s3Client->downloadFile($definitionFile);
+		$definition = json_decode($definition, true);
 		if (!$definition) {
-			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . json_encode(array(
-				'command' => $command,
-				'error' => $error,
-				'output' => $process->getOutput()
-			)));
+			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . $definitionFile);
 		}
 
 		$e = $stopWatch->stop($stopWatchId);
 		$this->logEvent($stopWatchId, array(
 			'duration' => $e->getDuration(),
-			'definition' => $definitionUrl
-		));
+			'definition' => $definitionFile
+		), null, 'Data set definition downloaded from S3', $job['id'], $job['runId']);
 
 
 		// Get manifest
@@ -106,7 +90,7 @@ class LoadData extends AbstractJob
 		$this->logEvent($stopWatchId, array(
 			'duration' => $e->getDuration(),
 			'manifest' => $this->logs['Manifest']
-		));
+		), null, 'Manifest file for csv prepared', $job['id'], $job['runId']);
 
 
 		try {
@@ -129,7 +113,7 @@ class LoadData extends AbstractJob
 			$e = $stopWatch->stop($stopWatchId);
 			$this->logEvent($stopWatchId, array(
 				'duration' => $e->getDuration()
-			));
+			), null, 'Csv file transferred to WebDav', $job['id'], $job['runId']);
 
 			$stopWatchId = 'upload_manifest';
 			$stopWatch->start($stopWatchId);
@@ -139,7 +123,7 @@ class LoadData extends AbstractJob
 			$this->logEvent($stopWatchId, array(
 				'duration' => $e->getDuration(),
 				'url' => $webDavFileUrl
-			));
+			), null, 'Manifest file for csv transferred to WebDav', $job['id'], $job['runId']);
 
 
 			// Run ETL tasks

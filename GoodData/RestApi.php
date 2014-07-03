@@ -17,6 +17,7 @@ use Guzzle\Http\Exception\CurlException;
 use Guzzle\Stream\PhpStreamRequestFactory;
 use Guzzle\Http\Message\RequestInterface;
 use Keboola\GoodDataWriter\Exception\JobProcessException;
+use Keboola\GoodDataWriter\Service\EventLogger;
 use Monolog\Logger;
 use stdClass;
 use Syrup\ComponentBundle\Filesystem\TempService;
@@ -124,11 +125,16 @@ class RestApi
 	 * @var \SplFileObject
 	 */
 	private $logFile;
+	/**
+	 * @var EventLogger
+	 */
+	private $eventLogger;
 
 	protected $authSst;
 	protected $authTt;
 
 	private $jobId;
+	private $runId;
 	private $clearFromLog;
 
 	private $apiUrl;
@@ -166,6 +172,11 @@ class RestApi
 		$this->jobId = $jobId;
 	}
 
+	public function setRunId($runId)
+	{
+		$this->runId = $runId;
+	}
+
 	public function setBaseUrl($url)
 	{
 		if (substr($url, 0, 7) == 'http://') {
@@ -176,6 +187,11 @@ class RestApi
 			$baseUrl = 'https://' . $url;
 		}
 		$this->client->setBaseUrl($baseUrl);
+	}
+
+	public function setEventLogger(EventLogger $eventLogger)
+	{
+		$this->eventLogger = $eventLogger;
 	}
 
 	public function getApiUrl()
@@ -1610,6 +1626,10 @@ class RestApi
 	 */
 	private function request($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true, $refreshToken = true)
 	{
+		if ($this->eventLogger) {
+			$this->eventLogger->log($this->jobId, $this->runId, sprintf('Rest API call %s %s started', $method, $uri));
+		}
+
 		if ($refreshToken && !$this->authTt) {
 			$this->refreshToken();
 		}
@@ -1657,6 +1677,10 @@ class RestApi
 
 				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
 				if ($response->isSuccessful()) {
+
+					if ($this->eventLogger) {
+						$this->eventLogger->log($this->jobId, $this->runId, sprintf('Rest API call %s %s finished', $method, $uri), null, null, $startTime);
+					}
 					return $response;
 				}
 

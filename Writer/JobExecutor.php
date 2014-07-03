@@ -77,8 +77,7 @@ class JobExecutor
 	 *
 	 */
 	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi,
-								EventLogger $eventLogger, Logger $logger, TempServiceFactory $tempServiceFactory,
-								Queue $queue, TranslatorInterface $translator)
+								Logger $logger, TempServiceFactory $tempServiceFactory, Queue $queue, TranslatorInterface $translator)
 	{
 		if (!defined('JSON_PRETTY_PRINT')) {
 			// fallback for PHP <= 5.3
@@ -88,7 +87,6 @@ class JobExecutor
 		$this->appConfiguration = $appConfiguration;
 		$this->sharedConfig = $sharedConfig;
 		$this->restApi = $restApi;
-		$this->eventLogger = $eventLogger;
 		$this->logger = $logger;
 		$this->tempServiceFactory = $tempServiceFactory;
 		$this->queue = $queue;
@@ -150,6 +148,7 @@ class JobExecutor
 				'userAgent' => $this->appConfiguration->userAgent
 			));
 			$this->storageApiClient->setRunId($jobId);
+			$this->eventLogger = new EventLogger($this->appConfiguration, $this->storageApiClient);
 
 			try {
 				if ($job['parameters']) {
@@ -191,6 +190,8 @@ class JobExecutor
 				);
 
 				$this->restApi->setJobId($job['id']);
+				$this->restApi->setRunId($job['runId']);
+				$this->restApi->setEventLogger($this->eventLogger);
 				$this->restApi->initLog();
 				$token = $this->storageApiClient->getLogData();
 

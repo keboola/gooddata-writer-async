@@ -370,6 +370,8 @@ class Configuration extends StorageApiConfiguration
 				'export' => (bool)$table['export'],
 				'isExported' => (bool)$table['isExported'],
 				'lastChangeDate' => $table['lastChangeDate'],
+				'incrementalLoad' => $table['incrementalLoad'] ? (int)$table['incrementalLoad'] : false,
+				'ignoreFilter' => (bool)$table['ignoreFilter']
 			);
 		}
 		return $tables;

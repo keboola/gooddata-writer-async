@@ -42,6 +42,17 @@ class S3Client
 		$this->path = $path;
 	}
 
+	public function downloadFile($url)
+	{
+		$lastDashPos = strrpos($url, '/');
+		$result = $this->client->getObject(array(
+			'Bucket' =>  $this->bucket . '/' . substr($url, 0, $lastDashPos),
+			'Key' => substr($url, $lastDashPos+1)
+		));
+
+		return (string)$result['Body'];
+	}
+
 	/**
 	 * @param string $filePath Path to File
 	 * @param string $contentType Content Type

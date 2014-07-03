@@ -150,8 +150,11 @@ abstract class AbstractJob
 		return $this->logs;
 	}
 
-	public function logEvent($event, $details, $restApiLogPath = null)
+	public function logEvent($event, $details, $restApiLogPath=null, $message=null, $jobId=null, $runId=null)
 	{
+		if ($message && $jobId && $runId) {
+			$this->eventLogger->log($jobId, $runId, $message);
+		}
 		$this->logFile->fwrite('{"' . $event . '": ');
 		$details = json_encode(array_merge(array('time' => date('c')), $details), JSON_PRETTY_PRINT);
 		if ($restApiLogPath && file_exists($restApiLogPath)) {
