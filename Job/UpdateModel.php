@@ -12,7 +12,6 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\CLToolApi;
 use Keboola\GoodDataWriter\GoodData\Model;
-use Symfony\Component\Process\Process;
 use Symfony\Component\Stopwatch\Stopwatch;
 
 class UpdateModel extends AbstractJob
@@ -56,32 +55,16 @@ class UpdateModel extends AbstractJob
 		$stopWatch->start($stopWatchId);
 		$definitionFile = $job['definition'];
 
-		$definitionUrl = $this->s3Client->url($definitionFile);
-		$command = 'curl -sS -L --retry 12 ' . escapeshellarg($definitionUrl);
-		$process = new Process($command);
-		$process->setTimeout(null);
-		$process->run();
-		$error = $process->getErrorOutput();
-		if (!$process->isSuccessful() || $error) {
-			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . json_encode(array(
-					'command' => $command,
-					'error' => $error,
-					'output' => $process->getOutput()
-				)));
-		}
-		$definition = json_decode($process->getOutput(), true);
+		$definition = $this->s3Client->downloadFile($definitionFile);
+		$definition = json_decode($definition, true);
 		if (!$definition) {
-			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . json_encode(array(
-					'command' => $command,
-					'error' => $error,
-					'output' => $process->getOutput()
-				)));
+			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . $definitionFile);
 		}
 
 		$e = $stopWatch->stop($stopWatchId);
 		$this->logEvent($stopWatchId, array(
 			'duration' => $e->getDuration(),
-			'definition' => $definitionUrl
+			'definition' => $definitionFile
 		));
 
 		$dataSetName = !empty($tableDefinition['name']) ? $tableDefinition['name'] : $tableDefinition['id'];

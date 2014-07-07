@@ -14,7 +14,6 @@ use Keboola\GoodDataWriter\GoodData\CsvHandler,
 	Keboola\GoodDataWriter\GoodData\WebDav;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\WebDavException;
-use Symfony\Component\Process\Process;
 use Symfony\Component\Stopwatch\Stopwatch;
 
 class LoadData extends AbstractJob
