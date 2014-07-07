@@ -292,6 +292,7 @@ class JobExecutor
 		$log = array(
 			'command' => $job['command'],
 			'params' => $logParams,
+			'status' => $jobData['status'],
 			'result' => $jobData['result']
 		);
 		if (isset($jobData['debug'])) $log['debug'] = $jobData['debug'];
