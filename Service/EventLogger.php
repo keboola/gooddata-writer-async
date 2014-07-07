@@ -29,7 +29,7 @@ class EventLogger
 		$event
 			->setType(StorageApiEvent::TYPE_INFO)
 			->setMessage($message)
-			->setComponent($this->appConfiguration->appName)
+			->setComponent('gooddata-writer') //@TODO load from config
 			->setConfigurationId($jobId)
 			->setRunId($runId);
 		if ($description)

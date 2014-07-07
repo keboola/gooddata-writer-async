@@ -200,18 +200,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if(empty($this->params['users'])) {
 			$this->enqueue($batchId);
 
-			if (empty($this->params['wait'])) {
-				return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
-			} else {
-				$result = $this->waitForJob($jobInfo['id'], false);
-				if (isset($result['result']['pid'])) {
-					return $this->createApiResponse(array(
-						'pid' => $result['result']['pid']
-					));
-				} else {
-					return $this->waitingFinishedWithoutResult($result);
-				}
-			}
+			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 		} else {
 
 			$users = is_array($this->params['users'])? $this->params['users'] : explode(',', $this->params['users']);
@@ -281,11 +270,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->enqueue($jobInfo['batchId']);
 
 
-		if (empty($this->params['wait'])) {
-			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
-		} else {
-			return $this->waitForJob($jobInfo['id']);
-		}
+		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 	}
 
 	/**
@@ -352,18 +337,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->enqueue($jobInfo['batchId']);
 
 
-		if (empty($this->params['wait'])) {
-			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
-		} else {
-			$result = $this->waitForJob($jobInfo['id'], false);
-			if (isset($result['result']['pid'])) {
-				return $this->createApiResponse(array(
-					'pid' => $result['result']['pid']
-				));
-			} else {
-				return $this->waitingFinishedWithoutResult($result);
-			}
-		}
+		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 	}
 
 	/**
@@ -424,11 +398,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->enqueue($jobInfo['batchId']);
 
 
-		if (empty($this->params['wait'])) {
-			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
-		} else {
-			return $this->waitForJob($jobInfo['id']);
-		}
+		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 	}
 
 	/**
@@ -464,11 +434,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$this->enqueue($jobInfo['batchId']);
 
-		if (empty($this->params['wait'])) {
-			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
-		} else {
-			return $this->waitForJob($jobInfo['id']);
-		}
+		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 	}
 
 	/**
@@ -524,19 +490,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->enqueue($jobInfo['batchId']);
 
 
-		if (empty($this->params['wait'])) {
-			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
-		} else {
-			$result = $this->waitForJob($jobInfo['id'], false);
-			if (isset($result['result']['uid'])) {
-				return $this->createApiResponse(array(
-					'uid' => $result['result']['uid'],
-					'alreadyExists' => isset($result['result']['alreadyExists']) ? (bool)$result['result']['alreadyExists'] : false
-				));
-			} else {
-				return $this->waitingFinishedWithoutResult($result);
-			}
-		}
+		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 	}
 
 	/**
@@ -581,9 +535,60 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 
 		if (!empty($this->params['createUser']) && $this->params['createUser'] == 1 && !$this->getConfiguration()->getUser($this->params['email'])) {
-			$this->params['wait'] = 1;
-			$this->postUsersAction();
-			$this->postProjectUsersAction();
+			$result = $this->postUsersAction();
+			$jsonResult = json_decode($result->getContent(), true);
+			$jobFinished = false;
+			$i = 1;
+			do {
+				$job = $this->getSharedConfig()->fetchJob($jsonResult['job'], $this->getConfiguration()->writerId, $this->getConfiguration()->projectId);
+				if (!$job) {
+					throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
+				}
+				$jobInfo = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
+				if (isset($jobInfo['status']) && SharedConfig::isJobFinished($jobInfo['status'])) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep($i * 5);
+				$i++;
+			} while(!$jobFinished);
+
+			if ($jobInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS) {
+				// Do nothing
+			} elseif ($jobInfo['status'] == SharedConfig::JOB_STATUS_CANCELLED) {
+				throw new JobProcessException($this->translator->trans('result.cancelled'));
+			} else {
+				$e = new JobProcessException(!empty($jobInfo['result']['error'])? $jobInfo['result']['error'] : $this->translator->trans('result.unknown'));
+				$e->setData(array('result' => $jobInfo['result'], 'logs' => $jobInfo['logs']));
+				throw $e;
+			}
+
+
+			$result = $this->postProjectUsersAction();
+			$jsonResult = json_decode($result->getContent(), true);
+			$jobFinished = false;
+			$i = 1;
+			do {
+				$job = $this->getSharedConfig()->fetchJob($jsonResult['job'], $this->getConfiguration()->writerId, $this->getConfiguration()->projectId);
+				if (!$job) {
+					throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
+				}
+				$jobInfo = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
+				if (isset($jobInfo['status']) && SharedConfig::isJobFinished($jobInfo['status'])) {
+					$jobFinished = true;
+				}
+				if (!$jobFinished) sleep($i * 5);
+				$i++;
+			} while(!$jobFinished);
+
+			if ($jobInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS) {
+				// Do nothing
+			} elseif ($jobInfo['status'] == SharedConfig::JOB_STATUS_CANCELLED) {
+				throw new JobProcessException($this->translator->trans('result.cancelled'));
+			} else {
+				$e = new JobProcessException(!empty($jobInfo['result']['error'])? $jobInfo['result']['error'] : $this->translator->trans('result.unknown'));
+				$e->setData(array('result' => $jobInfo['result'], 'logs' => $jobInfo['logs']));
+				throw $e;
+			}
 		}
 
 		if (!$this->getSharedConfig()->userBelongsToWriter($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->params['email'])) {
@@ -632,19 +637,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		));
 		$this->enqueue($jobInfo['batchId']);
 
-		if (empty($this->params['wait'])) {
-			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
-		} else {
-			$result = $this->waitForJob($jobInfo['id'], false);
-
-			if (isset($result['result']['response'])) {
-				return $this->createApiResponse(array(
-					'response'  => $result['result']['response']
-				));
-			} else {
-				return $this->waitingFinishedWithoutResult($result);
-			}
-		}
+		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 	}
 
 	/**
@@ -742,19 +735,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->enqueue($jobInfo['batchId']);
 
 
-		if (empty($this->params['wait'])) {
-			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
-		} else {
-			$result = $this->waitForJob($jobInfo['id'], false);
-
-			if (isset($result['result']['uri'])) {
-				return $this->createApiResponse(array(
-					'uri' => $result['result']['uri']
-				));
-			} else {
-				return $this->waitingFinishedWithoutResult($result);
-			}
-		}
+		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 	}
 
 	/**
@@ -798,18 +779,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->enqueue($jobInfo['batchId']);
 
 
-		if (empty($this->params['wait'])) {
-			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
-		} else {
-			$result = $this->waitForJob($jobInfo['id'], false);
-			if (isset($result['result']['uri'])) {
-				return $this->createApiResponse(array(
-					'uri' => $result['result']['uri']
-				));
-			} else {
-				return $this->waitingFinishedWithoutResult($result);
-			}
-		}
+		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 	}
 
 	/**
@@ -941,11 +911,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		));
 
 		$this->enqueue($batchId);
-		if (empty($this->params['wait'])) {
-			return $this->getPollResult($batchId, $this->params['writerId'], true);
-		} else {
-			return $this->waitForJob($batchId);
-		}
+		return $this->getPollResult($batchId, $this->params['writerId'], true);
 	}
 
 	/**
@@ -977,11 +943,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 
 		$this->enqueue($batchId);
-		if (empty($this->params['wait'])) {
-			return $this->getPollResult($batchId, $this->params['writerId'], true);
-		} else {
-			return $this->waitForJob($batchId);
-		}
+		return $this->getPollResult($batchId, $this->params['writerId'], true);
 	}
 
 
@@ -1241,11 +1203,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->enqueue($batchId);
 
 
-		if (empty($this->params['wait'])) {
-			return $this->getPollResult($batchId, $this->params['writerId'], true, !empty($jobInfo)? $jobInfo['id'] : null);
-		} else {
-			return $this->waitForBatch($batchId);
-		}
+		return $this->getPollResult($batchId, $this->params['writerId'], true, !empty($jobInfo)? $jobInfo['id'] : null);
 	}
 
 	/**
@@ -1391,11 +1349,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->enqueue($batchId);
 
 
-		if (empty($this->params['wait'])) {
-			return $this->getPollResult($batchId, $this->params['writerId'], true);
-		} else {
-			return $this->waitForBatch($batchId);
-		}
+		return $this->getPollResult($batchId, $this->params['writerId'], true);
 	}
 
 	/**
@@ -1507,12 +1461,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$this->enqueue($jobInfo['batchId']);
 
-		if (empty($this->params['wait'])) {
-			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
-		} else {
-			return $this->waitForJob($jobInfo['id']);
-		}
-
+		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 	}
 
 
@@ -1544,11 +1493,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$this->enqueue($jobInfo['batchId']);
 
-		if (empty($this->params['wait'])) {
-			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
-		} else {
-			return $this->waitForJob($jobInfo['id']);
-		}
+		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 	}
 
 
@@ -1962,71 +1907,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		);
 		if (count($otherData)) $data = array_merge($data, $otherData);
 		$this->getWriterQueue()->enqueue($data);
-	}
-
-
-	protected function waitForJob($jobId, $returnResponse = true)
-	{
-		$jobFinished = false;
-		$i = 1;
-		do {
-			$job = $this->getSharedConfig()->fetchJob($jobId, $this->getConfiguration()->writerId, $this->getConfiguration()->projectId);
-			if (!$job) {
-				throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
-			}
-			$jobInfo = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
-			if (isset($jobInfo['status']) && SharedConfig::isJobFinished($jobInfo['status'])) {
-				$jobFinished = true;
-			}
-			if (!$jobFinished) sleep($i * 10);
-			$i++;
-		} while(!$jobFinished);
-
-		if ($jobInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS) {
-			return $returnResponse? $this->createApiResponse($jobInfo) : $jobInfo;
-		} elseif ($jobInfo['status'] == SharedConfig::JOB_STATUS_CANCELLED) {
-			throw new JobProcessException($this->translator->trans('result.cancelled'));
-		} else {
-			$e = new JobProcessException(!empty($jobInfo['result']['error'])? $jobInfo['result']['error'] : $this->translator->trans('result.unknown'));
-			$e->setData(array('result' => $jobInfo['result'], 'logs' => $jobInfo['logs']));
-			throw $e;
-		}
-	}
-
-	protected function waitForBatch($batchId)
-	{
-		$jobsFinished = false;
-		$i = 1;
-		do {
-			$jobsInfo = $this->getSharedConfig()->batchToApiResponse($batchId, $this->getS3Client());
-			if (isset($jobsInfo['status']) && SharedConfig::isJobFinished($jobsInfo['status'])) {
-				$jobsFinished = true;
-			}
-			if (!$jobsFinished) sleep($i * 10);
-			$i++;
-		} while(!$jobsFinished);
-
-		if ($jobsInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS) {
-			return $this->createApiResponse($jobsInfo);
-		} elseif ($jobsInfo['status'] == SharedConfig::JOB_STATUS_CANCELLED) {
-			throw new JobProcessException($this->translator->trans('result.cancelled'));
-
-		} else {
-			$e = new JobProcessException(!empty($jobInfo['result']['error'])? $jobInfo['result']['error'] : $this->translator->trans('result.unknown'));
-			$e->setData(array('result' => $jobsInfo['result'], 'logs' => $jobsInfo['logs']));
-			throw $e;
-		}
-	}
-
-
-	protected function waitingFinishedWithoutResult($result)
-	{
-		$e = new JobProcessException($this->translator->trans('result.missing'));
-		$e->setData(array(
-			'result' => $result['result'],
-			'logs' => $result['logs'])
-		);
-		throw $e;
 	}
 
 
