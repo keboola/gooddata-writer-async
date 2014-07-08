@@ -58,7 +58,7 @@ class SyncFilters extends AbstractJob
 			$filters = array();
 			foreach($filtersUsers as $fu) if ($fu['email'] == $user['email']) {
 				foreach ($filtersProjects as $fp) if ($fp['filter'] == $fu['filter']) {
-					$filters[] = $fu['uri'];
+					$filters[] = $fp['uri'];
 				}
 			}
 
