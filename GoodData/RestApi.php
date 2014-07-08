@@ -488,7 +488,12 @@ class RestApi
 			if ($userId) {
 				throw new UserAlreadyExistsException($userId);
 			} else {
-				throw $e;
+				$details = $e->getDetails();
+				if (isset($details['details']['error']['errorClass']) && strpos($details['details']['error']['errorClass'], 'LoginNameAlreadyRegisteredException') !== null) {
+					throw new RestApiException('Account already exists in another domain', $e->getDetails(), $e->getCode(), $e);
+				} else {
+					throw $e;
+				}
 			}
 		}
 

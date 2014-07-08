@@ -195,10 +195,10 @@ class LoadData extends AbstractJob
 			$filterColumn = $bucketAttributes['filterColumn'];
 			$tableInfo = $this->configuration->getSapiTable($tableId);
 			if (!in_array($filterColumn, $tableInfo['columns'])) {
-				throw new WrongConfigurationException($this->translator->trans('configuration.upload.filter_missing'));
+				throw new WrongConfigurationException($this->translator->trans('configuration.upload.filter_missing', array('%1' => $filterColumn)));
 			}
 			if (!in_array($filterColumn, $tableInfo['indexedColumns'])) {
-				throw new WrongConfigurationException($this->translator->trans('configuration.upload.filter_index_missing'));
+				throw new WrongConfigurationException($this->translator->trans('configuration.upload.filter_index_missing', array('%1' => $filterColumn)));
 			}
 		}
 		return $filterColumn;

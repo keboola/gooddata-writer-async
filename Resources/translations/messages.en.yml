@@ -6,10 +6,10 @@ configuration:
     missing_uri %1: Filter '%1' is missing it's 'uri' in configuration
   project:
     duplicated %1: Project '%1' is duplicated in configuration
-    not_active: Project is not configured as active
+    not_active %1: Project '%1' is not set as active in configuration table
   upload:
-    filter_index_missing: Filter column does not have indexą
-    filter_missing: Filter column does not exist in the table
+    filter_index_missing %1: Filter column '%1' does not have index and so cannot be used for filtering
+    filter_missing %1: Filter column '%1' does not exist in the table
   writer_attributes_wrong: Writer is missing required configuration attributes, must contain 'gooddata.pid', 'gooddata.username', 'gooddata.uid' and 'gooddata.password'
 
 error:

@@ -1434,7 +1434,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 
 		if (!$project['active']) {
-			throw new WrongParametersException($this->translator->trans('configuration.project.not_active'));
+			throw new WrongParametersException($this->translator->trans('configuration.project.not_active %1', array('%1' => $this->params['pid'])));
 		}
 
 		$reports = array();
