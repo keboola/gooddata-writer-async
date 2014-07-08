@@ -10,6 +10,8 @@ use Keboola\StorageApi\Client;
 use Monolog\Logger;
 use Symfony\Component\Process\Process;
 use Keboola\GoodDataWriter\Exception\ClientException;
+use Syrup\ComponentBundle\Filesystem\TempService,
+	Keboola\StorageApi\TableExporter;
 
 class CsvHandlerException extends ClientException
 {
@@ -23,16 +25,27 @@ class CsvHandlerNetworkException extends ClientException
 
 class CsvHandler
 {
+	/**
+	 * @var \Syrup\ComponentBundle\Filesystem\TempService $tempService
+	 */
+	private $tempService;
 	private $scriptPath;
+	/**
+	 * @var Client $storageApi
+	 */
 	private $storageApiClient;
+	/**
+	 * @var Logger $logger
+	 */
 	private $logger;
 
 	private $jobId;
 	private $runId;
 
 
-	public function __construct($scriptsPath, Client $storageApi, Logger $logger)
+	public function __construct(TempService $tempService, $scriptsPath, Client $storageApi, Logger $logger)
 	{
+		$this->tempService = $tempService;
 		$this->scriptPath = $scriptsPath . '/convert_csv.php';
 		$this->storageApiClient = $storageApi;
 		$this->logger = $logger;
@@ -65,6 +78,10 @@ class CsvHandler
 			$params['whereColumn'] = $filterColumn;
 			$params['whereValues'] = array($filterValue);
 		}
+
+		//$file = $this->tempService->createTmpFile();
+		//$fileName = $file->getFilename();
+		//$exporter = new TableExporter;
 
 		$result = $this->storageApiClient->exportTableAsync($tableId, $params);
 		if (empty($result['file']['id'])) {

@@ -48,7 +48,7 @@ class LoadData extends AbstractJob
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$tmpFolderName = basename($this->tmpDir);
 		$this->goodDataModel = new Model($this->appConfiguration);
-		$csvHandler = new CsvHandler($this->appConfiguration->scriptsPath, $this->storageApiClient, $this->logger);
+		$csvHandler = new CsvHandler($this->tempService, $this->appConfiguration->scriptsPath, $this->storageApiClient, $this->logger);
 		$csvHandler->setJobId($job['id']);
 		$csvHandler->setRunId($job['runId']);
 
