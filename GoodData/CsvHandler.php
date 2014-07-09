@@ -79,33 +79,13 @@ class CsvHandler
 			$params['whereValues'] = array($filterValue);
 		}
 
-		//$file = $this->tempService->createTmpFile();
-		//$fileName = $file->getFilename();
-		//$exporter = new TableExporter;
+		$file = $this->tempService->createTmpFile();
+		$fileName = $file->getRealPath();
+		$exporter = new TableExporter($this->storageApiClient);
+		$exporter->exportTable($tableId, $fileName, $params);
 
-		$result = $this->storageApiClient->exportTableAsync($tableId, $params);
-		if (empty($result['file']['id'])) {
-			throw new \Exception('Async export from SAPI returned bad response: '. json_encode($result));
-		}
-
-		return $result['file']['id'];
+		return $fileName;
 	}
-
-	/**
-	 * Assemble curl to download csv from SAPI and ungzip it
-	 * There is approx. 38 minutes backoff for 5xx errors from SAPI (via --retry 12)
-	 */
-	public function initDownload($fileId)
-	{
-		// get file's s3 url
-		$result = $this->storageApiClient->getFile($fileId);
-		if (empty($result['url'])) {
-			throw new \Exception('Get file after async export from SAPI returned bad response: '. json_encode($result));
-		}
-
-		return sprintf('curl -s -S -f --header %s --retry 12 %s | gzip -d', escapeshellarg('Accept-encoding: gzip'), escapeshellarg($result['url']));
-	}
-
 
 	/**
 	 * Get column names without ignores
@@ -184,29 +164,30 @@ class CsvHandler
 	{
 		$definition = $this->removeIgnoredColumnsFromDefinition($definition);
 		$headersCommand = '"' . implode('","', $this->getHeaders($definition)) . '"';
-		$transformationCommand = $this->prepareTransformation($definition);
 
+		$columns = array();
+		foreach ($definition['columns'] as $c) {
+			$columns[] = $c['name'];
+		}
+		$filePath = $this->exportTable($tableId, $columns, $incrementalLoad, $filterColumn, $filterValue);
+
+		$transformationCommand = $this->prepareTransformation($definition);
 		$uploadCommand = sprintf('gzip -c | curl -s -S -T - --header %s --retry 12 --user %s:%s %s',
 			escapeshellarg('Content-encoding: gzip'), escapeshellarg($username), escapeshellarg($password),
 			escapeshellarg($fileUrl));
 		/*$uploadCommand = sprintf('curl -s -S -T - --retry 12 --user %s:%s %s',
 			escapeshellarg($username), escapeshellarg($password), escapeshellarg($fileUrl));*/
 
-		$columns = array();
-		foreach ($definition['columns'] as $c) {
-			$columns[] = $c['name'];
-		}
-		$fileId = $this->exportTable($tableId, $columns, $incrementalLoad, $filterColumn, $filterValue);
+		$command = '(echo ' . escapeshellarg($headersCommand) . '; cat ' . escapeshellarg($filePath) . ' | gzip -d | tail -n +2 ';
+		if ($transformationCommand)
+			$command .= '| ' .  $transformationCommand;
+		$command .= ') | ' . $uploadCommand;
+
 
 		$appError = false;
 		$errors = array();
 		$currentError = null;
 		for ($i = 0; $i < 10; $i++) {
-			if ($transformationCommand)
-				$command = '(echo ' . escapeshellarg($headersCommand) . '; ' . $this->initDownload($fileId) . ' | tail -n +2 | ' .  $transformationCommand . ') | ' . $uploadCommand;
-			else
-				$command = '(echo ' . escapeshellarg($headersCommand) . '; ' . $this->initDownload($fileId) . ' | tail -n +2) | ' . $uploadCommand;
-
 			$process = new Process($command);
 			$process->setTimeout(null);
 			$process->run();

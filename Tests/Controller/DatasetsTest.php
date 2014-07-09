@@ -43,11 +43,8 @@ class DatasetsTest extends AbstractControllerTest
 		if (!$csv) {
 			$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/data.csv' should exist.", $jobId));
 		}
-		$rowsNumber = 0;
-		foreach (explode("\n", $csv) as $row) {
-			if ($row) $rowsNumber++;
-		}
-		$this->assertEquals(3, $rowsNumber, "Csv of main project should contain two rows with header.");
+		$rows = StorageApiClient::parseCsv($csv);
+		$this->assertEquals(2, count($rows), "Csv of main project should contain two rows.");
 
 		$categoriesFound = false;
 		$categoriesDataLoad = false;

@@ -8,16 +8,16 @@
     "packages": [
         {
             "name": "aws/aws-sdk-php",
-            "version": "2.6.8",
+            "version": "2.6.10",
             "source": {
                 "type": "git",
                 "url": "https://github.com/aws/aws-sdk-php.git",
-                "reference": "96886d56c54c1052f6c0c5f067278ad2e4d33314"
+                "reference": "11b56a0fc4b0e00c09d088cf31a64710653b46bc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/aws/aws-sdk-php/zipball/96886d56c54c1052f6c0c5f067278ad2e4d33314",
-                "reference": "96886d56c54c1052f6c0c5f067278ad2e4d33314",
+                "url": "https://api.github.com/repos/aws/aws-sdk-php/zipball/11b56a0fc4b0e00c09d088cf31a64710653b46bc",
+                "reference": "11b56a0fc4b0e00c09d088cf31a64710653b46bc",
                 "shasum": ""
             },
             "require": {
@@ -72,20 +72,20 @@
                 "s3",
                 "sdk"
             ],
-            "time": "2014-06-20 17:52:24"
+            "time": "2014-07-02 20:42:09"
         },
         {
             "name": "doctrine/annotations",
-            "version": "v1.1.2",
+            "version": "v1.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/doctrine/annotations.git",
-                "reference": "40db0c96985aab2822edbc4848b3bd2429e02670"
+                "reference": "d9b1a37e9351ddde1f19f09a02e3d6ee92e82efd"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/doctrine/annotations/zipball/40db0c96985aab2822edbc4848b3bd2429e02670",
-                "reference": "40db0c96985aab2822edbc4848b3bd2429e02670",
+                "url": "https://api.github.com/repos/doctrine/annotations/zipball/d9b1a37e9351ddde1f19f09a02e3d6ee92e82efd",
+                "reference": "d9b1a37e9351ddde1f19f09a02e3d6ee92e82efd",
                 "shasum": ""
             },
             "require": {
@@ -93,12 +93,13 @@
                 "php": ">=5.3.2"
             },
             "require-dev": {
-                "doctrine/cache": "1.*"
+                "doctrine/cache": "1.*",
+                "phpunit/phpunit": "4.*"
             },
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-master": "1.0.x-dev"
+                    "dev-master": "1.3.x-dev"
                 }
             },
             "autoload": {
@@ -112,7 +113,7 @@
             ],
             "authors": [
                 {
-                    "name": "Jonathan H. Wage",
+                    "name": "Jonathan Wage",
                     "email": "jonwage@gmail.com",
                     "homepage": "http://www.jwage.com/",
                     "role": "Creator"
@@ -144,7 +145,7 @@
                 "docblock",
                 "parser"
             ],
-            "time": "2013-06-16 21:33:03"
+            "time": "2014-07-06 15:52:21"
         },
         {
             "name": "doctrine/cache",
@@ -890,16 +891,16 @@
         },
         {
             "name": "guzzlehttp/retry-subscriber",
-            "version": "0.1.1",
+            "version": "0.1.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/guzzle/retry-subscriber.git",
-                "reference": "f99fe1bdfe1346f6c0867e6b83e912133e91fa60"
+                "reference": "0000dd8bbaaf96c5956d76f41e66322f8f53c060"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/guzzle/retry-subscriber/zipball/f99fe1bdfe1346f6c0867e6b83e912133e91fa60",
-                "reference": "f99fe1bdfe1346f6c0867e6b83e912133e91fa60",
+                "url": "https://api.github.com/repos/guzzle/retry-subscriber/zipball/0000dd8bbaaf96c5956d76f41e66322f8f53c060",
+                "reference": "0000dd8bbaaf96c5956d76f41e66322f8f53c060",
                 "shasum": ""
             },
             "require": {
@@ -934,7 +935,7 @@
                 "http",
                 "retry"
             ],
-            "time": "2014-03-30 22:25:40"
+            "time": "2014-06-10 17:50:05"
         },
         {
             "name": "guzzlehttp/streams",
@@ -1171,27 +1172,28 @@
         },
         {
             "name": "keboola/storage-api-client",
-            "version": "2.11.3",
+            "version": "2.11.13",
             "source": {
                 "type": "git",
                 "url": "https://github.com/keboola/storage-api-php-client.git",
-                "reference": "99fabee1074a7995bec7c17b0da925e7b6e62f29"
+                "reference": "1daa66f61c9100a85a70dfd4253ed567d1251640"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/keboola/storage-api-php-client/zipball/99fabee1074a7995bec7c17b0da925e7b6e62f29",
-                "reference": "99fabee1074a7995bec7c17b0da925e7b6e62f29",
+                "url": "https://api.github.com/repos/keboola/storage-api-php-client/zipball/1daa66f61c9100a85a70dfd4253ed567d1251640",
+                "reference": "1daa66f61c9100a85a70dfd4253ed567d1251640",
                 "shasum": ""
             },
             "require": {
+                "aws/aws-sdk-php": "2.6.*",
                 "guzzlehttp/guzzle": "~4.0.2",
                 "guzzlehttp/log-subscriber": "1.*",
                 "guzzlehttp/retry-subscriber": "~0.1.1",
                 "keboola/csv": "~1.1.3",
-                "symfony/filesystem": "~2.3.5"
+                "symfony/filesystem": "~2.3",
+                "symfony/process": "~2.3"
             },
             "require-dev": {
-                "aws/aws-sdk-php": "2.5.*",
                 "phpunit/phpunit": "3.7.*"
             },
             "type": "library",
@@ -1206,7 +1208,7 @@
             ],
             "description": "Keboola Storage API PHP CLient",
             "homepage": "http://keboola.com",
-            "time": "2014-05-15 12:23:33"
+            "time": "2014-07-08 13:42:46"
         },
         {
             "name": "keboola/syrup",
@@ -1854,16 +1856,16 @@
         },
         {
             "name": "symfony/symfony",
-            "version": "v2.3.16",
+            "version": "v2.3.17",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/symfony.git",
-                "reference": "069683a14eb361f892c9bdc9d10d4f5dac3c0ee3"
+                "reference": "c02f56f7948f2699c8cc8b118c7faeb13470e357"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/symfony/zipball/069683a14eb361f892c9bdc9d10d4f5dac3c0ee3",
-                "reference": "069683a14eb361f892c9bdc9d10d4f5dac3c0ee3",
+                "url": "https://api.github.com/repos/symfony/symfony/zipball/c02f56f7948f2699c8cc8b118c7faeb13470e357",
+                "reference": "c02f56f7948f2699c8cc8b118c7faeb13470e357",
                 "shasum": ""
             },
             "require": {
@@ -1871,7 +1873,7 @@
                 "php": ">=5.3.3",
                 "psr/log": "~1.0",
                 "symfony/icu": "~1.0",
-                "twig/twig": "~1.11"
+                "twig/twig": "~1.12"
             },
             "replace": {
                 "symfony/browser-kit": "self.version",
@@ -1960,7 +1962,7 @@
             "keywords": [
                 "framework"
             ],
-            "time": "2014-05-31 02:04:21"
+            "time": "2014-07-07 12:59:36"
         },
         {
             "name": "syrup/component-bundle",
@@ -2017,16 +2019,16 @@
         },
         {
             "name": "twig/twig",
-            "version": "v1.15.1",
+            "version": "v1.16.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/fabpot/Twig.git",
-                "reference": "1fb5784662f438d7d96a541e305e28b812e2eeed"
+                "reference": "8ce37115802e257a984a82d38254884085060024"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/fabpot/Twig/zipball/1fb5784662f438d7d96a541e305e28b812e2eeed",
-                "reference": "1fb5784662f438d7d96a541e305e28b812e2eeed",
+                "url": "https://api.github.com/repos/fabpot/Twig/zipball/8ce37115802e257a984a82d38254884085060024",
+                "reference": "8ce37115802e257a984a82d38254884085060024",
                 "shasum": ""
             },
             "require": {
@@ -2035,7 +2037,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-master": "1.15-dev"
+                    "dev-master": "1.16-dev"
                 }
             },
             "autoload": {
@@ -2070,22 +2072,22 @@
             "keywords": [
                 "templating"
             ],
-            "time": "2014-02-13 10:19:29"
+            "time": "2014-07-05 12:19:05"
         }
     ],
     "packages-dev": [
         {
             "name": "phpunit/php-code-coverage",
-            "version": "2.0.8",
+            "version": "2.0.9",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/php-code-coverage.git",
-                "reference": "58401826c8cfc8fd689b60026e91c337df374bca"
+                "reference": "ed8ac99ce38c3fd134128c898f7ca74665abef7f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/php-code-coverage/zipball/58401826c8cfc8fd689b60026e91c337df374bca",
-                "reference": "58401826c8cfc8fd689b60026e91c337df374bca",
+                "url": "https://api.github.com/repos/sebastianbergmann/php-code-coverage/zipball/ed8ac99ce38c3fd134128c898f7ca74665abef7f",
+                "reference": "ed8ac99ce38c3fd134128c898f7ca74665abef7f",
                 "shasum": ""
             },
             "require": {
@@ -2137,7 +2139,7 @@
                 "testing",
                 "xunit"
             ],
-            "time": "2014-05-26 14:55:24"
+            "time": "2014-06-29 08:14:40"
         },
         {
             "name": "phpunit/php-file-iterator",
@@ -2398,16 +2400,16 @@
         },
         {
             "name": "phpunit/phpunit-mock-objects",
-            "version": "2.1.4",
+            "version": "2.1.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/phpunit-mock-objects.git",
-                "reference": "1a894a16b6c15fcdc5ef2b110f0e6233952c9b0f"
+                "reference": "7878b9c41edb3afab92b85edf5f0981014a2713a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/phpunit-mock-objects/zipball/1a894a16b6c15fcdc5ef2b110f0e6233952c9b0f",
-                "reference": "1a894a16b6c15fcdc5ef2b110f0e6233952c9b0f",
+                "url": "https://api.github.com/repos/sebastianbergmann/phpunit-mock-objects/zipball/7878b9c41edb3afab92b85edf5f0981014a2713a",
+                "reference": "7878b9c41edb3afab92b85edf5f0981014a2713a",
                 "shasum": ""
             },
             "require": {
@@ -2451,7 +2453,7 @@
                 "mock",
                 "xunit"
             ],
-            "time": "2014-06-07 16:22:57"
+            "time": "2014-06-12 07:22:15"
         },
         {
             "name": "sebastian/comparator",
