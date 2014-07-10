@@ -927,10 +927,15 @@ class RestApi
 		}
 
 		$update = $this->generateUpdateProjectMaql($pid, $model);
-		if ($update['maql']) {
-			$this->executeMaql($pid, $update['maql']);
+		if (count($update['lessDestructiveMaql'])) foreach($update['lessDestructiveMaql'] as $i => $m) {
 
-			return $update['operations'];
+			try {
+				$this->executeMaql($pid, $m);
+			} catch (RestApiException $e) {
+				$this->executeMaql($pid, $update['moreDestructiveMaql'][$i]);
+			}
+
+			return $update['description'];
 		}
 		return false;
 	}
@@ -950,28 +955,26 @@ class RestApi
 
 					if (!isset($taskResponse['asyncTask']['link']['poll'])) {
 						if (isset($taskResponse['projectModelDiff']['updateScripts'])) {
-							$preserveDataMaql = null;
-							$noPreserveDataMaql = null;
+							$cascadeDrops = array();
+							$noCascadeDrops = array();
 							foreach($taskResponse['projectModelDiff']['updateScripts'] as $updateScript) {
-								if ($updateScript['updateScript']['preserveData'] && !$updateScript['updateScript']['cascadeDrops']) {
-									$preserveDataMaql = $updateScript['updateScript']['maqlDdl'];
-								}
 								if (!$updateScript['updateScript']['preserveData'] && !$updateScript['updateScript']['cascadeDrops']) {
-									$noPreserveDataMaql = $updateScript['updateScript']['maqlDdl'];
+									$noCascadeDrops = $updateScript['updateScript']['maqlDdlChunks'];
+								}
+								if (!$updateScript['updateScript']['preserveData'] && $updateScript['updateScript']['cascadeDrops']) {
+									$cascadeDrops = $updateScript['updateScript']['maqlDdlChunks'];
 								}
 							}
-							$maql = $preserveDataMaql ? $preserveDataMaql : $noPreserveDataMaql;
 
-							$operations = array();
-							if ($maql) {
-								foreach ($taskResponse['projectModelDiff']['updateOperations'] as $o) {
-									$operations[] = vsprintf($o['updateOperation']['description'], $o['updateOperation']['parameters']);
-								}
+							$description = array();
+							foreach ($taskResponse['projectModelDiff']['updateOperations'] as $o) {
+								$description[] = vsprintf($o['updateOperation']['description'], $o['updateOperation']['parameters']);
 							}
 
 							return array(
-								'maql' => $maql,
-								'operations' => $operations
+								'moreDestructiveMaql' => $cascadeDrops,
+								'lessDestructiveMaql' => $noCascadeDrops,
+								'description' => $description
 							);
 						} else {
 							$this->logAlert('updateProjectModel() has bad response', array(
@@ -1066,13 +1069,14 @@ class RestApi
 
 		$update = $this->generateUpdateProjectMaql($pid, $model);
 
-		if ($update['maql']) {
-			$maql  = $update['maql'];
-			$maql .= sprintf('DROP IF EXISTS {dim.%s};', $dataSetId);
-			$maql .= sprintf('DROP IF EXISTS {ffld.%s};', $dataSetId);
-			$this->executeMaql($pid, $maql);
+		if (count($update['moreDestructiveMaql'])) {
+			foreach($update['moreDestructiveMaql'] as $m) {
+				$this->executeMaql($pid, $m);
+			}
+			$this->executeMaql($pid, sprintf('DROP IF EXISTS {dim.%s};', $dataSetId));
+			$this->executeMaql($pid, sprintf('DROP IF EXISTS {ffld.%s};', $dataSetId));
 
-			return $update['operations'];
+			return $update['description'];
 		}
 		return false;
 	}
