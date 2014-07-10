@@ -9,6 +9,7 @@ namespace Keboola\GoodDataWriter\Controller;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\Model;
+use Keboola\GoodDataWriter\Service\EventLogger;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Method;
 
@@ -63,6 +64,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 * @var \Symfony\Component\Translation\Translator
 	 */
 	private $translator;
+	/**
+	 * @var EventLogger
+	 */
+	private $eventLogger;
 
 	private $method;
 	private $params;
@@ -81,6 +86,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		parent::preExecute();
 
 		$this->translator = $this->container->get('translator');
+		$this->appConfiguration = $this->container->get('gooddata_writer.app_configuration');
 
 		if (!defined('JSON_PRETTY_PRINT')) {
 			// fallback for PHP <= 5.3
@@ -100,9 +106,27 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			throw new WrongParametersException($this->translator->trans('parameters.queue %1', array('%1' => SharedConfig::PRIMARY_QUEUE . ', ' . SharedConfig::SECONDARY_QUEUE)));
 		}
 
-		$this->appConfiguration = $this->container->get('gooddata_writer.app_configuration');
+		$this->eventLogger = new EventLogger($this->appConfiguration, $this->storageApi);
+
 		$this->stopWatch = new Stopwatch();
 		$this->stopWatch->start(self::STOPWATCH_NAME_REQUEST);
+	}
+
+	public function __destruct()
+	{
+		$params = array();
+		foreach ($this->params as $k => $p) {
+			$params[$k] = ($k == 'password')? '***' : $p;
+		}
+		/** @var \Symfony\Bundle\FrameworkBundle\Routing\Router $router */
+		$router = $this->get('router');
+		$this->eventLogger->log(
+			isset($this->params['writerId'])? $this->params['writerId'] : null,
+			$this->storageApi->getRunId(),
+			'Called API ' . $router->getContext()->getMethod() . ' ' . $router->getContext()->getPathInfo(),
+			null,
+			$params
+		);
 	}
 
 
