@@ -42,6 +42,7 @@ class SharedConfig extends StorageApiConfiguration
 	const SERVICE_QUEUE = 'service';
 
 	private $encryptor;
+	private $db;
 
 
 	public function __construct(AppConfiguration $appConfiguration, EncryptorFactory $encryptorFactory)
@@ -51,7 +52,63 @@ class SharedConfig extends StorageApiConfiguration
 			'url' => $appConfiguration->sharedSapi_url,
 			'userAgent' => $appConfiguration->userAgent
 		));
-		$this->encryptor = $encryptorFactory->get('gooddata-writer'); //@TODO $appConfiguration->appName // will need to re-encrypt passwords in testing environments
+        $this->encryptor = $encryptorFactory->get('gooddata-writer'); //@TODO $appConfiguration->appName // will need to re-encrypt passwords in testing environments
+
+		$config = new \Doctrine\DBAL\Configuration();
+		$connectionParams = array(
+			'dbname' => $appConfiguration->db_name,
+			'user' => $appConfiguration->db_user,
+			'password' => $appConfiguration->db_password,
+			'host' => $appConfiguration->db_host,
+			'driver' => 'pdo_mysql',
+			'charset' => 'utf8'
+		);
+		$this->db = \Doctrine\DBAL\DriverManager::getConnection($connectionParams, $config);
+	}
+
+	public function migrate()
+	{
+		foreach ($this->fetchTableRows(self::INVITATIONS_TABLE_ID) as $r) {
+			$this->db->insert('project_invitations', array(
+				'pid' => $r['pid'],
+				'sender' => $r['sender'],
+				'created_time' => $r['createdTime'],
+				'accepted_time' => $r['acceptedTime'],
+				'status' => $r['status'],
+				'error' => $r['error']
+			));
+		}
+		foreach ($this->fetchTableRows(self::PROJECTS_TABLE_ID) as $p) {
+			$this->db->insert('projects', array(
+				'pid' => $p['pid'],
+				'project_id' => $p['projectId'],
+				'writer_id' => $p['writerId'],
+				'access_token' => $p['accessToken'],
+				'keep_on_removal' => $p['keepAfterRemoval'],
+				'created_time' => $p['createdTime']
+			));
+		}
+		foreach ($this->fetchTableRows(self::PROJECTS_TO_DELETE_TABLE_ID) as $p) {
+			$this->db->update('projects', array(
+				'removal_time' => $p['createdTime'],
+				'deleted_time' => $p['deletedTime']
+			), array('pid' => $p['pid']));
+		}
+		foreach ($this->fetchTableRows(self::USERS_TABLE_ID) as $u) {
+			$this->db->insert('users', array(
+				'uid' => $u['uid'],
+				'email' => $u['email'],
+				'project_id' => $u['projectId'],
+				'writer_id' => $u['writerId'],
+				'created_time' => $u['createdTime']
+			));
+		}
+		foreach ($this->fetchTableRows(self::USERS_TO_DELETE_TABLE_ID) as $u) {
+			$this->db->update('users', array(
+				'removal_time' => $u['createdTime'],
+				'deleted_time' => $u['deletedTime']
+			), array('uid' => $u['uid']));
+		}
 	}
 
 	public static function isJobFinished($status)
@@ -61,8 +118,7 @@ class SharedConfig extends StorageApiConfiguration
 
 	public function getDomainUser($domain)
 	{
-		$result = $this->fetchTableRows(self::DOMAINS_TABLE_ID, 'name', $domain);
-		$result = reset($result);
+		$result = $this->db->fetchAssoc('SELECT * FROM domains WHERE name=?', array($domain));
 		if (!$result || !isset($result['name']))
 			throw new SharedConfigException(sprintf("User for domain '%s' does not exist", $domain));
 
@@ -77,7 +133,7 @@ class SharedConfig extends StorageApiConfiguration
 
 	public function saveDomain($name, $username, $password)
 	{
-		$this->updateTableRow(self::DOMAINS_TABLE_ID, 'name', array(
+		$this->db->insert('domains', array(
 			'name' => $name,
 			'username' => $username,
 			'password' => $this->encryptor->encrypt($password)
@@ -337,18 +393,10 @@ class SharedConfig extends StorageApiConfiguration
 	/**
 	 * Save project to shared config
 	 */
-	public function saveProject($projectId, $writerId, $pid, $accessToken=null, $keepAfterRemoval = false)
+	public function saveProject($projectId, $writerId, $pid, $accessToken=null, $keepOnRemoval = false)
 	{
-		$data = array(
-			'pid' => $pid,
-			'projectId' => $projectId,
-			'writerId' => $writerId,
-			'accessToken' => $accessToken,
-			'createdTime' => date('c'),
-			'projectIdWriterId' => $projectId . '.' . $writerId,
-			'keepAfterRemoval' => $keepAfterRemoval
-		);
-		$this->updateTableRow(self::PROJECTS_TABLE_ID, 'pid', $data);
+		$this->db->executeUpdate('REPLACE INTO projects SET pid=?, project_id=?, writer_id=?, created_time=?, '
+			. 'access_token=?, keep_on_removal=?', array($pid, $projectId, $writerId, date('c'), $accessToken, $keepOnRemoval));
 	}
 
 	/**
@@ -356,17 +404,10 @@ class SharedConfig extends StorageApiConfiguration
 	 * @param $email
 	 * @param $job
 	 */
-	public function saveUser($uid, $email, $job)
+	public function saveUser($projectId, $writerId, $uid, $email)
 	{
-		$data = array(
-			'uid' => $uid,
-			'projectId' => $job['projectId'],
-			'writerId' => $job['writerId'],
-			'email' => strtolower($email),
-			'createdTime' => date('c'),
-			'projectIdWriterId' => $job['projectId'] . '.' . $job['writerId']
-		);
-		$this->updateTableRow(self::USERS_TABLE_ID, 'uid', $data);
+		$this->db->executeUpdate('REPLACE INTO users SET uid=?, email=?, project_id=?, writer_id=?, created_time=?',
+			array($uid, strtolower($email), $projectId, $writerId, date('c')));
 	}
 
 
@@ -378,19 +419,17 @@ class SharedConfig extends StorageApiConfiguration
 	public function getProjects($projectId = null, $writerId = null)
 	{
 		if ($projectId && $writerId) {
-			return $this->fetchTableRows(self::PROJECTS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId);
+			return $this->db->fetchAll('SELECT * FROM projects WHERE project_id=? AND writer_id=? AND removal_time=NULL',
+				array($projectId, $writerId));
 		} else {
-			return $this->fetchTableRows(self::PROJECTS_TABLE_ID);
+			return $this->db->fetchAll('SELECT * FROM projects WHERE removal_time=NULL');
 		}
 	}
 
 	public function projectBelongsToWriter($projectId, $writerId, $pid)
 	{
-		foreach ($this->fetchTableRows(self::PROJECTS_TABLE_ID, 'pid', $pid) as $p) {
-			if ($p['projectId'] == $projectId && $p['writerId'] == $writerId)
-				return true;
-		}
-		return false;
+		$result = $this->db->fetchAssoc('SELECT * FROM projects WHERE pid=?', array($pid));
+		return $result && ($result['project_id'] == $projectId) && ($result['writer_id'] == $writerId);
 	}
 
 	/**
@@ -398,15 +437,7 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function projectsToDelete()
 	{
-		$now = time();
-		$result = array();
-		$csv = $this->fetchTableRows(self::PROJECTS_TO_DELETE_TABLE_ID, 'deletedTime', '');
-		foreach ($csv as $project) {
-			if ($now - strtotime($project['createdTime']) >= 60 * 60 * 24 * 30) {
-				$result[] = $project;
-			}
-		}
-		return $result;
+		return $this->db->fetchAll('SELECT * FROM projects WHERE deleted_time IS NULL AND DATEDIFF(CURRENT_DATE, DATE(removal_time)) > 30');
 	}
 
 	/**
@@ -414,25 +445,14 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function markProjectsDeleted($pids)
 	{
-		$nowTime = date('c');
-		$data = array();
-		foreach ($pids as $pid) {
-			$data[] = array($pid, $nowTime);
-		}
-		$this->updateTable(self::PROJECTS_TO_DELETE_TABLE_ID, 'pid', array('pid', 'deletedTime'), $data);
+		$this->db->executeUpdate('UPDATE projects SET deleted_time=NOW() WHERE pid IN (?)', is_array($pids)? $pids : array($pids));
+		$this->db->executeUpdate('UPDATE projects SET removal_time=NOW() WHERE pid IN (?) AND removal_time IS NULL', is_array($pids)? $pids : array($pids));
 	}
 
 
 	public function enqueueProjectToDelete($projectId, $writerId, $pid)
 	{
-		$this->deleteTableRows(self::PROJECTS_TABLE_ID, 'pid', $pid);
-		$this->updateTableRow(self::PROJECTS_TO_DELETE_TABLE_ID, 'pid', array(
-			'pid' => $pid,
-			'projectId' => $projectId,
-			'writerId' => $writerId,
-			'createdTime' => date('c'),
-			'deletedTime' => null
-		));
+		$this->db->update('projects', array('removal_time' => date('c')), array('pid' => $pid, 'project_id' => $projectId, 'writer_id' => $writerId));
 	}
 
 
@@ -443,16 +463,13 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function getUsers($projectId, $writerId)
 	{
-		return $this->fetchTableRows(self::USERS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId);
+		return $this->db->fetchAll('SELECT * FROM users WHERE project_id=? AND writer_id=?', array($projectId, $writerId));
 	}
 
 	public function userBelongsToWriter($projectId, $writerId, $email)
 	{
-		foreach ($this->fetchTableRows(self::USERS_TABLE_ID, 'projectIdWriterId', $projectId.'.'.$writerId) as $u) {
-			if (strtolower($u['email']) == strtolower($email))
-				return true;
-		}
-		return false;
+		$result = $this->db->fetchAssoc('SELECT * FROM users WHERE email=?', array($email));
+		return $result && ($result['project_id'] == $projectId) && ($result['writer_id'] == $writerId);
 	}
 
 	/**
@@ -460,15 +477,7 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function usersToDelete()
 	{
-		$now = time();
-		$result = array();
-		$csv = $this->fetchTableRows(self::USERS_TO_DELETE_TABLE_ID, 'deletedTime', '');
-		foreach ($csv as $user) {
-			if ($now - strtotime($user['createdTime']) >= 60 * 60 * 24 * 30) {
-				$result[] = $user;
-			}
-		}
-		return $result;
+		return $this->db->fetchAll('SELECT * FROM users WHERE deleted_time IS NULL AND DATEDIFF(CURRENT_DATE, DATE(removal_time)) > 30');
 	}
 
 	/**
@@ -476,13 +485,8 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function markUsersDeleted($ids)
 	{
-		$nowTime = date('c');
-		$data = array();
-		foreach ($ids as $id) {
-			$data[] = array($id, $nowTime);
-		}
-
-		$this->updateTable(self::USERS_TO_DELETE_TABLE_ID, 'uid', array('uid', 'deletedTime'), $data);
+		$this->db->executeUpdate('UPDATE users SET deleted_time=NOW() WHERE uid IN (?)', is_array($ids)? $ids : array($ids));
+		$this->db->executeUpdate('UPDATE users SET removal_time=NOW() WHERE uid IN (?) AND removal_time IS NULL', is_array($ids)? $ids : array($ids));
 	}
 
 	/**
@@ -491,31 +495,16 @@ class SharedConfig extends StorageApiConfiguration
 	 * @param $uid
 	 * @param $email
 	 */
-	public function enqueueUserToDelete($projectId, $writerId, $uid, $email)
+	public function enqueueUserToDelete($projectId, $writerId, $uid)
 	{
-		$this->deleteTableRows(self::USERS_TABLE_ID, 'uid', $uid);
-		$this->updateTableRow(self::USERS_TO_DELETE_TABLE_ID, 'uid', array(
-			'uid' => $uid,
-			'projectId' => $projectId,
-			'writerId' => $writerId,
-			'email' => strtolower($email),
-			'createdTime' => date('c'),
-			'deletedTime' => null
-		));
+		$this->db->update('users', array('removal_time' => date('c')), array('uid' => $uid, 'project_id' => $projectId, 'writer_id' => $writerId));
 	}
 
 
 	public function logInvitation($data)
 	{
-		$data = array(
-			'pid' => $data['pid'],
-			'sender' => $data['sender'],
-			'createdTime' => $data['createDate'],
-			'acceptedTime' => date('c'),
-			'status' => $data['status'],
-			'error' => isset($data['error'])? $data['error'] : null,
-		);
-		$this->updateTableRow(self::INVITATIONS_TABLE_ID, 'pid', $data);
+		$this->db->executeUpdate('REPLACE INTO project_invitations SET pid=?, sender=?, created_time=?, accepted_time=?, status=?, error=?',
+			array($data['pid'], $data['sender'], $data['createDate'], date('c'), $data['status'], isset($data['error'])? $data['error'] : null));
 	}
 
 }

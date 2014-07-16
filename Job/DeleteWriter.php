@@ -23,14 +23,14 @@ class DeleteWriter extends AbstractJob
 
 		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
 
-		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) if (!$project['keepAfterRemoval']) {
-
+		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) if (!$project['keep_on_removal']) {
 			if ($this->isTesting) {
 				try {
 					$this->restApi->dropProject($project['pid']);
 				} catch (RestApiException $e) {
 					// Ignore, project may have been already deleted
 				}
+				$this->sharedConfig->markProjectsDeleted($project['pid']);
 			} else {
 				$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid']);
 
@@ -54,8 +54,9 @@ class DeleteWriter extends AbstractJob
 			if (strpos($user['email'], $writerDomain) !== false) {
 				if ($this->isTesting) {
 					$this->restApi->dropUser($user['uid']);
+					$this->sharedConfig->markUsersDeleted($user['uid']);
 				} else {
-					$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid'], $user['email']);
+					$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid']);
 				}
 			}
 		}
