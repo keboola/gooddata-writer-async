@@ -19,7 +19,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
 use Syrup\ComponentBundle\Service\Encryption\EncryptorFactory;
 
-class DebugCommand extends ContainerAwareCommand
+class MigrateCommand extends ContainerAwareCommand
 {
 
 	protected function configure()
