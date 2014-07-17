@@ -447,8 +447,14 @@ class SharedConfig extends StorageApiConfiguration
 	public function markProjectsDeleted($pids)
 	{
 		$param = is_array($pids)? $pids : array($pids);
-		$this->db->executeUpdate('UPDATE projects SET deleted_time=NOW() WHERE pid IN (?)', array($param), array(Connection::PARAM_STR_ARRAY));
-		$this->db->executeUpdate('UPDATE projects SET removal_time=NOW() WHERE pid IN (?) AND removal_time IS NULL', array($param), array(Connection::PARAM_STR_ARRAY));
+
+		$s = $this->db->prepare('UPDATE projects SET deleted_time=NOW() WHERE pid IN (?)');
+		$s->bindValue(1, $param, Connection::PARAM_STR_ARRAY);
+		$s->execute();
+
+		$s = $this->db->prepare('UPDATE projects SET removal_time=NOW() WHERE pid IN (?) AND removal_time IS NULL');
+		$s->bindValue(1, $param, Connection::PARAM_STR_ARRAY);
+		$s->execute();
 	}
 
 
@@ -488,8 +494,14 @@ class SharedConfig extends StorageApiConfiguration
 	public function markUsersDeleted($ids)
 	{
 		$param = is_array($ids)? $ids : array($ids);
-		$this->db->executeUpdate('UPDATE users SET deleted_time=NOW() WHERE uid IN (?)', array($param), array(Connection::PARAM_STR_ARRAY));
-		$this->db->executeUpdate('UPDATE users SET removal_time=NOW() WHERE uid IN (?) AND removal_time IS NULL', array($param), array(Connection::PARAM_STR_ARRAY));
+
+		$s = $this->db->prepare('UPDATE users SET deleted_time=NOW() WHERE uid IN (?)');
+		$s->bindValue(1, $param, Connection::PARAM_STR_ARRAY);
+		$s->execute();
+
+		$s = $this->db->prepare('UPDATE users SET removal_time=NOW() WHERE uid IN (?) AND removal_time IS NULL');
+		$s->bindValue(1, $param, Connection::PARAM_STR_ARRAY);
+		$s->execute();
 	}
 
 	/**
