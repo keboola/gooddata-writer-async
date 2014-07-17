@@ -1716,8 +1716,10 @@ class RestApi
 							//$this->refreshToken();
 							$this->login($this->username, $this->password);
 						}
+					} elseif ($responseObject && $responseObject->getStatusCode() == 403) {
+						throw new RestApiException('GoodData user ' . $this->username . ' does not have access to the project, it has been probably disabled.', $response, $request->getResponse()->getStatusCode());
 					} elseif ($responseObject && $responseObject->getStatusCode() == 410) {
-						throw new RestApiException('Rest API url is not reachable, GoodData project has been probably deleted.', $response, $request->getResponse()->getStatusCode());
+						throw new RestApiException('Rest API url ' . $uri . ' is not reachable, GoodData project has been probably deleted.', $response, $request->getResponse()->getStatusCode());
 					} else {
 						if ($responseJson !== false) {
 							// Include parameters directly to error message
