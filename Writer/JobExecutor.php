@@ -257,7 +257,7 @@ class JobExecutor
 					$jobData['debug'] = $s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($debug, JSON_PRETTY_PRINT));
 					$jobData['debug'] = $s3Client->url($jobData['debug']);
 				}
-print_r($jobData);die();
+
 				$apiLog = $s3Client->uploadFile($command->getLogPath(), 'text/plain', $job['id'] . '/log.json');
 
 				$jobData['logs'] = $command->getLogs();
