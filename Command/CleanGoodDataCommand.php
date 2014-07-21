@@ -8,6 +8,7 @@ namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
+use Keboola\GoodDataWriter\Writer\SharedConfig;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand,
 	Symfony\Component\Console\Input\InputInterface,
 	Symfony\Component\Console\Output\OutputInterface;
@@ -29,9 +30,7 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 	{
 		$this->getContainer()->get('syrup.monolog.json_formatter')->setComponentName('gooddata-writer');
 
-		/**
-		 * @var AppConfiguration $appConfiguration
-		 */
+		/** @var AppConfiguration $appConfiguration */
 		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
 
 		$lock = new Lock(new \PDO(sprintf('mysql:host=%s;dbname=%s', $appConfiguration->db_host, $appConfiguration->db_name),
@@ -41,11 +40,10 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		}
 
 		$log = $this->getContainer()->get('logger');
+		/** @var SharedConfig $sharedConfig */
 		$sharedConfig = $this->getContainer()->get('gooddata_writer.shared_config');
 
-		/**
-		 * @var RestApi
-		 */
+		/** @var RestApi */
 		$restApi = $this->getContainer()->get('gooddata_writer.rest_api');
 		$domainUser = $sharedConfig->getDomainUser($appConfiguration->gd_domain);
 		$restApi->login($domainUser->username, $domainUser->password);
@@ -63,7 +61,10 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 			}
 			$pids[] = $project['pid'];
 		}
-		$sharedConfig->markProjectsDeleted($pids);
+
+		if (count($pids)) {
+			$sharedConfig->markProjectsDeleted($pids);
+		}
 
 		$uids = array();
 		foreach ($sharedConfig->usersToDelete() as $user) {
@@ -78,7 +79,10 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 			}
 			$uids[] = $user['uid'];
 		}
-		$sharedConfig->markUsersDeleted($uids);
+
+		if (count($uids)) {
+			$sharedConfig->markUsersDeleted($uids);
+		}
 
 		$lock->unlock();
 	}
