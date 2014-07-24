@@ -71,8 +71,9 @@ parameters:
   tableId: Parameter 'tableId' does not correspond with any table configured by the writer
   username_missing: Missing parameter 'username', add it or remove parameters 'password' and 'pid'
   writerId:
+    exists: Writer with that name already exists or existed in past. Choose another name please
     format: Parameter 'writerId' may contain only basic letters, numbers and underscores
-    length: Parameter 'writerId' may contain 20 characters at most
+    length: Parameter 'writerId' may contain 50 characters at most
     required: Parameter 'writerId' is required
     not_found: Parameter 'writerId' does not correspond with any configured writer
 

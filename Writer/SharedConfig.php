@@ -67,50 +67,25 @@ class SharedConfig extends StorageApiConfiguration
 		$this->db = \Doctrine\DBAL\DriverManager::getConnection($connectionParams, $config);
 	}
 
-	public function migrate()
+	public function createWriter($projectId, $writerId)
 	{
-		foreach ($this->fetchTableRows(self::INVITATIONS_TABLE_ID) as $r) {
-			$this->db->insert('project_invitations', array(
-				'pid' => $r['pid'],
-				'sender' => $r['sender'],
-				'created_time' => $r['createdTime'],
-				'accepted_time' => $r['acceptedTime'],
-				'status' => $r['status'],
-				'error' => $r['error']
-			));
-		}
-		foreach ($this->fetchTableRows(self::PROJECTS_TABLE_ID) as $p) {
-			$this->db->insert('projects', array(
-				'pid' => $p['pid'],
-				'project_id' => $p['projectId'],
-				'writer_id' => $p['writerId'],
-				'access_token' => $p['accessToken'],
-				'keep_on_removal' => $p['keepAfterRemoval'],
-				'created_time' => $p['createdTime']
-			));
-		}
-		foreach ($this->fetchTableRows(self::PROJECTS_TO_DELETE_TABLE_ID) as $p) {
-			$this->db->update('projects', array(
-				'removal_time' => $p['createdTime'],
-				'deleted_time' => $p['deletedTime']
-			), array('pid' => $p['pid']));
-		}
-		foreach ($this->fetchTableRows(self::USERS_TABLE_ID) as $u) {
-			$this->db->insert('users', array(
-				'uid' => $u['uid'],
-				'email' => $u['email'],
-				'project_id' => $u['projectId'],
-				'writer_id' => $u['writerId'],
-				'created_time' => $u['createdTime']
-			));
-		}
-		foreach ($this->fetchTableRows(self::USERS_TO_DELETE_TABLE_ID) as $u) {
-			$this->db->update('users', array(
-				'removal_time' => $u['createdTime'],
-				'deleted_time' => $u['deletedTime']
-			), array('uid' => $u['uid']));
-		}
+		$this->db->insert('writers', array(
+			'project_id' => $projectId,
+			'writer_id' => $writerId,
+			'created_time' => date('c')
+		));
 	}
+
+	public function writerExists($projectId, $writerId)
+	{
+		return (bool)$this->db->fetchColumn('SELECT COUNT(*) FROM writers WHERE project_id=? AND writer_id=?', array($projectId, $writerId));
+	}
+
+	public function deleteWriter($projectId, $writerId)
+	{
+		$this->db->update('writers', array('deleted_time' => date('c')), array('project_id' => $projectId, 'writer_id' => $writerId));
+	}
+
 
 	public static function isJobFinished($status)
 	{

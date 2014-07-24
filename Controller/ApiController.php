@@ -173,9 +173,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if (!preg_match('/^[a-zA-Z0-9_]+$/', $this->params['writerId'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.format'));
 		}
-		/*if (strlen($this->params['writerId'] > 20)) {
+		if (strlen($this->params['writerId'] > 50)) {
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.length'));
-		}*/
+		}
+		if ($this->getSharedConfig()->writerExists($this->getConfiguration()->projectId, $this->params['writerId'])) {
+			throw new WrongParametersException($this->translator->trans('parameters.writerId.exists'));
+		}
 
 
 		$batchId = $this->storageApi->generateId();
@@ -220,6 +223,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 
 		$this->getConfiguration()->createWriter($this->params['writerId']);
+		$this->getSharedConfig()->createWriter($this->getConfiguration()->projectId, $this->params['writerId']);
 
 		$jobInfo = $this->createJob($jobData);
 
