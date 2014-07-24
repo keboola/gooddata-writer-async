@@ -509,7 +509,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				'lastName' => $this->params['lastName'],
 				'email' => $this->params['email'],
 				'password' => $this->params['password'],
-				'ssoProvider' => empty($this->params['ssoProvider']) ? null : $this->params['ssoProvider']
+				'ssoProvider' => empty($this->params['ssoProvider'])? null : $this->params['ssoProvider']
 			),
 			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
 		));
@@ -579,6 +579,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			} while(!$jobFinished);
 
 			if ($jobInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS) {
+				if (!empty($jobInfo['result']['alreadyExists'])) {
+					throw new JobProcessException($this->translator->trans('result.cancelled'));
+				}
 				// Do nothing
 			} elseif ($jobInfo['status'] == SharedConfig::JOB_STATUS_CANCELLED) {
 				throw new JobProcessException($this->translator->trans('result.cancelled'));
