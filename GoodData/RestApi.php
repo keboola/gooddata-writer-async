@@ -1785,7 +1785,8 @@ class RestApi
 					'body' => $response? $response->getBody(true) : null
 				)
 			),
-			'duration' => $duration
+			'duration' => $duration,
+			'component' => 'gooddata-writer'
 		));
 	}
 

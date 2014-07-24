@@ -674,8 +674,7 @@ class Configuration extends StorageApiConfiguration
 
 			$column = array(
 				'name' => $columnName,
-				'title' => (!empty($columnDefinition['gdName']) ? $columnDefinition['gdName'] : $columnName)
-					. (!empty($gdDefinition['addTitleToColumns'])? ' (' . $dataSetName . ')' : ''),
+				'title' => (!empty($columnDefinition['gdName']) ? $columnDefinition['gdName'] : $columnName) . ' (' . $dataSetName . ')',
 				'type' => !empty($columnDefinition['type']) ? $columnDefinition['type'] : 'IGNORE'
 			);
 			if (!empty($columnDefinition['dataType'])) {

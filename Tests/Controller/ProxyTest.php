@@ -50,7 +50,7 @@ class ProxyTest extends AbstractControllerTest
 		$attr = $this->getAttributeByTitle($pid, 'Id (Categories)');
 
 		$attrUri = $attr['attribute']['meta']['uri'];
-
+echo $attrUri.PHP_EOL;die();
 		// repost attribute to GD
 		$jobId = $this->processJob('/proxy', array(
 			'writerId'  => $this->writerId,
