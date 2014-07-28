@@ -1482,6 +1482,11 @@ class RestApi
 
 				$try++;
 			} while (in_array($taskResponse['wTaskStatus']['status'], array('PREPARED', 'RUNNING')));
+
+			if ($taskResponse['wTaskStatus']['status'] == 'ERROR') {
+				$messages = isset($taskResponse['wTaskStatus']['messages']) ? $taskResponse['wTaskStatus']['messages'] : null;
+				throw new RestApiException('SLI hash optimization failed. See logs for details', $messages);
+			}
 		}
 	}
 
