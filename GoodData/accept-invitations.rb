@@ -6,6 +6,9 @@ require 'net/http'
 require 'net/imap'
 require 'optparse'
 require 'uri'
+require 'newrelic_rpm'
+
+NewRelic::Agent.manual_start
 
 options = {}
 optparse = OptionParser.new do |opts|

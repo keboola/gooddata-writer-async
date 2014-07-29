@@ -45,6 +45,7 @@ GEM
     minitest (5.3.3)
     multi_json (1.10.0)
     multipart-post (1.2.0)
+    newrelic_rpm (3.9.0.229)
     parseconfig (1.0.4)
     polyglot (0.3.4)
     pry (0.9.12.6)
@@ -75,3 +76,4 @@ PLATFORMS
 DEPENDENCIES
   gooddata
   mail
+  newrelic_rpm
