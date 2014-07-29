@@ -17,6 +17,7 @@ common: &default_settings
   # New Relic service.
   license_key: '50cd0bf7c4d3a616d0a74e64e7a129f50b85d70f'
 
+
   # Agent Enabled (Rails Only)
   # Use this setting to force the agent to run or not run.
   # Default is 'auto' which means the agent will install and run only
@@ -43,6 +44,7 @@ common: &default_settings
   #       - All Services
   #
   # app_name: <%= @app_name %>dd
+  app_name: gooddata-writer
 
   # When "true", the agent collects performance data about your
   # application and reports this data to the New Relic service at
