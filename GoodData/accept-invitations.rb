@@ -61,14 +61,14 @@ def fetch(uri_str, limit = 10)
   end
 end
 
-def run
+def run(email_username, email_password, host, port)
   repeat = 0
   last_error = nil
   start_time = Time.now
   begin
     begin
-      imap = Net::IMAP.new options[:host], options[:port], true, nil, false
-      imap.login options[:email_username], options[:email_password]
+      imap = Net::IMAP.new host, port, true, nil, false
+      imap.login email_username, email_password
 
       imap.select 'INBOX'
       imap.search(['NOT', 'SEEN']).each do |message_id|
@@ -140,7 +140,7 @@ def run
 end
 
 begin
-  run
+  run(options[:email_username], options[:email_password], options[:host], options[:port])
 rescue Exception
   error = { :message => $!.to_s, :trace => $@, :app => 'syrup', :component => 'gooddata-writer', :priority => 'CRITICAL' }
   logger.fatal error.to_json
