@@ -10,6 +10,7 @@ namespace Keboola\GoodDataWriter\Controller;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Service\EventLogger;
+use Keboola\GoodDataWriter\Writer\SharedConfigException;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Method;
 
@@ -153,6 +154,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->enqueue($jobInfo['batchId']);
 
 		$this->getConfiguration()->updateWriter('maintenance', 1);
+		$this->getSharedConfig()->setWriterStatus($this->getConfiguration()->projectId, $this->params['writerId'], SharedConfig::WRITER_STATUS_MAINTENANCE);
 
 		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
 	}
@@ -223,7 +225,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 
 		$this->getConfiguration()->createWriter($this->params['writerId']);
-		$this->getSharedConfig()->createWriter($this->getConfiguration()->projectId, $this->params['writerId']);
+		$this->getSharedConfig()->createWriter($this->getConfiguration()->projectId, $this->params['writerId'], $this->getConfiguration()->bucketId);
 
 		$jobInfo = $this->createJob($jobData);
 
@@ -317,13 +319,34 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if (isset($this->params['writerId'])) {
 			$this->checkWriterExistence();
 
+			$configuration = $this->getConfiguration()->formatWriterAttributes($this->getConfiguration()->bucketId, $this->getConfiguration()->bucketAttributes());
+			/*try {
+				$sharedConfiguration = $this->getSharedConfig()->getWriter($this->getConfiguration()->projectId, $this->params['writerId']);
+			} catch (SharedConfigException $e) {
+				//@TODO temporary fix
+				$this->getSharedConfig()->createWriter($this->getConfiguration()->projectId, $this->params['writerId']);
+				$sharedConfiguration = array('status' => SharedConfig::WRITER_STATUS_READY, 'createdTime' => '');
+			}*/$sharedConfiguration = array();
 			return $this->createApiResponse(array(
-				'writer' => $this->getConfiguration()->formatWriterAttributes($this->getConfiguration()->bucketId, $this->getConfiguration()->bucketAttributes())
+				'writer' => array_merge($configuration, $sharedConfiguration)
 			));
 		} else {
 			$configuration = new Configuration($this->storageApi, null, $this->appConfiguration->scriptsPath);
+			$tokenInfo = $this->storageApi->getLogData();
+			$result = array();
+			foreach ($configuration->getWriters() as $writer) {
+				/*try {
+					$sharedConfiguration = $this->getSharedConfig()->getWriter($tokenInfo['owner']['id'], $writer['id']);
+				} catch (SharedConfigException $e) {
+					//@TODO temporary fix
+					$this->getSharedConfig()->createWriter($tokenInfo['owner']['id'], $writer['id']);
+					$sharedConfiguration = array('status' => SharedConfig::WRITER_STATUS_READY, 'createdTime' => '');
+				}*/$sharedConfiguration = array();
+				$result[] = array_merge($writer, $sharedConfiguration);
+			}
+
 			return $this->createApiResponse(array(
-				'writers' => $configuration->getWriters()
+				'writers' => $result
 			));
 		}
 	}
