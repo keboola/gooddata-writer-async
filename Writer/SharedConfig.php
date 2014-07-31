@@ -32,6 +32,12 @@ class SharedConfig extends StorageApiConfiguration
 	const USERS_TO_DELETE_TABLE_ID = 'in.c-wr-gooddata.users_to_delete';
 	const INVITATIONS_TABLE_ID = 'in.c-wr-gooddata.invitations';
 
+	const WRITER_STATUS_PREPARING = 'preparing';
+	const WRITER_STATUS_READY = 'ready';
+	const WRITER_STATUS_ERROR = 'error';
+	const WRITER_STATUS_MAINTENANCE = 'maintenance';
+	const WRITER_STATUS_DELETED = 'deleted';
+
 	const JOB_STATUS_WAITING = 'waiting';
 	const JOB_STATUS_PROCESSING = 'processing';
 	const JOB_STATUS_SUCCESS = 'success';
@@ -67,13 +73,31 @@ class SharedConfig extends StorageApiConfiguration
 		$this->db = \Doctrine\DBAL\DriverManager::getConnection($connectionParams, $config);
 	}
 
-	public function createWriter($projectId, $writerId)
+	public function createWriter($projectId, $writerId, $bucket)
 	{
 		$this->db->insert('writers', array(
 			'project_id' => $projectId,
 			'writer_id' => $writerId,
+			'bucket' => $bucket,
+			'status' => self::WRITER_STATUS_PREPARING,
 			'created_time' => date('c')
 		));
+	}
+
+	public function setWriterStatus($projectId, $writerId, $status)
+	{
+		$this->db->update('writers', array('status' => $status), array('project_id' => $projectId, 'writer_id' => $writerId));
+	}
+
+	public function getWriter($projectId, $writerId)
+	{
+		$result = $this->db->fetchAssoc('SELECT status,created_time FROM writers WHERE project_id=? AND writer_id=?', array($projectId, $writerId));
+		if (!$result) throw new SharedConfigException('Writer ' . $writerId . ' does not exist in Shared Config');
+
+		return array(
+			'status' => $result['status'],
+			'createdTime' => $result['created_time']
+		);
 	}
 
 	public function writerExists($projectId, $writerId)
@@ -83,7 +107,7 @@ class SharedConfig extends StorageApiConfiguration
 
 	public function deleteWriter($projectId, $writerId)
 	{
-		$this->db->update('writers', array('deleted_time' => date('c')), array('project_id' => $projectId, 'writer_id' => $writerId));
+		$this->db->update('writers', array('status' => self::WRITER_STATUS_DELETED, 'deleted_time' => date('c')), array('project_id' => $projectId, 'writer_id' => $writerId));
 	}
 
 
