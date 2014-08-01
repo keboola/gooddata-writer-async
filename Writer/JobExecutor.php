@@ -160,7 +160,8 @@ class JobExecutor
 					$parameters = array();
 				}
 
-				$configuration = new Configuration($this->storageApiClient, $job['writerId'], $this->appConfiguration->scriptsPath);
+				$configuration = new Configuration($this->storageApiClient, $this->sharedConfig);
+				$configuration->setWriterId($job['writerId']);
 				$bucketAttributes = $configuration->bucketAttributes();
 				if (!$serviceRun && !empty($bucketAttributes['maintenance'])) {
 					throw new QueueUnavailableException($this->translator->trans('queue.maintenance'));

@@ -80,26 +80,43 @@ class Configuration extends StorageApiConfiguration
 		'format', 'dateDimension', 'sortLabel', 'sortOrder');
 
 
+	/**
+	 * @var SharedConfig
+	 */
+	private $sharedConfig;
 
+	public $bucketId;
+	public $projectId;
 	public $writerId;
-	private $scriptsPath;
+	public $tokenInfo;
 
 
 	/**
 	 * Prepare configuration
 	 * Get bucket attributes for Rest API calls
 	 */
-	public function __construct(StorageApiClient $storageApiClient, $writerId = null, $scriptsPath)
+	public function __construct(StorageApiClient $storageApiClient, SharedConfig $sharedConfig)
 	{
 		parent::__construct($storageApiClient);
-		$this->scriptsPath = $scriptsPath;
+		$this->sharedConfig = $sharedConfig;
+	}
 
-		if ($writerId) {
-			$this->writerId = $writerId;
-			$this->bucketId = $this->configurationBucket($writerId);
-			$this->tokenInfo = $this->storageApiClient->getLogData();
-			$this->projectId = $this->tokenInfo['owner']['id'];
+	public function setWriterId($writerId)
+	{
+		$this->writerId = $writerId;
+		$this->bucketId = $this->configurationBucket($writerId);
+		$this->tokenInfo = $this->storageApiClient->getLogData();
+		$this->projectId = $this->tokenInfo['owner']['id'];
+
+		try {
+			$writer = $this->sharedConfig->getWriter($this->projectId, $writerId);
+			if (!$writer['bucket']) {
+				$this->sharedConfig->updateWriter($this->projectId, $writerId, 'bucket', $this->bucketId);
+			}
+		} catch (SharedConfigException $e) {
+			//$this->sharedConfig->createWriter($this->projectId, $writerId, $this->bucketId);
 		}
+
 	}
 
 

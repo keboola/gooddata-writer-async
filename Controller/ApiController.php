@@ -331,7 +331,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				'writer' => array_merge($configuration, $sharedConfiguration)
 			));
 		} else {
-			$configuration = new Configuration($this->storageApi, null, $this->appConfiguration->scriptsPath);
+			$configuration = new Configuration($this->storageApi, $this->getSharedConfig());
 			$tokenInfo = $this->storageApi->getLogData();
 			$result = array();
 			foreach ($configuration->getWriters() as $writer) {
@@ -1872,7 +1872,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.required'));
 		}
 		if (!$this->configuration) {
-			$this->configuration = new Configuration($this->storageApi, $this->params['writerId'], $this->appConfiguration->scriptsPath);
+			$this->configuration = new Configuration($this->storageApi, $this->getSharedConfig());
+			$this->configuration->setWriterId($this->params['writerId']);
 		}
 		return $this->configuration;
 	}
