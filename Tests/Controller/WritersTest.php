@@ -68,7 +68,8 @@ class WritersTest extends AbstractControllerTest
 			'writerId' => $writerId,
 			'users' => $user1 . ',' . $user2
 		));
-		$this->configuration = new Configuration($this->storageApi, $writerId, $this->appConfiguration->scriptsPath);
+		$this->configuration = new Configuration($this->storageApi, $this->sharedConfig);
+		$this->configuration->setWriterId($writerId);
 
 		// Check invitations existence in GD
 		$bucketAttributes = $this->configuration->bucketAttributes();
@@ -151,7 +152,8 @@ class WritersTest extends AbstractControllerTest
 			$i++;
 		} while (!$jobsFinished);
 
-		$configuration = new Configuration($this->storageApi, $existingProjectWriterId, $this->appConfiguration->scriptsPath);
+		$configuration = new Configuration($this->storageApi, $this->sharedConfig);
+		$configuration->setWriterId($existingProjectWriterId);
 		$bucketAttributes = $configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$projectInfo = $this->restApi->get('/gdc/md/' . $existingPid);

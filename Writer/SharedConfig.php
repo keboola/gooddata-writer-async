@@ -84,19 +84,25 @@ class SharedConfig extends StorageApiConfiguration
 		));
 	}
 
+	public function updateWriter($projectId, $writerId, $key, $value)
+	{
+		$this->db->update('writers', array($key => $value), array('project_id' => $projectId, 'writer_id' => $writerId));
+	}
+
 	public function setWriterStatus($projectId, $writerId, $status)
 	{
-		$this->db->update('writers', array('status' => $status), array('project_id' => $projectId, 'writer_id' => $writerId));
+		$this->updateWriter($projectId, $writerId, 'status', $status);
 	}
 
 	public function getWriter($projectId, $writerId)
 	{
-		$result = $this->db->fetchAssoc('SELECT status,created_time FROM writers WHERE project_id=? AND writer_id=?', array($projectId, $writerId));
+		$result = $this->db->fetchAssoc('SELECT status,created_time,bucket FROM writers WHERE project_id=? AND writer_id=?', array($projectId, $writerId));
 		if (!$result) throw new SharedConfigException('Writer ' . $writerId . ' does not exist in Shared Config');
 
 		return array(
 			'status' => $result['status'],
-			'createdTime' => $result['created_time']
+			'createdTime' => $result['created_time'],
+			'bucket' => $result['bucket']
 		);
 	}
 

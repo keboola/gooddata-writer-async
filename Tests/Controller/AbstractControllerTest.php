@@ -7,6 +7,7 @@ namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
+use Keboola\GoodDataWriter\Writer\SharedConfig;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase,
 	Symfony\Bundle\FrameworkBundle\Console\Application,
 	Symfony\Component\Console\Tester\CommandTester;
@@ -45,6 +46,10 @@ abstract class AbstractControllerTest extends WebTestCase
 	 * @var AppConfiguration
 	 */
 	protected $appConfiguration;
+	/**
+	 * @var SharedConfig
+	 */
+	protected $sharedConfig;
 	protected $domainUser;
 
 
@@ -89,8 +94,8 @@ abstract class AbstractControllerTest extends WebTestCase
 			'url' => $container->getParameter('storage_api.url'))
 		);
 
-		$sharedConfig = $container->get('gooddata_writer.shared_config');
-		$this->domainUser = $sharedConfig->getDomainUser($this->appConfiguration->gd_domain);
+		$this->sharedConfig = $container->get('gooddata_writer.shared_config');
+		$this->domainUser = $this->sharedConfig->getDomainUser($this->appConfiguration->gd_domain);
 
 
 		$this->restApi = $container->get('gooddata_writer.rest_api');
@@ -158,13 +163,15 @@ abstract class AbstractControllerTest extends WebTestCase
 		$command = $application->find('gooddata-writer:execute-batch');
 		$this->commandTester = new CommandTester($command);
 
-		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->appConfiguration->scriptsPath);
+		$this->configuration = new Configuration($this->storageApi, $this->sharedConfig);
+		$this->configuration->setWriterId($this->writerId);
 
 		// Init writer
 		$this->processJob('/writers', array());
 
 		// Reset configuration
-		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->appConfiguration->scriptsPath);
+		$this->configuration = new Configuration($this->storageApi, $this->sharedConfig);
+		$this->configuration->setWriterId($this->writerId);
 	}
 
 
@@ -246,7 +253,8 @@ abstract class AbstractControllerTest extends WebTestCase
 		));
 
 		// Reset configuration
-		$this->configuration = new Configuration($this->storageApi, $this->writerId, $this->appConfiguration->scriptsPath);
+		$this->configuration = new Configuration($this->storageApi, $this->sharedConfig);
+		$this->configuration->setWriterId($this->writerId);
 	}
 
 
