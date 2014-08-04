@@ -104,19 +104,21 @@ class Configuration extends StorageApiConfiguration
 	public function setWriterId($writerId)
 	{
 		$this->writerId = $writerId;
-		$this->bucketId = $this->configurationBucket($writerId);
 		$this->tokenInfo = $this->storageApiClient->getLogData();
 		$this->projectId = $this->tokenInfo['owner']['id'];
 
 		try {
 			$writer = $this->sharedConfig->getWriter($this->projectId, $writerId);
 			if (!$writer['bucket']) {
+				$this->bucketId = $this->findConfigurationBucket($writerId);
 				$this->sharedConfig->updateWriter($this->projectId, $writerId, 'bucket', $this->bucketId);
+			} else {
+				$this->bucketId = $writer['bucket'];
 			}
 		} catch (SharedConfigException $e) {
-			//$this->sharedConfig->createWriter($this->projectId, $writerId, $this->bucketId);
+			$this->bucketId = $this->findConfigurationBucket($writerId);
+			$this->sharedConfig->createWriter($this->projectId, $writerId, $this->bucketId);
 		}
-
 	}
 
 
@@ -129,7 +131,7 @@ class Configuration extends StorageApiConfiguration
 	/**
 	 * Find configuration bucket for writerId
 	 */
-	public function configurationBucket($writerId)
+	public function findConfigurationBucket($writerId)
 	{
 		foreach ($this->getWriters() as $w) {
 			if ($w['writerId'] == $writerId) {
@@ -194,7 +196,7 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function createWriter($writerId)
 	{
-		if ($this->configurationBucket($writerId)) {
+		if ($this->findConfigurationBucket($writerId)) {
 			throw new WrongParametersException(sprintf("Writer with id '%s' already exists", $writerId));
 		}
 

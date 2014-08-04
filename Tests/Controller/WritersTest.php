@@ -177,7 +177,7 @@ class WritersTest extends AbstractControllerTest
 		 */
 		$this->processJob('/writers?writerId=' . $this->writerId, array(), 'DELETE');
 		// Check non-existence of configuration
-		$this->assertFalse($this->configuration->configurationBucket($this->writerId), "Writer configuration should not exist anymore.");
+		$this->assertFalse($this->configuration->findConfigurationBucket($this->writerId), "Writer configuration should not exist anymore.");
 	}
 
 }

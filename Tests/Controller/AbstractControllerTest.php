@@ -163,8 +163,6 @@ abstract class AbstractControllerTest extends WebTestCase
 		$command = $application->find('gooddata-writer:execute-batch');
 		$this->commandTester = new CommandTester($command);
 
-		$this->configuration = new Configuration($this->storageApi, $this->sharedConfig);
-		$this->configuration->setWriterId($this->writerId);
 
 		// Init writer
 		$this->processJob('/writers', array());
@@ -313,7 +311,8 @@ abstract class AbstractControllerTest extends WebTestCase
 
 		$params['writerId'] = $writerId;
 		$responseJson = $this->callWriterApi($url, $method, $params);
-		$this->configuration->clearCache();
+		if ($this->configuration)
+			$this->configuration->clearCache();
 
 		$resultId = null;
 		if (isset($responseJson['batch'])) {
