@@ -171,6 +171,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$command = 'createWriter';
 		$createdTime = time();
 
+		$tokenInfo = $this->storageApi->getLogData();
+		$projectId = $tokenInfo['owner']['id'];
+
 		$this->checkParams(array('writerId'));
 		if (!preg_match('/^[a-zA-Z0-9_]+$/', $this->params['writerId'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.format'));
@@ -178,7 +181,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if (strlen($this->params['writerId'] > 50)) {
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.length'));
 		}
-		if ($this->getSharedConfig()->writerExists($this->getConfiguration()->projectId, $this->params['writerId'])) {
+		if ($this->getSharedConfig()->writerExists($projectId, $this->params['writerId'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.exists'));
 		}
 
@@ -221,11 +224,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			}
 		} else {
 			$jobData['parameters']['accessToken'] = !empty($this->params['accessToken'])? $this->params['accessToken'] : $this->appConfiguration->gd_accessToken;
-			$jobData['parameters']['projectName'] = sprintf($this->appConfiguration->gd_projectNameTemplate, $this->getConfiguration()->tokenInfo['owner']['name'], $this->getConfiguration()->writerId);
+			$jobData['parameters']['projectName'] = sprintf($this->appConfiguration->gd_projectNameTemplate, $tokenInfo['owner']['name'], $this->params['writerId']);
 		}
 
 		$this->getConfiguration()->createWriter($this->params['writerId']);
-		$this->getSharedConfig()->createWriter($this->getConfiguration()->projectId, $this->params['writerId'], $this->getConfiguration()->bucketId);
 
 		$jobInfo = $this->createJob($jobData);
 
