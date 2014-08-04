@@ -1928,7 +1928,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 	private function checkWriterExistence()
 	{
-		if (!$this->getConfiguration()->bucketId) {
+		$tokenInfo = $this->storageApi->getLogData();
+		$projectId = $tokenInfo['owner']['id'];
+
+		if (!$this->getSharedConfig()->writerExists($projectId, $this->params['writerId'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.not_found'));
 		}
 	}
