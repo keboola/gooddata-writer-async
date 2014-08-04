@@ -117,7 +117,9 @@ class Configuration extends StorageApiConfiguration
 			}
 		} catch (SharedConfigException $e) {
 			$this->bucketId = $this->findConfigurationBucket($writerId);
-			$this->sharedConfig->createWriter($this->projectId, $writerId, $this->bucketId);
+			try {
+				$this->sharedConfig->createWriter($this->projectId, $writerId, $this->bucketId);
+			} catch (SharedConfigException $e) {}
 		}
 	}
 
