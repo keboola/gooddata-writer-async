@@ -33,7 +33,8 @@ class UpdateModel extends AbstractJob
 			throw new WrongConfigurationException($this->translator->trans('job_executor.data_set_definition_missing'));
 		}
 
-		$this->configuration->checkBucketAttributes();
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->configuration->checkBucketAttributes($bucketAttributes);
 		$this->configuration->updateDataSetsFromSapi();
 
 		$this->logEvent('start', array(
@@ -43,7 +44,6 @@ class UpdateModel extends AbstractJob
 
 
 		// Init
-		$bucketAttributes = $this->configuration->bucketAttributes();
 		$tmpFolderName = basename($this->tmpDir);
 		$this->goodDataModel = new Model($this->appConfiguration);
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);

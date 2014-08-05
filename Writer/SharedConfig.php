@@ -84,26 +84,40 @@ class SharedConfig extends StorageApiConfiguration
 		));
 	}
 
-	public function updateWriter($projectId, $writerId, $key, $value)
+	public function updateWriter($projectId, $writerId, $values)
 	{
-		$this->db->update('writers', array($key => $value), array('project_id' => $projectId, 'writer_id' => $writerId));
+		$this->db->update('writers', $values, array('project_id' => $projectId, 'writer_id' => $writerId));
 	}
 
 	public function setWriterStatus($projectId, $writerId, $status)
 	{
-		$this->updateWriter($projectId, $writerId, 'status', $status);
+		$this->updateWriter($projectId, $writerId, array(
+			'status' => $status
+		));
 	}
 
 	public function getWriter($projectId, $writerId)
 	{
-		$result = $this->db->fetchAssoc('SELECT status,created_time,bucket FROM writers WHERE project_id=? AND writer_id=?', array($projectId, $writerId));
+		$result = $this->db->fetchAssoc('SELECT status,created_time,bucket,info FROM writers WHERE project_id=? AND writer_id=?', array($projectId, $writerId));
 		if (!$result) throw new SharedConfigException('Writer ' . $writerId . ' does not exist in Shared Config');
 
-		return array(
+		$return = array(
 			'status' => $result['status'],
 			'createdTime' => $result['created_time'],
 			'bucket' => $result['bucket']
 		);
+
+		if ($result['status'] == self::WRITER_STATUS_PREPARING) {
+			$return['info'] = 'GoodData project is being prepared. You cannot perform any GoodData operations yet.';
+		} elseif ($result['status'] == self::WRITER_STATUS_MAINTENANCE) {
+			$return['info'] = 'Writer is undergoing maintenance. Jobs execution will be postponed.';
+		} elseif ($result['status'] == self::WRITER_STATUS_DELETED) {
+			$return['info'] = 'Writer is scheduled for removal. You cannot perform any operations any more.';
+		} elseif (!empty($result['info'])) {
+			$return['info'] = $result['info'];
+		}
+
+		return $return;
 	}
 
 	public function writerExists($projectId, $writerId)

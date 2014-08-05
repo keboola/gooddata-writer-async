@@ -26,12 +26,12 @@ class ExportReport extends AbstractJob
 	{
 		$this->checkParams($params, array('report', 'table'));
 
-		$this->configuration->checkBucketAttributes();
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->configuration->checkBucketAttributes($bucketAttributes);
 		$this->configuration->checkProjectsTable();
 
 		$gdWriteStartTime = date('c');
 
-		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$report = $this->restApi->get($params['report']);

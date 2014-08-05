@@ -16,8 +16,8 @@ class CloneProject extends AbstractJob
 	{
 		$this->checkParams($params, array('accessToken', 'projectName', 'pidSource'));
 
-		$this->configuration->checkBucketAttributes();
 		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->configuration->checkBucketAttributes($bucketAttributes);
 
 		$gdWriteStartTime = date('c');
 		// Check access to source project

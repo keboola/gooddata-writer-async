@@ -71,7 +71,7 @@ class CreateWriter extends AbstractJob
 				}
 
 				$this->configuration->updateWriter('waitingForInvitation', '1');
-				$this->configuration->updateWriter('maintenance', '1');
+				$this->sharedConfig->setWriterStatus($job['projectId'], $job['writerId'], SharedConfig::WRITER_STATUS_MAINTENANCE);
 
 				$tokenData = $this->storageApiClient->getLogData();
 				$waitJob = $this->sharedConfig->createJob($this->configuration->projectId, $this->configuration->writerId,
@@ -120,8 +120,10 @@ class CreateWriter extends AbstractJob
 				'gdWriteStartTime' => $gdWriteStartTime
 			);
 		} catch (\Exception $e) {
-			$this->sharedConfig->setWriterStatus($job['projectId'], $job['writerId'], SharedConfig::WRITER_STATUS_ERROR);
-			$this->configuration->updateWriter('failure', $e->getMessage());
+			$this->sharedConfig->updateWriter($job['projectId'], $job['writerId'], array(
+				'status' => SharedConfig::WRITER_STATUS_ERROR,
+				'failure' => $e->getMessage()
+			));
 			throw $e;
 		}
 	}

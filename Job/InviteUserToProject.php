@@ -24,8 +24,8 @@ class InviteUserToProject extends AbstractJob
 		if (!in_array($params['role'], $allowedRoles)) {
 			throw new WrongConfigurationException($this->translator->trans('role %1', array('%1' => implode(', ', $allowedRoles))));
 		}
-		$this->configuration->checkBucketAttributes();
 		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->configuration->checkBucketAttributes($bucketAttributes);
 
 		if (empty($params['pid'])) {
 			if (empty($bucketAttributes['gd']['pid'])) {

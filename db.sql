@@ -48,5 +48,6 @@ CREATE TABLE `writers` (
   `status` enum('preparing','ready','error','maintenance','deleted') NOT NULL DEFAULT 'preparing',
   `created_time` datetime NOT NULL,
   `deleted_time` datetime DEFAULT NULL,
+  `info` text,
   PRIMARY KEY (`project_id`,`writer_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

@@ -111,7 +111,7 @@ class Configuration extends StorageApiConfiguration
 			$writer = $this->sharedConfig->getWriter($this->projectId, $writerId);
 			if (!$writer['bucket']) {
 				$this->bucketId = $this->findConfigurationBucket($writerId);
-				$this->sharedConfig->updateWriter($this->projectId, $writerId, 'bucket', $this->bucketId);
+				$this->sharedConfig->updateWriter($this->projectId, $writerId, array('bucket' => $this->bucketId));
 			} else {
 				$this->bucketId = $writer['bucket'];
 			}
@@ -156,39 +156,26 @@ class Configuration extends StorageApiConfiguration
 				$bucketAttributes = $this->parseAttributes($bucket['attributes']);
 
 				if (isset($bucketAttributes['writer']) && $bucketAttributes['writer'] == self::WRITER_NAME && isset($bucketAttributes['writerId'])) {
-					$writers[] = $this->formatWriterAttributes($bucket['id'], $bucketAttributes);
+					$writers[] = $this->formatWriterAttributes($bucketAttributes);
 				}
 			}
 		}
 		return $writers;
 	}
 
-	public function formatWriterAttributes($bucketId, $attributes)
+	public function formatWriterAttributes($attributes)
 	{
-		foreach ($attributes as $key => &$value) {
-			if (in_array($key, array('maintenance', 'delete', 'toDelete'))) {
-				$value = (bool) $value;
-			}
-		}
-
-		if (empty($attributes['gd']) || empty($attributes['gd']['pid']) || empty($attributes['gd']['username']) || empty($attributes['gd']['password'])) {
-			$attributes['status'] = 'GoodData project is being prepared or there is an error in writer\'s configuration. You cannot perform any GoodData operations now.';
-		}
-		if (!empty($attributes['maintenance'])) {
-			$attributes['status'] = 'Writer is undergoing maintenance, jobs execution will be postponed';
-		}
-		if (!empty($attributes['delete']) || !empty($attributes['toDelete'])) {
-			$attributes['status'] = 'Writer is scheduled for removal';
-		}
-		if (!empty($attributes['failure'])) {
-			$attributes['status'] = 'Writer failure. ' . $attributes['failure'];
+		try {
+			$this->checkBucketAttributes($attributes);
+		} catch (WrongConfigurationException $e) {
+			$attributes['status'] = SharedConfig::WRITER_STATUS_ERROR;
+			$attributes['info'] = $e->getMessage();
 		}
 
 		if (!isset($attributes['writer']))
 			$attributes['writer'] = self::WRITER_NAME;
 		if (!isset($attributes['id']))
 			$attributes['id'] = $attributes['writerId'];
-		$attributes['bucket'] = $bucketId;
 
 		return $attributes;
 	}
@@ -213,16 +200,24 @@ class Configuration extends StorageApiConfiguration
 	/**
 	 * Check if writer's bucket have all required attributes
 	 */
-	public function checkBucketAttributes()
+	public function checkBucketAttributes($attributes=null)
 	{
-		$bucketAttributes = $this->bucketAttributes();
-		$valid = !empty($bucketAttributes['gd']['pid'])
-			&& !empty($bucketAttributes['gd']['username'])
-			&& !empty($bucketAttributes['gd']['uid'])
-			&& !empty($bucketAttributes['gd']['password']);
+		if (!$attributes)
+			$attributes = $this->bucketAttributes();
 
-		if (!$valid) {
-			throw new WrongConfigurationException('Writer is missing GoodData configuration');
+		$error = false;
+		if (empty($attributes['gd'])) {
+			$error = 'The writer is missing GoodData project configuration. You cannot perform any GoodData operations. See the docs please.';
+		} elseif(empty($attributes['gd']['pid'])) {
+			$error = 'The writer is missing gd.pid configuration attribute. You cannot perform any GoodData operations.';
+		} elseif(empty($attributes['gd']['username'])) {
+			$error = 'The writer is missing gd.username configuration attribute. You cannot perform any GoodData operations.';
+		} elseif(empty($attributes['gd']['password'])) {
+			$error = 'The writer is missing gd.password configuration attribute. You cannot perform any GoodData operations.';
+		}
+
+		if ($error) {
+			throw new WrongConfigurationException($error);
 		}
 	}
 
