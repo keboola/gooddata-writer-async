@@ -42,7 +42,7 @@ class UploadDateDimension extends AbstractJob
 		$stopWatch = new Stopwatch();
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->configuration->checkBucketAttributes();
+		$this->configuration->checkBucketAttributes($bucketAttributes);
 
 		$dateDimensions = $this->configuration->getDateDimensions();
 		if (!in_array($params['name'], array_keys($dateDimensions))) {

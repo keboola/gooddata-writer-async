@@ -27,7 +27,7 @@ class ResetTable extends AbstractJob
 		$stopWatch->start($stopWatchId);
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->configuration->checkBucketAttributes();
+		$this->configuration->checkBucketAttributes($bucketAttributes);
 
 		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
 		$dataSetName = !empty($tableDefinition['name']) ? $tableDefinition['name'] : $tableDefinition['id'];

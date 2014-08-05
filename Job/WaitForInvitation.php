@@ -25,7 +25,7 @@ class WaitForInvitation extends AbstractJob
 		if ($this->restApi->hasAccessToProject($bucketAttributes['gd']['pid'])) {
 
 			$this->restApi->addUserToProject($bucketAttributes['gd']['uid'], $bucketAttributes['gd']['pid']);
-			$this->configuration->updateWriter('maintenance', null);
+			$this->sharedConfig->setWriterStatus($job['projectId'], $job['writerId'], SharedConfig::WRITER_STATUS_READY);
 			$this->configuration->updateWriter('waitingForInvitation', null);
 
 		} else {

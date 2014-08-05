@@ -162,8 +162,8 @@ class JobExecutor
 
 				$configuration = new Configuration($this->storageApiClient, $this->sharedConfig);
 				$configuration->setWriterId($job['writerId']);
-				$bucketAttributes = $configuration->bucketAttributes();
-				if (!$serviceRun && !empty($bucketAttributes['maintenance'])) {
+				$writerInfo = $this->sharedConfig->getWriter($job['projectId'], $job['writerId']);
+				if (!$serviceRun && $writerInfo['status'] == SharedConfig::WRITER_STATUS_MAINTENANCE) {
 					throw new QueueUnavailableException($this->translator->trans('queue.maintenance'));
 				}
 

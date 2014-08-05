@@ -153,7 +153,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		));
 		$this->enqueue($jobInfo['batchId']);
 
-		$this->getConfiguration()->updateWriter('maintenance', 1);
 		$this->getSharedConfig()->setWriterStatus($this->getConfiguration()->projectId, $this->params['writerId'], SharedConfig::WRITER_STATUS_MAINTENANCE);
 
 		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
@@ -269,7 +268,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkWriterExistence();
 
 		// Update writer configuration
+		$reservedAttrs = array('id', 'bucket', 'status', 'info', 'createdTime');
 		foreach ($this->params as $key => $value) if ($key != 'writerId') {
+			if (in_array($key, $reservedAttrs)) {
+				throw new WrongParametersException($this->translator->trans('parameters.writer_attr %1', array('%1' => implode(', ', $reservedAttrs))));
+			}
 			if (is_array($value)) $value = json_encode($value);
 			$this->getConfiguration()->updateWriter($key, $value);
 		}
@@ -290,10 +293,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkParams(array('writerId'));
 		$this->checkWriterExistence();
 
-		$this->getConfiguration()->updateWriter('toDelete', '1');
-		$this->getConfiguration()->updateWriter('delete', '1');
-
 		$this->getSharedConfig()->cancelJobs($this->getConfiguration()->projectId, $this->getConfiguration()->writerId);
+		$this->getSharedConfig()->deleteWriter($this->getConfiguration()->projectId, $this->getConfiguration()->writerId);
 
 		$jobInfo = $this->createJob(array(
 			'command' => $command,
@@ -321,14 +322,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if (isset($this->params['writerId'])) {
 			$this->checkWriterExistence();
 
-			$configuration = $this->getConfiguration()->formatWriterAttributes($this->getConfiguration()->bucketId, $this->getConfiguration()->bucketAttributes());
-			/*try {
+			$configuration = $this->getConfiguration()->formatWriterAttributes($this->getConfiguration()->bucketAttributes());
+			try {
 				$sharedConfiguration = $this->getSharedConfig()->getWriter($this->getConfiguration()->projectId, $this->params['writerId']);
 			} catch (SharedConfigException $e) {
-				//@TODO temporary fix
-				$this->getSharedConfig()->createWriter($this->getConfiguration()->projectId, $this->params['writerId']);
 				$sharedConfiguration = array('status' => SharedConfig::WRITER_STATUS_READY, 'createdTime' => '');
-			}*/$sharedConfiguration = array();
+			}
 			return $this->createApiResponse(array(
 				'writer' => array_merge($configuration, $sharedConfiguration)
 			));
@@ -337,13 +336,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$tokenInfo = $this->storageApi->getLogData();
 			$result = array();
 			foreach ($configuration->getWriters() as $writer) {
-				/*try {
+				try {
 					$sharedConfiguration = $this->getSharedConfig()->getWriter($tokenInfo['owner']['id'], $writer['id']);
 				} catch (SharedConfigException $e) {
-					//@TODO temporary fix
-					$this->getSharedConfig()->createWriter($tokenInfo['owner']['id'], $writer['id']);
 					$sharedConfiguration = array('status' => SharedConfig::WRITER_STATUS_READY, 'createdTime' => '');
-				}*/$sharedConfiguration = array();
+				}
 				$result[] = array_merge($writer, $sharedConfiguration);
 			}
 

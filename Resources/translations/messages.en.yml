@@ -70,6 +70,7 @@ parameters:
   sso_wrong_email: Parameter 'email' does not correspond with any user created by the writer and cannot be used for sso access
   tableId: Parameter 'tableId' does not correspond with any table configured by the writer
   username_missing: Missing parameter 'username', add it or remove parameters 'password' and 'pid'
+  writer_attr %1: "You cannot explicitly set any of these reserved attributes: %1"
   writerId:
     exists: Writer with that name already exists or existed in past. Choose another name please
     format: Parameter 'writerId' may contain only basic letters, numbers and underscores

@@ -25,13 +25,10 @@ class AddUserToProject extends AbstractJob
 			throw new WrongConfigurationException($this->translator->trans('role %1', array('%1' => implode(', ', $allowedRoles))));
 		}
 
-		$this->configuration->checkBucketAttributes();
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->configuration->checkBucketAttributes($bucketAttributes);
 
 		if (empty($params['pid'])) {
-			$bucketAttributes = $this->configuration->bucketAttributes();
-			if (empty($bucketAttributes['gd']['pid'])) {
-				throw new WrongConfigurationException($this->translator->trans('configuration.writer_attributes_wrong'));
-			}
 			$params['pid'] = $bucketAttributes['gd']['pid'];
 		}
 

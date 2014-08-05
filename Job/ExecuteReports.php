@@ -22,7 +22,8 @@ class ExecuteReports extends AbstractJob
 		if (!$project) {
 			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
 		}
-		$this->configuration->checkBucketAttributes();
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		$this->configuration->checkBucketAttributes($bucketAttributes);
 		$this->configuration->checkProjectsTable();
 
 		// reports uri validation
@@ -36,7 +37,6 @@ class ExecuteReports extends AbstractJob
 
 		$gdWriteStartTime = date('c');
 
-		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			if (!empty($params['reports'])) {
 				// specified reports
