@@ -1932,7 +1932,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$projectId = $tokenInfo['owner']['id'];
 
 		if (!$this->getSharedConfig()->writerExists($projectId, $this->params['writerId'])) {
-			throw new WrongParametersException($this->translator->trans('parameters.writerId.not_found'));
+			$bucket = $this->getConfiguration()->findConfigurationBucket($this->params['writerId']);
+			if ($bucket) {
+				$this->getSharedConfig()->setWriterStatus($projectId, $this->params['writerId'], SharedConfig::WRITER_STATUS_READY);
+			} else {
+				throw new WrongParametersException($this->translator->trans('parameters.writerId.not_found'));
+			}
 		}
 	}
 
