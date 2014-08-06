@@ -62,11 +62,13 @@ class WritersTest extends AbstractControllerTest
 		$writerId = self::WRITER_ID_PREFIX . 'invit_' . $uniqId;
 		$user1 = 'user1' . $uniqId . '@test.keboola.com';
 		$user2 = 'user2' . $uniqId . '@test.keboola.com';
+		$description = uniqId();
 
 		// Create new writer and new configuration
 		$this->processJob('/writers', array(
 			'writerId' => $writerId,
-			'users' => $user1 . ',' . $user2
+			'users' => $user1 . ',' . $user2,
+			'description' => $description
 		));
 		$this->configuration = new Configuration($this->storageApi, $this->sharedConfig);
 		$this->configuration->setWriterId($writerId);
@@ -111,6 +113,11 @@ class WritersTest extends AbstractControllerTest
 		$this->assertArrayHasKey('writerId', $responseJson['writer'], "Response for writer call '/writers?writerId=' should contain 'writer.writerId' key.");
 		$this->assertEquals($this->writerId, $responseJson['writer']['writerId'], "Response for writer call '/writers?writerId=' should contain id of created writer.");
 		$this->assertEquals('gooddata', $responseJson['writer']['writer'], "Response for writer call '/writers?writerId=' should contain name of the writer.");
+
+		$responseJson = $this->getWriterApi('/writers?writerId=' . $writerId);
+		$this->assertArrayHasKey('writer', $responseJson, "Response for writer call '/writers?writerId=' should contain 'writer' key.");
+		$this->assertArrayHasKey('description', $responseJson['writer'], "Response for writer call '/writers?writerId=' should contain 'writer.description' key.");
+
 
 
 		/**

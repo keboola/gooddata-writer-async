@@ -193,6 +193,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			'parameters' => array()
 		);
 
+		if (!empty($this->params['description'])) {
+			$jobData['parameters']['description'] = $this->params['description'];
+		}
+
 		if (!empty($this->params['username']) || !empty($this->params['password']) || !empty($this->params['pid'])) {
 			if (empty($this->params['username'])) {
 				throw new WrongParametersException($this->translator->trans('parameters.username_missing'));
