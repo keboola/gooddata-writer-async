@@ -328,8 +328,16 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			} catch (SharedConfigException $e) {
 				$sharedConfiguration = array('status' => SharedConfig::WRITER_STATUS_READY, 'createdTime' => '');
 			}
+			$result = array_merge($configuration, $sharedConfiguration);
+
+			//@TODO backwards compatibility
+			unset($result['status']);
+			if (!empty($result['info'])) {
+				$result['status'] = $result['info'];
+			}
+
 			return $this->createApiResponse(array(
-				'writer' => array_merge($configuration, $sharedConfiguration)
+				'writer' => $result
 			));
 		} else {
 			$configuration = new Configuration($this->storageApi, $this->getSharedConfig());
@@ -341,7 +349,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				} catch (SharedConfigException $e) {
 					$sharedConfiguration = array('status' => SharedConfig::WRITER_STATUS_READY, 'createdTime' => '');
 				}
-				$result[] = array_merge($writer, $sharedConfiguration);
+
+				//@TODO backwards compatibility
+				$subResult = array_merge($writer, $sharedConfiguration);
+				unset($subResult['status']);
+				if (!empty($subResult['info'])) {
+					$subResult['status'] = $subResult['info'];
+				}
+
+				$result[] = $subResult;
 			}
 
 			return $this->createApiResponse(array(
