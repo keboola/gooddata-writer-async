@@ -1929,6 +1929,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$projectId = $tokenInfo['owner']['id'];
 
 		if (!$this->getSharedConfig()->writerExists($projectId, $this->params['writerId'])) {
+			//@TODO REMOVE SOON
+			$this->logger->debug('Writer missing in shared table: ' . $projectId . ' - ' . $this->params['writerId']);
 			$bucket = $this->getConfiguration()->findConfigurationBucket($this->params['writerId']);
 			if ($bucket) {
 				$this->getSharedConfig()->setWriterStatus($projectId, $this->params['writerId'], SharedConfig::WRITER_STATUS_READY);

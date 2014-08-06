@@ -73,13 +73,15 @@ class SharedConfig extends StorageApiConfiguration
 		$this->db = \Doctrine\DBAL\DriverManager::getConnection($connectionParams, $config);
 	}
 
-	public function createWriter($projectId, $writerId, $bucket)
+	public function createWriter($projectId, $writerId, $bucket, $tokenId, $tokenDescription)
 	{
 		$this->db->insert('writers', array(
 			'project_id' => $projectId,
 			'writer_id' => $writerId,
 			'bucket' => $bucket,
 			'status' => self::WRITER_STATUS_PREPARING,
+			'token_id' => $tokenId,
+			'token_desc' => $tokenDescription,
 			'created_time' => date('c')
 		));
 	}
@@ -98,12 +100,16 @@ class SharedConfig extends StorageApiConfiguration
 
 	public function getWriter($projectId, $writerId)
 	{
-		$result = $this->db->fetchAssoc('SELECT status,created_time,bucket,info FROM writers WHERE project_id=? AND writer_id=?', array($projectId, $writerId));
+		$result = $this->db->fetchAssoc('SELECT status,created_time,bucket,info,token_id,token_desc FROM writers WHERE project_id=? AND writer_id=?', array($projectId, $writerId));
 		if (!$result) throw new SharedConfigException('Writer ' . $writerId . ' does not exist in Shared Config');
 
 		$return = array(
 			'status' => $result['status'],
-			'createdTime' => $result['created_time'],
+			'created' => array(
+				'time' => $result['created_time'],
+				'tokenId' => (int)$result['token_id'],
+				'tokenDescription' => $result['token_desc']
+			),
 			'bucket' => $result['bucket']
 		);
 

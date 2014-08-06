@@ -109,16 +109,11 @@ class Configuration extends StorageApiConfiguration
 
 		try {
 			$writer = $this->sharedConfig->getWriter($this->projectId, $writerId);
-			if (!$writer['bucket']) {
-				$this->bucketId = $this->findConfigurationBucket($writerId);
-				$this->sharedConfig->updateWriter($this->projectId, $writerId, array('bucket' => $this->bucketId));
-			} else {
-				$this->bucketId = $writer['bucket'];
-			}
+			$this->bucketId = $writer['bucket'];
 		} catch (SharedConfigException $e) {
-			$this->bucketId = $this->findConfigurationBucket($writerId);
+			$this->bucketId = 'sys.c-wr-gooddata-' . $writerId;
 			try {
-				$this->sharedConfig->createWriter($this->projectId, $writerId, $this->bucketId);
+				$this->sharedConfig->createWriter($this->projectId, $writerId, $this->bucketId, $this->tokenInfo['id'], $this->tokenInfo['description']);
 				$this->sharedConfig->setWriterStatus($this->projectId, $writerId, SharedConfig::WRITER_STATUS_READY);
 			} catch (SharedConfigException $e) {}
 		}
@@ -186,10 +181,6 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function createWriter($writerId)
 	{
-		if ($this->findConfigurationBucket($writerId)) {
-			throw new WrongParametersException(sprintf("Writer with id '%s' already exists", $writerId));
-		}
-
 		$this->storageApiClient->createBucket('wr-gooddata-' . $writerId, 'sys', 'GoodData Writer Configuration');
 		$this->storageApiClient->setBucketAttribute('sys.c-wr-gooddata-' . $writerId, 'writer', self::WRITER_NAME);
 		$this->storageApiClient->setBucketAttribute('sys.c-wr-gooddata-' . $writerId, 'writerId', $writerId);
