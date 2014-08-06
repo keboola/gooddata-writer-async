@@ -43,9 +43,11 @@ CREATE TABLE `users` (
 
 CREATE TABLE `writers` (
   `project_id` int(11) unsigned NOT NULL,
-  `writer_id` varchar(50) NOT NULL,
-  `bucket` varchar(100) NOT NULL,
+  `writer_id` varchar(50) NOT NULL DEFAULT '',
+  `bucket` varchar(100) DEFAULT NULL,
   `status` enum('preparing','ready','error','maintenance','deleted') NOT NULL DEFAULT 'preparing',
+  `token_id` int(10) unsigned NOT NULL,
+  `token_desc` varchar(255) NOT NULL DEFAULT '',
   `created_time` datetime NOT NULL,
   `deleted_time` datetime DEFAULT NULL,
   `info` text,
