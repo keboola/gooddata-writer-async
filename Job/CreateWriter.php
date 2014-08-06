@@ -16,7 +16,7 @@ class CreateWriter extends AbstractJob
 {
 	/**
 	 * required: (accessToken, projectName) || (pid, username, password)
-	 * optional:
+	 * optional: description
 	 */
 	public function run($job, $params)
 	{
@@ -104,6 +104,10 @@ class CreateWriter extends AbstractJob
 			$this->configuration->updateWriter('gd.username', $username);
 			$this->configuration->updateWriter('gd.password', $password, true);
 			$this->configuration->updateWriter('gd.uid', $userId);
+
+			if (!empty($params['description'])) {
+				$this->configuration->updateWriter('description', $params['description']);
+			}
 
 
 			$this->sharedConfig->saveProject($job['projectId'], $job['writerId'], $projectPid, isset($params['accessToken']) ? $params['accessToken'] : null, $existingProject);
