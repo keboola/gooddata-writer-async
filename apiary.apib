@@ -13,7 +13,7 @@ Configuration in Storage API
 Each writer has it's own bucket in `sys` stage which is created automatically by [Create writer](#post-%2Fgooddata-writer%2Fwriters) request. By default bucket is named `sys.c-wr-gooddata-[writerId]` but that is not mandatory. It has several attributes:
 
 * **writer** - with value **gooddata** is used to identify that the bucket contains writer configuration
-* **writerId** - name of writer, must be unique within project (may contain only letters, numbers and underscores, 20 chars at max)
+* **writerId** - name of writer, must be unique within project (may contain only letters, numbers and underscores, 50 chars at max)
 * **gd.pid** - PID of main GoodData project
 * **gd.uid** - UID of GoodData account used for requests to GoodData API
 * **gd.username** - username of GoodData account used for requests to GoodData API
@@ -88,7 +88,13 @@ GET /writers
                 "uid": "dkgkfdreituigjfgfjkdgfkdfng",
                 "username": "user1@clients.keboola.com",
                 "password": "password"
-            }
+            },
+            "created": {
+                "time": "2014-04-14 12:57:08",
+                "tokenId": 11874,
+                "tokenDescription": "writer@keboola.com"
+            },
+            "status": "ready"
         },
         {
             "id": "writer2",
@@ -100,7 +106,13 @@ GET /writers
                 "uid": "wwgkfdreituigjfgfjkdgfkdwre",
                 "username": "user2@clients.keboola.com",
                 "password": "password2"
-            }
+            },
+            "created": {
+                "time": "2014-04-11 01:17:28",
+                "tokenId": 11874,
+                "tokenDescription": "writer@keboola.com"
+            },
+            "status": "ready"
         }
     ]
 }
@@ -128,7 +140,13 @@ GET /writers?writerId={writerId}
                 "uid": "dkgkfdreituigjfgfjkdgfkdfng",
                 "username": "user1@clients.keboola.com",
                 "password": "password"
-            }
+            },
+            "created": {
+                "time": "2014-04-14 12:57:08",
+                "tokenId": 11874,
+                "tokenDescription": "writer@keboola.com"
+            },
+            "status": "ready"
         }
     ]
 }
@@ -140,6 +158,7 @@ Creates new configuration bucket and either uses existing GoodData project or cr
 #### Parameters
 
 * **writerId** (required)
+* **description** (optional) - description of the writer
 * **users** (optional) - comma-separated list of users emails which should be added to main project
 * if you want to create new GD project:
   * **accessToken** (optional) - GoodData access token (main Keboola by default)
@@ -166,11 +185,11 @@ Sets attributes to writer's configuration
 
 #### Parameters
 
-* **attribute** (required) - attribute which you want to set
+* **[attribute]** (required) - attribute which you want to set; there are few reserved attributes which you cannot set explicitly: id, bucket, status, info, created
 POST /writers/{writerId}
 > X-StorageApi-Token: your_token
 > Accept: application/json
-{ "maintenance": 1 }
+{ "description": "Writer's description" }
 < 202
 < Content-Type: application/json
 { 
@@ -517,7 +536,6 @@ GET /tables?writerId={writerId}&tableId={tableId}
 * **writerId** (required)
 * **tableId** (required)
 * **export** (optional)
-* **isExported** (optional)
 * **incrementalLoad** (optional)
 * **ignoreFilter** (optional)
 POST /tables
@@ -1098,14 +1116,16 @@ Call to obtain an SSO link for user.
 #### Parameters
 
 * **writerId** (required)
-* **pid** (optional) - PID of the project
+* **pid** (required) - PID of the project
 * **email** (required) - Email of the user for whom the SSO link is generated
-* **createUser** (optional) - If user doesn't exists in GD yet set this option to 1, user will be created in GD and add to project prior to SSO link generation.
-* **firstName** (optional) - If createUser is set to 1, this specifies users firstName
-* **lastName**  (optional) - If createUser is set to 1, this specifies users lastName
-* **password**  (optional) - If createUser is set to 1, this specifies users password
 * **role**  (optional) - If createUser is set to 1, this specifies users role (one of: admin, editor, readOnly, dashboardOnly)
 * **targetUrl** (optional) - link to specific dashboard, e.g. for url `/dashboard.html#project=/gdc/projects/PID&dashboard=/gdc/md/PID/obj/DASHBOARD_ID` use url-encoded: `%2Fdashboard.html%23project%3D%2Fgdc%2Fprojects%2FPID%26dashboard%3D%2Fgdc%2Fmd%2FPID%2Fobj%2FDASHBOARD_ID`
+* **validity** (optional) - validity of the link in seconds (default is one day - 86400)
+* **createUser** (optional) - If the user does not exist yet Writer will create it and add to your project (will perform create-user and add-user-to-project jobs before you get the soo link)
+  * **firstName** (optional) - If createUser is set to 1, this specifies users firstName
+  * **lastName**  (optional) - If createUser is set to 1, this specifies users lastName
+  * **password**  (optional) - If createUser is set to 1, this specifies users password
+
 
 GET /sso?writerId={writerId}&pid={pr0j3ct_p1d}&email={user@email.com}
 > X-StorageApi-Token: your_token
@@ -1219,3 +1239,4 @@ POST /proxy
     "url": "https://syrup.keboola.com/gooddata-writer/jobs?writerId=writer1&jobId=job_id",
     "duration": 35.12 
 }
+

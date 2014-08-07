@@ -395,8 +395,8 @@ class DatasetsTest extends AbstractControllerTest
 		}
 		$rows = StorageApiClient::parseCsv($csv);
 		foreach ($rows as $i => $row) {
-			// csv will contain also date facts, therefore number 7 (4 columns are just for date)
-			$this->assertCount(7, $row, 'Table should contain columns without products');
+			// csv will contain also date facts, therefore number 6 (3 columns are just for date)
+			$this->assertCount(6, $row, 'Table should contain columns without products');
 		}
 
 

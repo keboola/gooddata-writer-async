@@ -194,26 +194,15 @@ class JobExecutor
 				$this->restApi->setRunId($job['runId']);
 				$this->restApi->setEventLogger($this->eventLogger);
 				$this->restApi->initLog();
-				$token = $this->storageApiClient->getLogData();
-
-				// make copy of $appConfiguration (otherwise next jobs processed by this worker will have following domain setup)
-				$appConfiguration = clone $this->appConfiguration;
-				if (!empty($token['owner']['features']) && in_array('gdwr-academy', $token['owner']['features'])) {
-					$appConfiguration->gd_domain = 'keboola-academy';
-				}
-
+				
 				$tempService = $this->tempServiceFactory->get('gooddata_writer');
-				$preRelease = !empty($token['owner']['features']) && in_array('gdwr-prerelease', $token['owner']['features']);
-				$isTesting = !empty($token['owner']['features']) && in_array('gdwr-testing', $token['owner']['features']);
 				/**
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 				 */
-				$command = new $commandClass($configuration, $appConfiguration, $this->sharedConfig, $this->restApi, $s3Client,
+				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedConfig, $this->restApi, $s3Client,
 					$tempService, $this->translator, $this->storageApiClient, $job['id'], $this->eventLogger);
 				$command->setLogger($this->logger); //@TODO deprecated - only for CL tool
 				$command->setQueue($this->queue);
-				$command->setPreRelease($preRelease);
-				$command->setIsTesting($isTesting);
 
 				$error = null;
 

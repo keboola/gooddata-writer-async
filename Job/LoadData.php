@@ -82,7 +82,7 @@ class LoadData extends AbstractJob
 		// Get manifest
 		$stopWatchId = 'get_manifest';
 		$stopWatch->start($stopWatchId);
-		$manifest = Model::getDataLoadManifest($definition, $incrementalLoad);
+		$manifest = Model::getDataLoadManifest($definition, $incrementalLoad, $this->configuration->noDateFacts);
 		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
 		$this->logs['Manifest'] = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
 		$e = $stopWatch->stop($stopWatchId);
@@ -104,7 +104,8 @@ class LoadData extends AbstractJob
 
 			$webDavFileUrl = sprintf('%s/%s/data.csv', $webDav->getUrl(), $tmpFolderName);
 			$csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'],
-				$webDavFileUrl, $definition, $params['tableId'], $incrementalLoad, $filterColumn, $params['pid']);
+				$webDavFileUrl, $definition, $params['tableId'], $incrementalLoad, $filterColumn, $params['pid'],
+				$this->configuration->noDateFacts);
 			if (!$webDav->fileExists($tmpFolderName . '/data.csv')) {
 				throw new JobProcessException($this->translator->trans('error.csv_not_uploaded %1', array('%1' => $webDavFileUrl)));
 			}

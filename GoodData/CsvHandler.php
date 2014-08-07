@@ -103,13 +103,15 @@ class CsvHandler
 		return $definition;
 	}
 
-	public function getHeaders($definition)
+	public function getHeaders($definition, $noDateFacts=false)
 	{
 		$csvHeaders = array();
 		foreach ($definition['columns'] as $column) {
 			$csvHeaders[] = $column['name'];
 			if ($column['type'] == 'DATE') {
-				$csvHeaders[] = $column['name'] . '_dt';
+				if (!$noDateFacts) {
+					$csvHeaders[] = $column['name'] . '_dt';
+				}
 				if ($column['includeTime']) {
 					$csvHeaders[] = $column['name'] . '_tm';
 					$csvHeaders[] = $column['name'] . '_id';
@@ -124,14 +126,15 @@ class CsvHandler
 	/**
 	 * Parse csv and prepare for data load
 	 */
-	public function prepareTransformation($definition)
+	public function prepareTransformation($definition, $noDateFacts=false)
 	{
 		$dateColumnsIndices = array();
 		$timeColumnsIndices = array();
 		$i = 1;
 		foreach ($definition['columns'] as $column) {
 			if ($column['type'] == 'DATE') {
-				$dateColumnsIndices[] = $i;
+				if (!$noDateFacts)
+					$dateColumnsIndices[] = $i;
 				if ($column['includeTime']) {
 					$timeColumnsIndices[] = $i;
 				}
@@ -139,7 +142,7 @@ class CsvHandler
 			$i++;
 		}
 
-		if (!count($dateColumnsIndices)) {
+		if (!count($dateColumnsIndices) && !count($timeColumnsIndices)) {
 			return false;
 		}
 
@@ -160,10 +163,10 @@ class CsvHandler
 	 * Assemble curl to upload wo GD WebDav and run whole command
 	 * There is approx. 38 minutes backoff for 5xx errors from WebDav (via --retry 12)
 	 */
-	public function runUpload($username, $password, $fileUrl, $definition, $tableId, $incrementalLoad = false, $filterColumn = false, $filterValue = null)
+	public function runUpload($username, $password, $fileUrl, $definition, $tableId, $incrementalLoad=false, $filterColumn=false, $filterValue=null, $noDateFacts=false)
 	{
 		$definition = $this->removeIgnoredColumnsFromDefinition($definition);
-		$headersCommand = '"' . implode('","', $this->getHeaders($definition)) . '"';
+		$headersCommand = '"' . implode('","', $this->getHeaders($definition, $noDateFacts)) . '"';
 
 		$columns = array();
 		foreach ($definition['columns'] as $c) {
@@ -171,7 +174,7 @@ class CsvHandler
 		}
 		$filePath = $this->exportTable($tableId, $columns, $incrementalLoad, $filterColumn, $filterValue);
 
-		$transformationCommand = $this->prepareTransformation($definition);
+		$transformationCommand = $this->prepareTransformation($definition, $noDateFacts);
 		$uploadCommand = sprintf('gzip -c | curl -s -S -T - --header %s --retry 12 --user %s:%s %s',
 			escapeshellarg('Content-encoding: gzip'), escapeshellarg($username), escapeshellarg($password),
 			escapeshellarg($fileUrl));
