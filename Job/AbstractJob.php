@@ -78,10 +78,6 @@ abstract class AbstractJob
 
 	protected $tmpDir;
 	protected $scriptsPath;
-	protected $preRelease;
-	protected $isTesting;
-
-
 
 
 	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedConfig $sharedConfig,
@@ -98,7 +94,7 @@ abstract class AbstractJob
 		$this->storageApiClient = $storageApiClient;
 		$this->eventLogger = $eventLogger;
 
-		$this->domainUser = $this->sharedConfig->getDomainUser($appConfiguration->gd_domain);
+		$this->domainUser = $this->sharedConfig->getDomainUser($this->configuration->gdDomain? $this->configuration->gdDomain : $appConfiguration->gd_domain);
 
 		$this->initLog();
 		$this->logs = array();
@@ -121,17 +117,6 @@ abstract class AbstractJob
 	{
 		$this->queue = $queue;
 	}
-
-	public function setPreRelease($preRelease)
-	{
-		$this->preRelease = $preRelease;
-	}
-
-	public function setIsTesting($isTesting)
-	{
-		$this->isTesting = $isTesting;
-	}
-
 
 	public function initLog()
 	{

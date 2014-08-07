@@ -59,7 +59,7 @@ class Model
 	/**
  	 * Create json for LDM model manipulation
  	*/
-	public function getLDM($tableDefinition)
+	public function getLDM($tableDefinition, $noDateFacts=false)
 	{
 		$dataSetId = self::getId($tableDefinition['name']);
 		// add default connection point
@@ -185,13 +185,15 @@ class Model
 					break;
 				case 'DATE' :
 					$references[] = self::getId($column['schemaReference']) . (!empty($column['template']) ? '.' . $column['template'] : null);
-					$facts[] = array(
-						'fact' => array(
-							'identifier' => sprintf('dt.%s.%s', $dataSetId, $columnIdentifier),
-							'title' => sprintf('%s Date', $column['title'], $tableDefinition['name']),
-							'dataType' => 'INT'
-						)
-					);
+					if (!$noDateFacts) {
+						$facts[] = array(
+							'fact' => array(
+								'identifier' => sprintf('dt.%s.%s', $dataSetId, $columnIdentifier),
+								'title' => sprintf('%s Date', $column['title'], $tableDefinition['name']),
+								'dataType' => 'INT'
+							)
+						);
+					}
 					if ($column['includeTime']) {
 						$references[] = 'dataset.time.' . self::getId($column['schemaReference']);
 						$facts[] = array(
@@ -231,7 +233,7 @@ class Model
 	/**
 	 * Create manifest for data load
 	 */
-	public static function getDataLoadManifest($definition, $incrementalLoad)
+	public static function getDataLoadManifest($definition, $incrementalLoad, $noDateFacts=false)
 	{
 		$dataSetName = self::getId($definition['name']);
 		$manifest = array(
@@ -306,13 +308,15 @@ class Model
 						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL',
 						'referenceKey' => 1
 					);
-					$manifest['dataSetSLIManifest']['parts'][] = array(
-						'columnName' => $column['name'] . '_dt',
-						'populates' => array(
-							sprintf('dt.%s.%s', $dataSetName, $columnName)
-						),
-						'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
-					);
+					if (!$noDateFacts) {
+						$manifest['dataSetSLIManifest']['parts'][] = array(
+							'columnName' => $column['name'] . '_dt',
+							'populates' => array(
+								sprintf('dt.%s.%s', $dataSetName, $columnName)
+							),
+							'mode' => $incrementalLoad ? 'INCREMENTAL' : 'FULL'
+						);
+					}
 					if ($column['includeTime']) {
 						$manifest['dataSetSLIManifest']['parts'][] = array(
 							'columnName' => $column['name'] . '_tm',

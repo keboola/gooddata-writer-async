@@ -50,38 +50,40 @@ class WebDav
 	 * @return string
 	 * @throws WebDavException
 	 */
-	protected function request($uri, $method = null, $arguments = null, $prepend = null, $append = null)
+	protected function request($uri, $method=null, $arguments=null, $prepend=null, $append=null)
 	{
-		$error = null;
-		for ($i = 0; $i < 5; $i++) {
-			$url = $this->url . '/' . $uri;
-			if ($method) {
-				$arguments .= ' -X ' . escapeshellarg($method);
-			}
-			$command = sprintf('curl -s -S -f --retry 15 --user %s:%s %s %s', escapeshellarg($this->username),
-				escapeshellarg($this->password), $arguments, escapeshellarg($url));
+		$url = $this->url . '/' . $uri;
+		if ($method) {
+			$arguments .= ' -X ' . escapeshellarg($method);
+		}
+		$command = $prepend . sprintf('curl -s -S -f --retry 15 --user %s:%s %s %s', escapeshellarg($this->username),
+			escapeshellarg($this->password), $arguments, escapeshellarg($url)) . $append;
 
-			$process = new Process($prepend . $command . $append);
+		$error = null;
+		$output = null;
+		for ($i = 0; $i < 5; $i++) {
+			$process = new Process($command);
 			$process->setTimeout(5 * 60 * 60);
 			$process->run();
+			$output = $process->getOutput();
 			$error = $process->getErrorOutput();
 
 			if (!$process->isSuccessful() || $error) {
 				$retry = false;
-				if (substr($error, 0, 7) == 'curl: (') {
+				if (substr($error, 0, 7) == 'curl: (' && $process->getExitCode() != 22) {
 					$retry = true;
 				}
 				if (!$retry) {
 					break;
 				}
 			} else {
-				return $process->getOutput();
+				return $output;
 			}
 
 			sleep($i * 60);
 		}
 
-		throw new WebDavException($error);
+		throw new WebDavException($error? $error : $output);
 	}
 
 
@@ -125,7 +127,7 @@ class WebDav
 			$this->request($file, 'PROPFIND');
 			return true;
 		} catch (WebDavException $e) {
-			if (strstr($e->getMessage(), '404 Not Found')) {
+			if (strpos($e->getMessage(), '404 Not Found') !== false || strpos($e->getMessage(), 'curl: (22)') !== false) {
 				return false;
 			} else {
 				throw $e;

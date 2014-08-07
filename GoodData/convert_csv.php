@@ -33,27 +33,28 @@ while ($line = fgetcsv($fh)) {
 	$resultLine = '';
 
 	foreach ($line as $i => $column) {
-		if (in_array($i+1, $dateColumns)) {
+		if (in_array($i+1, $dateColumns) || in_array($i+1, $timeColumns)) {
 			$resultLine .= '"' . $column . '",';
 
-			// Add date fact (number of days since 1900-01-01 plus one)
-
-			$timestamp = empty($column)? $start : strtotime($column);
+			$timestamp = empty($column) ? $start : strtotime($column);
 			if ($timestamp === false) {
 				fwrite($stdErr, sprintf('Error in date column value: "%s" on row %d', $column, $rowNumber));
 				die(1);
 			}
-
 			if ($start > $timestamp) {
 				fwrite($stdErr, sprintf('Error in date column value: "%s" on row %d', $column, $rowNumber));
 				die(1);
 			}
 
 			$diff = $timestamp - $start;
-			$daysDiff = floor($diff/(60*60*24));
-			$dateFact = $daysDiff + 1;
+			$daysDiff = floor($diff / (60 * 60 * 24));
 
-			$resultLine .= '"' . $dateFact . '",';
+			if (in_array($i+1, $dateColumns)) {
+				// Add date fact (number of days since 1900-01-01 plus one)
+				$dateFact = $daysDiff + 1;
+
+				$resultLine .= '"' . $dateFact . '",';
+			}
 
 			if (in_array($i+1, $timeColumns)) {
 				// Add time fact (number of seconds since midnight)

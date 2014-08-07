@@ -24,7 +24,7 @@ class DeleteWriter extends AbstractJob
 		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
 
 		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) if (!$project['keep_on_removal']) {
-			if ($this->isTesting) {
+			if ($this->configuration->testingWriter) {
 				try {
 					$this->restApi->dropProject($project['pid']);
 				} catch (RestApiException $e) {
@@ -52,7 +52,7 @@ class DeleteWriter extends AbstractJob
 		$writerDomain = substr($this->appConfiguration->gd_userEmailTemplate, strpos($this->appConfiguration->gd_userEmailTemplate, '@'));
 		foreach ($this->sharedConfig->getUsers($job['projectId'], $job['writerId']) as $user) {
 			if (strpos($user['email'], $writerDomain) !== false) {
-				if ($this->isTesting) {
+				if ($this->configuration->testingWriter) {
 					$this->restApi->dropUser($user['uid']);
 					$this->sharedConfig->markUsersDeleted(array($user['uid']));
 				} else {

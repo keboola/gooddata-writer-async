@@ -90,6 +90,11 @@ class Configuration extends StorageApiConfiguration
 	public $writerId;
 	public $tokenInfo;
 
+	public $gdDomain = false;
+	public $preRelease = false;
+	public $testingWriter = false;
+	public $noDateFacts = false;
+
 
 	/**
 	 * Prepare configuration
@@ -99,6 +104,16 @@ class Configuration extends StorageApiConfiguration
 	{
 		parent::__construct($storageApiClient);
 		$this->sharedConfig = $sharedConfig;
+
+		$logData = $this->storageApiClient->getLogData();
+		if (!empty($logData['owner']['features'])) {
+			if (in_array('gdwr-academy', $logData['owner']['features'])) {
+				$this->gd_domain = 'keboola-academy';
+			}
+			$this->testingWriter = in_array('gdwr-testing', $logData['owner']['features']);
+			$this->noDateFacts = in_array('gdwr-nodatefacts', $logData['owner']['features']);
+			$this->preRelease = $this->noDateFacts || in_array('gdwr-prerelease', $logData['owner']['features']);
+		}
 	}
 
 	public function setWriterId($writerId)
@@ -131,11 +146,15 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function findConfigurationBucket($writerId)
 	{
-		foreach ($this->getWriters() as $w) {
-			if ($w['writerId'] == $writerId) {
-				return $w['bucket'];
+		foreach ($this->sapi_listBuckets() as $bucket) {
+			if (isset($bucket['attributes']) && is_array($bucket['attributes'])) {
+				$bucketAttributes = $this->parseAttributes($bucket['attributes']);
+
+				if (isset($bucketAttributes['writer']) && $bucketAttributes['writer'] == self::WRITER_NAME && isset($bucketAttributes['writerId']) && $bucketAttributes['writerId'] == $writerId) {
+					return $bucket['id'];
+				}
 			}
-    	}
+		}
 		return false;
 	}
 
