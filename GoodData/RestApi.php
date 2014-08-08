@@ -337,7 +337,7 @@ class RestApi
 			sleep(self::WAIT_INTERVAL * ($i + 1));
 
 			$result = $this->jsonRequest($projectUri);
-			if (isset($result['project']['content']['state'])) {
+			if (isset($result['project']['content']['state']) && $result['project']['content']['state'] != 'DELETED') {
 				if ($result['project']['content']['state'] == 'ENABLED') {
 					$repeat = false;
 				}
@@ -1795,7 +1795,8 @@ class RestApi
 			),
 			'duration' => $duration,
 			'app' => $this->appConfiguration->appName,
-			'component' => 'gooddata-writer'
+			'component' => 'gooddata-writer',
+			'pid' => getmypid()
 		));
 	}
 
