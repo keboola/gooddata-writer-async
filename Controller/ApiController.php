@@ -231,6 +231,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 
 		$this->getConfiguration()->createWriter($this->params['writerId']);
+		$this->getSharedConfig()->setWriterStatus($projectId, $this->params['writerId'], SharedConfig::WRITER_STATUS_PREPARING);
 
 		$jobInfo = $this->createJob($jobData);
 
