@@ -111,7 +111,6 @@ class Configuration extends StorageApiConfiguration
 				$this->gd_domain = 'keboola-academy';
 			}
 			$this->testingWriter = in_array('gdwr-testing', $logData['owner']['features']);
-			$this->noDateFacts = in_array('gdwr-nodatefacts', $logData['owner']['features']);
 			$this->preRelease = $this->noDateFacts || in_array('gdwr-prerelease', $logData['owner']['features']);
 		}
 	}
@@ -125,6 +124,7 @@ class Configuration extends StorageApiConfiguration
 		try {
 			$writer = $this->sharedConfig->getWriter($this->projectId, $writerId);
 			$this->bucketId = $writer['bucket'];
+			$this->noDateFacts = !$writer['use_date_facts'];
 		} catch (SharedConfigException $e) {
 			$this->bucketId = 'sys.c-wr-gooddata-' . $writerId;
 			try {
