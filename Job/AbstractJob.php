@@ -94,7 +94,7 @@ abstract class AbstractJob
 		$this->storageApiClient = $storageApiClient;
 		$this->eventLogger = $eventLogger;
 
-		$this->domainUser = $this->sharedConfig->getDomainUser($this->configuration->gd_domain? $this->configuration->gd_domain : $appConfiguration->gd_domain);
+		$this->domainUser = $this->sharedConfig->getDomainUser($this->configuration->gdDomain? $this->configuration->gdDomain : $appConfiguration->gd_domain);
 
 		$this->initLog();
 		$this->logs = array();
