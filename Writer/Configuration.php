@@ -91,8 +91,8 @@ class Configuration extends StorageApiConfiguration
 	public $tokenInfo;
 
 	public $gdDomain = false;
-	public $preRelease = false;
 	public $testingWriter = false;
+	public $clTool = false;
 	public $noDateFacts = false;
 
 
@@ -111,7 +111,6 @@ class Configuration extends StorageApiConfiguration
 				$this->gd_domain = 'keboola-academy';
 			}
 			$this->testingWriter = in_array('gdwr-testing', $logData['owner']['features']);
-			$this->preRelease = in_array('gdwr-prerelease', $logData['owner']['features']);
 		}
 	}
 
@@ -124,9 +123,10 @@ class Configuration extends StorageApiConfiguration
 		try {
 			$writer = $this->sharedConfig->getWriter($this->projectId, $writerId);
 			$this->bucketId = $writer['bucket'];
-			$this->noDateFacts = !$writer['use_date_facts'];
+			$this->noDateFacts = !$writer['feats']['date_facts'];
+			$this->clTool = !$this->noDateFacts && $writer['feats']['cl_tool'];
 			if ($this->noDateFacts) {
-				$this->preRelease = true;
+				$this->clTool = false;
 			}
 		} catch (SharedConfigException $e) {
 			$this->bucketId = 'sys.c-wr-gooddata-' . $writerId;

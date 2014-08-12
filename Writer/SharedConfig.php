@@ -100,8 +100,7 @@ class SharedConfig extends StorageApiConfiguration
 
 	public function getWriter($projectId, $writerId)
 	{
-		$result = $this->db->fetchAssoc('SELECT status,created_time,bucket,info,token_id,token_desc,date_facts'
-			. ' FROM writers WHERE project_id=? AND writer_id=?', array($projectId, $writerId));
+		$result = $this->db->fetchAssoc('SELECT * FROM writers WHERE project_id=? AND writer_id=?', array($projectId, $writerId));
 		if (!$result) throw new SharedConfigException('Writer ' . $writerId . ' does not exist in Shared Config');
 
 		$return = array(
@@ -112,7 +111,10 @@ class SharedConfig extends StorageApiConfiguration
 				'tokenDescription' => $result['token_desc']
 			),
 			'bucket' => $result['bucket'],
-			'use_date_facts' => (bool)$result['date_facts']
+			'feats' => array(
+				'date_facts' => (bool)$result['date_facts'],
+				'cl_tool' => (bool)$result['cl_tool']
+			)
 		);
 
 		if ($result['status'] == self::WRITER_STATUS_PREPARING) {
