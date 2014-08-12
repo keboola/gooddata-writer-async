@@ -330,6 +330,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$configuration = $this->getConfiguration()->formatWriterAttributes($this->getConfiguration()->bucketAttributes());
 			try {
 				$sharedConfiguration = $this->getSharedConfig()->getWriter($this->getConfiguration()->projectId, $this->params['writerId']);
+				unset($sharedConfiguration['feats']);
 			} catch (SharedConfigException $e) {
 				$sharedConfiguration = array('status' => SharedConfig::WRITER_STATUS_READY, 'createdTime' => '');
 			}
@@ -343,6 +344,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			foreach ($configuration->getWriters() as $writer) {
 				try {
 					$sharedConfiguration = $this->getSharedConfig()->getWriter($tokenInfo['owner']['id'], $writer['id']);
+					unset($sharedConfiguration['feats']);
 				} catch (SharedConfigException $e) {
 					$sharedConfiguration = array('status' => SharedConfig::WRITER_STATUS_READY, 'createdTime' => '');
 				}
@@ -1934,14 +1936,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$projectId = $tokenInfo['owner']['id'];
 
 		if (!$this->getSharedConfig()->writerExists($projectId, $this->params['writerId'])) {
-			//@TODO REMOVE SOON
-			$this->logger->debug('Writer missing in shared table: ' . $projectId . ' - ' . $this->params['writerId']);
-			$bucket = $this->getConfiguration()->findConfigurationBucket($this->params['writerId']);
-			if ($bucket) {
-				$this->getSharedConfig()->setWriterStatus($projectId, $this->params['writerId'], SharedConfig::WRITER_STATUS_READY);
-			} else {
-				throw new WrongParametersException($this->translator->trans('parameters.writerId.not_found'));
-			}
+			throw new WrongParametersException($this->translator->trans('parameters.writerId.not_found'));
 		}
 	}
 

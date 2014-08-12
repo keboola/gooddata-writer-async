@@ -51,6 +51,7 @@ CREATE TABLE `writers` (
   `created_time` datetime NOT NULL,
   `deleted_time` datetime DEFAULT NULL,
   `info` text,
+  `cl_tool` tinyint(1) NOT NULL DEFAULT '0',
   `date_facts` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`project_id`,`writer_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

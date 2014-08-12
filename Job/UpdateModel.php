@@ -73,7 +73,7 @@ class UpdateModel extends AbstractJob
 
 		//@TODO REMOVE WITH CL TOOL
 		$clToolApi = null;
-		if (!$this->configuration->preRelease) {
+		if ($this->configuration->clTool) {
 			$clToolApi = new CLToolApi($this->logger, $this->appConfiguration->clPath);
 			$clToolApi->s3client = $this->s3Client;
 			$clToolApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -89,7 +89,7 @@ class UpdateModel extends AbstractJob
 			$stopWatchId = 'GoodData';
 			$stopWatch->start($stopWatchId);
 
-			if ($this->configuration->preRelease) {
+			if (!$this->configuration->clTool) {
 				$this->restApi->initLog();
 
 				$result = $this->restApi->updateDataSet($params['pid'], $definition, $this->configuration->noDateFacts);
