@@ -108,7 +108,7 @@ class Configuration extends StorageApiConfiguration
 		$logData = $this->storageApiClient->getLogData();
 		if (!empty($logData['owner']['features'])) {
 			if (in_array('gdwr-academy', $logData['owner']['features'])) {
-				$this->gd_domain = 'keboola-academy';
+				$this->gdDomain = 'keboola-academy';
 			}
 			$this->testingWriter = in_array('gdwr-testing', $logData['owner']['features']);
 		}
