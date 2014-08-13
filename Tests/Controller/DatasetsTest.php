@@ -103,6 +103,11 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertTrue($productsDataLoad, "Data to dataset 'Products' has not been loaded to GoodData");
 
 
+		// Check validity of foreign keys (including time dimension during daylight saving switch values)
+		$result = $this->restApi->validateProject($bucketAttributes['gd']['pid']);
+		$this->assertEquals(0, $result['error_found'], 'Project validation should not contain errors but result is: ' . print_r($result, true));
+		$this->assertEquals(0, $result['fatal_error_found'], 'Project validation should not contain errors but result is: ' . print_r($result, true));
+
 
 		/**
 		 * Check if upload table contains updateModel when needed
