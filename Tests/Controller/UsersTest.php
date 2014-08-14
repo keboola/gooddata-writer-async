@@ -15,10 +15,19 @@ class UsersTest extends AbstractControllerTest
 		 */
 		$ssoProvider = 'keboola.com';
 		$user = $this->createUser($ssoProvider);
-
+$projectsList = $this->configuration->getProjects();
+$this->assertGreaterThanOrEqual(1, $projectsList, "Response for writer call '/projects' should return at least one GoodData project.");
+$project = $projectsList[count($projectsList)-1];
+$responseJson = $this->getWriterApi(sprintf('/sso?writerId=%s&pid=%s&email=%s', $this->writerId, $project['pid'], $user['email']));
+print_r($responseJson);
+die();
 		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
-		$userInfo = $this->restApi->getUser($user['uid']);
-		$this->assertArrayHasKey('accountSetting', $userInfo, "Response for GoodData API user call should contain 'accountSetting' key.");
+		$userFound = false;
+		foreach ($this->restApi->usersInDomain($this->domainUser->domain) as $u) {
+			if ($u['accountSetting']['links']['self'] == '/gdc/account/profile/' . $user['uid'])
+				$userFound = true;
+		}
+		$this->assertTrue($userFound, 'User does not exist in GoodData');
 
 		// Check of GoodData
 		$bucketAttributes = $this->configuration->bucketAttributes();
