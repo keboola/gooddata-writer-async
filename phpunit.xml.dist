@@ -19,7 +19,7 @@
 			<file>Tests/GraphTest.php</file>
 			<file>Tests/CsvConversionTest.php</file>
 			<file>Tests/Controller/DatasetsTest.php</file>
-			<file>Tests/Controller/JobsTest.php</file>
+            <file>Tests/Controller/Reports.php</file>
 		</testsuite>
 		<testsuite name="part-2">
 			<file>Tests/Controller/ProjectsTest.php</file>
@@ -29,7 +29,7 @@
 			<file>Tests/Controller/WritersTest.php</file>
 			<file>Tests/Controller/UsersTest.php</file>
 			<file>Tests/Controller/ProxyTest.php</file>
-			<file>Tests/Controller/Reports.php</file>
+            <file>Tests/Controller/JobsTest.php</file>
 		</testsuite>
 	</testsuites>
 </phpunit>

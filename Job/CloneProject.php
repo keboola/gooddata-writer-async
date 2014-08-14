@@ -27,7 +27,7 @@ class CloneProject extends AbstractJob
 		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
 		// Get user uri if not set
 		if (empty($bucketAttributes['gd']['uid'])) {
-			$userId = $this->restApi->userId($bucketAttributes['gd']['username'], $this->appConfiguration->gd_domain);
+			$userId = $this->restApi->userId($bucketAttributes['gd']['username'], $this->domainUser->domain);
 			$this->configuration->updateWriter('gd.uid', $userId);
 			$bucketAttributes['gd']['uid'] = $userId;
 		}

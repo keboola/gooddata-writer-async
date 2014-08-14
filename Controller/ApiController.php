@@ -660,7 +660,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$targetUrl = isset($this->params['targetUrl'])? $this->params['targetUrl'] : '/#s=/gdc/projects/' . $this->params['pid'];
 		$validity = (isset($this->params['validity']))? $this->params['validity'] : 86400;
 
-		$domainUser = $this->getSharedConfig()->getDomainUser($this->appConfiguration->gd_domain);
+		$domainUser = $this->getSharedConfig()->getDomainUser($this->configuration->gdDomain? $this->configuration->gdDomain : $this->appConfiguration->gd_domain);
 		$sso = new SSO($domainUser->username, $this->appConfiguration);
 		$ssoLink = $sso->url($targetUrl, $this->params['email'], $validity);
 
