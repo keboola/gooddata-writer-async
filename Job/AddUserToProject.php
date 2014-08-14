@@ -44,7 +44,7 @@ class AddUserToProject extends AbstractJob
 			// user created by writer
 			$userId = $user['uid'];
 		} else {
-			$userId = $this->restApi->userId($params['email'], $this->appConfiguration->gd_domain);
+			$userId = $this->restApi->userId($params['email'], $this->domainUser->domain);
 			if ($userId) {
 				// user in domain
 				$this->configuration->saveUser($params['email'], $userId);

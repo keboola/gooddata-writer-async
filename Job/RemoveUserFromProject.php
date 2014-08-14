@@ -34,7 +34,7 @@ class RemoveUserFromProject extends AbstractJob
 
 		// find user in domain
 		if (!$userId) {
-			$userId = $this->restApi->userId($params['email'], $this->appConfiguration->gd_domain);
+			$userId = $this->restApi->userId($params['email'], $this->domainUser->domain);
 
 			if ($userId)
 				$this->configuration->saveUser($params['email'], $userId);
