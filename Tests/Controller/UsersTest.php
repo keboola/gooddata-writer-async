@@ -16,11 +16,13 @@ class UsersTest extends AbstractControllerTest
 		$ssoProvider = 'keboola.com';
 		$user = $this->createUser($ssoProvider);
 
+		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
+		$userInfo = $this->restApi->getUser($user['uid']);
+		$this->assertArrayHasKey('accountSetting', $userInfo, "Response for GoodData API user call should contain 'accountSetting' key.");
+
 		// Check of GoodData
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		$userInfo = $this->restApi->getUser($user['uid']);
-		$this->assertArrayHasKey('accountSetting', $userInfo, "Response for GoodData API user call should contain 'accountSetting' key.");
 
 
 		// Check of Writer API
