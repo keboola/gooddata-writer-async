@@ -17,12 +17,7 @@ class ProxyTest extends AbstractControllerTest
 		/**
 		 * Get proxy
 		 */
-		// Check of GoodData
-		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		$userInfo = $this->restApi->getUser($user['uid']);
-		$this->assertArrayHasKey('accountSetting', $userInfo, "Response for GoodData API user call should contain 'accountSetting' key.");
-
+		
 		// Check of Writer API
 		$projectsList = $this->configuration->getProjects();
 		$this->assertGreaterThanOrEqual(1, $projectsList, "Response for writer call '/projects' should return at least one GoodData project.");
