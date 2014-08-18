@@ -182,6 +182,9 @@ class Configuration extends StorageApiConfiguration
 
 	public function formatWriterAttributes($attributes)
 	{
+		if (!$attributes)
+			return array();
+
 		try {
 			$this->checkBucketAttributes($attributes);
 		} catch (WrongConfigurationException $e) {

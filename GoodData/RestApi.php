@@ -1243,17 +1243,21 @@ class RestApi
 	{
 		$gdAttribute = $this->getAttributeById($pid, $attribute);
 
-		if (is_array($value)) {
-			$elementArr = array();
-			foreach ($value as $v) {
-				$elementArr[] = '[' . $this->getElementUriByTitle($gdAttribute['content']['displayForms'][0]['links']['elements'], $v) . ']';
-			}
+		try {
+			if (is_array($value)) {
+				$elementArr = array();
+				foreach ($value as $v) {
+					$elementArr[] = '[' . $this->getElementUriByTitle($gdAttribute['content']['displayForms'][0]['links']['elements'], $v) . ']';
+				}
 
-			$elementsUri = implode(',', $elementArr);
-			$expression = "[" . $gdAttribute['meta']['uri'] . "]" . $operator . "(" . $elementsUri . ")";
-		} else {
-			$elementUri = $this->getElementUriByTitle($gdAttribute['content']['displayForms'][0]['links']['elements'], $value);
-			$expression = "[" . $gdAttribute['meta']['uri'] . "]" . $operator . "[" . $elementUri . "]";
+				$elementsUri = implode(',', $elementArr);
+				$expression = "[" . $gdAttribute['meta']['uri'] . "]" . $operator . "(" . $elementsUri . ")";
+			} else {
+				$elementUri = $this->getElementUriByTitle($gdAttribute['content']['displayForms'][0]['links']['elements'], $value);
+				$expression = "[" . $gdAttribute['meta']['uri'] . "]" . $operator . "[" . $elementUri . "]";
+			}
+		} catch (JobProcessException $e) {
+			throw new JobProcessException('Attribute value is missing from the dataset. Add it or choose another one please. (' . $e->getMessage() . ')', $e);
 		}
 
 		$filterUri = sprintf('/gdc/md/%s/obj', $pid);
@@ -1726,8 +1730,12 @@ class RestApi
 						}
 					} elseif ($responseObject && $responseObject->getStatusCode() == 403) {
 						$message = 'GoodData user ' . $this->username . ' does not have access to the resource.';
-						if (isset($responseJson['error']['message']) && isset($responseJson['error']['parameters'])) {
-							$message .= ' (' . sprintf($responseJson['error']['message'], $responseJson['error']['parameters']) . ')';
+						if (isset($responseJson['error']['message'])) {
+							if (isset($responseJson['error']['parameters']) && count($responseJson['error']['parameters'])) {
+								$message .= ' (' . sprintf($responseJson['error']['message'], $responseJson['error']['parameters']) . ')';
+							} else {
+								$message .= ' (' . $responseJson['error']['message'] . ')';
+							}
 						}
 						throw new RestApiException($message, $response, $request->getResponse()->getStatusCode());
 					} elseif ($responseObject && $responseObject->getStatusCode() == 410) {

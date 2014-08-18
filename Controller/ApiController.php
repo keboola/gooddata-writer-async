@@ -955,7 +955,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 		foreach ($this->params['filters'] as $f) {
 			if (!in_array($f, $configuredFilters)) {
-				throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $f)));
+				$filters = is_array($f)? implode(', ', $f) : $f;
+				throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $filters)));
 			}
 		}
 		$this->checkWriterExistence();
