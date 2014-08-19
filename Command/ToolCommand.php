@@ -67,8 +67,8 @@ class ToolCommand extends ContainerAwareCommand
 		$manifest = file_get_contents($appConfiguration->scriptsPath . '/time-dimension-manifest.json');
 		$timeDimensionManifest = str_replace('%NAME%', $dimensionName, $manifest);
 		file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
-		copy($appConfiguration->scriptsPath . '/time-dimension.csv', $tmpFolderDimension . '/data.csv');
-		$webDav->upload($tmpFolderDimension, $tmpFolderNameDimension, $tmpFolderDimension . '/upload_info.json', $tmpFolderDimension . '/data.csv');
+		copy($appConfiguration->scriptsPath . '/time-dimension.csv', $tmpFolderDimension . '/' . $dimensionName . '.csv');
+		$webDav->upload($tmpFolderDimension, $tmpFolderNameDimension, $tmpFolderDimension . '/upload_info.json', $tmpFolderDimension . '/' . $dimensionName . '.csv');
 
 
 		$restApi->loadData($pid, $tmpFolderNameDimension, $dimensionName);

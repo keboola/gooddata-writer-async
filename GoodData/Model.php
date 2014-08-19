@@ -238,7 +238,7 @@ class Model
 		$dataSetName = self::getId($definition['name']);
 		$manifest = array(
 			'dataSetSLIManifest' => array(
-				'file' => 'data.csv',
+				'file' => $dataSetName . '.csv',
 				'dataSet' => 'dataset.' . $dataSetName,
 				'parts' => array()
 			)

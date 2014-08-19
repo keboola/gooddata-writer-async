@@ -71,7 +71,7 @@
 				"mode" : "FULL"
 			}
 		],
-		"file" : "data.csv",
+		"file" : "%NAME%.csv",
 		"dataSet" : "dataset.time.%NAME%"
 	}
 }
