@@ -8,6 +8,7 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\Model;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Writer\SharedConfig;
 
 class OptimizeSliHash extends AbstractJob
@@ -17,7 +18,7 @@ class OptimizeSliHash extends AbstractJob
 	 * required: email, role
 	 * optional: pid
 	 */
-	public function run($job, $params)
+	public function run($job, $params, RestApi $restApi)
 	{
 		try {
 			$gdWriteStartTime = time();
@@ -52,11 +53,11 @@ class OptimizeSliHash extends AbstractJob
 			$this->sharedConfig->saveJob($job['id'], array('status' => SharedConfig::JOB_STATUS_PROCESSING));
 
 			$bucketAttributes = $this->configuration->bucketAttributes();
-			$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+			$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 			// Check if we have all manifests
 			$missing = array();
-			foreach ($this->restApi->getDataSets($bucketAttributes['gd']['pid']) as $ds) {
+			foreach ($restApi->getDataSets($bucketAttributes['gd']['pid']) as $ds) {
 				if (substr($ds['id'], -3) != '.dt') {
 					if (!in_array($ds['id'], $dataSetsToOptimize)) {
 						$missing[] = $ds['title'];
@@ -68,13 +69,13 @@ class OptimizeSliHash extends AbstractJob
 				throw new WrongConfigurationException($this->translator->trans('configuration.data_sets_not_found %1', array('%1' => implode(', ', $missing))));
 			}
 
-			$this->restApi->optimizeSliHash($bucketAttributes['gd']['pid'], $manifests);
+			$restApi->optimizeSliHash($bucketAttributes['gd']['pid'], $manifests);
 
 			$this->sharedConfig->setWriterStatus($job['projectId'], $job['writerId'], SharedConfig::WRITER_STATUS_READY);
 
 			$this->logEvent('optimizeSliHash', array(
 				'duration' => time() - strtotime($gdWriteStartTime)
-			), $this->restApi->getLogPath());
+			), $restApi->getLogPath());
 			return array(
 				'gdWriteStartTime' => $gdWriteStartTime
 			);

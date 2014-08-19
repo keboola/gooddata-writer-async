@@ -8,6 +8,7 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException,
 	Keboola\GoodDataWriter\GoodData\RestApiException;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class ExecuteReports extends AbstractJob
 {
@@ -15,7 +16,7 @@ class ExecuteReports extends AbstractJob
 	 * required: pid
 	 * optional: reports
 	 */
-	public function run($job, $params)
+	public function run($job, $params, RestApi $restApi)
 	{
 		$this->checkParams($params, array('pid'));
 		$project = $this->configuration->getProject($params['pid']);
@@ -37,18 +38,18 @@ class ExecuteReports extends AbstractJob
 
 		$gdWriteStartTime = date('c');
 
-		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			if (!empty($params['reports'])) {
 				// specified reports
 				foreach ($params['reports'] as $reportUri) {
-					$this->restApi->executeReport($reportUri);
+					$restApi->executeReport($reportUri);
 				}
 			} else {
 				// all reports
-				$reports = $this->restApi->get(sprintf('/gdc/md/%s/query/reports', $params['pid']));
+				$reports = $restApi->get(sprintf('/gdc/md/%s/query/reports', $params['pid']));
 				if (isset($reports['query']['entries'])) {
 					foreach ($reports['query']['entries'] as $report) {
-						$this->restApi->executeReport($report['link']);
+						$restApi->executeReport($report['link']);
 					}
 				} else {
 					throw new RestApiException($this->translator->trans('rest_api.reports_list_bad_response'));
@@ -57,7 +58,7 @@ class ExecuteReports extends AbstractJob
 
 		$this->logEvent('execute_reports', array(
 			'duration' => time() - strtotime($gdWriteStartTime)
-		), $this->restApi->getLogPath());
+		), $restApi->getLogPath());
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);

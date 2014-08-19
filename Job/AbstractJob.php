@@ -7,7 +7,6 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Service\Queue;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\Configuration,
@@ -33,10 +32,6 @@ abstract class AbstractJob
 	 * @var SharedConfig
 	 */
 	protected $sharedConfig;
-	/**
-	 * @var RestApi
-	 */
-	protected $restApi;
 	/**
 	 * @var S3Client
 	 */
@@ -64,7 +59,7 @@ abstract class AbstractJob
 	/**
 	 * @var \Keboola\GoodDataWriter\GoodData\User
 	 */
-	protected $domainUser;
+	private $domainUser;
 	/**
 	 * @var \Keboola\GoodDataWriter\Service\EventLogger
 	 */
@@ -76,37 +71,56 @@ abstract class AbstractJob
 	private $logFile;
 	protected $logs;
 
-	protected $tmpDir;
+	private $tmpDir;
 	protected $scriptsPath;
 
 
 	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedConfig $sharedConfig,
-								RestApi $restApi, S3Client $s3Client, TempService $tempService, TranslatorInterface $translator,
-								StorageApiClient $storageApiClient, $jobId, EventLogger $eventLogger)
+	                            S3Client $s3Client, TranslatorInterface $translator, StorageApiClient $storageApiClient)
 	{
 		$this->configuration = $configuration;
 		$this->appConfiguration = $appConfiguration;
 		$this->sharedConfig = $sharedConfig;
-		$this->restApi = $restApi;
 		$this->s3Client = $s3Client;
-		$this->tempService = $tempService;
 		$this->translator = $translator;
 		$this->storageApiClient = $storageApiClient;
-		$this->eventLogger = $eventLogger;
-
-		$this->domainUser = $this->sharedConfig->getDomainUser($this->configuration->gdDomain? $this->configuration->gdDomain : $appConfiguration->gd_domain);
 
 		$this->initLog();
 		$this->logs = array();
-
-		$this->tmpDir = sprintf('%s/%s', $this->appConfiguration->tmpPath, $jobId);
-		if (!file_exists($this->appConfiguration->tmpPath)) mkdir($this->appConfiguration->tmpPath);
-		if (!file_exists($this->tmpDir)) mkdir($this->tmpDir);
 	}
 
 
-	abstract function run($job, $params);
+	abstract function run($job, $params, RestApi $restApi);
 
+	protected function getTmpDir($jobId)
+	{
+		if (!$this->tmpDir) {
+			$this->tmpDir = sprintf('%s/%s', $this->appConfiguration->tmpPath, $jobId);
+			if (!file_exists($this->appConfiguration->tmpPath)) mkdir($this->appConfiguration->tmpPath);
+			if (!file_exists($this->tmpDir)) mkdir($this->tmpDir);
+		}
+		return $this->tmpDir;
+	}
+
+	protected function getDomainUser()
+	{
+		if (!$this->domainUser) {
+			$this->domainUser = $this->sharedConfig->getDomainUser($this->configuration->gdDomain?
+				$this->configuration->gdDomain : $this->appConfiguration->gd_domain);
+		}
+		return $this->domainUser;
+	}
+
+
+	public function setTempService($tempService)
+	{
+		$this->tempService = $tempService;
+	}
+
+	public function setEventLogger($logger)
+	{
+		$this->eventLogger = $logger;
+	}
 
 	public function setLogger($logger)
 	{

@@ -12,6 +12,7 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\CLToolApi;
 use Keboola\GoodDataWriter\GoodData\Model;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 use Symfony\Component\Stopwatch\Stopwatch;
 
 class UpdateModel extends AbstractJob
@@ -22,7 +23,7 @@ class UpdateModel extends AbstractJob
 	 * required: pid, tableId
 	 * optional:
 	 */
-	public function run($job, $params)
+	public function run($job, $params, RestApi $restApi)
 	{
 		$this->checkParams($params, array('pid', 'tableId'));
 		$project = $this->configuration->getProject($params['pid']);
@@ -44,9 +45,9 @@ class UpdateModel extends AbstractJob
 
 
 		// Init
-		$tmpFolderName = basename($this->tmpDir);
+		$tmpFolderName = basename($this->getTmpDir($job['id']));
 		$this->goodDataModel = new Model($this->appConfiguration);
-		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
 
@@ -90,9 +91,9 @@ class UpdateModel extends AbstractJob
 			$stopWatch->start($stopWatchId);
 
 			if (!$this->configuration->clTool) {
-				$this->restApi->initLog();
+				$restApi->initLog();
 
-				$result = $this->restApi->updateDataSet($params['pid'], $definition, $this->configuration->noDateFacts);
+				$result = $restApi->updateDataSet($params['pid'], $definition, $this->configuration->noDateFacts);
 				if ($result) {
 					$updateOperations[] = $result;
 				}
@@ -105,24 +106,24 @@ class UpdateModel extends AbstractJob
 				$e = $stopWatch->stop($stopWatchId);
 				$this->logEvent($stopWatchId, array(
 					'duration' => $e->getDuration()
-				), $this->restApi->getLogPath());
+				), $restApi->getLogPath());
 
 			//@TODO REMOVE WITH CL TOOL
 			} else {
 				$clToolApi->debugLogUrl = null;
-				$this->restApi->initLog();
+				$restApi->initLog();
 				$clToolApi->s3Dir = $tmpFolderName;
-				$clToolApi->tmpDir = $this->tmpDir;
+				$clToolApi->tmpDir = $this->getTmpDir($job['id']);
 				if (!file_exists($clToolApi->tmpDir)) mkdir($clToolApi->tmpDir);
 				$xml = CLToolApi::getXml($definition);
 
-				$existingDataSets = $this->restApi->getDataSets($params['pid']);
+				$existingDataSets = $restApi->getDataSets($params['pid']);
 				$dataSetExists = in_array($dataSetId, array_keys($existingDataSets));
 
 				$maql = $dataSetExists? $clToolApi->updateDataSetMaql($params['pid'], $xml, 1, $dataSetName)
 					: $clToolApi->createDataSetMaql($params['pid'], $xml, $dataSetName);
 				if ($maql) {
-					$this->restApi->executeMaql($params['pid'], $maql);
+					$restApi->executeMaql($params['pid'], $maql);
 				}
 				if (empty($tableDefinition['isExported'])) {
 					// Save export status to definition
@@ -137,7 +138,7 @@ class UpdateModel extends AbstractJob
 					'duration' => $e->getDuration(),
 					'xml' => $xml,
 					'clTool' => $clToolApi->output
-				), $this->restApi->getLogPath());
+				), $restApi->getLogPath());
 			}
 			//@TODO REMOVE WITH CL TOOL
 
@@ -163,7 +164,7 @@ class UpdateModel extends AbstractJob
 				}
 			} elseif ($e instanceof RestApiException) {
 				$error = $e->getDetails();
-				$restApiLogPath = $this->restApi->getLogPath();
+				$restApiLogPath = $restApi->getLogPath();
 			}
 			$this->logEvent($stopWatchId, $eventDetails, $restApiLogPath);
 

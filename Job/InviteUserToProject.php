@@ -15,7 +15,7 @@ class InviteUserToProject extends AbstractJob
 	 * required: email, role
 	 * optional: pid
 	 */
-	public function run($job, $params)
+	public function run($job, $params, RestApi $restApi)
 	{
 		$this->checkParams($params, array('email', 'role'));
 		$params['email'] = strtolower($params['email']);
@@ -36,14 +36,14 @@ class InviteUserToProject extends AbstractJob
 
 
 		$gdWriteStartTime = date('c');
-		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		$this->restApi->inviteUserToProject($params['email'], $params['pid'], RestApi::$userRoles[$params['role']]);
+		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$restApi->inviteUserToProject($params['email'], $params['pid'], RestApi::$userRoles[$params['role']]);
 
 		$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role']);
 
 		$this->logEvent('inviteUserToProject', array(
 			'duration' => time() - strtotime($gdWriteStartTime)
-		), $this->restApi->getLogPath());
+		), $restApi->getLogPath());
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);

@@ -442,6 +442,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->getConfiguration()->checkUsersTable();
 		$this->getConfiguration()->checkProjectUsersTable();
 
+		if (empty($this->params['pid'])) {
+			$bucketAttributes = $this->configuration->bucketAttributes();
+			$this->params['pid'] = $bucketAttributes['gd']['pid'];
+		}
 
 		$jobInfo = $this->createJob(array(
 			'command' => $command,

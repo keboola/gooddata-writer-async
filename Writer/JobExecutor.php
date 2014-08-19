@@ -199,15 +199,17 @@ class JobExecutor
 				/**
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 				 */
-				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedConfig, $this->restApi, $s3Client,
-					$tempService, $this->translator, $this->storageApiClient, $job['id'], $this->eventLogger);
+				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedConfig, $s3Client,
+					$this->translator, $this->storageApiClient);
+				$command->setTempService($tempService);
+				$command->setEventLogger($this->eventLogger);
 				$command->setLogger($this->logger); //@TODO deprecated - only for CL tool
 				$command->setQueue($this->queue);
 
 				$error = null;
 
 				try {
-					$jobData['result'] = $command->run($job, $parameters);
+					$jobData['result'] = $command->run($job, $parameters, $this->restApi);
 				} catch (\Exception $e) {
 					$debug = array(
 						'message' => $e->getMessage(),

@@ -8,22 +8,24 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\GoodData\RestApi;
+
 class SyncFilters extends AbstractJob
 {
 	/**
 	 * required:
 	 * optional: pid
 	 */
-	function run($job, $params)
+	function run($job, $params, RestApi $restApi)
 	{
 		$gdWriteStartTime = date('c');
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		// Delete all filters from project
-		$gdFilters = $this->restApi->getFilters($params['pid']);
+		$gdFilters = $restApi->getFilters($params['pid']);
 		foreach ($gdFilters as $gdf) {
-			$this->restApi->deleteFilter($gdf['link']);
+			$restApi->deleteFilter($gdf['link']);
 		}
 
 		// Create filters
@@ -38,7 +40,7 @@ class SyncFilters extends AbstractJob
 			if (!is_array($value)) {
 				$value = $f['value'];
 			}
-			$filterUris[$f['name']] = $this->restApi->createFilter(
+			$filterUris[$f['name']] = $restApi->createFilter(
 				$f['name'],
 				$this->configuration->translateAttributeName($f['attribute']),
 				$f['operator'],
@@ -63,14 +65,14 @@ class SyncFilters extends AbstractJob
 			}
 
 			if (count($filters)) {
-				$this->restApi->assignFiltersToUser($filters, $user['uid'], $params['pid']);
+				$restApi->assignFiltersToUser($filters, $user['uid'], $params['pid']);
 			}
 
 		}
 
 		$this->logEvent('syncFilters', array(
 			'duration' => time() - strtotime($gdWriteStartTime)
-		), $this->restApi->getLogPath());
+		), $restApi->getLogPath());
 		return array(
 			'gdWriteStartTime'  => $gdWriteStartTime
 		);

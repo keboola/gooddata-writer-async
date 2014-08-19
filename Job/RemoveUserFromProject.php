@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class RemoveUserFromProject extends AbstractJob
 {
@@ -14,12 +15,12 @@ class RemoveUserFromProject extends AbstractJob
 	 * required: pid, email
 	 * optional:
 	 */
-	public function run($job, $params)
+	public function run($job, $params, RestApi $restApi)
 	{
 		$this->checkParams($params, array('pid', 'email'));
 		$params['email'] = strtolower($params['email']);
 
-		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
+		$restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
 
 		$gdWriteStartTime = date('c');
 		if (!$this->configuration->isProjectUser($params['email'], $params['pid'])) {
@@ -34,7 +35,7 @@ class RemoveUserFromProject extends AbstractJob
 
 		// find user in domain
 		if (!$userId) {
-			$userId = $this->restApi->userId($params['email'], $this->domainUser->domain);
+			$userId = $restApi->userId($params['email'], $this->getDomainUser()->domain);
 
 			if ($userId)
 				$this->configuration->saveUser($params['email'], $userId);
@@ -43,22 +44,22 @@ class RemoveUserFromProject extends AbstractJob
 
 		// find user in project (maybe invited)
 		if (!$userId) {
-			$userId = $this->restApi->userIdByProject($params['email'], $params['pid']);
+			$userId = $restApi->userIdByProject($params['email'], $params['pid']);
 		}
 
 		if ($userId) {
-			$this->restApi->removeUserFromProject($userId, $params['pid']);
+			$restApi->removeUserFromProject($userId, $params['pid']);
 		}
 
 		// cancel possible invitations
-		$this->restApi->cancelInviteUserToProject($params['email'], $params['pid']);
+		$restApi->cancelInviteUserToProject($params['email'], $params['pid']);
 
 		$this->configuration->removeProjectUserInvite($params['pid'], $params['email']);
 		$this->configuration->removeProjectUserAdd($params['pid'], $params['email']);
 
 		$this->logEvent('removeUserFromProject', array(
 			'duration' => time() - strtotime($gdWriteStartTime)
-		), $this->restApi->getLogPath());
+		), $restApi->getLogPath());
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);

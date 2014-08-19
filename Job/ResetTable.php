@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Symfony\Component\Stopwatch\Stopwatch;
 
@@ -15,7 +16,7 @@ class ResetTable extends AbstractJob
 	 * required: tableId
 	 * optional:
 	 */
-	public function run($job, $params)
+	public function run($job, $params, RestApi $restApi)
 	{
 		$this->checkParams($params, array('tableId'));
 
@@ -38,18 +39,18 @@ class ResetTable extends AbstractJob
 		$e = $stopWatch->stop($stopWatchId);
 		$this->logEvent($stopWatchId, array(
 			'duration' => $e->getDuration()
-		), $this->restApi->getLogPath());
-		$this->restApi->initLog();
+		), $restApi->getLogPath());
+		$restApi->initLog();
 
 		$result = array();
 		$stopWatchId = 'restApi';
 		$stopWatch->start($stopWatchId);
 		try {
-			$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+			$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 			$updateOperations = array();
 			foreach ($projects as $project) if ($project['active']) {
-				$result = $this->restApi->dropDataSet($project['pid'], $dataSetName);
+				$result = $restApi->dropDataSet($project['pid'], $dataSetName);
 				if ($result) {
 					$updateOperations[$project['pid']] = $result;
 				}
@@ -69,7 +70,7 @@ class ResetTable extends AbstractJob
 			);
 			if ($e instanceof RestApiException) {
 				$error = $e->getDetails();
-				$restApiLogPath = $this->restApi->getLogPath();
+				$restApiLogPath = $restApi->getLogPath();
 			}
 			$this->logEvent($stopWatchId, $eventDetail, $restApiLogPath);
 
