@@ -11,6 +11,7 @@ namespace Keboola\GoodDataWriter\Job;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\WebDav;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\WebDavException;
@@ -28,7 +29,7 @@ class UploadDateDimension extends AbstractJob
 	 * required: pid, name
 	 * optional:
 	 */
-	public function run($job, $params)
+	public function run($job, $params, RestApi $restApi)
 	{
 		$this->checkParams($params, array('pid', 'name'));
 		$project = $this->configuration->getProject($params['pid']);
@@ -50,25 +51,25 @@ class UploadDateDimension extends AbstractJob
 		}
 
 		// Init
-		$tmpFolderName = basename($this->tmpDir);
+		$tmpFolderName = basename($this->getTmpDir($job['id']));
 		$this->goodDataModel = new Model($this->appConfiguration);
-		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$includeTime = $dateDimensions[$params['name']]['includeTime'];
 		$template = $dateDimensions[$params['name']]['template'];
 
 		$stopWatchId = 'createDimension-' . $params['name'];
 		$stopWatch->start($stopWatchId);
-		$this->restApi->initLog();
+		$restApi->initLog();
 
 		try {
 			// Create date dimensions
-			$this->restApi->createDateDimension($params['pid'], $params['name'], $includeTime, $template);
+			$restApi->createDateDimension($params['pid'], $params['name'], $includeTime, $template);
 
 			$e = $stopWatch->stop($stopWatchId);
 			$this->logEvent($stopWatchId, array(
 				'duration' => $e->getDuration()
-			), $this->restApi->getLogPath());
+			), $restApi->getLogPath());
 
 			if ($includeTime) {
 				// Upload to WebDav
@@ -79,7 +80,7 @@ class UploadDateDimension extends AbstractJob
 				$stopWatch->start($stopWatchId);
 
 				$dimensionName = Model::getId($params['name']);
-				$tmpFolderDimension = $this->tmpDir . '/' . $dimensionName;
+				$tmpFolderDimension = $this->getTmpDir($job['id']) . '/' . $dimensionName;
 				$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
 
 				mkdir($tmpFolderDimension);
@@ -101,11 +102,11 @@ class UploadDateDimension extends AbstractJob
 				$gdWriteStartTime = date('c');
 				$stopWatchId = sprintf('runEtlTimeDimension-%s', $params['name']);
 				$stopWatch->start($stopWatchId);
-				$this->restApi->initLog();
+				$restApi->initLog();
 
 				$dataSetName = 'time.' . $dimensionName;
 				try {
-					$this->restApi->loadData($params['pid'], $tmpFolderNameDimension);
+					$restApi->loadData($params['pid'], $tmpFolderNameDimension);
 				} catch (RestApiException $e) {
 					$debugFile = $tmpFolderDimension . '/' . $params['pid'] . '-etl.log';
 					$taskName = 'Data Load Error';
@@ -126,7 +127,7 @@ class UploadDateDimension extends AbstractJob
 				$e = $stopWatch->stop($stopWatchId);
 				$this->logEvent($stopWatchId, array(
 					'duration' => $e->getDuration()
-				), $this->restApi->getLogPath());
+				), $restApi->getLogPath());
 			}
 
 		} catch (\Exception $e) {
@@ -139,7 +140,7 @@ class UploadDateDimension extends AbstractJob
 			);
 			if ($e instanceof RestApiException) {
 				$error = $e->getDetails();
-				$restApiLogPath = $this->restApi->getLogPath();
+				$restApiLogPath = $restApi->getLogPath();
 			}
 			$this->logEvent($stopWatchId, $eventDetail, $restApiLogPath);
 

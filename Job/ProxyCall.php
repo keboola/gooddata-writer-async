@@ -9,25 +9,27 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\GoodData\RestApi;
+
 class ProxyCall  extends AbstractJob
 {
 	/**
 	 * required: query, payload
 	 * optional: pid
 	 */
-	function run($job, $params)
+	function run($job, $params, RestApi $restApi)
 	{
 		$this->checkParams($params, array('query', 'payload'));
 
 		$gdWriteStartTime = date('c');
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		$response = $this->restApi->post($params['query'], $params['payload']);
+		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$response = $restApi->post($params['query'], $params['payload']);
 
 		$this->logEvent('proxyCall', array(
 			'duration' => time() - strtotime($gdWriteStartTime)
-		), $this->restApi->getLogPath());
+		), $restApi->getLogPath());
 		return array(
 			'response' => $response,
 			'gdWriteStartTime' => $gdWriteStartTime

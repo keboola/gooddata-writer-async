@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class createFilter extends AbstractJob
 {
@@ -14,7 +15,7 @@ class createFilter extends AbstractJob
 	 * required: name, attribute, element, pid, operator
 	 * optional:
 	 */
-	public function run($job, $params)
+	public function run($job, $params, RestApi $restApi)
 	{
 		$this->checkParams($params, array('name', 'attribute', 'operator', 'value', 'pid'));
 
@@ -40,17 +41,17 @@ class createFilter extends AbstractJob
 		$attrId = $this->configuration->translateAttributeName($params['attribute']);
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$gdWriteStartTime = date('c');
-		$filterUri = $this->restApi->createFilter($params['name'], $attrId, $params['operator'], $params['value'], $params['pid']);
+		$filterUri = $restApi->createFilter($params['name'], $attrId, $params['operator'], $params['value'], $params['pid']);
 
 		$this->configuration->saveFilter($params['name'], $params['attribute'], $params['operator'], $params['value']);
 		$this->configuration->saveFiltersProjects($filterUri, $params['name'], $params['pid']);
 
 		$this->logEvent('createFilter', array(
 			'duration' => time() - strtotime($gdWriteStartTime)
-		), $this->restApi->getLogPath());
+		), $restApi->getLogPath());
 		return array(
 			'uri' => $filterUri,
 			'gdWriteStartTime' => $gdWriteStartTime

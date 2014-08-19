@@ -17,7 +17,7 @@ class ResetProject extends AbstractJob
 	 * required:
 	 * optional: removeClones, accessToken
 	 */
-	function run($job, $params)
+	function run($job, $params, RestApi $restApi)
 	{
 		$gdWriteStartTime = date('c');
 		$removeClones = isset($params['removeClones']) ? (bool)$params['removeClones'] : false;
@@ -30,8 +30,8 @@ class ResetProject extends AbstractJob
 		$oldPid = $bucketAttributes['gd']['pid'];
 		$userId = $bucketAttributes['gd']['uid'];
 
-		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
-		$newPid = $this->restApi->createProject($projectName, $accessToken, json_encode(array(
+		$restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
+		$newPid = $restApi->createProject($projectName, $accessToken, json_encode(array(
 			'projectId' => $this->configuration->projectId,
 			'writerId' => $this->configuration->writerId,
 			'main' => true
@@ -39,27 +39,27 @@ class ResetProject extends AbstractJob
 
 		// All users from old project add to the new one with the same role
 		$oldRoles = array();
-		foreach($this->restApi->usersInProject($oldPid) as $user) {
+		foreach($restApi->usersInProject($oldPid) as $user) {
 			$userEmail = $user['user']['content']['email'];
-			if ($userEmail == $this->domainUser->username) continue;
+			if ($userEmail == $this->getDomainUser()->username) continue;
 
 			$userId = RestApi::getUserId($user['user']['links']['self']);
 			if (isset($user['user']['content']['userRoles'])) foreach ($user['user']['content']['userRoles'] as $roleUri) {
 				if (!in_array($roleUri, array_keys($oldRoles))) {
-					$role = $this->restApi->get($roleUri);
+					$role = $restApi->get($roleUri);
 					if (isset($role['projectRole']['meta']['identifier']))
 						$oldRoles[$roleUri] = $role['projectRole']['meta']['identifier'];
 				}
 				if (isset($oldRoles[$roleUri])) {
 					try {
-						$this->restApi->addUserToProject($userId, $newPid, $oldRoles[$roleUri]);
+						$restApi->addUserToProject($userId, $newPid, $oldRoles[$roleUri]);
 					} catch (RestApiException $e) {
-						$this->restApi->inviteUserToProject($userEmail, $newPid, $oldRoles[$roleUri]);
+						$restApi->inviteUserToProject($userEmail, $newPid, $oldRoles[$roleUri]);
 					}
 				}
 			}
 
-			$this->restApi->disableUserInProject($user['user']['links']['self'], $oldPid);
+			$restApi->disableUserInProject($user['user']['links']['self'], $oldPid);
 		}
 
 		$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $oldPid);
@@ -67,7 +67,7 @@ class ResetProject extends AbstractJob
 		if ($removeClones) {
 			foreach ($this->configuration->getProjects() as $p) {
 				if (empty($p['main'])) {
-					$this->restApi->disableUserInProject(RestApi::getUserUri($userId), $p['pid']);
+					$restApi->disableUserInProject(RestApi::getUserUri($userId), $p['pid']);
 					$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $p['pid']);
 				}
 			}
@@ -87,7 +87,7 @@ class ResetProject extends AbstractJob
 
 		$this->logEvent('ResetProject', array(
 			'duration' => time() - strtotime($gdWriteStartTime)
-		), $this->restApi->getLogPath());
+		), $restApi->getLogPath());
 		return array(
 			'newPid' => $newPid,
 			'gdWriteStartTime' => $gdWriteStartTime

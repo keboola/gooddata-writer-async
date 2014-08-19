@@ -12,12 +12,12 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 class AddUserToProject extends AbstractJob
 {
 	/**
-	 * required: email, role
-	 * optional: pid, createUser
+	 * required: pid, email, role
+	 * optional: createUser
 	 */
-	public function run($job, $params)
+	public function run($job, $params, RestApi $restApi)
 	{
-		$this->checkParams($params, array('email', 'role'));
+		$this->checkParams($params, array('pid', 'email', 'role'));
 		$params['email'] = strtolower($params['email']);
 
 		$allowedRoles = array_keys(RestApi::$userRoles);
@@ -25,15 +25,9 @@ class AddUserToProject extends AbstractJob
 			throw new WrongConfigurationException($this->translator->trans('role %1', array('%1' => implode(', ', $allowedRoles))));
 		}
 
-		if (empty($params['pid'])) {
-			$bucketAttributes = $this->configuration->bucketAttributes();
-			$this->configuration->checkBucketAttributes($bucketAttributes);
-			$params['pid'] = $bucketAttributes['gd']['pid'];
-		}
+		$restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
 
-		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
-
-		$gdWriteStartTime = date('c');
+		$startTime = date('c');
 		$userId = null;
 
 		// Get user uri
@@ -43,7 +37,7 @@ class AddUserToProject extends AbstractJob
 			// user created by writer
 			$userId = $user['uid'];
 		} else {
-			$userId = $this->restApi->userId($params['email'], $this->domainUser->domain);
+			$userId = $restApi->userId($params['email'], $this->getDomainUser()->domain);
 			if ($userId) {
 				// user in domain
 				$this->configuration->saveUser($params['email'], $userId);
@@ -53,8 +47,8 @@ class AddUserToProject extends AbstractJob
 		if (!$userId) {
 			if (!empty($params['createUser'])) {
 				// try create new user in domain
-				$childJob = new CreateUser($this->configuration, $this->appConfiguration, $this->sharedConfig, $this->restApi,
-					$this->s3Client, $this->tempService, $this->translator, $this->storageApiClient, $job['id'], $this->eventLogger);
+				$childJob = new CreateUser($this->configuration, $this->appConfiguration, $this->sharedConfig,
+					$this->s3Client, $this->translator, $this->storageApiClient);
 
 				$childParams = array(
 					'email' => $params['email'],
@@ -63,7 +57,7 @@ class AddUserToProject extends AbstractJob
 					'password' => md5(uniqid() . str_repeat($params['email'], 2)),
 				);
 
-				$result = $childJob->run($job, $childParams);
+				$result = $childJob->run($job, $childParams, $restApi);
 				if (!empty($result['uid'])) {
 					$userId = $result['uid'];
 				}
@@ -71,20 +65,18 @@ class AddUserToProject extends AbstractJob
 		}
 
 		if ($userId) {
-			$this->restApi->addUserToProject($userId, $params['pid'], RestApi::$userRoles[$params['role']]);
+			$restApi->addUserToProject($userId, $params['pid'], RestApi::$userRoles[$params['role']]);
 
 			$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role']);
 		} else {
-			$this->restApi->inviteUserToProject($params['email'], $params['pid'], RestApi::$userRoles[$params['role']]);
+			$restApi->inviteUserToProject($params['email'], $params['pid'], RestApi::$userRoles[$params['role']]);
 
 			$this->configuration->saveProjectInvite($params['pid'], $params['email'], $params['role']);
 		}
 
 		$this->logEvent('addUserToProject', array(
-			'duration' => time() - strtotime($gdWriteStartTime)
-		), $this->restApi->getLogPath());
-		return array(
-			'gdWriteStartTime' => $gdWriteStartTime
-		);
+			'duration' => time() - strtotime($startTime)
+		), $restApi->getLogPath());
+		return array();
 	}
 }

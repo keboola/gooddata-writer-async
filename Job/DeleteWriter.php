@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 
 class DeleteWriter extends AbstractJob
@@ -15,18 +16,18 @@ class DeleteWriter extends AbstractJob
 	 * required:
 	 * optional:
 	 */
-	public function run($job, $params)
+	public function run($job, $params, RestApi $restApi)
 	{
 		if (!$this->configuration->bucketId) {
 			throw new WrongConfigurationException('Writer has been already deleted.');
 		}
 
-		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
+		$restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
 
 		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) if (!$project['keep_on_removal']) {
 			if ($this->configuration->testingWriter) {
 				try {
-					$this->restApi->dropProject($project['pid']);
+					$restApi->dropProject($project['pid']);
 				} catch (RestApiException $e) {
 					// Ignore, project may have been already deleted
 				}
@@ -36,10 +37,10 @@ class DeleteWriter extends AbstractJob
 
 				// Disable users in project
 				try {
-					$projectUsers = $this->restApi->get(sprintf('/gdc/projects/%s/users', $project['pid']));
+					$projectUsers = $restApi->get(sprintf('/gdc/projects/%s/users', $project['pid']));
 					foreach ($projectUsers['users'] as $user) {
-						if ($user['user']['content']['email'] != $this->domainUser->username) {
-							$this->restApi->disableUserInProject($user['user']['links']['self'], $project['pid']);
+						if ($user['user']['content']['email'] != $this->getDomainUser()->username) {
+							$restApi->disableUserInProject($user['user']['links']['self'], $project['pid']);
 						}
 					}
 				} catch (RestApiException $e) {
@@ -53,7 +54,7 @@ class DeleteWriter extends AbstractJob
 		foreach ($this->sharedConfig->getUsers($job['projectId'], $job['writerId']) as $user) {
 			if (strpos($user['email'], $writerDomain) !== false) {
 				if ($this->configuration->testingWriter) {
-					$this->restApi->dropUser($user['uid']);
+					$restApi->dropUser($user['uid']);
 					$this->sharedConfig->markUsersDeleted(array($user['uid']));
 				} else {
 					$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid']);
@@ -62,7 +63,7 @@ class DeleteWriter extends AbstractJob
 		}
 
 		$this->configuration->deleteWriter();
-		$this->logEvent('deleteWriter', array(), $this->restApi->getLogPath());
+		$this->logEvent('deleteWriter', array(), $restApi->getLogPath());
 		return array();
 	}
 }

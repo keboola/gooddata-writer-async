@@ -18,7 +18,7 @@ class CreateWriter extends AbstractJob
 	 * required: (accessToken, projectName) || (pid, username, password)
 	 * optional: description
 	 */
-	public function run($job, $params)
+	public function run($job, $params, RestApi $restApi)
 	{
 		try {
 			$this->configuration->updateDataSetsFromSapi();
@@ -32,14 +32,14 @@ class CreateWriter extends AbstractJob
 			// Check setup for existing project
 			if ($existingProject) {
 				try {
-					$this->restApi->login($params['username'], $params['password']);
+					$restApi->login($params['username'], $params['password']);
 				} catch (\Exception $e) {
 					throw new JobProcessException($this->translator->trans('parameters.gd.credentials'));
 				}
-				if (!$this->restApi->hasAccessToProject($params['pid'])) {
+				if (!$restApi->hasAccessToProject($params['pid'])) {
 					throw new JobProcessException($this->translator->trans('parameters.gd.project_inaccessible'));
 				}
-				if (!in_array('admin', $this->restApi->getUserRolesInProject($params['username'], $params['pid']))) {
+				if (!in_array('admin', $restApi->getUserRolesInProject($params['username'], $params['pid']))) {
 					throw new JobProcessException($this->translator->trans('parameters.gd.user_not_admin'));
 				}
 			} else {
@@ -47,9 +47,9 @@ class CreateWriter extends AbstractJob
 			}
 
 			// Create writer's GD user
-			$this->restApi->login($this->domainUser->username, $this->domainUser->password);
+			$restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
 			try {
-				$userId = $this->restApi->createUser($this->domainUser->domain, $username, $password, 'KBC', 'Writer', $this->appConfiguration->gd_ssoProvider);
+				$userId = $restApi->createUser($this->getDomainUser()->domain, $username, $password, 'KBC', 'Writer', $this->appConfiguration->gd_ssoProvider);
 			} catch (UserAlreadyExistsException $e) {
 				$userId = $e->getMessage();
 				if (!$userId) {
@@ -60,9 +60,9 @@ class CreateWriter extends AbstractJob
 			// Create project or login via given credentials for adding user to project
 			if ($existingProject) {
 				$projectPid = $params['pid'];
-				$this->restApi->login($params['username'], $params['password']);
+				$restApi->login($params['username'], $params['password']);
 				try {
-					$this->restApi->inviteUserToProject($this->domainUser->username, $projectPid, RestApi::USER_ROLE_ADMIN);
+					$restApi->inviteUserToProject($this->getDomainUser()->username, $projectPid, RestApi::USER_ROLE_ADMIN);
 				} catch (RestApiException $e) {
 					$details = $e->getDetails();
 					if ($e->getCode() != 400 || !isset($details['details']['error']['message']) || strpos($details['details']['error']['message'], 'already member') === false) {
@@ -90,12 +90,12 @@ class CreateWriter extends AbstractJob
 				), 30);
 
 			} else {
-				$projectPid = $this->restApi->createProject($params['projectName'], $params['accessToken'], json_encode(array(
+				$projectPid = $restApi->createProject($params['projectName'], $params['accessToken'], json_encode(array(
 					'projectId' => $this->configuration->projectId,
 					'writerId' => $this->configuration->writerId,
 					'main' => true
 				)));
-				$this->restApi->addUserToProject($userId, $projectPid, RestApi::USER_ROLE_ADMIN);
+				$restApi->addUserToProject($userId, $projectPid, RestApi::USER_ROLE_ADMIN);
 			}
 
 
@@ -117,7 +117,7 @@ class CreateWriter extends AbstractJob
 
 			$this->logEvent('createUser', array(
 				'duration' => time() - strtotime($gdWriteStartTime)
-			), $this->restApi->getLogPath());
+			), $restApi->getLogPath());
 			return array(
 				'uid' => $userId,
 				'pid' => $projectPid,

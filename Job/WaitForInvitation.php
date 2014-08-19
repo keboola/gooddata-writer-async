@@ -7,7 +7,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\GoodData\RestApiException;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Writer\SharedConfig;
 
 class WaitForInvitation extends AbstractJob
@@ -16,15 +16,15 @@ class WaitForInvitation extends AbstractJob
 	 * required:
 	 * optional:
 	 */
-	public function run($job, $params)
+	public function run($job, $params, RestApi $restApi)
 	{
 		$this->checkParams($params, array('try'));
 		$bucketAttributes = $this->configuration->bucketAttributes();
 
-		$this->restApi->login($this->domainUser->username, $this->domainUser->password);
-		if ($this->restApi->hasAccessToProject($bucketAttributes['gd']['pid'])) {
+		$restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
+		if ($restApi->hasAccessToProject($bucketAttributes['gd']['pid'])) {
 
-			$this->restApi->addUserToProject($bucketAttributes['gd']['uid'], $bucketAttributes['gd']['pid']);
+			$restApi->addUserToProject($bucketAttributes['gd']['uid'], $bucketAttributes['gd']['pid']);
 			$this->sharedConfig->setWriterStatus($job['projectId'], $job['writerId'], SharedConfig::WRITER_STATUS_READY);
 			$this->configuration->updateWriter('waitingForInvitation', null);
 
@@ -57,7 +57,7 @@ class WaitForInvitation extends AbstractJob
 
 		}
 
-		$this->logEvent('waitForInvitation', array(), $this->restApi->getLogPath());
+		$this->logEvent('waitForInvitation', array(), $restApi->getLogPath());
 		return array();
 	}
 }

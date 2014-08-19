@@ -13,6 +13,7 @@ use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\CsvHandler,
 	Keboola\GoodDataWriter\GoodData\WebDav;
 use Keboola\GoodDataWriter\GoodData\Model;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\WebDavException;
 use Symfony\Component\Stopwatch\Stopwatch;
 
@@ -23,7 +24,7 @@ class LoadDataMulti extends AbstractJob
 	/**
 	 * required: pid, tables
 	 */
-	public function run($job, $params)
+	public function run($job, $params, RestApi $restApi)
 	{
 		$this->checkParams($params, array('pid', 'tables'));
 		$project = $this->configuration->getProject($params['pid']);
@@ -51,13 +52,13 @@ class LoadDataMulti extends AbstractJob
 
 
 		// Init
-		$tmpFolderName = basename($this->tmpDir);
+		$tmpFolderName = basename($this->getTmpDir($job['id']));
 		$this->goodDataModel = new Model($this->appConfiguration);
 		$csvHandler = new CsvHandler($this->tempService, $this->appConfiguration->scriptsPath, $this->storageApiClient, $this->logger);
 		$csvHandler->setJobId($job['id']);
 		$csvHandler->setRunId($job['runId']);
 
-		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 
 		// Get manifest
@@ -73,8 +74,8 @@ class LoadDataMulti extends AbstractJob
 		$manifest = array('dataSetSLIManifestList' => $manifest);
 
 
-		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
-		$this->logs['Manifest'] = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
+		file_put_contents($this->getTmpDir($job['id']) . '/upload_info.json', json_encode($manifest));
+		$this->logs['Manifest'] = $this->s3Client->uploadFile($this->getTmpDir($job['id']) . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
 		$e = $stopWatch->stop($stopWatchId);
 		$this->logEvent($stopWatchId, array(
 			'duration' => $e->getDuration(),
@@ -111,7 +112,7 @@ class LoadDataMulti extends AbstractJob
 			$stopWatchId = 'upload_manifest';
 			$stopWatch->start($stopWatchId);
 
-			$webDav->upload($this->tmpDir . '/upload_info.json', $tmpFolderName);
+			$webDav->upload($this->getTmpDir($job['id']) . '/upload_info.json', $tmpFolderName);
 			$e = $stopWatch->stop($stopWatchId);
 			$this->logEvent($stopWatchId, array(
 				'duration' => $e->getDuration(),
@@ -125,12 +126,12 @@ class LoadDataMulti extends AbstractJob
 			// Run ETL task of dataSets
 			$stopWatchId = 'run_etl';
 			$stopWatch->start($stopWatchId);
-			$this->restApi->initLog();
+			$restApi->initLog();
 
 			try {
-				$this->restApi->loadData($params['pid'], $tmpFolderName);
+				$restApi->loadData($params['pid'], $tmpFolderName);
 			} catch (RestApiException $e) {
-				$debugFile = $this->tmpDir . '/etl.log';
+				$debugFile = $this->getTmpDir($job['id']) . '/etl.log';
 				$taskName = 'Data Load Error';
 				$logSaved = $webDav->saveLogs($tmpFolderName, $debugFile);
 				if ($logSaved) {
@@ -148,7 +149,7 @@ class LoadDataMulti extends AbstractJob
 			$e = $stopWatch->stop($stopWatchId);
 			$this->logEvent($stopWatchId, array(
 				'duration' => $e->getDuration()
-			), $this->restApi->getLogPath());
+			), $restApi->getLogPath());
 		} catch (\Exception $e) {
 			$error = $e->getMessage();
 			$event = $stopWatch->stop($stopWatchId);
@@ -159,7 +160,7 @@ class LoadDataMulti extends AbstractJob
 			);
 			if ($e instanceof RestApiException) {
 				$error = $e->getDetails();
-				$restApiLogPath = $this->restApi->getLogPath();
+				$restApiLogPath = $restApi->getLogPath();
 			}
 			$this->logEvent($stopWatchId, $eventDetails, $restApiLogPath);
 

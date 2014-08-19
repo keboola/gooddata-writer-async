@@ -11,6 +11,7 @@ use Aws\S3\Model\MultipartUpload\AbstractTransfer;
 use Aws\S3\Model\MultipartUpload\UploadBuilder;
 use Aws\S3\S3Client;
 use Keboola\Csv\CsvFile;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Aws\Common\Client as AwsClient;
 use Keboola\StorageApi\Table;
@@ -22,7 +23,7 @@ class ExportReport extends AbstractJob
 	 * required: report, table
 	 * optional:
 	 */
-	public function run($job, $params)
+	public function run($job, $params, RestApi $restApi)
 	{
 		$this->checkParams($params, array('report', 'table'));
 
@@ -32,9 +33,9 @@ class ExportReport extends AbstractJob
 
 		$gdWriteStartTime = date('c');
 
-		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
-		$report = $this->restApi->get($params['report']);
+		$report = $restApi->get($params['report']);
 
 		if (!isset($report['report']['content']['definitions'][0])) {
 			throw new RestApiException($this->translator->trans('parameters.report.no_definitions %1', array('%1' => $params['report'])));
@@ -42,23 +43,23 @@ class ExportReport extends AbstractJob
 		$reportDefinitions = $report['report']['content']['definitions'];
 		$reportDefinitionUri = array_pop($reportDefinitions);
 
-		$response = $this->restApi->executeReportRaw($bucketAttributes['gd']['pid'], $reportDefinitionUri);
+		$response = $restApi->executeReportRaw($bucketAttributes['gd']['pid'], $reportDefinitionUri);
 		$csvUri = $response['uri'];
 
 		/** @TODO Streamed import to SAPI
-		$stream = $this->restApi->getStream($csvUri);
+		$stream = $restApi->getStream($csvUri);
 		$this->uploadToS3($stream->getStream());
 		 */
 
 		$filename = $this->appConfiguration->tmpPath . '/' . uniqid("report-export", true) .'.csv';
 
-		$this->restApi->getToFile($csvUri, $filename);
+		$restApi->getToFile($csvUri, $filename);
 
 		$this->uploadToSapi($filename, $params['table']);
 
 		$this->logEvent('exportReport', array(
 			'duration' => time() - strtotime($gdWriteStartTime)
-		), $this->restApi->getLogPath());
+		), $restApi->getLogPath());
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);

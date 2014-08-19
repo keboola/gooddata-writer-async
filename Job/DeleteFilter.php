@@ -9,6 +9,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
+use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 
 class DeleteFilter extends AbstractJob
@@ -17,7 +18,7 @@ class DeleteFilter extends AbstractJob
 	 * required: uri|name
 	 * optional:
 	 */
-	function run($job, $params)
+	function run($job, $params, RestApi $restApi)
 	{
 		$uris = array();
 		if (isset($params['name'])) {
@@ -35,12 +36,12 @@ class DeleteFilter extends AbstractJob
 		}
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$gdWriteStartTime = date('c');
 
 		foreach ($uris as $uri) {
 			try {
-				$this->restApi->deleteFilter($uri);
+				$restApi->deleteFilter($uri);
 			} catch (RestApiException $e) {
 				$message = json_decode($e->getMessage(), true);
 				if (!isset($message['error']['errorClass']) || $message['error']['errorClass'] != 'GDC::Exception::NotFound') {
@@ -57,7 +58,7 @@ class DeleteFilter extends AbstractJob
 
 		$this->logEvent('deleteFilter', array(
 			'duration' => time() - strtotime($gdWriteStartTime)
-		), $this->restApi->getLogPath());
+		), $restApi->getLogPath());
 		return array(
 			'gdWriteStartTime' => $gdWriteStartTime
 		);
