@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
+use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Writer\SharedConfig;
 use Keboola\StorageApi\Table as StorageApiTable;
 use Keboola\GoodDataWriter\GoodData\WebDav;
@@ -178,9 +179,9 @@ class ProjectsTest extends AbstractControllerTest
 		$checkFilteredProjectLoad = false;
 		foreach ($response['jobs'] as $job) {
 			if ($job['command'] == 'loadData') {
-				$csv = $webDav->get(sprintf('%s/data.csv', $job['id']));
+				$csv = $webDav->get(sprintf('%s/%s.csv', $job['id'], Model::getId($job['dataset'])));
 				if (!$csv) {
-					$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/data.csv' should exist.", $job['id']));
+					$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/%s.csv' should exist.", $job['id'], Model::getId($job['dataset'])));
 				}
 				$rowsNumber = 0;
 				foreach (explode("\n", $csv) as $row) {

@@ -38,10 +38,10 @@ class DatasetsTest extends AbstractControllerTest
 		$this->assertCount(1, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with one value.");
 		$this->assertEquals('dataset.categories', $data['dataSetsInfo']['sets'][0]['meta']['identifier'], "GoodData project should contain dataSet 'Categories'.");
 
-		$csv = $webDav->get(sprintf('%s/data.csv', $jobId));
+		$csv = $webDav->get(sprintf('%s/categories.csv', $jobId));
 
 		if (!$csv) {
-			$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/data.csv' should exist.", $jobId));
+			$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/categories.csv' should exist.", $jobId));
 		}
 		$rows = StorageApiClient::parseCsv($csv);
 		$this->assertEquals(2, count($rows), "Csv of main project should contain two rows.");
@@ -394,9 +394,9 @@ class DatasetsTest extends AbstractControllerTest
 		$lastJob = end($response['jobs']);
 		$jobId = $lastJob['id'];
 
-		$csv = $webDav->get(sprintf('%s/data.csv', $jobId));
+		$csv = $webDav->get(sprintf('%s/products.csv', $jobId));
 		if (!$csv) {
-			$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/data.csv' should exist.", $jobId));
+			$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/products.csv' should exist.", $jobId));
 		}
 		$rows = StorageApiClient::parseCsv($csv);
 		foreach ($rows as $i => $row) {

@@ -1148,6 +1148,50 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		return $this->getPollResult($batchId, $this->params['writerId'], true);
 	}
 
+	/**
+	 * @Route("/load-data-multi")
+	 * @Method({"POST"})
+	 * params: pid, queue
+	 */
+	public function postLoadDataMulti()
+	{
+		$createdTime = time();
+
+		$this->checkParams(array('writerId', 'tables'));
+		$this->checkWriterExistence();
+		$this->getConfiguration()->checkBucketAttributes();
+
+		$batchId = $this->storageApi->generateId();
+		foreach ($this->getProjectsToUse() as $pid) {
+			$definition = array();
+			foreach ($this->params['tables'] as $tableId) {
+				$definition[$tableId] = array(
+					'columns' => $this->getConfiguration()->getDataSetDefinition($tableId),
+					'dataset' => $this->getConfiguration()->getDataSet($tableId)
+				);
+			}
+
+			$jobData = array(
+				'batchId' => $batchId,
+				'command' => 'loadDataMulti',
+				'createdTime' => date('c', $createdTime),
+				'parameters' => array(
+					'pid' => $pid,
+					'tables' => $this->params['tables']
+				),
+				'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
+			);
+			$jobInfo = $this->createJob($jobData);
+			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/definition.json', $jobInfo['id']), json_encode($definition));
+			$this->sharedConfig->saveJob($jobInfo['id'], array(
+				'definition' => $definitionUrl
+			));
+		}
+
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->params['writerId'], true);
+	}
+
 
 	/**
 	 * Upload dataSet to GoodData

@@ -16,17 +16,16 @@ use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\WebDavException;
 use Symfony\Component\Stopwatch\Stopwatch;
 
-class LoadData extends AbstractJob
+class LoadDataMulti extends AbstractJob
 {
 	private $goodDataModel;
 
 	/**
-	 * required: pid, tableId
-	 * optional: incrementalLoad
+	 * required: pid, tables
 	 */
 	public function run($job, $params)
 	{
-		$this->checkParams($params, array('pid', 'tableId'));
+		$this->checkParams($params, array('pid', 'tables'));
 		$project = $this->configuration->getProject($params['pid']);
 		if (!$project) {
 			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
@@ -37,12 +36,18 @@ class LoadData extends AbstractJob
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->configuration->checkBucketAttributes($bucketAttributes);
-		$this->configuration->updateDataSetsFromSapi();
 
 		$this->logEvent('start', array(
 			'duration' => 0
 		));
 		$stopWatch = new Stopwatch();
+
+
+		$definition = $this->s3Client->downloadFile($job['definition']);
+		$definition = json_decode($definition, true);
+		if (!$definition) {
+			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . $job['definition']);
+		}
 
 
 		// Init
@@ -52,37 +57,22 @@ class LoadData extends AbstractJob
 		$csvHandler->setJobId($job['id']);
 		$csvHandler->setRunId($job['runId']);
 
-		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
-		$incrementalLoad = (isset($params['incrementalLoad'])) ? $params['incrementalLoad']
-			: (!empty($tableDefinition['incrementalLoad']) ? $tableDefinition['incrementalLoad'] : 0);
-		$filterColumn = $this->getFilterColumn($params['tableId'], $tableDefinition, $bucketAttributes);
-		$filterColumn = ($filterColumn && empty($project['main'])) ? $filterColumn : false;
-
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-
-
-		// Get definition
-		$stopWatchId = 'get_definition';
-		$stopWatch->start($stopWatchId);
-		$definitionFile = $job['definition'];
-
-		$definition = $this->s3Client->downloadFile($definitionFile);
-		$definition = json_decode($definition, true);
-		if (!$definition) {
-			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . $definitionFile);
-		}
-
-		$e = $stopWatch->stop($stopWatchId);
-		$this->logEvent($stopWatchId, array(
-			'duration' => $e->getDuration(),
-			'definition' => $definitionFile
-		), null, 'Data set definition downloaded from S3', $job['id'], $job['runId']);
 
 
 		// Get manifest
 		$stopWatchId = 'get_manifest';
 		$stopWatch->start($stopWatchId);
-		$manifest = Model::getDataLoadManifest($definition, $incrementalLoad, $this->configuration->noDateFacts);
+		$manifest = array();
+		foreach ($definition as $tableId => &$def) {
+			$def['incrementalLoad'] = !empty($def['dataset']['incrementalLoad']) ? $def['dataset']['incrementalLoad'] : 0;
+			$def['filterColumn'] = $this->getFilterColumn($tableId, $def['dataset'], $bucketAttributes);
+			$def['filterColumn'] = ($def['filterColumn'] && empty($project['main'])) ? $def['filterColumn'] : false;
+			$manifest[] = Model::getDataLoadManifest($def['columns'], $def['incrementalLoad'], $this->configuration->noDateFacts);
+		}
+		$manifest = array('dataSetSLIManifestList' => $manifest);
+
+
 		file_put_contents($this->tmpDir . '/upload_info.json', json_encode($manifest));
 		$this->logs['Manifest'] = $this->s3Client->uploadFile($this->tmpDir . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
 		$e = $stopWatch->stop($stopWatchId);
@@ -95,26 +85,28 @@ class LoadData extends AbstractJob
 		try {
 			// Upload to WebDav
 			$webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-
-			// Upload dataSets
-			$stopWatchId = 'transfer_csv';
-			$stopWatch->start($stopWatchId);
-
 			$webDav->prepareFolder($tmpFolderName);
 
-			$datasetName = Model::getId($definition['name']);
-			$webDavFileUrl = sprintf('%s/%s/%s.csv', $webDav->getUrl(), $tmpFolderName, $datasetName);
-			$csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'],
-				$webDavFileUrl, $definition, $params['tableId'], $incrementalLoad, $filterColumn, $params['pid'],
-				$this->configuration->noDateFacts);
-			if (!$webDav->fileExists(sprintf('%s/%s.csv', $tmpFolderName, $datasetName))) {
-				throw new JobProcessException($this->translator->trans('error.csv_not_uploaded %1', array('%1' => $webDavFileUrl)));
+			// Upload dataSets
+			foreach ($definition as $tableId => $d) {
+				$stopWatchId = 'transfer_csv_' . $tableId;
+				$stopWatch->start($stopWatchId);
+
+				$datasetName = Model::getId($d['columns']['name']);
+				$webDavFileUrl = sprintf('%s/%s/%s.csv', $webDav->getUrl(), $tmpFolderName, $datasetName);
+				$csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'],
+					$webDavFileUrl, $d['columns'], $tableId, $d['incrementalLoad'], $d['filterColumn'], $params['pid'],
+					$this->configuration->noDateFacts);
+				if (!$webDav->fileExists(sprintf('%s/%s.csv', $tmpFolderName, $datasetName))) {
+					throw new JobProcessException($this->translator->trans('error.csv_not_uploaded %1', array('%1' => $webDavFileUrl)));
+				}
+
+				$e = $stopWatch->stop($stopWatchId);
+				$this->logEvent($stopWatchId, array(
+					'duration' => $e->getDuration()
+				), null, 'Csv file ' . $datasetName . '.csv transferred to WebDav', $job['id'], $job['runId']);
 			}
 
-			$e = $stopWatch->stop($stopWatchId);
-			$this->logEvent($stopWatchId, array(
-				'duration' => $e->getDuration()
-			), null, 'Csv file transferred to WebDav', $job['id'], $job['runId']);
 
 			$stopWatchId = 'upload_manifest';
 			$stopWatch->start($stopWatchId);
@@ -176,9 +168,7 @@ class LoadData extends AbstractJob
 			}
 		}
 
-		$result = array(
-			'incrementalLoad' => (int) $incrementalLoad
-		);
+		$result = array();
 		if (!empty($error)) {
 			$result['error'] = $error;
 		}

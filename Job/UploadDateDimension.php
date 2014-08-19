@@ -85,10 +85,10 @@ class UploadDateDimension extends AbstractJob
 				mkdir($tmpFolderDimension);
 				$timeDimensionManifest = $this->goodDataModel->getTimeDimensionDataLoadManifest($params['name']);
 				file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
-				copy($this->appConfiguration->scriptsPath . '/time-dimension.csv', $tmpFolderDimension . '/data.csv');
+				copy($this->appConfiguration->scriptsPath . '/time-dimension.csv', $tmpFolderDimension . '/' . $dimensionName . '.csv');
 				$webDav->prepareFolder($tmpFolderNameDimension);
 				$webDav->upload($tmpFolderDimension . '/upload_info.json', $tmpFolderNameDimension);
-				$webDav->upload($tmpFolderDimension . '/data.csv', $tmpFolderNameDimension);
+				$webDav->upload($tmpFolderDimension . '/' . $dimensionName . '.csv', $tmpFolderNameDimension);
 				$dimensionsToUpload[] = $params['name'];
 
 				$e = $stopWatch->stop($stopWatchId);
