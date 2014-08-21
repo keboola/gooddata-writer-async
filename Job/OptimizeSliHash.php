@@ -13,6 +13,15 @@ use Keboola\GoodDataWriter\Writer\SharedConfig;
 
 class OptimizeSliHash extends AbstractJob
 {
+
+	public function prepare($params)
+	{
+		$this->checkParams($params, array('writerId'));
+		$this->checkWriterExistence($params['writerId']);
+		$this->sharedConfig->setWriterStatus($this->configuration->projectId, $params['writerId'], SharedConfig::WRITER_STATUS_MAINTENANCE);
+		return array();
+	}
+
 	/**
 	 * @TODO works only with main project
 	 * required: email, role

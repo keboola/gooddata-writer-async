@@ -7,11 +7,32 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\JobProcessException;
+use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\UserAlreadyExistsException;
 
 class CreateUser extends AbstractJob
 {
+
+	public function prepare($params)
+	{
+		$this->checkParams($params, array('writerId', 'firstName', 'lastName', 'email', 'password'));
+		$this->checkWriterExistence($params['writerId']);
+		if (strlen($params['password']) < 7) {
+			throw new WrongParametersException($this->translator->trans('parameters.password_length'));
+		}
+		$this->configuration->checkBucketAttributes();
+		$this->configuration->checkUsersTable();
+
+		return array(
+			'firstName' => $params['firstName'],
+			'lastName' => $params['lastName'],
+			'email' => $params['email'],
+			'password' => $params['password'],
+			'ssoProvider' => empty($params['ssoProvider'])? null : $params['ssoProvider']
+		);
+	}
+
 	/**
 	 * required: email, password, firstName, lastName
 	 * optional: ssoProvider

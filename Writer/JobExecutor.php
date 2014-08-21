@@ -200,9 +200,9 @@ class JobExecutor
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 				 */
 				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedConfig, $s3Client,
-					$this->translator, $this->storageApiClient);
+					$this->translator, $this->storageApiClient, $this->eventLogger);
 				$command->setTempService($tempService);
-				$command->setEventLogger($this->eventLogger);
+				$command->initLog();
 				$command->setLogger($this->logger); //@TODO deprecated - only for CL tool
 				$command->setQueue($this->queue);
 
@@ -315,6 +315,58 @@ class JobExecutor
 		if (isset($data['debug']))
 			unset($data['debug']);
 		$this->eventLogger->log($job['id'], $job['runId'], $message, null, $data, $startTime);
+	}
+
+
+	public function createJob($projectId, $writerId, $command, $params, $batchId, $queue=null, $others=array())
+	{
+		$jobData = array(
+			'command' => $command,
+			'batchId' => $batchId,
+			'createdTime' => date('c'),
+			'parameters' => $params,
+			'queue' => $queue
+		);
+		if (count($others)) {
+			$jobData = array_merge($jobData, $others);
+		}
+
+		$tokenData = $this->storageApiClient->getLogData();
+		$job = $this->sharedConfig->createJob($projectId, $writerId, $this->storageApiClient->getRunId(),
+			$this->storageApiClient->token, $tokenData['id'], $tokenData['description'], $jobData);
+
+		array_walk($params, function(&$val, $key) {
+			if ($key == 'password') $val = '***';
+		});
+		$this->eventLogger->log($job['id'], $this->storageApiClient->getRunId(),
+			$this->translator->trans($this->translator->trans('log.job.created')), '', array(
+				'projectId' => $projectId,
+				'writerId' => $writerId,
+				'runId' => $this->storageApiClient->getRunId(),
+				'command' => $command,
+				'params' => $params
+			));
+
+		return $job;
+	}
+
+	public function addBatchToQueue($projectId, $writerId, $batchId)
+	{
+		$this->queue->enqueue(array(
+			'projectId' => $projectId,
+			'writerId' => $writerId,
+			'batchId' => $batchId
+		));
+	}
+
+	public function setStorageApiClient(StorageApiClient $storageApiClient)
+	{
+		$this->storageApiClient = $storageApiClient;
+	}
+
+	public function setEventLogger(EventLogger $eventLogger)
+	{
+		$this->eventLogger = $eventLogger;
 	}
 
 }

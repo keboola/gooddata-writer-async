@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\GoodData\UserAlreadyExistsException;
@@ -14,6 +15,67 @@ use Keboola\GoodDataWriter\Writer\SharedConfig;
 
 class CreateWriter extends AbstractJob
 {
+
+	public function prepare($params, RestApi $restApi=null)
+	{
+		$tokenInfo = $this->storageApiClient->getLogData();
+		$projectId = $tokenInfo['owner']['id'];
+
+		$this->checkParams($params, array('writerId'));
+		if (!preg_match('/^[a-zA-Z0-9_]+$/', $params['writerId'])) {
+			throw new WrongParametersException($this->translator->trans('parameters.writerId.format'));
+		}
+		if (strlen($params['writerId'] > 50)) {
+			throw new WrongParametersException($this->translator->trans('parameters.writerId.length'));
+		}
+
+		$result = array();
+		if (!empty($params['description'])) {
+			$result['description'] = $params['description'];
+		}
+
+		if (!empty($params['username']) || !empty($params['password']) || !empty($params['pid'])) {
+			if (empty($params['username'])) {
+				throw new WrongParametersException($this->translator->trans('parameters.username_missing'));
+			}
+			if (empty($params['password'])) {
+				throw new WrongParametersException($this->translator->trans('parameters.password_missing'));
+			}
+			if (empty($params['pid'])) {
+				throw new WrongParametersException($this->translator->trans('parameters.pid_missing'));
+			}
+
+			$result['pid'] = $params['pid'];
+			$result['username'] = $params['username'];
+			$result['password'] = $params['password'];
+
+
+			try {
+				$restApi->login($params['username'], $params['password']);
+			} catch (\Exception $e) {
+				throw new WrongParametersException($this->translator->trans('parameters.gd.credentials'));
+			}
+			if (!$restApi->hasAccessToProject($params['pid'])) {
+				throw new WrongParametersException($this->translator->trans('parameters.gd.project_inaccessible'));
+			}
+			if (!in_array('admin', $restApi->getUserRolesInProject($params['username'], $params['pid']))) {
+				throw new WrongParametersException($this->translator->trans('parameters.gd.user_not_admin'));
+			}
+		} else {
+			$result['accessToken'] = !empty($params['accessToken'])? $params['accessToken'] : $this->appConfiguration->gd_accessToken;
+			$result['projectName'] = sprintf($this->appConfiguration->gd_projectNameTemplate, $tokenInfo['owner']['name'], $params['writerId']);
+		}
+
+		if (isset($params['users'])) {
+			$result['users'] = is_array($params['users']) ? $params['users'] : explode(',', $params['users']);
+		}
+
+		$this->configuration->createWriter($params['writerId']);
+		$this->sharedConfig->setWriterStatus($projectId, $params['writerId'], SharedConfig::WRITER_STATUS_PREPARING);
+
+		return $result;
+	}
+
 	/**
 	 * required: (accessToken, projectName) || (pid, username, password)
 	 * optional: description

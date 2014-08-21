@@ -21,6 +21,20 @@ class LoadDataMulti extends AbstractJob
 {
 	private $goodDataModel;
 
+	public function prepare($params)
+	{
+		$this->checkParams($params, array('writerId', 'tables'));
+		$this->checkWriterExistence($params['writerId']);
+		$this->configuration->checkBucketAttributes();
+		$result = array(
+			'tables' => $params['tables']
+		);
+		if (isset($params['incrementalLoad'])) {
+			$result['incrementalLoad'] = $params['incrementalLoad'];
+		}
+		return $result;
+	}
+
 	/**
 	 * required: pid, tables
 	 */

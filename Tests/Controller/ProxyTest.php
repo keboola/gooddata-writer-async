@@ -47,14 +47,13 @@ class ProxyTest extends AbstractControllerTest
 		$attrUri = $attr['attribute']['meta']['uri'];
 
 		// repost attribute to GD
-		$jobId = $this->processJob('/proxy', array(
+		$batchId = $this->processJob('/proxy', array(
 			'writerId'  => $this->writerId,
 			'query'     => $attrUri,
 			'payload'   => $attr
 		), 'POST');
 
-		$jobStatus = $this->getWriterApi('/jobs?jobId=' .$jobId . '&writerId=' . $this->writerId);
-
+		$jobStatus = $this->getWriterApi('/batch?batchId=' .$batchId . '&writerId=' . $this->writerId);
 		$this->assertEquals(SharedConfig::JOB_STATUS_SUCCESS, $jobStatus['status']);
 	}
 }

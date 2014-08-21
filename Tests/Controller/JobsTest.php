@@ -59,10 +59,10 @@ class JobsTest extends AbstractControllerTest
 		$uploadProductsFound = false;
 		foreach ($responseJson['jobs'] as $job) {
 			// Get job
-			$this->assertArrayHasKey('command', $job, "Response for GoodData API call '/jobs?jobId=' should contain 'command' key.");
+			$this->assertArrayHasKey('command', $job, "Response for GoodData API call '/batch?batchId=' should contain 'command' key.");
 			if ($job['command'] == 'loadData') {
-				$this->assertArrayHasKey('parameters', $job, "Response for GoodData API call '/jobs?jobId=' should contain 'parameters' key.");
-				$this->assertArrayHasKey('tableId', $job['parameters'], "Response for GoodData API call '/jobs?jobId=' should contain 'parameters.tableId' key.");
+				$this->assertArrayHasKey('parameters', $job, "Response for GoodData API call '/batch?batchId=' should contain 'parameters' key.");
+				$this->assertArrayHasKey('tableId', $job['parameters'], "Response for GoodData API call '/batch?batchId=' should contain 'parameters.tableId' key.");
 			}
 			if ($job['command'] == 'loadData' && $job['parameters']['tableId'] == $this->dataBucketId . '.categories') {
 				$uploadCategoriesFound = true;

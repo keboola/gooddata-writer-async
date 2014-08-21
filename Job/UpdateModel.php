@@ -19,6 +19,17 @@ class UpdateModel extends AbstractJob
 {
 	private $goodDataModel;
 
+	public function prepare($params)
+	{
+		$this->checkParams($params, array('writerId', 'tableId'));
+		$this->checkWriterExistence($params['writerId']);
+		$this->configuration->checkBucketAttributes();
+
+		return array(
+			'tableId' => $params['tableId']
+		);
+	}
+
 	/**
 	 * required: pid, tableId
 	 * optional:

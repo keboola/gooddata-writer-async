@@ -11,6 +11,43 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class createFilter extends AbstractJob
 {
+
+	public function prepare($params)
+	{
+		//@TODO backwards compatibility, REMOVE SOON
+		if (isset($params['element'])) {
+			$params['value'] = $params['element'];
+			unset($params['element']);
+		}
+		$this->checkParams($params, array('writerId', 'name', 'attribute', 'value', 'pid'));
+		$this->checkWriterExistence($params['writerId']);
+		if (!isset($params['operator'])) {
+			$params['operator'] = '=';
+		}
+
+		if ($this->configuration->getFilter($params['name'])) {
+			throw new WrongParametersException($this->translator->trans('parameters.filter.already_exists'));
+		}
+
+		$attr = explode('.', $params['attribute']);
+		if (count($attr) != 4) {
+			throw new WrongParametersException($this->translator->trans('parameters.attribute.format'));
+		}
+		$tableId = sprintf('%s.%s.%s', $attr[0], $attr[1], $attr[2]);
+		$sapiTable = $this->configuration->getSapiTable($tableId);
+		if (!in_array($attr[3], $sapiTable['columns'])) {
+			throw new WrongParametersException($this->translator->trans('parameters.attribute.not_found'));
+		}
+
+		return array(
+			'name' => $params['name'],
+			'attribute' => $params['attribute'],
+			'value' => $params['value'],
+			'pid' => $params['pid'],
+			'operator' => $params['operator']
+		);
+	}
+
 	/**
 	 * required: name, attribute, element, pid, operator
 	 * optional:

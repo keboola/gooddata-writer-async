@@ -25,6 +25,23 @@ class UploadDateDimension extends AbstractJob
 	private $goodDataModel;
 	public $eventsLog;
 
+	public function prepare($params)
+	{
+		$this->checkParams($params, array('writerId', 'tableId', 'name'));
+		$this->checkWriterExistence($params['writerId']);
+		$this->configuration->checkBucketAttributes();
+
+		$dateDimensions = $this->configuration->getDateDimensions();
+		if (!in_array($params['name'], array_keys($dateDimensions))) {
+			throw new WrongParametersException($this->translator->trans('parameters.dimension_name'));
+		}
+
+		return array(
+			'name' => $params['name'],
+			'includeTime' => $dateDimensions[$params['name']]['includeTime']
+		);
+	}
+
 	/**
 	 * required: pid, name
 	 * optional:

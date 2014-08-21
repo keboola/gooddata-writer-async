@@ -33,6 +33,7 @@ job_executor:
 
 log:
   job:
+    created: Job created
     created %1: Job created (%1)
     finished %1: Job finished (%1)
     started %1: Job started (%1)

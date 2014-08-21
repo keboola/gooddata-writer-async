@@ -12,6 +12,40 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class ExecuteReports extends AbstractJob
 {
+
+	public function prepare($params)
+	{
+		$this->checkParams($params, array('writerId', 'pid'));
+		$this->checkWriterExistence($params['writerId']);
+		$this->configuration->checkBucketAttributes();
+		$this->configuration->checkProjectsTable();
+
+		$project = $this->configuration->getProject($params['pid']);
+		if (!$project) {
+			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
+		}
+
+		if (!$project['active']) {
+			throw new WrongParametersException($this->translator->trans('configuration.project.not_active %1', array('%1' => $params['pid'])));
+		}
+
+		$reports = array();
+		if (!empty($params['reports'])) {
+			$reports = (array) $params['reports'];
+
+			foreach ($reports AS $reportLink) {
+				if (!preg_match('/^\/gdc\/md\/' . $params['pid'] . '\//', $reportLink)) {
+					throw new WrongParametersException($this->translator->trans('parameters.report.not_valid %1', array('%1' => $reportLink)));
+				}
+			}
+		}
+
+		return array(
+			'pid' => $params['pid'],
+			'reports' => $reports
+		);
+	}
+
 	/**
 	 * required: pid
 	 * optional: reports

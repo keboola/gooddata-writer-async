@@ -16,7 +16,6 @@ use Sensio\Bundle\FrameworkExtraBundle\Configuration\Method;
 
 use Guzzle\Http\Url,
 	Guzzle\Common\Exception\InvalidArgumentException;
-use Monolog\Logger;
 use Symfony\Component\HttpFoundation\Response,
 	Symfony\Component\HttpKernel\Exception\HttpException,
 	Symfony\Component\Stopwatch\Stopwatch;
@@ -78,6 +77,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	private $stopWatch;
 
+	private $projectId;
+	private $writerId;
+
+	/**
+	 * @var \Keboola\GoodDataWriter\Writer\JobExecutor
+	 */
+	private $jobExecutor;
 
 	/**
 	 * Common things to do for each request
@@ -107,6 +113,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			throw new WrongParametersException($this->translator->trans('parameters.queue %1', array('%1' => SharedConfig::PRIMARY_QUEUE . ', ' . SharedConfig::SECONDARY_QUEUE)));
 		}
 
+		$tokenInfo = $this->storageApi->getLogData();
+		$this->projectId = $tokenInfo['owner']['id'];
+		$this->writerId = empty($this->params['writerId'])? null : $this->params['writerId'];
+
+
 		$this->eventLogger = new EventLogger($this->appConfiguration, $this->storageApi);
 
 		$this->stopWatch = new Stopwatch();
@@ -123,7 +134,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$router = $this->get('router');
 		if ($this->eventLogger) {
 			$this->eventLogger->log(
-				isset($this->params['writerId']) ? $this->params['writerId'] : null,
+				$this->writerId,
 				$this->storageApi->getRunId(),
 				'Called API ' . $router->getContext()->getMethod() . ' ' . $router->getContext()->getPathInfo(),
 				null,
@@ -143,19 +154,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postOptimizeSliHashAction()
 	{
-		$command = 'optimizeSliHash';
-		$createdTime = time();
-		$jobInfo = $this->createJob(array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(),
-			'queue' => SharedConfig::SERVICE_QUEUE
-		));
-		$this->enqueue($jobInfo['batchId']);
+		$commandName = 'optimizeSliHash';
+		$command = $this->getCommand($commandName, $this->params);
 
-		$this->getSharedConfig()->setWriterStatus($this->getConfiguration()->projectId, $this->params['writerId'], SharedConfig::WRITER_STATUS_MAINTENANCE);
+		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
 
-		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedConfig::SERVICE_QUEUE);
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 
@@ -167,97 +174,29 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postWritersAction()
 	{
-		$command = 'createWriter';
-		$createdTime = time();
-
-		$tokenInfo = $this->storageApi->getLogData();
-		$projectId = $tokenInfo['owner']['id'];
-
-		$this->checkParams(array('writerId'));
-		if (!preg_match('/^[a-zA-Z0-9_]+$/', $this->params['writerId'])) {
-			throw new WrongParametersException($this->translator->trans('parameters.writerId.format'));
+		if (!$this->writerId) {
+			throw new WrongConfigurationException($this->translator->trans('parameters.required %1', array('%1' => 'writerId')));
 		}
-		if (strlen($this->params['writerId'] > 50)) {
-			throw new WrongParametersException($this->translator->trans('parameters.writerId.length'));
-		}
-		if ($this->getSharedConfig()->writerExists($projectId, $this->params['writerId'])) {
+		if ($this->getSharedConfig()->writerExists($this->projectId, $this->writerId)) {
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.exists'));
 		}
 
+		$commandName = 'createWriter';
+		$command = $this->getCommand($commandName, $this->params);
 
 		$batchId = $this->storageApi->generateId();
-		$jobData = array(
-			'batchId' => $batchId,
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array()
-		);
+		/** @var RestApi $restApi */
+		$restApi = $this->container->get('gooddata_writer.rest_api');
+		$params = $command->prepare($this->params, $restApi);
 
-		if (!empty($this->params['description'])) {
-			$jobData['parameters']['description'] = $this->params['description'];
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedConfig::SERVICE_QUEUE);
+
+		if(!empty($params['users'])) foreach ($params['users'] as $user) {
+			$this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'addUserToProject', array('email' => $user, 'role' => 'admin'), $batchId, SharedConfig::SERVICE_QUEUE);
 		}
 
-		if (!empty($this->params['username']) || !empty($this->params['password']) || !empty($this->params['pid'])) {
-			if (empty($this->params['username'])) {
-				throw new WrongParametersException($this->translator->trans('parameters.username_missing'));
-			}
-			if (empty($this->params['password'])) {
-				throw new WrongParametersException($this->translator->trans('parameters.password_missing'));
-			}
-			if (empty($this->params['pid'])) {
-				throw new WrongParametersException($this->translator->trans('parameters.pid_missing'));
-			}
-
-			$jobData['parameters']['pid'] = $this->params['pid'];
-			$jobData['parameters']['username'] = $this->params['username'];
-			$jobData['parameters']['password'] = $this->params['password'];
-
-			/** @var RestApi $restApi */
-			$restApi = $this->container->get('gooddata_writer.rest_api');
-			try {
-				$restApi->login($this->params['username'], $this->params['password']);
-			} catch (\Exception $e) {
-				throw new WrongParametersException($this->translator->trans('parameters.gd.credentials'));
-			}
-			if (!$restApi->hasAccessToProject($this->params['pid'])) {
-				throw new WrongParametersException($this->translator->trans('parameters.gd.project_inaccessible'));
-			}
-			if (!in_array('admin', $restApi->getUserRolesInProject($this->params['username'], $this->params['pid']))) {
-				throw new WrongParametersException($this->translator->trans('parameters.gd.user_not_admin'));
-			}
-		} else {
-			$jobData['parameters']['accessToken'] = !empty($this->params['accessToken'])? $this->params['accessToken'] : $this->appConfiguration->gd_accessToken;
-			$jobData['parameters']['projectName'] = sprintf($this->appConfiguration->gd_projectNameTemplate, $tokenInfo['owner']['name'], $this->params['writerId']);
-		}
-
-		$this->getConfiguration()->createWriter($this->params['writerId']);
-		$this->getSharedConfig()->setWriterStatus($projectId, $this->params['writerId'], SharedConfig::WRITER_STATUS_PREPARING);
-
-		$jobInfo = $this->createJob($jobData);
-
-		if(empty($this->params['users'])) {
-			$this->enqueue($batchId);
-
-			return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
-		} else {
-
-			$users = is_array($this->params['users'])? $this->params['users'] : explode(',', $this->params['users']);
-			foreach ($users as $user) {
-				$this->createJob(array(
-					'batchId' => $batchId,
-					'command' => 'addUserToProject',
-					'createdTime' => date('c', $createdTime),
-					'parameters' => array(
-						'email' => $user,
-						'role' => 'admin'
-					)
-				));
-			}
-
-			$this->enqueue($batchId);
-
-			return $this->getPollResult($batchId, $this->params['writerId'], true);
-		}
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -268,7 +207,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function updateWriterAction($writerId)
 	{
-		$this->params['writerId'] = $writerId;
+		$this->writerId = $writerId;
 
 		$this->checkWriterExistence();
 
@@ -292,25 +231,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function deleteWritersAction()
 	{
-		$command = 'deleteWriter';
-		$createdTime = time();
+		$commandName = 'deleteWriter';
+		$command = $this->getCommand($commandName, $this->params);
 
-		$this->checkParams(array('writerId'));
-		$this->checkWriterExistence();
+		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
 
-		$this->getSharedConfig()->cancelJobs($this->getConfiguration()->projectId, $this->getConfiguration()->writerId);
-		$this->getSharedConfig()->deleteWriter($this->getConfiguration()->projectId, $this->getConfiguration()->writerId);
-
-		$jobInfo = $this->createJob(array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(),
-			'queue' => SharedConfig::SERVICE_QUEUE
-		));
-		$this->enqueue($jobInfo['batchId']);
-
-
-		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedConfig::SERVICE_QUEUE);
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -322,14 +251,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function getWritersAction($writerId=null)
 	{
-		if ($writerId) $this->params['writerId'] = $writerId;
+		if ($writerId)
+			$this->writerId = $writerId;
 
-		if (isset($this->params['writerId'])) {
+		if ($this->writerId) {
 			$this->checkWriterExistence();
 
 			$configuration = $this->getConfiguration()->formatWriterAttributes($this->getConfiguration()->bucketAttributes());
 			try {
-				$sharedConfiguration = $this->getSharedConfig()->getWriter($this->getConfiguration()->projectId, $this->params['writerId']);
+				$sharedConfiguration = $this->getSharedConfig()->getWriter($this->projectId, $this->writerId);
 				unset($sharedConfiguration['feats']);
 			} catch (SharedConfigException $e) {
 				$sharedConfiguration = array('status' => SharedConfig::WRITER_STATUS_READY, 'createdTime' => '');
@@ -339,11 +269,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			));
 		} else {
 			$configuration = new Configuration($this->storageApi, $this->getSharedConfig());
-			$tokenInfo = $this->storageApi->getLogData();
 			$result = array();
 			foreach ($configuration->getWriters() as $writer) {
 				try {
-					$sharedConfiguration = $this->getSharedConfig()->getWriter($tokenInfo['owner']['id'], $writer['id']);
+					$sharedConfiguration = $this->getSharedConfig()->getWriter($this->projectId, $writer['id']);
 					unset($sharedConfiguration['feats']);
 				} catch (SharedConfigException $e) {
 					$sharedConfiguration = array('status' => SharedConfig::WRITER_STATUS_READY, 'createdTime' => '');
@@ -367,36 +296,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postProjectsAction()
 	{
-		$command = 'cloneProject';
-		$createdTime = time();
+		$commandName = 'cloneProject';
+		$command = $this->getCommand($commandName, $this->params);
 
-		$this->checkParams(array('writerId'));
-		$this->checkWriterExistence();
-		$this->getConfiguration()->checkBucketAttributes();
-		$this->getConfiguration()->checkProjectsTable();
+		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
 
-		$accessToken = !empty($this->params['accessToken']) ? $this->params['accessToken'] : $this->appConfiguration->gd_accessToken;
-		$projectName = !empty($this->params['name']) ? $this->params['name']
-			: sprintf($this->appConfiguration->gd_projectNameTemplate, $this->getConfiguration()->tokenInfo['owner']['name'], $this->getConfiguration()->writerId);
-
-
-		$bucketAttributes = $this->getConfiguration()->bucketAttributes();
-		$jobInfo = $this->createJob(array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'accessToken' => $accessToken,
-				'projectName' => $projectName,
-				'includeData' => empty($this->params['includeData']) ? 0 : 1,
-				'includeUsers' => empty($this->params['includeUsers']) ? 0 : 1,
-				'pidSource' => $bucketAttributes['gd']['pid']
-			),
-			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-		));
-		$this->enqueue($jobInfo['batchId']);
-
-
-		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -424,44 +332,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postProjectUsersAction()
 	{
-		$command = 'addUserToProject';
-		$createdTime = time();
+		$commandName = 'addUserToProject';
+		$command = $this->getCommand($commandName, $this->params);
 
-		$this->checkParams(array('writerId', 'pid', 'email', 'role'));
-		$this->checkWriterExistence();
+		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
 
-		$allowedRoles = array_keys(RestApi::$userRoles);
-		if (!in_array($this->params['role'], $allowedRoles)) {
-			throw new WrongParametersException($this->translator->trans('parameters.role %1', array('%1' => implode(', ', $allowedRoles))));
-		}
-		if (!$this->getConfiguration()->getProject($this->params['pid'])) {
-			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
-		}
-		$this->getConfiguration()->checkBucketAttributes();
-		$this->getConfiguration()->checkProjectsTable();
-		$this->getConfiguration()->checkUsersTable();
-		$this->getConfiguration()->checkProjectUsersTable();
-
-		if (empty($this->params['pid'])) {
-			$bucketAttributes = $this->configuration->bucketAttributes();
-			$this->params['pid'] = $bucketAttributes['gd']['pid'];
-		}
-
-		$jobInfo = $this->createJob(array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'email' => $this->params['email'],
-				'pid' => $this->params['pid'],
-				'role' => $this->params['role'],
-				'createUser' => isset($this->params['createUser']) ? 1 : null
-			),
-			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-		));
-		$this->enqueue($jobInfo['batchId']);
-
-
-		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -472,32 +351,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function deleteProjectUsersAction()
 	{
-		$command = 'removeUserFromProject';
-		$createdTime = time();
+		$commandName = 'removeUserFromProject';
+		$command = $this->getCommand($commandName, $this->params);
 
-		// Init parameters
-		$this->checkParams(array('writerId', 'pid', 'email'));
-		$this->checkWriterExistence();
-		if (!$this->getConfiguration()->getProject($this->params['pid'])) {
-			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
-		}
-		if (!$this->getConfiguration()->isProjectUser($this->params['email'], $this->params['pid'])) {
-			throw new WrongParametersException($this->translator->trans('parameters.email_not_configured'));
-		}
-		$this->getConfiguration()->checkBucketAttributes();
-		$this->getConfiguration()->checkProjectsTable();
-		$this->getConfiguration()->checkProjectUsersTable();
+		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
 
-		$jobInfo = $this->createJob(array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => $this->params,
-			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-		));
-
-		$this->enqueue($jobInfo['batchId']);
-
-		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -525,35 +387,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postUsersAction()
 	{
-		$command = 'createUser';
-		$createdTime = time();
+		$commandName = 'createUser';
+		$command = $this->getCommand($commandName, $this->params);
 
-		// Init parameters
-		$this->checkParams(array('writerId', 'firstName', 'lastName', 'email', 'password'));
-		$this->checkWriterExistence();
-		if (strlen($this->params['password']) < 7) {
-			throw new WrongParametersException($this->translator->trans('parameters.password_length'));
-		}
-		$this->getConfiguration()->checkBucketAttributes();
-		$this->getConfiguration()->checkUsersTable();
+		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
 
-
-		$jobInfo = $this->createJob(array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'firstName' => $this->params['firstName'],
-				'lastName' => $this->params['lastName'],
-				'email' => $this->params['email'],
-				'password' => $this->params['password'],
-				'ssoProvider' => empty($this->params['ssoProvider'])? null : $this->params['ssoProvider']
-			),
-			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-		));
-		$this->enqueue($jobInfo['batchId']);
-
-
-		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -593,7 +435,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkParams(array('writerId', 'email', 'pid'));
 		$this->checkWriterExistence();
 
-		if (!$this->getSharedConfig()->projectBelongsToWriter($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->params['pid'])) {
+		if (!$this->getSharedConfig()->projectBelongsToWriter($this->projectId, $this->writerId, $this->params['pid'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.sso_wrong_pid'));
 		}
 
@@ -603,7 +445,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$jobFinished = false;
 			$i = 1;
 			do {
-				$job = $this->getSharedConfig()->fetchJob($jsonResult['job'], $this->getConfiguration()->writerId, $this->getConfiguration()->projectId);
+				$job = $this->getSharedConfig()->fetchJob($jsonResult['job'], $this->writerId, $this->projectId);
 				if (!$job) {
 					throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
 				}
@@ -634,7 +476,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$jobFinished = false;
 			$i = 1;
 			do {
-				$job = $this->getSharedConfig()->fetchJob($jsonResult['job'], $this->getConfiguration()->writerId, $this->getConfiguration()->projectId);
+				$job = $this->getSharedConfig()->fetchJob($jsonResult['job'], $this->writerId, $this->projectId);
 				if (!$job) {
 					throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
 				}
@@ -657,7 +499,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			}
 		}
 
-		if (!$this->getSharedConfig()->userBelongsToWriter($this->getConfiguration()->projectId, $this->getConfiguration()->writerId, $this->params['email'])) {
+		if (!$this->getSharedConfig()->userBelongsToWriter($this->projectId, $this->writerId, $this->params['email'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.sso_wrong_email'));
 		}
 
@@ -689,21 +531,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postProxyAction()
 	{
-		$this->checkParams(array('writerId', 'query', 'payload'));
-		$this->checkWriterExistence();
+		$commandName = 'proxyCall';
+		$command = $this->getCommand($commandName, $this->params);
 
-		$jobInfo = $this->createJob(array(
-			'command'       => 'proxyCall',
-			'createdTime'   => date('c', time()),
-			'parameters'    => array(
-				'query'     => $this->params['query'],
-				'payload'   => $this->params['payload']
-			),
-			'queue'         => isset($this->params['queue']) ? $this->params['queue'] : null
-		));
-		$this->enqueue($jobInfo['batchId']);
+		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
 
-		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -757,51 +593,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postFiltersAction()
 	{
-		$command = 'createFilter';
-		$createdTime = time();
+		$commandName = 'createFilter';
+		$command = $this->getCommand($commandName, $this->params);
 
-		// Init parameters
-		//@TODO backwards compatibility, REMOVE SOON
-		if (isset($this->params['element'])) {
-			$this->params['value'] = $this->params['element'];
-			unset($this->params['element']);
-		}
-		$this->checkParams(array('writerId', 'name', 'attribute', 'value', 'pid'));
-		$this->checkWriterExistence();
-		if (!isset($this->params['operator'])) {
-			$this->params['operator'] = '=';
-		}
+		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
 
-		if ($this->getConfiguration()->getFilter($this->params['name'])) {
-			throw new WrongParametersException($this->translator->trans('parameters.filter.already_exists'));
-		}
-
-		$attr = explode('.', $this->params['attribute']);
-		if (count($attr) != 4) {
-			throw new WrongParametersException($this->translator->trans('parameters.attribute.format'));
-		}
-		$tableId = sprintf('%s.%s.%s', $attr[0], $attr[1], $attr[2]);
-		$sapiTable = $this->getConfiguration()->getSapiTable($tableId);
-		if (!in_array($attr[3], $sapiTable['columns'])) {
-			throw new WrongParametersException($this->translator->trans('parameters.attribute.not_found'));
-		}
-
-		$jobInfo = $this->createJob(array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'name' => $this->params['name'],
-				'attribute' => $this->params['attribute'],
-				'value' => $this->params['value'],
-				'pid' => $this->params['pid'],
-				'operator' => $this->params['operator']
-			),
-			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-		));
-		$this->enqueue($jobInfo['batchId']);
-
-
-		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -812,40 +612,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function deleteFiltersAction()
 	{
-		$command = 'deleteFilter';
-		$createdTime = time();
+		$commandName = 'deleteFilter';
+		$command = $this->getCommand($commandName, $this->params);
 
-		$this->checkWriterExistence();
+		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
 
-		if (isset($this->params['name'])) {
-			if (!$this->getConfiguration()->getFilter($this->params['name'])) {
-				throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $this->params['name'])));
-			}
-			$this->checkParams(array('writerId'));
-		} else {
-			//@TODO backwards compatibility, REMOVE SOON
-			$this->checkParams(array('writerId', 'uri'));
-			if (!$this->getConfiguration()->checkFilterUri($this->params['uri'])) {
-				throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $this->params['uri'])));
-			}
-		}
-
-		$jobData = array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(),
-			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-		);
-		if (isset($this->params['name'])) {
-			$jobData['parameters']['name'] = $this->params['name'];
-		} else {
-			$jobData['parameters']['uri'] = $this->params['uri'];
-		}
-		$jobInfo = $this->createJob($jobData);
-		$this->enqueue($jobInfo['batchId']);
-
-
-		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -939,46 +714,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postFilterUsersAction()
 	{
-		$command = 'assignFiltersToUser';
-		$createdTime = time();
-
-		//@TODO backwards compatibility, REMOVE SOON
-		if (isset($this->params['userEmail'])) {
-			$this->params['email'] = $this->params['userEmail'];
-			unset($this->params['userEmail']);
-		}
-		////
-
-		$this->checkParams(array('writerId', 'email'));
-		if (!isset($this->params['filters'])) {
-			throw new WrongParametersException($this->translator->trans('parameters.filters.required'));
-		}
-		$configuredFilters = array();
-		foreach ($this->getConfiguration()->getFilters() as $f) {
-			$configuredFilters[] = $f['name'];
-		}
-		foreach ($this->params['filters'] as $f) {
-			if (!in_array($f, $configuredFilters)) {
-				$filters = is_array($f)? implode(', ', $f) : $f;
-				throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $filters)));
-			}
-		}
-		$this->checkWriterExistence();
+		$commandName = 'assignFiltersToUser';
+		$command = $this->getCommand($commandName, $this->params);
 
 		$batchId = $this->storageApi->generateId();
-		$this->createJob(array(
-			'batchId' => $batchId,
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'filters' => $this->params['filters'],
-				'email' => $this->params['email']
-			),
-			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-		));
+		$params = $command->prepare($this->params);
 
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
 		$this->enqueue($batchId);
-		return $this->getPollResult($batchId, $this->params['writerId'], true);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -989,28 +733,18 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postSyncFiltersAction()
 	{
-		$command = 'syncFilters';
-		$createdTime = time();
-
-		$this->checkParams(array('writerId'));
-		$this->checkWriterExistence();
+		$commandName = 'syncFilters';
+		$command = $this->getCommand($commandName, $this->params);
 
 		$batchId = $this->storageApi->generateId();
-		$projects = empty($this->params['pid'])? $this->getProjectsToUse() : array($this->params['pid']);
-		foreach ($projects as $pid) {
-			$this->createJob(array(
-				'batchId' => $batchId,
-				'command' => $command,
-				'createdTime' => date('c', $createdTime),
-				'parameters' => array(
-					'pid' => $pid
-				),
-				'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-			));
-		}
+		$params = $command->prepare($this->params);
 
+		$projects = empty($params['pid'])? $this->getProjectsToUse() : array($params['pid']);
+		foreach ($projects as $pid) {
+			$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, array('pid' => $pid), $batchId, isset($this->params['queue']) ? $this->params['queue'] : null);
+		}
 		$this->enqueue($batchId);
-		return $this->getPollResult($batchId, $this->params['writerId'], true);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 
@@ -1037,36 +771,20 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postUploadDateDimensionAction()
 	{
-		$createdTime = time();
-
-		// Init parameters
-		$this->checkParams(array('writerId', 'tableId', 'name'));
-		$this->checkWriterExistence();
-		$this->getConfiguration()->checkBucketAttributes();
-
-		$dateDimensions = $this->getConfiguration()->getDateDimensions();
-		if (!in_array($this->params['name'], array_keys($dateDimensions))) {
-			throw new WrongParametersException($this->translator->trans('parameters.dimension_name'));
-		}
+		$commandName = 'UploadDateDimension';
+		$command = $this->getCommand($commandName, $this->params);
 
 		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
+
 		foreach ($this->getProjectsToUse() as $pid) {
-			$this->createJob(array(
-				'batchId' => $batchId,
-				'command' => 'UploadDateDimension',
-				'createdTime' => date('c', $createdTime),
-				'dataset' => $this->params['name'],
-				'parameters' => array(
-					'pid' => $pid,
-					'name' => $this->params['name'],
-					'includeTime' => $dateDimensions[$this->params['name']]['includeTime']
-				),
-				'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-			));
+			$pars = array('pid' => $pid, 'name' => $params['name'], 'includeTime' => $params['includeTime']);
+			$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $pars, $batchId,
+				isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $pars['name']));
 		}
 
 		$this->enqueue($batchId);
-		return $this->getPollResult($batchId, $this->params['writerId'], true);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -1076,36 +794,26 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postUpdateModel()
 	{
-		$createdTime = time();
-
-		$this->checkParams(array('writerId', 'tableId'));
-		$this->checkWriterExistence();
-		$this->getConfiguration()->checkBucketAttributes();
-
-		$definition = $this->getConfiguration()->getDataSetDefinition($this->params['tableId']);
-		$tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
+		$commandName = 'updateModel';
+		$command = $this->getCommand($commandName, $this->params);
 
 		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
+
+		$definition = $this->getConfiguration()->getDataSetDefinition($params['tableId']);
+		$tableConfiguration = $this->getConfiguration()->getDataSet($params['tableId']);
 		foreach ($this->getProjectsToUse() as $pid) {
-			$jobInfo = $this->createJob(array(
-				'batchId' => $batchId,
-				'command' => 'updateModel',
-				'dataset' => !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'],
-				'createdTime' => date('c', $createdTime),
-				'parameters' => array(
-					'pid' => $pid,
-					'tableId' => $this->params['tableId']
-				),
-				'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-			));
-			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $this->params['tableId']), json_encode($definition));
-			$this->sharedConfig->saveJob($jobInfo['id'], array(
+			$datasetName = !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'];
+			$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, array('pid' => $pid, 'tableId' => $params['tableId']), $batchId,
+				isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $datasetName));
+			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $params['tableId']), json_encode($definition));
+			$this->sharedConfig->saveJob($jobData['id'], array(
 				'definition' => $definitionUrl
 			));
 		}
 
 		$this->enqueue($batchId);
-		return $this->getPollResult($batchId, $this->params['writerId'], true);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -1115,41 +823,28 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postLoadData()
 	{
-		$createdTime = time();
-
-		$this->checkParams(array('writerId', 'tables'));
-		$this->checkWriterExistence();
-		$this->getConfiguration()->checkBucketAttributes();
+		$commandName = 'loadData';
+		$command = $this->getCommand($commandName, $this->params);
 
 		$batchId = $this->storageApi->generateId();
-		foreach ($this->params['tables'] as $tableId) {
+		$params = $command->prepare($this->params);
+
+		foreach ($params['tables'] as $tableId) {
 			$definition = $this->getConfiguration()->getDataSetDefinition($tableId);
 			$tableConfiguration = $this->getConfiguration()->getDataSet($tableId);
 			foreach ($this->getProjectsToUse() as $pid) {
-				$jobData = array(
-					'batchId' => $batchId,
-					'command' => 'loadData',
-					'dataset' => !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'],
-					'createdTime' => date('c', $createdTime),
-					'parameters' => array(
-						'pid' => $pid,
-						'tableId' => $tableId
-					),
-					'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-				);
-				if (isset($this->params['incrementalLoad'])) {
-					$jobData['parameters']['incrementalLoad'] = $this->params['incrementalLoad'];
-				}
-				$jobInfo = $this->createJob($jobData);
-				$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $tableId), json_encode($definition));
-				$this->sharedConfig->saveJob($jobInfo['id'], array(
+				$datasetName = !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'];
+				$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, array('pid' => $pid, 'tableId' => $tableId), $batchId,
+					isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $datasetName));
+				$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $tableId), json_encode($definition));
+				$this->sharedConfig->saveJob($jobData['id'], array(
 					'definition' => $definitionUrl
 				));
 			}
 		}
 
 		$this->enqueue($batchId);
-		return $this->getPollResult($batchId, $this->params['writerId'], true);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -1159,11 +854,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postLoadDataMulti()
 	{
-		$createdTime = time();
+		$commandName = 'loadDataMulti';
+		$command = $this->getCommand($commandName, $this->params);
 
-		$this->checkParams(array('writerId', 'tables'));
-		$this->checkWriterExistence();
-		$this->getConfiguration()->checkBucketAttributes();
+		$params = $command->prepare($this->params);
 
 		$batchId = $this->storageApi->generateId();
 		foreach ($this->getProjectsToUse() as $pid) {
@@ -1175,25 +869,16 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				);
 			}
 
-			$jobData = array(
-				'batchId' => $batchId,
-				'command' => 'loadDataMulti',
-				'createdTime' => date('c', $createdTime),
-				'parameters' => array(
-					'pid' => $pid,
-					'tables' => $this->params['tables']
-				),
-				'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-			);
-			$jobInfo = $this->createJob($jobData);
-			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/definition.json', $jobInfo['id']), json_encode($definition));
-			$this->sharedConfig->saveJob($jobInfo['id'], array(
+			$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, array('pid' => $pid, 'tables' => $params['tables']), $batchId,
+				isset($this->params['queue'])? $this->params['queue'] : null);
+			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/definition.json', $jobData['id']), json_encode($definition));
+			$this->sharedConfig->saveJob($jobData['id'], array(
 				'definition' => $definitionUrl
 			));
 		}
 
 		$this->enqueue($batchId);
-		return $this->getPollResult($batchId, $this->params['writerId'], true);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 
@@ -1205,14 +890,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postUploadTableAction()
 	{
-		$createdTime = time();
-
 		// Init parameters
 		$this->checkParams(array('writerId', 'tableId'));
 		$this->checkWriterExistence();
 		$this->getConfiguration()->checkBucketAttributes();
 
 		$batchId = $this->storageApi->generateId();
+		$runId = $this->storageApi->getRunId();
 		$definition = $this->getConfiguration()->getDataSetDefinition($this->params['tableId']);
 		$projectsToUse = $this->getProjectsToUse();
 
@@ -1234,19 +918,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				$dateDimensionsToLoad[] = $dimension;
 
 				foreach ($projectsToUse as $pid) {
-					$jobData = array(
-						'batchId' => $batchId,
-						'command' => 'uploadDateDimension',
-						'dataset' => $dimension,
-						'createdTime' => date('c', $createdTime),
-						'parameters' => array(
-							'pid' => $pid,
-							'name' => $dimension,
-							'includeTime' => $dateDimensions[$dimension]['includeTime']
-						),
-						'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
+					$params = array(
+						'pid' => $pid,
+						'name' => $dimension,
+						'includeTime' => $dateDimensions[$dimension]['includeTime']
 					);
-					$this->createJob($jobData);
+					$this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'uploadDateDimension', $params,
+						$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
+						array('dataset' => $dimension, 'runId' => $runId));
 				}
 			}
 		}
@@ -1270,51 +949,40 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
 
 			if (!$dataSetExists || $doUpdate) {
-				$jobData = array(
-					'batchId' => $batchId,
-					'command' => 'updateModel',
-					'dataset' => !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'],
-					'createdTime' => date('c', $createdTime),
-					'parameters' => array(
-						'pid' => $pid,
-						'tableId' => $this->params['tableId']
-					),
-					'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
+				$params = array(
+					'pid' => $pid,
+					'tableId' => $this->params['tableId']
 				);
-				$jobInfo = $this->createJob($jobData);
+				$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'updateModel', $params,
+					$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
+					array('dataset' => $dataSetName, 'runId' => $runId));
 
-				$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $this->params['tableId']), json_encode($definition));
-				$this->sharedConfig->saveJob($jobInfo['id'], array(
+				$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $this->params['tableId']), json_encode($definition));
+				$this->sharedConfig->saveJob($jobData['id'], array(
 					'definition' => $definitionUrl
 				));
 			}
 
-			$jobData = array(
-				'batchId' => $batchId,
-				'command' => 'loadData',
-				'dataset' => $dataSetName,
-				'createdTime' => date('c', $createdTime),
-				'parameters' => array(
-					'pid' => $pid,
-					'tableId' => $this->params['tableId']
-				),
-				'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
+			$params = array(
+				'pid' => $pid,
+				'tableId' => $this->params['tableId']
 			);
 			if (isset($this->params['incrementalLoad'])) {
-				$jobData['parameters']['incrementalLoad'] = $this->params['incrementalLoad'];
+				$params['incrementalLoad'] = $this->params['incrementalLoad'];
 			}
-			$jobInfo = $this->createJob($jobData);
+			$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'loadData', $params,
+				$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
+				array('dataset' => $dataSetName, 'runId' => $runId));
 
-			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $this->params['tableId']), json_encode($definition));
-			$this->sharedConfig->saveJob($jobInfo['id'], array(
+			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $this->params['tableId']), json_encode($definition));
+			$this->sharedConfig->saveJob($jobData['id'], array(
 				'definition' => $definitionUrl
 			));
 		}
 
 		$this->enqueue($batchId);
 
-
-		return $this->getPollResult($batchId, $this->params['writerId'], true, !empty($jobInfo)? $jobInfo['id'] : null);
+		return $this->getPollResult($batchId, $this->writerId, true, !empty($jobInfo)? $jobInfo['id'] : null);
 	}
 
 	/**
@@ -1325,9 +993,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postUploadProjectAction()
 	{
-		$createdTime = time();
-
-		// Init parameters
 		$this->checkParams(array('writerId'));
 		$this->checkWriterExistence();
 		$this->getConfiguration()->checkBucketAttributes();
@@ -1351,26 +1016,22 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 				$dimension = $column['schemaReference'];
 				if (!isset($dateDimensions[$dimension])) {
-					throw new WrongParametersException($this->translator->trans('configuration.dimension_not_found %d %c %t', array('%d' => $dimension, '%c' => $column['name'], '%t' => $dataSet['tableId'])));
+					throw new WrongParametersException($this->translator->trans('configuration.dimension_not_found %d %c %t',
+						array('%d' => $dimension, '%c' => $column['name'], '%t' => $dataSet['tableId'])));
 				}
 
 				if (!$dateDimensions[$dimension]['isExported'] && !in_array($dimension, $dateDimensionsToLoad)) {
 					$dateDimensionsToLoad[] = $dimension;
 
 					foreach ($projectsToUse as $pid) {
-						$jobData = array(
-							'batchId' => $batchId,
-							'command' => 'uploadDateDimension',
-							'dataset' => $dimension,
-							'createdTime' => date('c', $createdTime),
-							'parameters' => array(
-								'pid' => $pid,
-								'name' => $dimension,
-								'includeTime' => $dateDimensions[$dimension]['includeTime']
-							),
-							'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
+						$params = array(
+							'pid' => $pid,
+							'name' => $dimension,
+							'includeTime' => $dateDimensions[$dimension]['includeTime']
 						);
-						$this->createJob($jobData);
+						$this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'uploadDateDimension', $params,
+							$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
+							array('dataset' => $dimension, 'runId' => $runId));
 					}
 				}
 			}
@@ -1397,46 +1058,33 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				$doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
 
 				if (!$dataSetExists || $doUpdate) {
-					$jobData = array(
-						'batchId' => $batchId,
-						'runId' => $runId,
-						'command' => 'updateModel',
-						'dataset' => $dataSet['title'],
-						'createdTime' => date('c', $createdTime),
-						'parameters' => array(
-							'pid' => $pid,
-							'tableId' => $dataSet['tableId']
-						),
-						'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
+					$params = array(
+						'pid' => $pid,
+						'tableId' => $dataSet['tableId']
 					);
-					$jobInfo = $this->createJob($jobData);
+					$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'updateModel', $params,
+						$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
+						array('dataset' => $dataSet['title'], 'runId' => $runId));
 
-					$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $dataSet['tableId']), json_encode($dataSet['definition']));
-					$this->sharedConfig->saveJob($jobInfo['id'], array(
+					$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $dataSet['tableId']), json_encode($dataSet['definition']));
+					$this->sharedConfig->saveJob($jobData['id'], array(
 						'definition' => $definitionUrl
 					));
 				}
 
-
-				$jobData = array(
-					'batchId' => $batchId,
-					'runId' => $runId,
-					'command' => 'loadData',
-					'dataset' => $dataSet['title'],
-					'createdTime' => date('c', $createdTime),
-					'parameters' => array(
-						'pid' => $pid,
-						'tableId' => $dataSet['tableId']
-					),
-					'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
+				$params = array(
+					'pid' => $pid,
+					'tableId' => $dataSet['tableId']
 				);
 				if (isset($this->params['incrementalLoad'])) {
-					$jobData['parameters']['incrementalLoad'] = $this->params['incrementalLoad'];
+					$params['incrementalLoad'] = $this->params['incrementalLoad'];
 				}
-				$jobInfo = $this->createJob($jobData);
+				$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'loadData', $params,
+					$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
+					array('dataset' => $dataSet['title'], 'runId' => $runId));
 
-				$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobInfo['id'], $dataSet['tableId']), json_encode($dataSet['definition']));
-				$this->sharedConfig->saveJob($jobInfo['id'], array(
+				$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $dataSet['tableId']), json_encode($dataSet['definition']));
+				$this->sharedConfig->saveJob($jobData['id'], array(
 					'definition' => $definitionUrl
 				));
 			}
@@ -1444,23 +1092,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		// Execute reports
 		foreach ($projectsToUse as $pid) {
-			$jobData = array(
-				'batchId' => $batchId,
-				'runId' => $runId,
-				'command' => 'executeReports',
-				'createdTime' => date('c', $createdTime),
-				'parameters' => array(
-					'pid' => $pid
-				),
-				'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-			);
-			$this->createJob($jobData);
+			$this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'executeReports', array('pid' => $pid),
+				$batchId, isset($this->params['queue'])? $this->params['queue'] : null, array('runId' => $runId));
 		}
 
 		$this->enqueue($batchId);
 
-
-		return $this->getPollResult($batchId, $this->params['writerId'], true);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -1471,26 +1109,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postResetTableAction()
 	{
-		$command = 'resetTable';
-		$createdTime = time();
+		$commandName = 'resetTable';
+		$command = $this->getCommand($commandName, $this->params);
 
-		$this->checkParams(array('writerId', 'tableId'));
-		$this->checkWriterExistence();
+		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
 
-		$tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
-		$jobInfo = $this->createJob(array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'dataset' => !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'],
-			'parameters' => array(
-				'tableId' => $this->params['tableId']
-			),
-			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-		));
-
-		$this->enqueue($jobInfo['batchId']);
-
-		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 
@@ -1502,24 +1129,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postResetProjectAction()
 	{
-		$command = 'resetProject';
-		$createdTime = time();
+		$commandName = 'resetProject';
+		$command = $this->getCommand($commandName, $this->params);
 
-		$this->checkParams(array('writerId'));
-		$this->checkWriterExistence();
+		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
 
-		$jobInfo = $this->createJob(array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'removeClones' => isset($this->params['removeClones'])? (bool)$this->params['removeClones'] : false
-			),
-			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-		));
-
-		$this->enqueue($jobInfo['batchId']);
-
-		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 	/**
@@ -1530,49 +1148,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postExecuteReportsAction()
 	{
-		$command = 'executeReports';
-		$createdTime = time();
+		$commandName = 'executeReports';
+		$command = $this->getCommand($commandName, $this->params);
 
-		// Init parameters
-		$this->checkParams(array('writerId', 'pid'));
-		$this->checkWriterExistence();
-		$this->getConfiguration()->checkBucketAttributes();
-		$this->getConfiguration()->checkProjectsTable();
+		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
 
-		$project = $this->getConfiguration()->getProject($this->params['pid']);
-		if (!$project) {
-			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
-		}
-
-		if (!$project['active']) {
-			throw new WrongParametersException($this->translator->trans('configuration.project.not_active %1', array('%1' => $this->params['pid'])));
-		}
-
-		$reports = array();
-		if (!empty($this->params['reports'])) {
-			$reports = (array) $this->params['reports'];
-
-			foreach ($reports AS $reportLink) {
-				if (!preg_match('/^\/gdc\/md\/' . $this->params['pid'] . '\//', $reportLink)) {
-					throw new WrongParametersException($this->translator->trans('parameters.report.not_valid %1', array('%1' => $reportLink)));
-				}
-			}
-		}
-
-
-		$jobInfo = $this->createJob(array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'pid' => $this->params['pid'],
-				'reports' => $reports,
-			),
-			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-		));
-
-		$this->enqueue($jobInfo['batchId']);
-
-		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 
@@ -1584,27 +1168,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postExportReportAction()
 	{
-		$command = 'exportReport';
-		$createdTime = time();
+		$commandName = 'exportReport';
+		$command = $this->getCommand($commandName, $this->params);
 
-		// Init parameters
-		$this->checkParams(array('writerId', 'pid', 'report', 'table'));
-		$this->checkWriterExistence();
+		$batchId = $this->storageApi->generateId();
+		$params = $command->prepare($this->params);
 
-		$jobInfo = $this->createJob(array(
-			'command' => $command,
-			'createdTime' => date('c', $createdTime),
-			'parameters' => array(
-				'pid'       => $this->params['pid'],
-				'report'    => $this->params['report'],
-				'table'     => $this->params['table']
-			),
-			'queue' => isset($this->params['queue']) ? $this->params['queue'] : null
-		));
-
-		$this->enqueue($jobInfo['batchId']);
-
-		return $this->getPollResult($jobInfo['id'], $this->params['writerId']);
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$this->enqueue($batchId);
+		return $this->getPollResult($batchId, $this->writerId);
 	}
 
 
@@ -1622,9 +1194,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		$model = new Graph();
 		$dimensionsUrl = sprintf('%s/admin/projects-new/%s/gooddata?config=%s#/date-dimensions',
-			$this->container->getParameter('storage_api.url'), $this->getConfiguration()->projectId, $this->getConfiguration()->writerId);
+			$this->container->getParameter('storage_api.url'), $this->projectId, $this->writerId);
 		$tableUrl = sprintf('%s/admin/projects-new/%s/gooddata?config=%s#/table/',
-			$this->container->getParameter('storage_api.url'), $this->getConfiguration()->projectId, $this->getConfiguration()->writerId);
+			$this->container->getParameter('storage_api.url'), $this->projectId, $this->writerId);
 		$model->setTableUrl($tableUrl);
 		$model->setDimensionsUrl($dimensionsUrl);
 
@@ -1809,7 +1381,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$command = empty($this->params['command']) ? null : $this->params['command'];
 			$tokenId = empty($this->params['tokenId']) ? null : $this->params['tokenId'];
 			$status = empty($this->params['status']) ? null : $this->params['status'];
-			$jobs = $this->getSharedConfig()->fetchJobs($this->getConfiguration()->projectId, $this->params['writerId'], $days, $tableId);
+			$jobs = $this->getSharedConfig()->fetchJobs($this->projectId, $this->writerId, $days, $tableId);
 
 			$result = array();
 			foreach ($jobs as $job) {
@@ -1829,7 +1401,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			if (is_array($this->params['jobId'])) {
 				throw new WrongParametersException($this->translator->trans('parameters.jobId_number'));
 			}
-			$job = $this->getSharedConfig()->fetchJob($this->params['jobId'], $this->getConfiguration()->writerId, $this->getConfiguration()->projectId);
+			$job = $this->getSharedConfig()->fetchJob($this->params['jobId'], $this->writerId, $this->projectId);
 			if (!$job) {
 				throw new WrongParametersException($this->translator->trans('parameters.job'));
 			}
@@ -1864,7 +1436,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	{
 		$this->checkParams(array('writerId'));
 
-		$this->getSharedConfig()->cancelJobs($this->getConfiguration()->projectId, $this->getConfiguration()->writerId);
+		$this->getSharedConfig()->cancelJobs($this->projectId, $this->writerId);
 		return $this->createApiResponse();
 	}
 
@@ -1907,15 +1479,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		return $this->createJsonResponse($responseBody, $statusCode);
 	}
 
-	private function getPollResult($id, $writerId, $isBatch = false, $jobId=null)
+	private function getPollResult($batchId, $writerId, $jobId=null)
 	{
 		/** @var \Symfony\Component\Routing\RequestContext $context */
 		$context = $this->container->get('router')->getContext();
 
 		$result = array(
-			($isBatch? 'batch' : 'job') => (int)$id,
-			'url' => sprintf('https://%s%s/gooddata-writer/%s?writerId=%s&%s=%s', $context->getHost(), $context->getBaseUrl(),
-				$isBatch? 'batch' : 'jobs', $writerId, $isBatch? 'batchId' : 'jobId', $id)
+			'batch' => (int)$batchId,
+			'url' => sprintf('https://%s%s/gooddata-writer/batch?writerId=%s&batchId=%s',
+				$context->getHost(), $context->getBaseUrl(), $writerId, $batchId)
 		);
 		if ($jobId) $result['job'] = (int)$jobId;
 		return $this->createApiResponse($result, 202);
@@ -1923,12 +1495,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 	private function getConfiguration()
 	{
-		if (!isset($this->params['writerId'])) {
+		if (!$this->writerId) {
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.required'));
 		}
 		if (!$this->configuration) {
 			$this->configuration = new Configuration($this->storageApi, $this->getSharedConfig());
-			$this->configuration->setWriterId($this->params['writerId']);
+			$this->configuration->setWriterId($this->writerId);
 		}
 		return $this->configuration;
 	}
@@ -1941,22 +1513,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			}
 			$this->s3Client = new S3Client(
 				$this->appConfiguration,
-				$this->getConfiguration()->projectId . '.' . $this->getConfiguration()->writerId,
+				$this->projectId . '.' . $this->writerId,
 				$this->container->get('logger')
 			);
 		}
 		return $this->s3Client;
-	}
-
-	private function getWriterQueue()
-	{
-		if (!$this->queue) {
-			if (!$this->appConfiguration) {
-				$this->appConfiguration = $this->container->get('gooddata_writer.app_configuration');
-			}
-			$this->queue = $this->container->get('gooddata_writer.jobs_queue');
-		}
-		return $this->queue;
 	}
 
 	private function getSharedConfig()
@@ -1981,47 +1542,16 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 	private function checkWriterExistence()
 	{
-		$tokenInfo = $this->storageApi->getLogData();
-		$projectId = $tokenInfo['owner']['id'];
-
-		if (!$this->getSharedConfig()->writerExists($projectId, $this->params['writerId'])) {
+		if (!$this->getSharedConfig()->writerExists($this->projectId, $this->writerId)) {
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.not_found'));
 		}
 	}
 
-	private function createJob($params)
+
+
+	protected function enqueue($batchId)
 	{
-		$tokenData = $this->storageApi->getLogData();
-		$job = $this->getSharedConfig()->createJob($this->getConfiguration()->projectId, $this->getConfiguration()->writerId,
-			$this->storageApi->getRunId(), $this->storageApi->token, $tokenData['id'], $tokenData['description'], $params);
-
-		$inputParams = isset($params['parameters'])? $params['parameters'] : array();
-		array_walk($inputParams, function(&$val, $key) {
-			if ($key == 'password') $val = '***';
-		});
-		$this->container->get('logger')->log(Logger::INFO, $this->translator->trans('log.job.created %1', array('%1' => $job['id'])), array(
-			'projectId' => $this->getConfiguration()->projectId,
-			'writerId' => $this->getConfiguration()->writerId,
-			'runId' => $this->storageApi->getRunId(),
-			'command' => $params['command'],
-			'params' => $inputParams
-		));
-
-		return $job;
-	}
-
-	/**
-	 * @param $batchId
-	 */
-	protected function enqueue($batchId, $otherData = array())
-	{
-		$data = array(
-			'projectId' => $this->getConfiguration()->projectId,
-			'writerId' => $this->getConfiguration()->writerId,
-			'batchId' => $batchId
-		);
-		if (count($otherData)) $data = array_merge($data, $otherData);
-		$this->getWriterQueue()->enqueue($data);
+		$this->getJobExecutor()->addBatchToQueue($this->projectId, $this->writerId, $batchId);
 	}
 
 
@@ -2042,6 +1572,35 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			throw new WrongConfigurationException($this->translator->trans('parameters.pid_not_configured'));
 		}
 		return $projects;
+	}
+
+	protected function getCommand($commandName)
+	{
+		$commandName = ucfirst($commandName);
+		$commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
+		if (!class_exists($commandClass)) {
+			throw new JobProcessException($this->translator->trans('job_executor.command_not_found %1', array('%1' => $commandName)));
+		}
+		/**
+		 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
+		 */
+		$command = new $commandClass($this->getConfiguration(), $this->appConfiguration, $this->getSharedConfig(),
+			$this->getS3Client(), $this->translator, $this->storageApi, $this->eventLogger);
+		$command->setQueue($this->container->get('gooddata_writer.jobs_queue'));
+		return $command;
+	}
+
+	/**
+	 * @return \Keboola\GoodDataWriter\Writer\JobExecutor
+	 */
+	protected function getJobExecutor()
+	{
+		if (!$this->jobExecutor) {
+			$this->jobExecutor = $this->container->get('gooddata_writer.job_executor');
+			$this->jobExecutor->setStorageApiClient($this->storageApi);
+			$this->jobExecutor->setEventLogger($this->eventLogger);
+		}
+		return $this->jobExecutor;
 	}
 
 }

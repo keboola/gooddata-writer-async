@@ -12,6 +12,12 @@ use Keboola\GoodDataWriter\Writer\SharedConfig;
 
 class WaitForInvitation extends AbstractJob
 {
+
+	public function prepare($params)
+	{
+
+	}
+
 	/**
 	 * required:
 	 * optional:
