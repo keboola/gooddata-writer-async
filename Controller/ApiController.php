@@ -1480,7 +1480,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		return $this->createJsonResponse($responseBody, $statusCode);
 	}
 
-	private function createPollResponse($batchId, $writerId)
+	private function createPollResponse($batchId, $writerId, $jobId=null)
 	{
 		/** @var \Symfony\Component\Routing\RequestContext $context */
 		$context = $this->container->get('router')->getContext();
@@ -1490,6 +1490,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			'url' => sprintf('https://%s%s/gooddata-writer/batch?writerId=%s&batchId=%s',
 				$context->getHost(), $context->getBaseUrl(), $writerId, $batchId)
 		);
+		if ($jobId) $result['job'] = (int)$jobId;
 		return $this->createApiResponse($result, 202);
 	}
 
