@@ -12,6 +12,18 @@ use Keboola\GoodDataWriter\GoodData\RestApiException;
 
 class DeleteWriter extends AbstractJob
 {
+
+	public function prepare($params)
+	{
+		$this->checkParams($params, array('writerId'));
+		$this->checkWriterExistence($params['writerId']);
+
+		$this->sharedConfig->cancelJobs($this->configuration->projectId, $this->configuration->writerId);
+		$this->sharedConfig->deleteWriter($this->configuration->projectId, $this->configuration->writerId);
+
+		return array();
+	}
+
 	/**
 	 * required:
 	 * optional:

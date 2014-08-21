@@ -13,6 +13,17 @@ use Keboola\GoodDataWriter\GoodData\RestApiException;
 
 class ResetProject extends AbstractJob
 {
+
+	public function prepare($params)
+	{
+		$this->checkParams($params, array('writerId'));
+		$this->checkWriterExistence($params['writerId']);
+
+		return array(
+			'removeClones' => isset($params['removeClones'])? (bool)$params['removeClones'] : false
+		);
+	}
+
 	/**
 	 * required:
 	 * optional: removeClones, accessToken

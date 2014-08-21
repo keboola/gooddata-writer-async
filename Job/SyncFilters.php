@@ -12,6 +12,17 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class SyncFilters extends AbstractJob
 {
+
+	public function prepare($params)
+	{
+		$this->checkParams($params, array('writerId'));
+		$this->checkWriterExistence($params['writerId']);
+
+		return array(
+			'pid' => empty($params['pid'])? null : $params['pid']
+		);
+	}
+
 	/**
 	 * required:
 	 * optional: pid

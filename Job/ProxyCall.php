@@ -13,6 +13,17 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class ProxyCall  extends AbstractJob
 {
+
+	public function prepare($params)
+	{
+		$this->checkParams($params, array('writerId', 'query', 'payload'));
+		$this->checkWriterExistence($params['writerId']);
+		return array(
+			'query' => $params['query'],
+			'payload' => $params['payload']
+		);
+	}
+
 	/**
 	 * required: query, payload
 	 * optional: pid

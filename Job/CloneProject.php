@@ -10,13 +10,39 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class CloneProject extends AbstractJob
 {
+
+	public function prepare($params)
+	{
+		$this->checkParams($params, array('writerId'));
+		$this->checkWriterExistence($params['writerId']);
+		$this->configuration->checkBucketAttributes();
+		$this->configuration->checkProjectsTable();
+
+		if (empty($params['accessToken'])) {
+			$params['accessToken'] = $this->appConfiguration->gd_accessToken;
+		}
+		if (empty($params['name'])) {
+			$params['name'] = sprintf($this->appConfiguration->gd_projectNameTemplate, $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
+		}
+
+		$bucketAttributes = $this->configuration->bucketAttributes();
+		return array(
+			'accessToken' => $params['accessToken'],
+			'name' => $params['name'],
+			'includeData' => empty($params['includeData']) ? 0 : 1,
+			'includeUsers' => empty($params['includeUsers']) ? 0 : 1,
+			'pidSource' => $bucketAttributes['gd']['pid']
+		);
+	}
+
+
 	/**
-	 * required: accessToken, projectName, pidSource
+	 * required: accessToken, name, pidSource
 	 * optional: includeData, includeUsers
 	 */
 	public function run($job, $params, RestApi $restApi)
 	{
-		$this->checkParams($params, array('accessToken', 'projectName', 'pidSource'));
+		$this->checkParams($params, array('accessToken', 'name', 'pidSource'));
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->configuration->checkBucketAttributes($bucketAttributes);
@@ -33,7 +59,7 @@ class CloneProject extends AbstractJob
 			$this->configuration->updateWriter('gd.uid', $userId);
 			$bucketAttributes['gd']['uid'] = $userId;
 		}
-		$projectPid = $restApi->createProject($params['projectName'], $params['accessToken'], json_encode(array(
+		$projectPid = $restApi->createProject($params['name'], $params['accessToken'], json_encode(array(
 			'projectId' => $this->configuration->projectId,
 			'writerId' => $this->configuration->writerId,
 			'main' => false

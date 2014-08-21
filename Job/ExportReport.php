@@ -18,6 +18,19 @@ use Keboola\StorageApi\Table;
 
 class ExportReport extends AbstractJob
 {
+
+	public function prepare($params)
+	{
+		$this->checkParams($params, array('writerId', 'pid', 'report', 'table'));
+		$this->checkWriterExistence($params['writerId']);
+
+		return array(
+			'pid' => $params['pid'],
+			'report' => $params['report'],
+			'table' => $params['table']
+		);
+	}
+
 	/**
 	 * @TODO works only with main project
 	 * required: report, table

@@ -12,6 +12,38 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class assignFiltersToUser extends AbstractJob
 {
+
+	public function prepare($params)
+	{
+		//@TODO backwards compatibility, REMOVE SOON
+		if (isset($params['userEmail'])) {
+			$params['email'] = $params['userEmail'];
+			unset($params['userEmail']);
+		}
+		////
+
+		$this->checkParams($params, array('writerId', 'email'));
+		if (!isset($params['filters'])) {
+			throw new WrongParametersException($this->translator->trans('parameters.filters.required'));
+		}
+		$configuredFilters = array();
+		foreach ($this->configuration->getFilters() as $f) {
+			$configuredFilters[] = $f['name'];
+		}
+		foreach ($params['filters'] as $f) {
+			if (!in_array($f, $configuredFilters)) {
+				$filters = is_array($f)? implode(', ', $f) : $f;
+				throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $filters)));
+			}
+		}
+		$this->checkWriterExistence($params['writerId']);
+
+		return array(
+			'filters' => $params['filters'],
+			'email' => $params['email']
+		);
+	}
+
 	/**
 	 * required: email, filters
 	 * optional:

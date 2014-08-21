@@ -314,24 +314,15 @@ abstract class AbstractControllerTest extends WebTestCase
 		if ($this->configuration)
 			$this->configuration->clearCache();
 
-		$resultId = null;
 		if (isset($responseJson['batch'])) {
 			$this->commandTester->execute(array(
 				'command' => 'gooddata-writer:execute-batch',
 				'batchId' => $responseJson['batch']
 			));
-			$resultId = $responseJson['batch'];
-		} elseif (isset($responseJson['job'])) {
-			$responseJson = $this->getWriterApi(sprintf('/jobs?writerId=%s&jobId=%d', $writerId, $responseJson['job']));
-			$this->commandTester->execute(array(
-				'command' => 'gooddata-writer:execute-batch',
-				'batchId' => $responseJson['batchId']
-			));
-			$resultId = $responseJson['id'];
+			return $responseJson['batch'];
 		} else {
-			$this->assertTrue(false, sprintf("Response for writer call '%s' should contain 'job' or 'batch' key.", $url));
+			$this->assertTrue(false, sprintf("Response for writer call '%s' should contain 'batch' key.", $url));
 		}
-		return $resultId;
 	}
 
 	protected  function createUser($ssoProvider = null)

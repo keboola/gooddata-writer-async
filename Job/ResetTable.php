@@ -12,6 +12,17 @@ use Symfony\Component\Stopwatch\Stopwatch;
 
 class ResetTable extends AbstractJob
 {
+
+	public function prepare($params)
+	{
+		$this->checkParams($params, array('writerId', 'tableId'));
+		$this->checkWriterExistence($params['writerId']);
+
+		return array(
+			'tableId' => $params['tableId']
+		);
+	}
+
 	/**
 	 * required: tableId
 	 * optional:

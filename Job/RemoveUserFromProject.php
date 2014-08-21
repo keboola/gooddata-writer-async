@@ -11,6 +11,27 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class RemoveUserFromProject extends AbstractJob
 {
+
+	public function prepare($params)
+	{
+		$this->checkParams($params, array('writerId', 'pid', 'email'));
+		$this->checkWriterExistence($params['writerId']);
+		if (!$this->configuration->getProject($params['pid'])) {
+			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
+		}
+		if (!$this->configuration->isProjectUser($params['email'], $params['pid'])) {
+			throw new WrongParametersException($this->translator->trans('parameters.email_not_configured'));
+		}
+		$this->configuration->checkBucketAttributes();
+		$this->configuration->checkProjectsTable();
+		$this->configuration->checkProjectUsersTable();
+
+		return array(
+			'pid' => $params['pid'],
+			'email' => $params['email']
+		);
+	}
+
 	/**
 	 * required: pid, email
 	 * optional:
