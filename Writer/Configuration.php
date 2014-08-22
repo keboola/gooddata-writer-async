@@ -324,18 +324,10 @@ class Configuration extends StorageApiConfiguration
 
 		$outputTables = $this->getOutputSapiTables();
 		$configuredTables = array();
-		// Remove tables that does not exist from configuration
-		$delete = array();
 		foreach ($this->fetchTableRows($tableId) as $row) {
-			if (!in_array($row['id'], $outputTables)) {
-				$delete[] = $row['id'];
-			}
 			if (!in_array($row['id'], $configuredTables)) {
 				$configuredTables[] = $row['id'];
 			}
-		}
-		if (count($delete)) {
-			$this->deleteTableRows($tableId, 'id', $delete);
 		}
 
 		// Add tables without configuration
@@ -347,9 +339,6 @@ class Configuration extends StorageApiConfiguration
 		}
 		if (count($add)) {
 			$this->updateConfigTable(self::DATA_SETS_TABLE_NAME, $add);
-		}
-
-		if (count($delete) || count($add)) {
 			$this->clearCache();
 		}
 
