@@ -243,6 +243,20 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	}
 
 	/**
+	 * Delete configuration
+	 * alias for deleteWritersAction()
+	 *
+	 * @Route("/configs/{configId}")
+	 * @Method({"DELETE"})
+	 */
+	public function deleteConfigsAction($configId)
+	{
+		$this->params['writerId'] = $configId;
+		$this->writerId = $configId;
+		return $this->deleteWritersAction();
+	}
+
+	/**
 	 * Detail writer or list all writers
 	 *
 	 * @Route("/writers")
