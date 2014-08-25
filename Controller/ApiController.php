@@ -237,9 +237,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$batchId = $this->storageApi->generateId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedConfig::SERVICE_QUEUE);
+		$this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedConfig::SERVICE_QUEUE);
 		$this->enqueue($batchId);
-		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+		return $this->createApiResponse(array(), 204);
 	}
 
 	/**
