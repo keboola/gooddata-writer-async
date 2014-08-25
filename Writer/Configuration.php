@@ -593,13 +593,14 @@ class Configuration extends StorageApiConfiguration
 		unset($allowedParams['lastChangeDate']);
 		unset($allowedParams['definition']);
 
+		$tableRow = array();
 		if (is_array($name)) {
 			unset($name['writerId']);
 			// Update more values at once
 			foreach (array_keys($name) as $key) if (!in_array($key, $allowedParams)) {
 				throw new WrongParametersException(sprintf("Parameter '%s' is not valid for table definition", $key));
 			}
-			$tableRow = array_merge($tableRow, $name);
+			$tableRow = $name;
 		} else {
 			// Update one value
 			if (!in_array($name, $allowedParams)) {
@@ -608,6 +609,7 @@ class Configuration extends StorageApiConfiguration
 			$tableRow[$name] = $value;
 		}
 
+		$tableRow['id'] = $tableId;
 		$tableRow['lastChangeDate'] = date('c');
 		$this->updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableRow);
 	}
