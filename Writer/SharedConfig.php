@@ -9,6 +9,7 @@ namespace Keboola\GoodDataWriter\Writer;
 use Doctrine\DBAL\Connection;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\User;
+use Keboola\GoodDataWriter\Service\Lock;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\Service\StorageApiConfiguration;
@@ -71,6 +72,12 @@ class SharedConfig extends StorageApiConfiguration
 			'charset' => 'utf8'
 		);
 		$this->db = \Doctrine\DBAL\DriverManager::getConnection($connectionParams, $config);
+		$this->db->exec('SET wait_timeout = 31536000;');
+	}
+
+	public function getLock($name)
+	{
+		return new Lock($this->db, $name);
 	}
 
 	public function createWriter($projectId, $writerId, $bucket, $tokenId, $tokenDescription)

@@ -11,7 +11,7 @@
 gooddata_writer:
   user_agent: 'Keboola GoodData Writer' # User Agent used for Storage API requests
   ruby_path: # Optional path to ruby executable if not in standard path
-  scripts_path: # Full path to folderGoodData
+  scripts_path: # Full path to folder GoodData
   tmp_path: # Path to folder used for temporary files
   shared_sapi:
     url: 'https://connection.keboola.com' # URL to SAPI with Shared Config project
@@ -41,7 +41,7 @@ gooddata_writer:
 4. create a database and fill it's credentials to part `gooddata_writer.db` in `parameters.yml`
     1. create db structure from file `db.sql`
     2. add GoodData domain and it's admin to table `domains`, password is encrypted using Syrup's Encryptor
-        - you can use method `Writer\SharedConfig::saveDomain() which will handle the encryption for you
+        - you can use method `Writer\SharedConfig::saveDomain()` which will handle the encryption for you
         - note that you have to set `components.gooddata-writer.encryption_key` first
 5. create Shared Config project in KBC (you have to create your own for each instance of Writer)
     1. fill it's SAPI token in `gooddata_writer.shared_sapi.token` section of `parameters.yml`
