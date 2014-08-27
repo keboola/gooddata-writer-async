@@ -5,8 +5,6 @@
 1. create workspace from repository: `git clone git@bitbucket.org:keboola/gooddata-writer.git`
 2. create file `parameters.yml` in workspace root by copy from `parameters.yml.dist`
     - note section `gooddata_writer` which contains specific settings for the Writer:
-    
-        
 ```
 #!yaml
 
@@ -39,8 +37,6 @@ gooddata_writer:
     s3_bucket: kbc-gooddata-writer # Name of bucket in S3
     queue_url: # url to SQS queue
 ```
-
-          
 3. create SQS queue, S3 bucket and access keys with access to both of them designated for the Writer and fill part `gooddata_writer.aws` in `parameters.yml`
 4. create a database and fill it's credentials to part `gooddata_writer.db` in `parameters.yml`
     1. create db structure from file `db.sql`
