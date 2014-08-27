@@ -161,12 +161,13 @@ class SharedConfig extends StorageApiConfiguration
 		return $user;
 	}
 
-	public function saveDomain($name, $username, $password)
+	public function saveDomain($name, $username, $password, $uid)
 	{
 		$this->db->insert('domains', array(
 			'name' => $name,
 			'username' => $username,
-			'password' => $this->encryptor->encrypt($password)
+			'password' => $this->encryptor->encrypt($password),
+			'uid' => $uid
 		));
 	}
 
