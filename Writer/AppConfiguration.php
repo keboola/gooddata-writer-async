@@ -52,7 +52,6 @@ class AppConfiguration
 		$this->userAgent = $mainConfig['user_agent'];
 		$this->tmpPath = $mainConfig['tmp_path'];
 		$this->scriptsPath = $mainConfig['scripts_path'];
-		$this->zipPath = isset($mainConfig['zip_path']) ? $mainConfig['zip_path'] : null;
 		$this->clPath = isset($mainConfig['cl_path']) ? $mainConfig['cl_path'] : null;
 		$this->rubyPath = isset($mainConfig['ruby_path']) ? $mainConfig['ruby_path'] : null;
 

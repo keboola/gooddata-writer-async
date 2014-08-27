@@ -3,7 +3,7 @@ parameters:
         user_agent: 'Keboola GoodData Writer'
         tmp_path: /tmp/gooddata-writer
         scripts_path: /www/syrup-router/components/gooddata-writer/current/GoodData
-        zip_path:
+        ruby_path:
         shared_sapi:
             url: 'https://connection.keboola.com'
             token:
@@ -12,10 +12,10 @@ parameters:
             domain: keboola
             sso_provider: keboola.com
             key_passphrase:
-            username: gooddata@keboola.com
-            password:
             user_email: '%%s-%%s@clients.keboola.com'
             project_name: 'KBC - %%s - %%s'
+            invitations_email: gooddata-robot@keboola.com
+            invitations_password: Ai7wIg5Jic1uC0W
         db:
             host: localhost
             name: gooddata_writer
