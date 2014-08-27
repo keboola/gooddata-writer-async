@@ -103,10 +103,7 @@ class JobExecutor
 		}
 
 		// Lock
-		$pdo = new \PDO(sprintf('mysql:host=%s;dbname=%s', $this->appConfiguration->db_host, $this->appConfiguration->db_name),
-			$this->appConfiguration->db_user, $this->appConfiguration->db_password);
-		$pdo->exec('SET wait_timeout = 31536000;');
-		$lock = new Lock($pdo, $batch['queueId']);
+		$lock = $this->sharedConfig->getLock($batch['queueId']);
 		if (!$lock->lock()) {
 			throw new QueueUnavailableException($this->translator->trans('queue.in_use %1', array('%1' => $batchId)));
 		}

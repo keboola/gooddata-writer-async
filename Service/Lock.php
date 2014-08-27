@@ -12,82 +12,37 @@
 
 namespace Keboola\GoodDataWriter\Service;
 
+use Doctrine\DBAL\Connection;
+
 class Lock
 {
 
 	/**
-	 * @var \PDO
+	 * @var Connection
 	 */
-	protected $_db;
-	protected $_lockName;
+	private $db;
+	private $lockName;
 
 
-	/**
-	 * @param \PDO $db
-	 * @param string $lockName Lock name is server wide - should be prefixed by db name
-	 */
-	public function __construct(\PDO $db, $lockName = '')
+	public function __construct(Connection $db, $lockName='')
 	{
-		$this->_db = $db;
-		$this->setLockName($lockName);
+		$this->db = $db;
+		$this->lockName = $db->getDatabase() . '.' . $lockName;
 	}
 
-	/**
-	 * @param int $timeout
-	 * @return bool
-	 */
-	public function lock($timeout = 0)
+	public function lock($timeout=0)
 	{
-		$sql = 'SELECT GET_LOCK(:name, :timeout)';
-		$sth = $this->_db->prepare($sql, array(\PDO::ATTR_CURSOR => \PDO::CURSOR_FWDONLY));
-		$sth->execute(array(':name' => $this->_prefixedLockName(), ':timeout' => $timeout));
-		return $sth->fetchColumn();
+		return (bool)$this->db->fetchColumn('SELECT GET_LOCK(?, ?);', array($this->lockName, $timeout));
 	}
 
 	public function isFree()
 	{
-		$sql = 'SELECT IS_FREE_LOCK(:name)';
-		$sth = $this->_db->prepare($sql, array(\PDO::ATTR_CURSOR => \PDO::CURSOR_FWDONLY));
-		$sth->execute(array(':name' => $this->_prefixedLockName()));
-		return $sth->fetchColumn();
+		return (bool)$this->db->fetchColumn('SELECT IS_FREE_LOCK(?);', array($this->lockName));
 	}
 
 	public function unlock()
 	{
-		$sql = 'DO RELEASE_LOCK(:name)';
-		$sth = $this->_db->prepare($sql, array(\PDO::ATTR_CURSOR => \PDO::CURSOR_FWDONLY));
-		$sth->execute(array(':name' => $this->_prefixedLockName()));
-	}
-
-	protected function _prefixedLockName()
-	{
-		return $this->_dbName() . '.' . $this->_lockName;
-	}
-
-	protected function _dbName()
-	{
-		$error = array();
-		for ($i = 0; $i < 5; $i++) {
-			$result = $this->_db->query('SELECT DATABASE()');
-			if ($result) {
-				return (string)$result->fetchColumn();
-			} else {
-				$error = $this->_db->errorInfo();
-			}
-			sleep($i * 60);
-		}
-
-		throw new \Exception('Could not connect to locking database. ' . implode(', ', $error));
-	}
-
-	public function getLockName()
-	{
-		return $this->_lockName;
-	}
-
-	public function setLockName($lockName)
-	{
-		$this->_lockName = $lockName;
+		return (bool)$this->db->executeQuery('DO RELEASE_LOCK(?);', array($this->lockName));
 	}
 
 }
