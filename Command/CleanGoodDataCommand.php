@@ -32,16 +32,16 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 
 		/** @var AppConfiguration $appConfiguration */
 		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
+		/** @var SharedConfig $sharedConfig */
+		$sharedConfig = $this->getContainer()->get('gooddata_writer.shared_config');
 
-		$lock = new Lock(new \PDO(sprintf('mysql:host=%s;dbname=%s', $appConfiguration->db_host, $appConfiguration->db_name),
-			$appConfiguration->db_user, $appConfiguration->db_password), 'CleanGoodDataCommand');
+		$lock = $sharedConfig->getLock('CleanGoodDataCommand');
 		if (!$lock->lock()) {
 			return;
 		}
 
 		$log = $this->getContainer()->get('logger');
-		/** @var SharedConfig $sharedConfig */
-		$sharedConfig = $this->getContainer()->get('gooddata_writer.shared_config');
+
 
 		/** @var RestApi */
 		$restApi = $this->getContainer()->get('gooddata_writer.rest_api');

@@ -193,6 +193,31 @@ class FiltersTest extends AbstractControllerTest
 		$this->assertFalse($this->configuration->getFilter($filter['name']), 'Writer should have no filter configured');
 		$this->assertEmpty($this->configuration->getFiltersProjects(), 'Writer should have no filter-project relation configured');
 		$this->assertEmpty($this->configuration->getFiltersUsers(), 'Writer should have no filter-user relation configured');
+
+
+		/**
+		 * Filter with OVER .. TO ..
+		 */
+		$table = new StorageApiTable($this->storageApi, $this->dataBucketId . '.users', null, 'id');
+		$table->setHeader(array('id', 'name'));
+		$table->setFromArray(array(array('u1', 'User 1'), array('u2', 'User 2')));
+		$table->save();
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.users', 'name', 'Users');
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.users', 'export', '1');
+		$this->configuration->updateColumnsDefinition($this->dataBucketId . '.users', array(
+			array('name' => 'id', 'gdName' => 'Id', 'type' => 'CONNECTION_POINT'),
+			array('name' => 'name', 'gdName' => 'Name', 'type' => 'ATTRIBUTE')
+		));
+		$this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.users'));
+
+		$this->processJob('/filters', array(
+			'pid' => $pid,
+			'name' => 'Over-To Filter',
+			'attribute' => $this->dataBucketId . '.users.name',
+			'element' => 'User 1',
+			'over' => $this->dataBucketId . '.users.id',
+			'to' => $this->dataBucketId . '.products.id'
+		));
 	}
 
 }

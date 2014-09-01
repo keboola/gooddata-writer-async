@@ -7,7 +7,9 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
+use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Writer\Configuration;
 
 class createFilter extends AbstractJob
 {
@@ -29,28 +31,31 @@ class createFilter extends AbstractJob
 			throw new WrongParametersException($this->translator->trans('parameters.filter.already_exists'));
 		}
 
-		$attr = explode('.', $params['attribute']);
-		if (count($attr) != 4) {
-			throw new WrongParametersException($this->translator->trans('parameters.attribute.format'));
-		}
-		$tableId = sprintf('%s.%s.%s', $attr[0], $attr[1], $attr[2]);
-		$sapiTable = $this->configuration->getSapiTable($tableId);
-		if (!in_array($attr[3], $sapiTable['columns'])) {
-			throw new WrongParametersException($this->translator->trans('parameters.attribute.not_found'));
-		}
-
-		return array(
+		$result = array(
 			'name' => $params['name'],
 			'attribute' => $params['attribute'],
 			'value' => $params['value'],
 			'pid' => $params['pid'],
 			'operator' => $params['operator']
 		);
+
+		$this->configuration->getTableIdFromAttribute($params['attribute']);
+		if ((isset($params['over']) && !isset($params['to'])) || (!isset($params['over']) && isset($params['to']))) {
+			throw new WrongParametersException($this->translator->trans('parameters.filter.over_to_missing'));
+		}
+		if (isset($params['over']) && isset($params['to'])) {
+			$this->configuration->getTableIdFromAttribute($params['over']);
+			$this->configuration->getTableIdFromAttribute($params['to']);
+			$result['over'] = $params['over'];
+			$result['to'] = $params['to'];
+		}
+
+		return $result;
 	}
 
 	/**
-	 * required: name, attribute, element, pid, operator
-	 * optional:
+	 * required: name, attribute, operator, value ,pid
+	 * optional: over, to
 	 */
 	public function run($job, $params, RestApi $restApi)
 	{
@@ -65,23 +70,36 @@ class createFilter extends AbstractJob
 			}
 		}
 
-		$attr = explode('.', $params['attribute']);
-		if (count($attr) != 4) {
-			throw new WrongParametersException($this->translator->trans('parameters.attribute.format'));
-		}
-		$tableId = sprintf('%s.%s.%s', $attr[0], $attr[1], $attr[2]);
-		$sapiTable = $this->configuration->getSapiTable($tableId);
-		if (!in_array($attr[3], $sapiTable['columns'])) {
-			throw new WrongParametersException($this->translator->trans('parameters.attribute.not_found'));
-		}
+		$tableId = $this->configuration->getTableIdFromAttribute($params['attribute']);
+		$tableDefinition = $this->configuration->getDataSet($tableId);
+		$tableName = empty($tableDefinition['name'])? $tableId : $tableDefinition['name'];
+		$attrName = substr($params['attribute'], strrpos($params['attribute'], '.') + 1);
+		$attrId = Model::getAttributeId($tableName, $attrName);
 
-		$attrId = $this->configuration->translateAttributeName($params['attribute']);
+		$overAttrId = null;
+		$toAttrId = null;
+		if ((isset($params['over']) && !isset($params['to'])) || (!isset($params['over']) && isset($params['to']))) {
+			throw new WrongParametersException($this->translator->trans('parameters.filter.over_to_missing'));
+		}
+		if (isset($params['over']) && isset($params['to'])) {
+			$overTableId = $this->configuration->getTableIdFromAttribute($params['over']);
+			$overTableDefinition = $this->configuration->getDataSet($overTableId);
+			$overTableName = empty($overTableDefinition['name'])? $overTableId : $overTableDefinition['name'];
+			$overAttrName = substr($params['over'], strrpos($params['over'], '.') + 1);
+			$overAttrId = Model::getAttributeId($overTableName, $overAttrName);
+
+			$toTableId = $this->configuration->getTableIdFromAttribute($params['to']);
+			$toTableDefinition = $this->configuration->getDataSet($toTableId);
+			$toTableName = empty($toTableDefinition['name'])? $toTableId : $toTableDefinition['name'];
+			$toAttrName = substr($params['to'], strrpos($params['to'], '.') + 1);
+			$toAttrId = Model::getAttributeId($toTableName, $toAttrName);
+		}
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$gdWriteStartTime = date('c');
-		$filterUri = $restApi->createFilter($params['name'], $attrId, $params['operator'], $params['value'], $params['pid']);
+		$filterUri = $restApi->createFilter($params['name'], $attrId, $params['operator'], $params['value'], $params['pid'], $overAttrId, $toAttrId);
 
 		$this->configuration->saveFilter($params['name'], $params['attribute'], $params['operator'], $params['value']);
 		$this->configuration->saveFiltersProjects($filterUri, $params['name'], $params['pid']);

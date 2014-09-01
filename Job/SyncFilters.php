@@ -8,6 +8,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class SyncFilters extends AbstractJob
@@ -51,13 +52,12 @@ class SyncFilters extends AbstractJob
 			if (!is_array($value)) {
 				$value = $f['value'];
 			}
-			$filterUris[$f['name']] = $restApi->createFilter(
-				$f['name'],
-				$this->configuration->translateAttributeName($f['attribute']),
-				$f['operator'],
-				$value,
-				$params['pid']
-			);
+			$tableId = $this->configuration->getTableIdFromAttribute($f['attribute']);
+			$tableDefinition = $this->configuration->getDataSet($tableId);
+			$tableName = empty($tableDefinition['name'])? $tableId : $tableDefinition['name'];
+			$attrName = substr($f['attribute'], strrpos($f['attribute'], '.') + 1);
+			$attrId = Model::getAttributeId($tableName, $attrName);
+			$filterUris[$f['name']] = $restApi->createFilter($f['name'], $attrId, $f['operator'], $value, $params['pid']);
 			$this->configuration->saveFiltersProjects($filterUris[$f['name']], $f['name'], $params['pid']);
 		}
 

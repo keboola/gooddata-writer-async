@@ -49,6 +49,11 @@ class Model
 		return 'dataset.' . self::getId($name);
 	}
 
+	public static function getAttributeId($tableName, $attrName)
+	{
+		return sprintf('attr.%s.%s', Model::getId($tableName), Model::getId($attrName));
+	}
+
 	public static function getTimestampFromApiDate($date)
 	{
 		$date = new \DateTime($date, new \DateTimeZone(self::API_TIME_ZONE));
