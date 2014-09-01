@@ -877,7 +877,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$batchId = $this->storageApi->generateId();
 		foreach ($this->getProjectsToUse() as $pid) {
 			$definition = array();
-			foreach ($this->params['tables'] as $tableId) {
+			foreach ($params['tables'] as $tableId) {
 				$definition[$tableId] = array(
 					'columns' => $this->getConfiguration()->getDataSetDefinition($tableId),
 					'dataset' => $this->getConfiguration()->getDataSet($tableId)
