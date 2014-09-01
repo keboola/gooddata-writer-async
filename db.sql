@@ -50,7 +50,7 @@ CREATE TABLE `writers` (
   `token_desc` varchar(255) NOT NULL DEFAULT '',
   `created_time` datetime NOT NULL,
   `deleted_time` datetime DEFAULT NULL,
-  `info` text,
+  `failure` text,
   `cl_tool` tinyint(1) NOT NULL DEFAULT '0',
   `date_facts` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`project_id`,`writer_id`)
