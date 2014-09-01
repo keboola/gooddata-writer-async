@@ -276,24 +276,29 @@ abstract class StorageApiConfiguration
 				$filtersUsersTable->save();
 
 			} catch (\Exception $e) {
-				echo $e->getMessage().PHP_EOL;die();
 				// ignore - race condition
 			}
 
 			return true;
 		}
-		//@TODO Remove sometimes in october ;o)
-
-		//@TODO Remove sometimes in july ;o)
-		if ($tableName == 'date_dimensions' && !in_array('template', $columns)) {
+		if ($tableName == 'filters' && !in_array('over', $columns)) {
 			try {
-				$this->storageApiClient->addTableColumn($this->bucketId . '.date_dimensions', 'template');
+				$this->storageApiClient->addTableColumn($this->bucketId . '.filters', 'over');
 			} catch (\Exception $e) {
 				// ignore - race condition
 			}
-			$columns[] = 'template';
+			$columns[] = 'over';
 		}
-		//@TODO Remove sometimes in july ;o)
+		if ($tableName == 'filters' && !in_array('to', $columns)) {
+			try {
+				$this->storageApiClient->addTableColumn($this->bucketId . '.filters', 'to');
+			} catch (\Exception $e) {
+				// ignore - race condition
+			}
+			$columns[] = 'to';
+		}
+		//@TODO Remove sometimes in october ;o)
+
 
 		// Allow tables to have more columns then according to definitions
 		if (count(array_diff($this->tables[$tableName]['columns'], $columns))) {

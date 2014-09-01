@@ -50,7 +50,7 @@ class Configuration extends StorageApiConfiguration
 			'indices' => array('pid', 'email')
 		),
 		self::FILTERS_TABLE_NAME => array(
-			'columns' => array('name', 'attribute', 'operator', 'value'),
+			'columns' => array('name', 'attribute', 'operator', 'value', 'over', 'to'),
 			'primaryKey' => 'name',
 			'indices' => array()
 		),
@@ -1432,30 +1432,22 @@ class Configuration extends StorageApiConfiguration
 		$this->deleteTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri);
 	}
 
-
-
-
-	/**
-	 * @TODO should be moved to RestApi class
-	 * Translates attribute name from SAPI form to GD form
-	 * Example: out.c-main.users.id -> attr.outcmainusers.id
-	 * If name is set on SAPI table (name = users): out.c-main.users.id -> attr.users.id
-	 */
-	public function translateAttributeName($attribute)
+	public function getTableIdFromAttribute($attr)
 	{
-		$idArr = explode('.', $attribute);
-		$tableId = $idArr[0] . '.' . $idArr[1] . '.' . $idArr[2];
-		$attrName = $idArr[3];
+		$attr = explode('.', $attr);
+		if (count($attr) != 4) {
+			throw new WrongConfigurationException(sprintf("Attribute parameter '%s' has wrong format", $attr));
+		}
+		$tableId = sprintf('%s.%s.%s', $attr[0], $attr[1], $attr[2]);
 
-		$tableDef = $this->getDataSet($tableId);
-
-		$tableName = $tableId;
-		if (!empty($tableDef['name'])) {
-			$tableName = $tableDef['name'];
+		$sapiTable = $this->getSapiTable($tableId);
+		if (!in_array($attr[3], $sapiTable['columns'])) {
+			throw new WrongParametersException(sprintf("Attribute parameter '%s' has wrong format, column '%s' not found in table '%s'", $attr, $attr[3], $tableId));
 		}
 
-		return sprintf('attr.%s.%s', Model::getId($tableName), Model::getId($attrName));
+		return $tableId;
 	}
+
 
 
 	/**

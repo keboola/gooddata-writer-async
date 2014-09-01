@@ -1966,17 +1966,17 @@
         },
         {
             "name": "syrup/component-bundle",
-            "version": "1.5.1",
+            "version": "1.5.4",
             "target-dir": "Syrup/ComponentBundle",
             "source": {
                 "type": "git",
                 "url": "https://github.com/keboola/syrup-component-bundle.git",
-                "reference": "0966338205534052e40192e39aaf5bb18a047a20"
+                "reference": "0b61eab00178b8e56aa4f2cfcab942e228c89ce4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/keboola/syrup-component-bundle/zipball/0966338205534052e40192e39aaf5bb18a047a20",
-                "reference": "0966338205534052e40192e39aaf5bb18a047a20",
+                "url": "https://api.github.com/repos/keboola/syrup-component-bundle/zipball/0b61eab00178b8e56aa4f2cfcab942e228c89ce4",
+                "reference": "0b61eab00178b8e56aa4f2cfcab942e228c89ce4",
                 "shasum": ""
             },
             "require": {
@@ -1988,7 +1988,7 @@
                 "php": ">=5.3.5"
             },
             "require-dev": {
-                "keboola/syrup": "~1.3.0",
+                "keboola/syrup": "~1.3.2",
                 "phpunit/phpunit": "3.7.*"
             },
             "type": "symfony-bundle",
@@ -2015,7 +2015,7 @@
                 }
             ],
             "description": "Syrup ComponentBundle",
-            "time": "2014-04-17 14:51:32"
+            "time": "2014-09-01 15:27:33"
         },
         {
             "name": "twig/twig",

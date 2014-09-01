@@ -1239,25 +1239,39 @@ class RestApi
 	 * Creates new Mandatory User Filter
 	 *
 	 */
-	public function createFilter($name, $attribute, $operator, $value, $pid)
+	public function createFilter($name, $attributeId, $operator, $value, $pid, $overId=null, $toId=null)
 	{
-		$gdAttribute = $this->getAttributeById($pid, $attribute);
+		$gdAttribute = $this->getAttributeById($pid, $attributeId);
 
+		$expression = '[' . $gdAttribute['meta']['uri'] . '] ' . $operator . ' ';
 		try {
 			if (is_array($value)) {
-				$elementArr = array();
+				$elementArray = array();
 				foreach ($value as $v) {
-					$elementArr[] = '[' . $this->getElementUriByTitle($gdAttribute['content']['displayForms'][0]['links']['elements'], $v) . ']';
+					$elementArray[] = '[' . $this->getAttributeValueUri($gdAttribute, $v) . ']';
 				}
 
-				$elementsUri = implode(',', $elementArr);
-				$expression = "[" . $gdAttribute['meta']['uri'] . "]" . $operator . "(" . $elementsUri . ")";
+				$expression .= '(' . implode(',', $elementArray) . ')';
 			} else {
-				$elementUri = $this->getElementUriByTitle($gdAttribute['content']['displayForms'][0]['links']['elements'], $value);
-				$expression = "[" . $gdAttribute['meta']['uri'] . "]" . $operator . "[" . $elementUri . "]";
+				$expression .= '[' . $this->getAttributeValueUri($gdAttribute, $value) . ']';
 			}
 		} catch (JobProcessException $e) {
 			throw new JobProcessException('Attribute value is missing from the dataset. Add it or choose another one please. (' . $e->getMessage() . ')', $e);
+		}
+
+		if ($overId && $toId) {
+			try {
+				$over = $this->getAttributeById($pid, $overId);
+			} catch (JobProcessException $e) {
+				throw new JobProcessException(sprintf("Attribute '%s' used for 'over' does not exist in project", $overId));
+			}
+			try {
+				$to = $this->getAttributeById($pid, $toId);
+			} catch (JobProcessException $e) {
+				throw new JobProcessException(sprintf("Attribute '%s' used for 'to' does not exist in project", $toId));
+			}
+
+			$expression = '(' . $expression . ') OVER [' . $over['meta']['uri'] . '] TO [' . $to['meta']['uri'] . ']';
 		}
 
 		$filterUri = sprintf('/gdc/md/%s/obj', $pid);
@@ -1384,35 +1398,30 @@ class RestApi
 		}
 	}
 
-	public function getElements($uri)
+	public function getAttributeValues($attribute)
 	{
-		$result = $this->jsonRequest($uri);
+		$valuesUri = $attribute['content']['displayForms'][0]['links']['elements'];
+		$result = $this->jsonRequest($valuesUri);
 		if (isset($result['attributeElements']['elements'])) {
 			return $result['attributeElements']['elements'];
 		} else {
-			$this->logAlert('getElements() has bad response', array(
-				'uri' => $uri,
+			$this->logAlert('getAttributeValues() has bad response', array(
+				'uri' => $valuesUri,
 				'result' => $result
 			));
-			throw new RestApiException('Elements could not be fetched');
+			throw new RestApiException(sprintf('Values of attribute \'%s\' could not be fetched', $attribute['meta']['identifier']));
 		}
 	}
 
-	public function getElementUriByTitle($uri, $title)
+	public function getAttributeValueUri($attribute, $title)
 	{
-		$elementUri = null;
-		foreach ($this->getElements($uri) as $e) {
+		foreach ($this->getAttributeValues($attribute) as $e) {
 			if ($e['title'] == $title) {
-				$elementUri = $e['uri'];
-				break;
+				return $e['uri'];
 			}
 		}
 
-		if (null == $elementUri) {
-			throw new JobProcessException('Element ' . $title . ' not found');
-		} else {
-			return $elementUri;
-		}
+		throw new JobProcessException(sprintf("Value '%s' of attribute '%s' not found", $title, $attribute['meta']['identifier']));
 	}
 
 	public function getWebDavUrl()
