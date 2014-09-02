@@ -127,7 +127,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	public function __destruct()
 	{
 		$params = array();
-		foreach ($this->params as $k => $p) {
+		if (is_array($this->params)) foreach ($this->params as $k => $p) {
 			$params[$k] = ($k == 'password')? '***' : $p;
 		}
 		/** @var \Symfony\Bundle\FrameworkBundle\Routing\Router $router */
