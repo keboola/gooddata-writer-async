@@ -383,8 +383,10 @@ class Configuration extends StorageApiConfiguration
 	public function getDataSets()
 	{
 		$this->updateDataSetsFromSapi();
+
+		$outputTables = $this->getOutputSapiTables();
 		$tables = array();
-		foreach ($this->getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
+		foreach ($this->getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) if (in_array($table['id'], $outputTables)) {
 			$tables[] = array(
 				'id' => $table['id'],
 				'bucket' => substr($table['id'], 0, strrpos($table['id'], '.')),

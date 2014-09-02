@@ -133,7 +133,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		/** @var \Symfony\Bundle\FrameworkBundle\Routing\Router $router */
 		$router = $this->get('router');
 		if ($this->eventLogger) {
-			$this->eventLogger->log(
+			@$this->eventLogger->log(
 				$this->writerId,
 				$this->storageApi->getRunId(),
 				'Called API ' . $router->getContext()->getMethod() . ' ' . $router->getContext()->getPathInfo(),
