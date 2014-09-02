@@ -101,7 +101,8 @@ class createFilter extends AbstractJob
 		$gdWriteStartTime = date('c');
 		$filterUri = $restApi->createFilter($params['name'], $attrId, $params['operator'], $params['value'], $params['pid'], $overAttrId, $toAttrId);
 
-		$this->configuration->saveFilter($params['name'], $params['attribute'], $params['operator'], $params['value']);
+		$this->configuration->saveFilter($params['name'], $params['attribute'], $params['operator'], $params['value'],
+			isset($params['over'])? $params['over'] : null, isset($params['to'])? $params['to'] : null);
 		$this->configuration->saveFiltersProjects($filterUri, $params['name'], $params['pid']);
 
 		$this->logEvent('createFilter', array(
