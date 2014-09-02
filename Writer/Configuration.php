@@ -1353,7 +1353,7 @@ class Configuration extends StorageApiConfiguration
 	/**
 	 *
 	 */
-	public function saveFilter($name, $attribute, $operator, $value)
+	public function saveFilter($name, $attribute, $operator, $value, $over=null, $to=null)
 	{
 		if ($this->sapi_tableExists($this->bucketId . '.' . self::FILTERS_TABLE_NAME) && $this->getFilter($name)) {
 			throw new WrongParametersException("Filter of that name already exists.");
@@ -1363,7 +1363,9 @@ class Configuration extends StorageApiConfiguration
 			'name' => $name,
 			'attribute' => $attribute,
 			'operator' => $operator,
-			'value' => is_array($value)? json_encode($value) : $value
+			'value' => is_array($value)? json_encode($value) : $value,
+			'over' => $over,
+			'to' => $to
 		);
 		$this->updateConfigTableRow(self::FILTERS_TABLE_NAME, $data);
 	}
