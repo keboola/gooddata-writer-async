@@ -62,7 +62,9 @@ class SSO
 
 			if ($process->isSuccessful() && !$error) {
 
-				unlink($jsonFile);
+				if (file_exists($jsonFile)) {
+					unlink($jsonFile);
+				}
 				if (file_exists($jsonFile . '.enc')) {
 					$sign = file_get_contents($jsonFile . '.enc');
 					unlink($jsonFile . '.enc');
