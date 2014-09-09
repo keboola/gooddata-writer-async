@@ -192,7 +192,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedConfig::SERVICE_QUEUE);
 
 		if(!empty($params['users'])) foreach ($params['users'] as $user) {
-			$this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'addUserToProject', array('email' => $user, 'role' => 'admin'), $batchId, SharedConfig::SERVICE_QUEUE);
+			$this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'addUserToProject',
+				array('email' => $user, 'role' => 'admin'), $batchId, SharedConfig::SERVICE_QUEUE, array('dataset' => $user));
 		}
 
 		$this->enqueue($batchId);
@@ -316,7 +317,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$batchId = $this->storageApi->generateId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
+			isset($this->params['queue'])? $this->params['queue'] : null);
 		$this->enqueue($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
@@ -352,7 +354,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$batchId = $this->storageApi->generateId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
+			isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $params['email']));
 		$this->enqueue($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
@@ -371,7 +374,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$batchId = $this->storageApi->generateId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
+			isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $params['email']));
 		$this->enqueue($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
@@ -407,7 +411,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$batchId = $this->storageApi->generateId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
+			isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $params['email']));
 		$this->enqueue($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
@@ -551,7 +556,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$batchId = $this->storageApi->generateId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
+			isset($this->params['queue'])? $this->params['queue'] : null);
 		$this->enqueue($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
@@ -613,7 +619,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$batchId = $this->storageApi->generateId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
+			isset($this->params['queue'])? $this->params['queue'] : null);
 		$this->enqueue($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
@@ -632,7 +639,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$batchId = $this->storageApi->generateId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
+			isset($this->params['queue'])? $this->params['queue'] : null);
 		$this->enqueue($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
@@ -734,7 +742,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$batchId = $this->storageApi->generateId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, isset($this->params['queue'])? $this->params['queue'] : null);
+		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
+			isset($this->params['queue'])? $this->params['queue'] : null);
 		$this->enqueue($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
@@ -756,7 +765,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$job = false;
 		$projects = empty($params['pid'])? $this->getProjectsToUse() : array($params['pid']);
 		foreach ($projects as $pid) {
-			$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, array('pid' => $pid), $batchId, isset($this->params['queue']) ? $this->params['queue'] : null);
+			$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, array('pid' => $pid),
+				$batchId, isset($this->params['queue']) ? $this->params['queue'] : null);
 		}
 		$this->enqueue($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
