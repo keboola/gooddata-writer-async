@@ -107,6 +107,7 @@ class UpdateModel extends AbstractJob
 				$result = $restApi->updateDataSet($params['pid'], $definition, $this->configuration->noDateFacts);
 				if ($result) {
 					$updateOperations[] = $result;
+					$ldmChange = true;
 				}
 
 				if (empty($tableDefinition['isExported'])) {
@@ -135,6 +136,7 @@ class UpdateModel extends AbstractJob
 					: $clToolApi->createDataSetMaql($params['pid'], $xml, $dataSetName);
 				if ($maql) {
 					$restApi->executeMaql($params['pid'], $maql);
+					$ldmChange = true;
 				}
 				if (empty($tableDefinition['isExported'])) {
 					// Save export status to definition
@@ -152,8 +154,6 @@ class UpdateModel extends AbstractJob
 				), $restApi->getLogPath());
 			}
 			//@TODO REMOVE WITH CL TOOL
-
-			$ldmChange = true;
 
 		} catch (\Exception $e) {
 			$error = $e->getMessage();
