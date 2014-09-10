@@ -1401,7 +1401,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkWriterExistence();
 
 		if (empty($this->params['jobId'])) {
-			$days = isset($this->params['days']) ? $this->params['days'] : 7;
+			$days = isset($this->params['days']) ? $this->params['days'] : 4;
 			$tableId = empty($this->params['tableId']) ? null : $this->params['tableId'];
 			$command = empty($this->params['command']) ? null : $this->params['command'];
 			$tokenId = empty($this->params['tokenId']) ? null : $this->params['tokenId'];
