@@ -179,10 +179,11 @@ class SharedConfig extends StorageApiConfiguration
 	}
 
 
-	public function fetchJobs($projectId, $writerId, $days = 7)
+	public function fetchJobs($projectId, $writerId, $days=7)
 	{
 		return $this->fetchTableRows(self::JOBS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId, array(
-			'changedSince' => '-' . $days . ' days'
+			'changedSince' => '-' . $days . ' days',
+			'limit' => 1000
 		), false);
 	}
 
