@@ -164,9 +164,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$command = $this->getCommand($commandName, $this->params);
 
 		$batchId = $this->storageApi->generateId();
-		/** @var RestApi $restApi */
-		$restApi = $this->container->get('gooddata_writer.rest_api');
-		$params = $command->prepare($this->params, $restApi);
+		try {
+			/** @var RestApi $restApi */
+			$restApi = $this->container->get('gooddata_writer.rest_api');
+			$params = $command->prepare($this->params, $restApi);
+		} catch (RestApiException $e) {
+			$e = new JobProcessException($e->getMessage(), $e);
+			$e->setData($e->getData());
+			throw $e;
+		}
 
 		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedConfig::SERVICE_QUEUE);
 
@@ -932,51 +938,57 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			}
 		}
 
-		/** @var RestApi $restApi */
-		$restApi = $this->container->get('gooddata_writer.rest_api');
-		$bucketAttributes = $this->getConfiguration()->bucketAttributes();
-		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+		try {
+			/** @var RestApi $restApi */
+			$restApi = $this->container->get('gooddata_writer.rest_api');
+			$bucketAttributes = $this->getConfiguration()->bucketAttributes();
+			$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
-		$job = null;
-		$tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
-		foreach ($projectsToUse as $pid) {
+			$job = null;
+			$tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
+			foreach ($projectsToUse as $pid) {
 
-			$dataSetName = !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'];
-			$dataSetId = Model::getDatasetId($dataSetName);
+				$dataSetName = !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'];
+				$dataSetId = Model::getDatasetId($dataSetName);
 
-			// Make decision about creating / updating of data set
-			$existingDataSets = $restApi->getDataSets($pid);
-			$dataSetExists = in_array($dataSetId, array_keys($existingDataSets));
-			$lastGoodDataUpdate = empty($existingDataSets[$dataSetId]['lastChangeDate'])? null : Model::getTimestampFromApiDate($existingDataSets[$dataSetId]['lastChangeDate']);
-			$lastConfigurationUpdate = empty($tableConfiguration['lastChangeDate'])? null : strtotime($tableConfiguration['lastChangeDate']);
-			$doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
+				// Make decision about creating / updating of data set
+				$existingDataSets = $restApi->getDataSets($pid);
+				$dataSetExists = in_array($dataSetId, array_keys($existingDataSets));
+				$lastGoodDataUpdate = empty($existingDataSets[$dataSetId]['lastChangeDate'])? null : Model::getTimestampFromApiDate($existingDataSets[$dataSetId]['lastChangeDate']);
+				$lastConfigurationUpdate = empty($tableConfiguration['lastChangeDate'])? null : strtotime($tableConfiguration['lastChangeDate']);
+				$doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
 
-			if (!$dataSetExists || $doUpdate) {
+				if (!$dataSetExists || $doUpdate) {
+					$params = array(
+						'pid' => $pid,
+						'tableId' => $this->params['tableId']
+					);
+					$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'updateModel', $params,
+						$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
+						array('dataset' => $dataSetName, 'runId' => $runId));
+
+					$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $this->params['tableId']), json_encode($definition));
+					$this->sharedConfig->saveJob($jobData['id'], array(
+						'definition' => $definitionUrl
+					));
+				}
+
 				$params = array(
 					'pid' => $pid,
 					'tableId' => $this->params['tableId']
 				);
-				$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'updateModel', $params,
-					$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
-					array('dataset' => $dataSetName, 'runId' => $runId));
-
-				$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $this->params['tableId']), json_encode($definition));
-				$this->sharedConfig->saveJob($jobData['id'], array(
-					'definition' => $definitionUrl
-				));
+				if (isset($this->params['incrementalLoad'])) {
+					$params['incrementalLoad'] = $this->params['incrementalLoad'];
+				}
+				$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'loadData', $params, $batchId,
+					isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $dataSetName, 'runId' => $runId));
+				$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $job['id'], $this->params['tableId']), json_encode($definition));
+				$this->sharedConfig->saveJob($job['id'], array('definition' => $definitionUrl));
 			}
-
-			$params = array(
-				'pid' => $pid,
-				'tableId' => $this->params['tableId']
-			);
-			if (isset($this->params['incrementalLoad'])) {
-				$params['incrementalLoad'] = $this->params['incrementalLoad'];
-			}
-			$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'loadData', $params, $batchId,
-				isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $dataSetName, 'runId' => $runId));
-			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $job['id'], $this->params['tableId']), json_encode($definition));
-			$this->sharedConfig->saveJob($job['id'], array('definition' => $definitionUrl));
+		} catch (RestApiException $e) {
+			$e = new JobProcessException($e->getMessage(), $e);
+			$e->setData($e->getData());
+			throw $e;
 		}
 
 		$this->enqueue($batchId);
@@ -1037,31 +1049,49 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 
 
-		/** @var RestApi $restApi */
-		$restApi = $this->container->get('gooddata_writer.rest_api');
-		$bucketAttributes = $this->getConfiguration()->bucketAttributes();
-		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		$existingDataSets = array();
+		try {
+			/** @var RestApi $restApi */
+			$restApi = $this->container->get('gooddata_writer.rest_api');
+			$bucketAttributes = $this->getConfiguration()->bucketAttributes();
+			$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+			$existingDataSets = array();
 
-		foreach ($sortedDataSets as $dataSet) {
-			foreach ($projectsToUse as $pid) {
-				$dataSetId = Model::getDatasetId($dataSet['title']);
+			foreach ($sortedDataSets as $dataSet) {
+				foreach ($projectsToUse as $pid) {
+					$dataSetId = Model::getDatasetId($dataSet['title']);
 
-				// Make decision about creating / updating of data set
-				if (!isset($existingDataSets[$pid])) {
-					$existingDataSets[$pid] = $restApi->getDataSets($pid);
-				}
-				$dataSetExists = in_array($dataSetId, array_keys($existingDataSets[$pid]));
-				$lastGoodDataUpdate = empty($existingDataSets[$pid][$dataSetId]['lastChangeDate'])? null : Model::getTimestampFromApiDate($existingDataSets[$pid][$dataSetId]['lastChangeDate']);
-				$lastConfigurationUpdate = empty($dataSet['lastChangeDate'])? null : strtotime($dataSet['lastChangeDate']);
-				$doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
+					// Make decision about creating / updating of data set
+					if (!isset($existingDataSets[$pid])) {
+						$existingDataSets[$pid] = $restApi->getDataSets($pid);
+					}
+					$dataSetExists = in_array($dataSetId, array_keys($existingDataSets[$pid]));
+					$lastGoodDataUpdate = empty($existingDataSets[$pid][$dataSetId]['lastChangeDate'])? null : Model::getTimestampFromApiDate($existingDataSets[$pid][$dataSetId]['lastChangeDate']);
+					$lastConfigurationUpdate = empty($dataSet['lastChangeDate'])? null : strtotime($dataSet['lastChangeDate']);
+					$doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
 
-				if (!$dataSetExists || $doUpdate) {
+					if (!$dataSetExists || $doUpdate) {
+						$params = array(
+							'pid' => $pid,
+							'tableId' => $dataSet['tableId']
+						);
+						$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'updateModel', $params,
+							$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
+							array('dataset' => $dataSet['title'], 'runId' => $runId));
+
+						$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $dataSet['tableId']), json_encode($dataSet['definition']));
+						$this->sharedConfig->saveJob($jobData['id'], array(
+							'definition' => $definitionUrl
+						));
+					}
+
 					$params = array(
 						'pid' => $pid,
 						'tableId' => $dataSet['tableId']
 					);
-					$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'updateModel', $params,
+					if (isset($this->params['incrementalLoad'])) {
+						$params['incrementalLoad'] = $this->params['incrementalLoad'];
+					}
+					$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'loadData', $params,
 						$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
 						array('dataset' => $dataSet['title'], 'runId' => $runId));
 
@@ -1070,23 +1100,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 						'definition' => $definitionUrl
 					));
 				}
-
-				$params = array(
-					'pid' => $pid,
-					'tableId' => $dataSet['tableId']
-				);
-				if (isset($this->params['incrementalLoad'])) {
-					$params['incrementalLoad'] = $this->params['incrementalLoad'];
-				}
-				$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'loadData', $params,
-					$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
-					array('dataset' => $dataSet['title'], 'runId' => $runId));
-
-				$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $dataSet['tableId']), json_encode($dataSet['definition']));
-				$this->sharedConfig->saveJob($jobData['id'], array(
-					'definition' => $definitionUrl
-				));
 			}
+		} catch (RestApiException $e) {
+			$e = new JobProcessException($e->getMessage(), $e);
+			$e->setData($e->getData());
+			throw $e;
 		}
 
 		// Execute reports
