@@ -124,27 +124,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->stopWatch->start(self::STOPWATCH_NAME_REQUEST);
 	}
 
-	public function __destruct()
-	{
-		$params = array();
-		if (is_array($this->params)) foreach ($this->params as $k => $p) {
-			$params[$k] = ($k == 'password')? '***' : $p;
-		}
-		/** @var \Symfony\Bundle\FrameworkBundle\Routing\Router $router */
-		$router = $this->get('router');
-		if ($this->eventLogger) {
-			@$this->eventLogger->log(
-				$this->writerId,
-				$this->storageApi->getRunId(),
-				'Called API ' . $router->getContext()->getMethod() . ' ' . $router->getContext()->getPathInfo(),
-				null,
-				$params
-			);
-		}
-	}
-
-
-
 	/**
 	 * Optimize SLI Hash
 	 *
@@ -1401,7 +1380,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkWriterExistence();
 
 		if (empty($this->params['jobId'])) {
-			$days = isset($this->params['days']) ? $this->params['days'] : 4;
+			$days = isset($this->params['days']) ? $this->params['days'] : 7;
 			$tableId = empty($this->params['tableId']) ? null : $this->params['tableId'];
 			$command = empty($this->params['command']) ? null : $this->params['command'];
 			$tokenId = empty($this->params['tokenId']) ? null : $this->params['tokenId'];
@@ -1432,6 +1411,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			}
 
 			$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
+
+			$this->logApiCall();
 			return $this->createJsonResponse($job);
 		}
 	}
@@ -1448,6 +1429,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkWriterExistence();
 
 		$batch = $this->getSharedConfig()->batchToApiResponse($this->params['batchId'], $this->getS3Client());
+
+		$this->logApiCall();
 		return $this->createJsonResponse($batch);
 	}
 
@@ -1496,6 +1479,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$event = $this->stopWatch->stop(self::STOPWATCH_NAME_REQUEST);
 			$responseBody['duration']  = $event->getDuration();
 		}
+
+		$this->logApiCall(isset($responseBody['duration'])? $responseBody['duration'] : null);
 
 		if (null != $response) {
 			$responseBody = array_merge($response, $responseBody);
@@ -1626,6 +1611,31 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$this->jobExecutor->setEventLogger($this->eventLogger);
 		}
 		return $this->jobExecutor;
+	}
+
+
+	public function logApiCall($duration=null)
+	{
+		$params = array();
+		if (is_array($this->params)) foreach ($this->params as $k => $p) {
+			$params[$k] = ($k == 'password')? '***' : $p;
+		}
+		/** @var \Symfony\Bundle\FrameworkBundle\Routing\Router $router */
+		$router = $this->get('router');
+		if ($this->eventLogger) {
+			try {
+				@$this->eventLogger->log(
+					$this->writerId,
+					$this->storageApi->getRunId(),
+					'Called API ' . $router->getContext()->getMethod() . ' ' . $router->getContext()->getPathInfo(),
+					null,
+					$params,
+					$duration
+				);
+			} catch (\Exception $e) {
+				// Ignore
+			}
+		}
 	}
 
 }
