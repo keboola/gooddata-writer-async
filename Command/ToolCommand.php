@@ -24,7 +24,7 @@ class ToolCommand extends ContainerAwareCommand
 			->setDescription('Tool for projects editing')
 			->setDefinition(array(
 				new InputArgument('pid', InputArgument::REQUIRED, 'Project id'),
-				new InputArgument('name', InputArgument::OPTIONAL, 'Name of dataset')
+				new InputArgument('name', InputArgument::REQUIRED, 'Name of dataset')
 			))
 		;
 	}
@@ -39,17 +39,13 @@ class ToolCommand extends ContainerAwareCommand
 	{
 		$this->output->writeln('- Loading time dimension ' . $dimensionName);
 
-		/**
-		 * @var AppConfiguration $appConfiguration
-		 */
+		/** @var AppConfiguration $appConfiguration */
 		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
 		$sharedConfig = $this->getContainer()->get('gooddata_writer.shared_config');
 
-		$domainUser = $sharedConfig->getDomainUser($appConfiguration->gd_domain);
+		$domainUser = $sharedConfig->getDomainUser('keboola');
 
-		/**
-		 * @var RestApi
-		 */
+		/** @var RestApi $restApi */
 		$restApi = $this->getContainer()->get('gooddata_writer.rest_api');
 		$restApi->login($domainUser->username, $domainUser->password);
 
@@ -68,10 +64,11 @@ class ToolCommand extends ContainerAwareCommand
 		$timeDimensionManifest = str_replace('%NAME%', $dimensionName, $manifest);
 		file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
 		copy($appConfiguration->scriptsPath . '/time-dimension.csv', $tmpFolderDimension . '/' . $dimensionName . '.csv');
-		$webDav->upload($tmpFolderDimension, $tmpFolderNameDimension, $tmpFolderDimension . '/upload_info.json', $tmpFolderDimension . '/' . $dimensionName . '.csv');
+		$webDav->upload($tmpFolderDimension . '/upload_info.json', $tmpFolderNameDimension);
+		$webDav->upload($tmpFolderDimension . '/' . $dimensionName . '.csv', $tmpFolderNameDimension);
 
 
-		$restApi->loadData($pid, $tmpFolderNameDimension, $dimensionName);
+		$restApi->loadData($pid, $tmpFolderNameDimension);
 	}
 
 
