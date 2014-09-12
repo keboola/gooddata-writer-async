@@ -19,6 +19,7 @@ use Guzzle\Http\Message\RequestInterface;
 use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
+use Keboola\StorageApi\Event;
 use Monolog\Logger;
 use stdClass;
 use Syrup\ComponentBundle\Filesystem\TempService;
@@ -87,7 +88,6 @@ class RestApi
 	const WAIT_INTERVAL = 10;
 
 	const API_URL = 'https://na1.secure.gooddata.com';
-	const DEFAULT_BACKEND_URL = 'na1.secure.gooddata.com';
 
 	const USER_ROLE_ADMIN = 'adminRole';
 	const USER_ROLE_EDITOR = 'editorRole';
@@ -1657,7 +1657,8 @@ class RestApi
 	private function request($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true, $refreshToken = true)
 	{
 		if ($this->eventLogger) {
-			$this->eventLogger->log($this->jobId, $this->runId, sprintf('Rest API call %s %s started', $method, $uri));
+			$this->eventLogger->log($this->jobId, $this->runId, sprintf('Rest API call %s %s started', $method, $uri),
+				null, array('params' => $params));
 		}
 
 		if ($refreshToken && !$this->authTt) {
@@ -1709,7 +1710,9 @@ class RestApi
 				if ($response->isSuccessful()) {
 
 					if ($this->eventLogger) {
-						$this->eventLogger->log($this->jobId, $this->runId, sprintf('Rest API call %s %s finished', $method, $uri), null, null, $startTime);
+						$this->eventLogger->log($this->jobId, $this->runId, sprintf('Rest API call %s %s finished',
+							$method, $uri), null, array('params' => $params, 'response' => $response->json()),
+							$startTime, Event::TYPE_SUCCESS);
 					}
 					return $response;
 				}
@@ -1727,6 +1730,13 @@ class RestApi
 				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
 
 				$responseJson = json_decode($response, true);
+
+				if ($this->eventLogger) {
+					$this->eventLogger->log($this->jobId, $this->runId, sprintf('Rest API call %s %s finished with error',
+						$method, $uri), null, array('params' => $params, 'response' => $responseJson), $startTime,
+						Event::TYPE_ERROR);
+				}
+
 				if ($e instanceof ClientErrorResponseException) {
 					if ($responseObject && $responseObject->getStatusCode() == 401) {
 						if (isset($responseJson['message']) && $responseJson['message'] == 'Login needs security code verification due to failed login attempts.') {
@@ -1734,8 +1744,20 @@ class RestApi
 							throw new \Exception('Login "' . $this->username . '" refused due to failed login attempts');
 						} else {
 							// TT token expired
-							//$this->refreshToken();
-							$this->login($this->username, $this->password);
+							// check if not in recursion due to bad login
+							if ($uri == '/gdc/account/login') {
+								$message = 'Login to GoodData failed. Check your writer\'s configuration';
+								if (isset($responseJson['message'])) {
+									if (isset($responseJson['parameters']) && count($responseJson['parameters'])) {
+										$message = sprintf($responseJson['message'], $responseJson['parameters']);
+									} else {
+										$message = $responseJson['message'];
+									}
+								}
+								throw new RestApiException($message);
+							} else {
+								$this->login($this->username, $this->password);
+							}
 						}
 					} elseif ($responseObject && $responseObject->getStatusCode() == 403) {
 						$message = 'GoodData user ' . $this->username . ' does not have access to the resource.';
