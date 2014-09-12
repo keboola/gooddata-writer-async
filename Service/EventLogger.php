@@ -16,28 +16,40 @@ class EventLogger
 {
 	private $appConfiguration;
 	private $storageApiClient;
+	private $uploader;
 
-	public function __construct(AppConfiguration $appConfiguration, StorageApiClient $storageApiClient)
+	public function __construct(AppConfiguration $appConfiguration, StorageApiClient $storageApiClient, S3Client $uploader)
 	{
 		$this->appConfiguration = $appConfiguration;
 		$this->storageApiClient = $storageApiClient;
+		$this->uploader = $uploader;
 	}
 
-	public function log($jobId, $runId, $message, $description=null, $params=array(), $startTime=null)
+	public function log($jobId, $runId, $message, $description=null, $params=array(), $startTime=null, $type=StorageApiEvent::TYPE_INFO, $duration=null)
 	{
 		$event = new StorageApiEvent();
 		$event
-			->setType(StorageApiEvent::TYPE_INFO)
+			->setType($type)
 			->setMessage($message)
 			->setComponent('gooddata-writer') //@TODO load from config
 			->setConfigurationId($jobId)
 			->setRunId($runId);
 		if ($description)
 			$event->setDescription($description);
-		if (count($params))
+		if (count($params)) {
+			if (isset($params['password']))
+				$params['password'] = '***';
+			$jsonParams = json_encode($params, JSON_PRETTY_PRINT);
+			if (strlen($jsonParams) > 1000) {
+				$s3file = $jobId . '/' . time() . '-' . uniqid() . '.json';
+				$params = array('details' => $this->uploader->url($this->uploader->uploadString($s3file , $jsonParams)));
+			}
 			$event->setParams($params);
+		}
 		if ($startTime)
 			$event->setDuration(time() - $startTime);
+		if ($duration)
+			$event->setDuration($duration);
 		$this->storageApiClient->createEvent($event);
 	}
 

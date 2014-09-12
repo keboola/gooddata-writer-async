@@ -139,13 +139,19 @@ class JobExecutor
 		$jobData = array('result' => array());
 		$logParams = $job['parameters'];
 		try {
+			$s3Client = new S3Client(
+				$this->appConfiguration,
+				$job['projectId'] . '.' . $job['writerId'],
+				$this->logger
+			);
+
 			$this->storageApiClient = new StorageApiClient(array(
 				'token' => $job['token'],
 				'url' => $this->appConfiguration->storageApiUrl,
 				'userAgent' => $this->appConfiguration->userAgent
 			));
 			$this->storageApiClient->setRunId($jobId);
-			$this->eventLogger = new EventLogger($this->appConfiguration, $this->storageApiClient);
+			$this->eventLogger = new EventLogger($this->appConfiguration, $this->storageApiClient, $s3Client);
 
 			try {
 				if ($job['parameters']) {
@@ -180,12 +186,6 @@ class JobExecutor
 				if (!class_exists($commandClass)) {
 					throw new JobProcessException($this->translator->trans('job_executor.command_not_found %1', array('%1' => $commandName)));
 				}
-
-				$s3Client = new S3Client(
-					$this->appConfiguration,
-					$job['projectId'] . '.' . $job['writerId'],
-					$this->logger
-				);
 
 				$this->restApi->setJobId($job['id']);
 				$this->restApi->setRunId($job['runId']);

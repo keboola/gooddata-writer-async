@@ -55,10 +55,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 * @var S3Client
 	 */
 	private $s3Client;
-	/**
-	 * @var \Keboola\GoodDataWriter\Service\Queue
-	 */
-	private $queue;
 
 	/**
 	 * @var \Symfony\Component\Translation\Translator
@@ -118,7 +114,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->writerId = empty($this->params['writerId'])? null : $this->params['writerId'];
 
 
-		$this->eventLogger = new EventLogger($this->appConfiguration, $this->storageApi);
+		$this->eventLogger = new EventLogger($this->appConfiguration, $this->storageApi, $this->getS3Client());
 
 		$this->stopWatch = new Stopwatch();
 		$this->stopWatch->start(self::STOPWATCH_NAME_REQUEST);
