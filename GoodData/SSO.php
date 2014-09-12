@@ -11,6 +11,7 @@ use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Symfony\Component\Process\Process;
 use Syrup\ComponentBundle\Exception\ApplicationException;
+use Syrup\ComponentBundle\Exception\SyrupComponentException;
 
 class GoodDataSSOException extends \Exception
 {
@@ -54,11 +55,13 @@ class SSO
 			self::SSO_SCRIPT_PATH, $this->passphrase, $jsonFile, $this->ssoUser, self::GOODDATA_EMAIL);
 
 		$error = null;
+		$output = null;
 		for ($i = 0; $i < 5; $i++) {
 			$process = new Process($command);
 			$process->setTimeout(null);
 			$process->run();
 			$error = $process->getErrorOutput();
+			$output = $process->getOutput();
 
 			if ($process->isSuccessful() && !$error) {
 
@@ -83,6 +86,14 @@ class SSO
 			sleep($i * 60);
 		}
 
-		throw new \Exception('SSO link generation failed. ' . $error);
+		$e = new SyrupComponentException(500, 'SSO link generation failed. ' . $error);
+		$e->setData(array(
+			'targetUrl' => $targetUrl,
+			'email' => $email,
+			'validity' => $validity,
+			'command' => $command,
+			'result' => $output
+		));
+		throw $e;
 	}
 }
