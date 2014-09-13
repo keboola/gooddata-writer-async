@@ -918,7 +918,7 @@ class RestApi
 			$model['projectModel']['datasets'] = array();
 		$dataSetFound = false;
 		foreach ($model['projectModel']['datasets'] as &$dataSet) {
-			if ($dataSet['dataset']['title'] == $definition['name']) {
+			if ($dataSet['dataset']['identifier'] == Model::getDatasetId($definition['name'])) {
 				$dataSetFound = true;
 				$dataSet['dataset'] = $dataSetModel;
 				break;
@@ -1711,8 +1711,7 @@ class RestApi
 
 					if ($this->eventLogger) {
 						$this->eventLogger->log($this->jobId, $this->runId, sprintf('Rest API call %s %s finished',
-							$method, $uri), null, array('params' => $params, 'response' => $response->json()),
-							$startTime, Event::TYPE_SUCCESS);
+							$method, $uri), null, array('params' => $params, 'response' => $response->json()), $startTime);
 					}
 					return $response;
 				}
