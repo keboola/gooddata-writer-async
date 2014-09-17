@@ -929,6 +929,28 @@ class RestApi
 			$model['projectModel']['datasets'][] = array('dataset' => $dataSetModel);
 		}
 
+		//@TODO workaround for DECIMAL(16,2)
+		foreach ($model['projectModel']['datasets'] as &$d) {
+			if (isset($d['dataset']['anchor']['attribute']['labels'])) foreach ($d['dataset']['anchor']['attribute']['labels'] as &$l) {
+				if (isset($l['label']['dataType']) && $l['label']['dataType'] == 'DECIMAL(16,2)') {
+					$l['label']['dataType'] = 'DECIMAL(15,2)';
+				}
+			}
+			if (isset($d['dataset']['attributes'])) foreach ($d['dataset']['attributes'] as &$a) {
+				if (isset($a['attribute']['labels'])) foreach ($a['attribute']['labels'] as &$l) {
+					if (isset($l['label']['dataType']) && $l['label']['dataType'] == 'DECIMAL(16,2)') {
+						$l['label']['dataType'] = 'DECIMAL(15,2)';
+					}
+				}
+			}
+			if (isset($d['dataset']['facts'])) foreach ($d['dataset']['facts'] as &$f) {
+				if (isset($f['fact']['dataType']) && $f['fact']['dataType'] == 'DECIMAL(16,2)') {
+					$f['fact']['dataType'] = 'DECIMAL(15,2)';
+				}
+			}
+		}
+		//@TODO workaround for DECIMAL(16,2)
+
 		$update = $this->generateUpdateProjectMaql($pid, $model);
 		if (count($update['lessDestructiveMaql'])) foreach($update['lessDestructiveMaql'] as $i => $m) {
 
