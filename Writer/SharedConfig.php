@@ -49,7 +49,7 @@ class SharedConfig extends StorageApiConfiguration
 	const SECONDARY_QUEUE = 'secondary';
 	const SERVICE_QUEUE = 'service';
 
-	private $storageApiClient;
+	protected $storageApiClient;
 	private $encryptor;
 	private $db;
 
