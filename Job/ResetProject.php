@@ -30,7 +30,6 @@ class ResetProject extends AbstractJob
 	 */
 	function run($job, $params, RestApi $restApi)
 	{
-		$gdWriteStartTime = date('c');
 		$removeClones = isset($params['removeClones']) ? (bool)$params['removeClones'] : false;
 
 		$projectName = sprintf($this->appConfiguration->gd_projectNameTemplate, $this->configuration->tokenInfo['owner']['name'],
@@ -96,12 +95,8 @@ class ResetProject extends AbstractJob
 			$this->configuration->setDateDimensionIsNotExported($dimension['name']);
 		}
 
-		$this->logEvent('ResetProject', array(
-			'duration' => time() - strtotime($gdWriteStartTime)
-		), $restApi->getLogPath());
 		return array(
-			'newPid' => $newPid,
-			'gdWriteStartTime' => $gdWriteStartTime
+			'newPid' => $newPid
 		);
 	}
 }

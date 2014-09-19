@@ -26,7 +26,7 @@ services:
     configurator: ["@gooddata_writer.rest_api.logger_configurator", configure]
   gooddata_writer.rest_api:
     class: Keboola\GoodDataWriter\GoodData\RestApi
-    arguments: [@gooddata_writer.app_configuration, @gooddata_writer.gooddata_model, @logger, @gooddata_writer.rest_api.logger, @syrup.temp_factory]
+    arguments: [@gooddata_writer.app_configuration, @gooddata_writer.gooddata_model, @gooddata_writer.rest_api.logger, @syrup.temp_factory]
 
   gooddata_writer.shared_config:
     class: Keboola\GoodDataWriter\Writer\SharedConfig

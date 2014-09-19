@@ -44,8 +44,6 @@ class ExportReport extends AbstractJob
 		$this->configuration->checkBucketAttributes($bucketAttributes);
 		$this->configuration->checkProjectsTable();
 
-		$gdWriteStartTime = date('c');
-
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$report = $restApi->get($params['report']);
@@ -70,12 +68,7 @@ class ExportReport extends AbstractJob
 
 		$this->uploadToSapi($filename, $params['table']);
 
-		$this->logEvent('exportReport', array(
-			'duration' => time() - strtotime($gdWriteStartTime)
-		), $restApi->getLogPath());
-		return array(
-			'gdWriteStartTime' => $gdWriteStartTime
-		);
+		return array();
 	}
 
 	protected function uploadToSapi($filename, $tableId)

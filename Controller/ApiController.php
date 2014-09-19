@@ -1642,7 +1642,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 					$this->writerId,
 					$this->storageApi->getRunId(),
 					'Called API ' . $router->getContext()->getMethod() . ' ' . $router->getContext()->getPathInfo(),
-					null,
 					$params,
 					$duration
 				);

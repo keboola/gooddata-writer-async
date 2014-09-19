@@ -47,7 +47,6 @@ class CloneProject extends AbstractJob
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->configuration->checkBucketAttributes($bucketAttributes);
 
-		$gdWriteStartTime = date('c');
 		// Check access to source project
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$restApi->getProject($bucketAttributes['gd']['pid']);
@@ -71,12 +70,8 @@ class CloneProject extends AbstractJob
 		$this->configuration->saveProject($projectPid);
 		$this->sharedConfig->saveProject($job['projectId'], $job['writerId'], $projectPid);
 
-		$this->logEvent('cloneProject', array(
-			'duration' => time() - strtotime($gdWriteStartTime)
-		), $restApi->getLogPath());
 		return array(
-			'pid' => $projectPid,
-			'gdWriteStartTime' => $gdWriteStartTime
+			'pid' => $projectPid
 		);
 	}
 }

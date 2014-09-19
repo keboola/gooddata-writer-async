@@ -38,6 +38,7 @@ abstract class AbstractJob
 	 */
 	protected $s3Client;
 	/**
+	 * For CsvHandler
 	 * @var TempService
 	 */
 	protected $tempService;
@@ -46,6 +47,7 @@ abstract class AbstractJob
 	 */
 	protected $translator;
 	/**
+	 * For CsvHandler
 	 * @var Logger
 	 */
 	protected $logger;
@@ -66,10 +68,6 @@ abstract class AbstractJob
 	 */
 	protected $eventLogger;
 
-	/**
-	 * @var \SplFileObject
-	 */
-	private $logFile;
 	protected $logs;
 
 	private $tmpDir;
@@ -136,38 +134,14 @@ abstract class AbstractJob
 		$this->queue = $queue;
 	}
 
-	public function initLog()
-	{
-		$this->logFile = $this->tempService->createTmpFile('.json')->openFile('a');
-		$this->logFile->fwrite('[');
-	}
-
-	public function getLogPath()
-	{
-		$this->logFile->fwrite('null]');
-		return $this->logFile->getRealPath();
-	}
-
 	public function getLogs()
 	{
 		return $this->logs;
 	}
 
-	public function logEvent($event, $details, $restApiLogPath=null, $message=null, $jobId=null, $runId=null)
+	public function logEvent($message, $jobId, $runId, $params=array(), $duration=null)
 	{
-		if ($message && $jobId && $runId) {
-			$this->eventLogger->log($jobId, $runId, $message);
-		}
-		$this->logFile->fwrite('{"' . $event . '": ');
-		$details = json_encode(array_merge(array('time' => date('c')), $details), JSON_PRETTY_PRINT);
-		if ($restApiLogPath && file_exists($restApiLogPath)) {
-			$this->logFile->fwrite(rtrim($details, '}') . ', "restApi": ');
-			shell_exec(sprintf('cat %s >> %s', escapeshellarg($restApiLogPath), escapeshellarg($this->logFile->getRealPath())));
-			$this->logFile->fwrite('}');
-		} else {
-			$this->logFile->fwrite($details);
-		}
-		$this->logFile->fwrite('},');
+		$this->eventLogger->log($jobId, $runId, $message, $params, $duration);
 	}
 
 	/**

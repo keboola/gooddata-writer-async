@@ -52,9 +52,6 @@ class LoadDataMulti extends AbstractJob
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->configuration->checkBucketAttributes($bucketAttributes);
 
-		$this->logEvent('start', array(
-			'duration' => 0
-		));
 		$stopWatch = new Stopwatch();
 
 
@@ -91,11 +88,9 @@ class LoadDataMulti extends AbstractJob
 		file_put_contents($this->getTmpDir($job['id']) . '/upload_info.json', json_encode($manifest));
 		$this->logs['Manifest'] = $this->s3Client->uploadFile($this->getTmpDir($job['id']) . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
 		$e = $stopWatch->stop($stopWatchId);
-		$this->logEvent($stopWatchId, array(
-			'duration' => $e->getDuration(),
+		$this->logEvent('Manifest file for csv prepared', $job['id'], $job['runId'], array(
 			'manifest' => $this->logs['Manifest']
-		), null, 'Manifest file for csv prepared', $job['id'], $job['runId']);
-
+		), $e->getDuration());
 
 		try {
 			// Upload to WebDav
@@ -117,9 +112,9 @@ class LoadDataMulti extends AbstractJob
 				}
 
 				$e = $stopWatch->stop($stopWatchId);
-				$this->logEvent($stopWatchId, array(
-					'duration' => $e->getDuration()
-				), null, 'Csv file ' . $datasetName . '.csv transferred to WebDav', $job['id'], $job['runId']);
+				$this->logEvent('Csv file ' . $datasetName . '.csv transferred to WebDav', $job['id'], $job['runId'], array(
+					'url' => $webDavFileUrl
+				), $e->getDuration());
 			}
 
 
@@ -128,30 +123,24 @@ class LoadDataMulti extends AbstractJob
 
 			$webDav->upload($this->getTmpDir($job['id']) . '/upload_info.json', $tmpFolderName);
 			$e = $stopWatch->stop($stopWatchId);
-			$this->logEvent($stopWatchId, array(
-				'duration' => $e->getDuration(),
+			$this->logEvent('Manifest file for csv transferred to WebDav', $job['id'], $job['runId'], array(
 				'url' => $webDav->getUrl() . '/' . $tmpFolderName . '/upload_info.json'
-			), null, 'Manifest file for csv transferred to WebDav', $job['id'], $job['runId']);
+			), $e->getDuration());
 
-
-			// Run ETL tasks
-			$gdWriteStartTime = date('c');
 
 			// Run ETL task of dataSets
 			$stopWatchId = 'run_etl';
 			$stopWatch->start($stopWatchId);
-			$restApi->initLog();
 
 			try {
 				$restApi->loadData($params['pid'], $tmpFolderName);
 			} catch (RestApiException $e) {
 				$debugFile = $this->getTmpDir($job['id']) . '/etl.log';
-				$taskName = 'Data Load Error';
 				$logSaved = $webDav->saveLogs($tmpFolderName, $debugFile);
 				if ($logSaved) {
 					if (filesize($debugFile) > 1024 * 1024) {
 						$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/etl.log', $tmpFolderName));
-						$this->logs[$taskName] = $logUrl;
+						$this->logs['ETL task error'] = $logUrl;
 						$e->setDetails(array($logUrl));
 					} else {
 						$e->setDetails(file_get_contents($debugFile));
@@ -161,22 +150,18 @@ class LoadDataMulti extends AbstractJob
 				throw $e;
 			}
 			$e = $stopWatch->stop($stopWatchId);
-			$this->logEvent($stopWatchId, array(
-				'duration' => $e->getDuration()
-			), $restApi->getLogPath());
+			$this->logEvent('ETL task finished', $job['id'], $job['runId'], array(), $e->getDuration());
 		} catch (\Exception $e) {
 			$error = $e->getMessage();
-			$event = $stopWatch->stop($stopWatchId);
 
-			$restApiLogPath = null;
-			$eventDetails = array(
-				'duration' => $event->getDuration()
-			);
 			if ($e instanceof RestApiException) {
 				$error = $e->getDetails();
-				$restApiLogPath = $restApi->getLogPath();
 			}
-			$this->logEvent($stopWatchId, $eventDetails, $restApiLogPath);
+
+			$sw = $stopWatch->stop($stopWatchId);
+			$this->logEvent('ETL task failed', $job['id'], $job['runId'], array(
+				'error' => $error
+			), $sw->getDuration());
 
 			if (!($e instanceof RestApiException) && !($e instanceof WebDavException)) {
 				throw $e;
@@ -186,9 +171,6 @@ class LoadDataMulti extends AbstractJob
 		$result = array();
 		if (!empty($error)) {
 			$result['error'] = $error;
-		}
-		if (!empty($gdWriteStartTime)) {
-			$result['gdWriteStartTime'] = $gdWriteStartTime;
 		}
 
 		return $result;

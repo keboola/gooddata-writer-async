@@ -43,7 +43,6 @@ class RemoveUserFromProject extends AbstractJob
 
 		$restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
 
-		$gdWriteStartTime = date('c');
 		if (!$this->configuration->isProjectUser($params['email'], $params['pid'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.email_not_configured_in_project'));
 		}
@@ -78,11 +77,6 @@ class RemoveUserFromProject extends AbstractJob
 		$this->configuration->removeProjectUserInvite($params['pid'], $params['email']);
 		$this->configuration->removeProjectUserAdd($params['pid'], $params['email']);
 
-		$this->logEvent('removeUserFromProject', array(
-			'duration' => time() - strtotime($gdWriteStartTime)
-		), $restApi->getLogPath());
-		return array(
-			'gdWriteStartTime' => $gdWriteStartTime
-		);
+		return array();
 	}
 }

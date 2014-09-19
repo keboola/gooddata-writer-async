@@ -85,7 +85,6 @@ class CreateWriter extends AbstractJob
 		try {
 			$this->configuration->updateDataSetsFromSapi();
 
-			$gdWriteStartTime = date('c');
 			$username = sprintf($this->appConfiguration->gd_userEmailTemplate, $job['projectId'], $job['writerId'] . '-' . uniqid());
 			$password = md5(uniqid());
 
@@ -177,13 +176,9 @@ class CreateWriter extends AbstractJob
 			$this->sharedConfig->setWriterStatus($job['projectId'], $job['writerId'], SharedConfig::WRITER_STATUS_READY);
 
 
-			$this->logEvent('createUser', array(
-				'duration' => time() - strtotime($gdWriteStartTime)
-			), $restApi->getLogPath());
 			return array(
 				'uid' => $userId,
-				'pid' => $projectPid,
-				'gdWriteStartTime' => $gdWriteStartTime
+				'pid' => $projectPid
 			);
 		} catch (\Exception $e) {
 			$this->sharedConfig->updateWriter($job['projectId'], $job['writerId'], array(

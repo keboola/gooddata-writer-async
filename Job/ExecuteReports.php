@@ -70,8 +70,6 @@ class ExecuteReports extends AbstractJob
 			}
 		}
 
-		$gdWriteStartTime = date('c');
-
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			if (!empty($params['reports'])) {
 				// specified reports
@@ -90,11 +88,6 @@ class ExecuteReports extends AbstractJob
 				}
 			}
 
-		$this->logEvent('execute_reports', array(
-			'duration' => time() - strtotime($gdWriteStartTime)
-		), $restApi->getLogPath());
-		return array(
-			'gdWriteStartTime' => $gdWriteStartTime
-		);
+		return array();
 	}
 }
