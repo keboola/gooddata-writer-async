@@ -20,7 +20,6 @@ use Guzzle\Http\Message\RequestInterface;
 use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
-use Keboola\StorageApi\Event;
 use Monolog\Logger;
 use stdClass;
 

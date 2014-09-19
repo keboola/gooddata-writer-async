@@ -8,7 +8,6 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
-use Symfony\Component\Stopwatch\Stopwatch;
 
 class ResetTable extends AbstractJob
 {

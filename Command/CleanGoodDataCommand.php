@@ -13,7 +13,6 @@ use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand,
 	Symfony\Component\Console\Input\InputInterface,
 	Symfony\Component\Console\Output\OutputInterface;
 use Keboola\GoodDataWriter\GoodData\RestApi;
-use Keboola\GoodDataWriter\Service\Lock;
 
 class CleanGoodDataCommand extends ContainerAwareCommand
 {
