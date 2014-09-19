@@ -9,7 +9,6 @@
 namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
-use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Service\StorageApiConfiguration,
 	Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Table as StorageApiTable,

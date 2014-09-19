@@ -64,7 +64,6 @@ class AddUserToProject extends AbstractJob
 
 		$restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
 
-		$startTime = date('c');
 		$userId = null;
 
 		// Get user uri
@@ -87,7 +86,6 @@ class AddUserToProject extends AbstractJob
 				$childJob = new CreateUser($this->configuration, $this->appConfiguration, $this->sharedConfig,
 					$this->s3Client, $this->translator, $this->storageApiClient, $this->eventLogger);
 				$childJob->setTempService($this->tempService);
-				$childJob->initLog();
 				$childJob->setLogger($this->logger); //@TODO deprecated - only for CL tool
 				$childJob->setQueue($this->queue);
 
