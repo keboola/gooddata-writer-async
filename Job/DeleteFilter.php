@@ -64,7 +64,6 @@ class DeleteFilter extends AbstractJob
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		$gdWriteStartTime = date('c');
 
 		foreach ($uris as $uri) {
 			try {
@@ -83,11 +82,6 @@ class DeleteFilter extends AbstractJob
 			$this->configuration->deleteFilterFromProject($params['uri']);
 		}
 
-		$this->logEvent('deleteFilter', array(
-			'duration' => time() - strtotime($gdWriteStartTime)
-		), $restApi->getLogPath());
-		return array(
-			'gdWriteStartTime' => $gdWriteStartTime
-		);
+		return array();
 	}
 }

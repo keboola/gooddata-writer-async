@@ -32,18 +32,12 @@ class ProxyCall  extends AbstractJob
 	{
 		$this->checkParams($params, array('query', 'payload'));
 
-		$gdWriteStartTime = date('c');
-
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 		$response = $restApi->post($params['query'], $params['payload']);
 
-		$this->logEvent('proxyCall', array(
-			'duration' => time() - strtotime($gdWriteStartTime)
-		), $restApi->getLogPath());
 		return array(
-			'response' => $response,
-			'gdWriteStartTime' => $gdWriteStartTime
+			'response' => $response
 		);
 	}
 }

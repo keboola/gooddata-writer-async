@@ -30,8 +30,6 @@ class OptimizeSliHash extends AbstractJob
 	public function run($job, $params, RestApi $restApi)
 	{
 		try {
-			$gdWriteStartTime = time();
-
 			$goodDataModel = new Model($this->appConfiguration);
 			$manifests = array();
 			$dataSetsToOptimize = array();
@@ -82,12 +80,7 @@ class OptimizeSliHash extends AbstractJob
 
 			$this->sharedConfig->setWriterStatus($job['projectId'], $job['writerId'], SharedConfig::WRITER_STATUS_READY);
 
-			$this->logEvent('optimizeSliHash', array(
-				'duration' => time() - strtotime($gdWriteStartTime)
-			), $restApi->getLogPath());
-			return array(
-				'gdWriteStartTime' => $gdWriteStartTime
-			);
+			return array();
 		} catch (\Exception $e) {
 			$this->sharedConfig->setWriterStatus($job['projectId'], $job['writerId'], SharedConfig::WRITER_STATUS_READY);
 			throw $e;

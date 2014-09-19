@@ -49,9 +49,6 @@ class UpdateModel extends AbstractJob
 		$this->configuration->checkBucketAttributes($bucketAttributes);
 		$this->configuration->updateDataSetsFromSapi();
 
-		$this->logEvent('start', array(
-			'duration' => 0
-		));
 		$stopWatch = new Stopwatch();
 
 
@@ -74,10 +71,9 @@ class UpdateModel extends AbstractJob
 		}
 
 		$e = $stopWatch->stop($stopWatchId);
-		$this->logEvent($stopWatchId, array(
-			'duration' => $e->getDuration(),
-			'definition' => $definitionFile
-		));
+		$this->logEvent('Definition downloaded from s3', $job['id'], $job['runId'], array(
+			'file' => $definitionFile
+		), $e->getDuration());
 
 		$dataSetName = !empty($tableDefinition['name']) ? $tableDefinition['name'] : $tableDefinition['id'];
 		$dataSetId = Model::getDatasetId($dataSetName);
@@ -93,7 +89,6 @@ class UpdateModel extends AbstractJob
 		//@TODO REMOVE WITH CL TOOL
 
 
-		$gdWriteStartTime = date('c');
 		$updateOperations = array();
 		$ldmChange = false;
 		try {
@@ -102,8 +97,6 @@ class UpdateModel extends AbstractJob
 			$stopWatch->start($stopWatchId);
 
 			if (!$this->configuration->clTool) {
-				$restApi->initLog();
-
 				$result = $restApi->updateDataSet($params['pid'], $definition, $this->configuration->noDateFacts);
 				if ($result) {
 					$updateOperations[] = $result;
@@ -116,14 +109,13 @@ class UpdateModel extends AbstractJob
 				}
 
 				$e = $stopWatch->stop($stopWatchId);
-				$this->logEvent($stopWatchId, array(
-					'duration' => $e->getDuration()
-				), $restApi->getLogPath());
+				$this->logEvent('LDM API called', $job['id'], $job['runId'], array(
+					'operations' => $updateOperations
+				), $e->getDuration());
 
 			//@TODO REMOVE WITH CL TOOL
 			} else {
 				$clToolApi->debugLogUrl = null;
-				$restApi->initLog();
 				$clToolApi->s3Dir = $tmpFolderName;
 				$clToolApi->tmpDir = $this->getTmpDir($job['id']);
 				if (!file_exists($clToolApi->tmpDir)) mkdir($clToolApi->tmpDir);
@@ -147,11 +139,10 @@ class UpdateModel extends AbstractJob
 					$clToolApi->debugLogUrl = null;
 				}
 				$e = $stopWatch->stop($stopWatchId);
-				$this->logEvent($stopWatchId, array(
-					'duration' => $e->getDuration(),
+				$this->logEvent('CL tool called', $job['id'], $job['runId'], array(
 					'xml' => $xml,
 					'clTool' => $clToolApi->output
-				), $restApi->getLogPath());
+				), $e->getDuration());
 			}
 			//@TODO REMOVE WITH CL TOOL
 
@@ -160,9 +151,7 @@ class UpdateModel extends AbstractJob
 			$event = $stopWatch->stop($stopWatchId);
 
 			$restApiLogPath = null;
-			$eventDetails = array(
-				'duration' => $event->getDuration()
-			);
+			$eventDetails = array();
 			if ($e instanceof CLToolApiErrorException) {
 				if ($clToolApi->debugLogUrl) {
 					$this->logs['CL Tool Error'] = $clToolApi->debugLogUrl;
@@ -175,9 +164,8 @@ class UpdateModel extends AbstractJob
 				}
 			} elseif ($e instanceof RestApiException) {
 				$error = $e->getDetails();
-				$restApiLogPath = $restApi->getLogPath();
 			}
-			$this->logEvent($stopWatchId, $eventDetails, $restApiLogPath);
+			$this->logEvent('CL tool failed', $job['id'], $job['runId'], $eventDetails, $event->getDuration());
 
 			if (!($e instanceof CLToolApiErrorException) && !($e instanceof RestApiException)) {
 				throw $e;
@@ -187,9 +175,6 @@ class UpdateModel extends AbstractJob
 		$result = array();
 		if (!empty($error)) {
 			$result['error'] = $error;
-		}
-		if (!empty($gdWriteStartTime)) {
-			$result['gdWriteStartTime'] = $gdWriteStartTime;
 		}
 		if (count($updateOperations)) {
 			$result['info'] = $updateOperations;

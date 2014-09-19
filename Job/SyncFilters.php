@@ -30,7 +30,6 @@ class SyncFilters extends AbstractJob
 	 */
 	function run($job, $params, RestApi $restApi)
 	{
-		$gdWriteStartTime = date('c');
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
@@ -98,11 +97,6 @@ class SyncFilters extends AbstractJob
 
 		}
 
-		$this->logEvent('syncFilters', array(
-			'duration' => time() - strtotime($gdWriteStartTime)
-		), $restApi->getLogPath());
-		return array(
-			'gdWriteStartTime'  => $gdWriteStartTime
-		);
+		return array();
 	}
 }

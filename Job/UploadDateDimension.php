@@ -54,9 +54,6 @@ class UploadDateDimension extends AbstractJob
 			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
 		}
 
-		$this->logEvent('start', array(
-			'duration' => 0
-		));
 		$stopWatch = new Stopwatch();
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
@@ -77,16 +74,13 @@ class UploadDateDimension extends AbstractJob
 
 		$stopWatchId = 'createDimension-' . $params['name'];
 		$stopWatch->start($stopWatchId);
-		$restApi->initLog();
 
 		try {
 			// Create date dimensions
 			$restApi->createDateDimension($params['pid'], $params['name'], $includeTime, $template);
 
 			$e = $stopWatch->stop($stopWatchId);
-			$this->logEvent($stopWatchId, array(
-				'duration' => $e->getDuration()
-			), $restApi->getLogPath());
+			$this->logEvent('Rest API called', $job['id'], $job['runId'], array(), $e->getDuration());
 
 			if ($includeTime) {
 				// Upload to WebDav
@@ -110,28 +104,25 @@ class UploadDateDimension extends AbstractJob
 				$dimensionsToUpload[] = $params['name'];
 
 				$e = $stopWatch->stop($stopWatchId);
-				$this->logEvent($stopWatchId, array(
-					'duration' => $e->getDuration(),
-					'url' => $webDav->getUrl() . '/uploads/' . $tmpFolderNameDimension)
-				);
+				$this->logEvent('Time dimension data uploaded to WebDav', $job['id'], $job['runId'], array(
+					'destination' => $webDav->getUrl() . '/uploads/' . $tmpFolderNameDimension
+				), $e->getDuration());
 
 				// Run ETL task of time dimensions
 				$gdWriteStartTime = date('c');
 				$stopWatchId = sprintf('runEtlTimeDimension-%s', $params['name']);
 				$stopWatch->start($stopWatchId);
-				$restApi->initLog();
 
 				$dataSetName = 'time.' . $dimensionName;
 				try {
 					$restApi->loadData($params['pid'], $tmpFolderNameDimension);
 				} catch (RestApiException $e) {
 					$debugFile = $tmpFolderDimension . '/' . $params['pid'] . '-etl.log';
-					$taskName = 'Data Load Error';
 					$logSaved = $webDav->saveLogs($tmpFolderDimension, $debugFile);
 					if ($logSaved) {
 						if (filesize($debugFile) > 1024 * 1024) {
 							$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $params['pid'], $dataSetName));
-							$this->logs[$taskName] = $logUrl;
+							$this->logs['ETL task error'] = $logUrl;
 							$e->setDetails(array($logUrl));
 						} else {
 							$e->setDetails(file_get_contents($debugFile));
@@ -142,24 +133,17 @@ class UploadDateDimension extends AbstractJob
 				}
 
 				$e = $stopWatch->stop($stopWatchId);
-				$this->logEvent($stopWatchId, array(
-					'duration' => $e->getDuration()
-				), $restApi->getLogPath());
+				$this->logEvent('Time dimension ETL task finished', $job['id'], $job['runId'], array(), $e->getDuration());
 			}
 
 		} catch (\Exception $e) {
 			$error = $e->getMessage();
 			$event = $stopWatch->stop($stopWatchId);
 
-			$restApiLogPath = null;
-			$eventDetail = array(
-				'duration' => $event->getDuration()
-			);
 			if ($e instanceof RestApiException) {
 				$error = $e->getDetails();
-				$restApiLogPath = $restApi->getLogPath();
 			}
-			$this->logEvent($stopWatchId, $eventDetail, $restApiLogPath);
+			$this->logEvent('Time dimension ETL task failed', $job['id'], $job['runId'], array(), $event->getDuration());
 
 			if (!($e instanceof RestApiException) && !($e instanceof WebDavException)) {
 				throw $e;

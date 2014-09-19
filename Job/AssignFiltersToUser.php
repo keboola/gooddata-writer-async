@@ -83,18 +83,11 @@ class assignFiltersToUser extends AbstractJob
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
-		$gdWriteStartTime = date('c');
-
 		foreach ($pidUris as $pid => $uris) {
 			$restApi->assignFiltersToUser($uris, $user['uid'], $pid);
 		}
 		$this->configuration->saveFiltersToUser($params['filters'], $params['email']);
 
-		$this->logEvent('assignFilterToUser', array(
-			'duration' => time() - strtotime($gdWriteStartTime)
-		), $restApi->getLogPath());
-		return array(
-			'gdWriteStartTime' => $gdWriteStartTime
-		);
+		return array();
 	}
 }

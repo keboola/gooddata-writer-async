@@ -63,7 +63,6 @@ class WaitForInvitation extends AbstractJob
 
 		}
 
-		$this->logEvent('waitForInvitation', array(), $restApi->getLogPath());
 		return array();
 	}
 }

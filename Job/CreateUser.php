@@ -42,7 +42,6 @@ class CreateUser extends AbstractJob
 		$this->checkParams($params, array('email', 'password', 'firstName', 'lastName'));
 		$params['email'] = strtolower($params['email']);
 
-		$gdWriteStartTime = date('c');
 		$restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
 		$ssoProvider = empty($params['ssoProvider']) ? $this->appConfiguration->gd_ssoProvider : $params['ssoProvider'];
 		$alreadyExists = false;
@@ -62,12 +61,8 @@ class CreateUser extends AbstractJob
 			$this->sharedConfig->saveUser($job['projectId'], $job['writerId'], $userId, $params['email']);
 		}
 
-		$this->logEvent('createUser', array(
-			'duration' => time() - strtotime($gdWriteStartTime)
-		), $restApi->getLogPath());
 		return array(
 			'uid' => $userId,
-			'gdWriteStartTime' => $gdWriteStartTime,
 			'alreadyExists' => $alreadyExists
 		);
 	}

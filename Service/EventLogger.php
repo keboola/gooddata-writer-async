@@ -25,17 +25,15 @@ class EventLogger
 		$this->uploader = $uploader;
 	}
 
-	public function log($jobId, $runId, $message, $description=null, $params=array(), $startTime=null, $type=StorageApiEvent::TYPE_INFO, $duration=null)
+	public function log($jobId, $runId, $message, $params=array(), $duration=null)
 	{
 		$event = new StorageApiEvent();
 		$event
-			->setType($type)
+			->setType(StorageApiEvent::TYPE_INFO)
 			->setMessage($message)
 			->setComponent('gooddata-writer') //@TODO load from config
 			->setConfigurationId($jobId)
 			->setRunId($runId);
-		if ($description)
-			$event->setDescription($description);
 		if (count($params)) {
 			if (isset($params['password']))
 				$params['password'] = '***';
@@ -46,8 +44,6 @@ class EventLogger
 			}
 			$event->setParams($params);
 		}
-		if ($startTime)
-			$event->setDuration(time() - $startTime);
 		if ($duration)
 			$event->setDuration($duration);
 		$this->storageApiClient->createEvent($event);

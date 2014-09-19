@@ -116,10 +116,6 @@ class AddUserToProject extends AbstractJob
 			$this->configuration->saveProjectInvite($params['pid'], $params['email'], $params['role']);
 		}
 
-		$this->logEvent('addUserToProject', array(
-			'duration' => time() - strtotime($startTime)
-		), $restApi->getLogPath());
-
 		return $userId? array() : array('flag' => 'invitation');
 	}
 }

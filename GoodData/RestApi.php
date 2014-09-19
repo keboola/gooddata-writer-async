@@ -8,6 +8,7 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
+use Guzzle\Common\Exception\RuntimeException;
 use Guzzle\Http\Client,
 	Guzzle\Http\Exception\ServerErrorResponseException,
 	Guzzle\Http\Exception\ClientErrorResponseException,
@@ -22,8 +23,6 @@ use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\StorageApi\Event;
 use Monolog\Logger;
 use stdClass;
-use Syrup\ComponentBundle\Filesystem\TempService;
-use Syrup\ComponentBundle\Filesystem\TempServiceFactory;
 
 class RestApiException extends \Exception
 {
@@ -112,20 +111,8 @@ class RestApi
 	/**
 	 * @var Logger
 	 */
-	protected $logger;
-	/**
-	 * @var Logger
-	 */
-	private $usageLogger;
-	/**
-	 * @var TempService
-	 */
-	private $tempService;
+	private $logger;
 
-	/**
-	 * @var \SplFileObject
-	 */
-	private $logFile;
 	/**
 	 * @var EventLogger
 	 */
@@ -136,7 +123,6 @@ class RestApi
 
 	private $jobId;
 	private $runId;
-	private $clearFromLog;
 
 	private $apiUrl;
 	private $username;
@@ -145,11 +131,10 @@ class RestApi
 	private $appConfiguration;
 
 
-	public function __construct(AppConfiguration $appConfiguration, Model $model, Logger $logger, Logger $usageLogger, TempServiceFactory $tempServiceFactory)
+	public function __construct(AppConfiguration $appConfiguration, Model $model, Logger $logger)
 	{
 		$this->model = $model;
 		$this->logger = $logger;
-		$this->usageLogger = $usageLogger;
 		$this->appConfiguration = $appConfiguration;
 
 		$this->client = new Client(self::API_URL, array(
@@ -163,11 +148,6 @@ class RestApi
 			'accept' => 'application/json',
 			'content-type' => 'application/json; charset=utf-8'
 		));
-
-		$this->tempService = $tempServiceFactory->get('gooddata-writer');
-		$this->clearFromLog = array();
-
-		$this->initLog();
 	}
 
 	public function setJobId($jobId)
@@ -273,7 +253,7 @@ class RestApi
 	public function get($uri)
 	{
 		try {
-			$result = $this->jsonRequest($uri, 'GET', array(), array(), false);
+			$result = $this->jsonRequest($uri, 'GET');
 			return $result;
 		} catch (RestApiException $e) {
 			$errorJson = json_decode($e->getMessage(), true);
@@ -319,11 +299,6 @@ class RestApi
 		$result = $this->jsonRequest($uri, 'POST', $params);
 
 		if (empty($result['uri']) || strpos($result['uri'], '/gdc/projects/') === false) {
-			$this->logAlert('createProject() failed', array(
-				'uri' => $uri,
-				'params' => $params,
-				'result' => $result
-			));
 			throw new RestApiException('Create project call failed');
 		}
 
@@ -342,10 +317,6 @@ class RestApi
 					$repeat = false;
 				}
 			} else {
-				$this->logAlert('createProject() failed', array(
-					'uri' => $projectUri,
-					'result' => $result
-				));
 				throw new RestApiException('Create project call failed');
 			}
 
@@ -387,11 +358,6 @@ class RestApi
 		);
 		$result = $this->jsonRequest($uri, 'POST', $params);
 		if (empty($result['exportArtifact']['token']) || empty($result['exportArtifact']['status']['uri'])) {
-			$this->logAlert('cloneProject() export failed', array(
-				'uri' => $uri,
-				'params' => $params,
-				'result' => $result
-			));
 			throw new RestApiException('Clone export failed');
 		}
 
@@ -403,11 +369,6 @@ class RestApi
 			)
 		));
 		if (empty($result['uri'])) {
-			$this->logAlert('cloneProject() import failed', array(
-				'uri' => $uri,
-				'params' => $params,
-				'result' => $result
-			));
 			throw new RestApiException('Clone import failed');
 		}
 
@@ -468,8 +429,6 @@ class RestApi
 	 */
 	public function createUser($domain, $login, $password, $firstName, $lastName, $ssoProvider)
 	{
-		$this->clearFromLog[] = $password;
-
 		$uri = sprintf('/gdc/account/domains/%s/users', $domain);
 		$params = array(
 			'accountSetting' => array(
@@ -503,19 +462,8 @@ class RestApi
 		if (isset($result['uri'])) {
 			if (substr($result['uri'], 0, 21) == '/gdc/account/profile/') {
 				return substr($result['uri'], 21);
-			} else {
-				$this->logAlert('createUser() has wrong result', array(
-					'uri' => $uri,
-					'params' => $params,
-					'result' => $result
-				));
 			}
 		} else {
-			$this->logAlert('createUser() failed', array(
-				'uri' => $uri,
-				'params' => $params,
-				'result' => $result
-			));
 			throw new RestApiException('Create user failed');
 		}
 
@@ -546,12 +494,6 @@ class RestApi
 				if (!empty($user['accountSetting']['links']['self'])) {
 					if (substr($user['accountSetting']['links']['self'], 0, 21) == '/gdc/account/profile/') {
 						return substr($user['accountSetting']['links']['self'], 21);
-					} else {
-						$this->logAlert('userId() has wrong result', array(
-							'email' => $email,
-							'domain' => $domain,
-							'result' => $user
-						));
 					}
 				}
 				return false;
@@ -571,14 +513,14 @@ class RestApi
 		$users = array();
 
 		// first page
-		$result = $this->jsonRequest(sprintf('/gdc/account/domains/%s/users', $domain), 'GET', array(), array(), false);
+		$result = $this->jsonRequest(sprintf('/gdc/account/domains/%s/users', $domain), 'GET');
 
 		if (isset($result['accountSettings']['items']))
 			$users = array_merge($users, $result['accountSettings']['items']);
 
 		// next pages
 		while (isset($result['accountSettings']['paging']['next'])) {
-			$result = $this->jsonRequest($result['accountSettings']['paging']['next'], 'GET', array(), array(), false);
+			$result = $this->jsonRequest($result['accountSettings']['paging']['next'], 'GET');
 
 			if (isset($result['accountSettings']['items']))
 				$users = array_merge($users, $result['accountSettings']['items']);
@@ -622,12 +564,6 @@ class RestApi
 				if (!empty($user['user']['links']['self'])) {
 					if (substr($user['user']['links']['self'], 0, 21) == '/gdc/account/profile/') {
 						return substr($user['user']['links']['self'], 21);
-					} else {
-						$this->logAlert('userId() has wrong result', array(
-							'email' => $email,
-							'pid' => $pid,
-							'result' => $user
-						));
 					}
 				}
 				return false;
@@ -692,10 +628,6 @@ class RestApi
 		if ((isset($result['associatedRoles']['roles']) && count($result['associatedRoles']['roles']))) {
 			// SUCCESS
 		} else {
-			$this->logAlert('removeUserFromProject() has not remove user from project - could not load user roles', array(
-				'uri' => $rolesUri,
-				'result' => $result
-			));
 			throw new RestApiException('Error removing from project');
 		}
 
@@ -718,11 +650,6 @@ class RestApi
 			// SUCCESS
 			// Sometimes API does not return
 		} else {
-			$this->logAlert('removeUserFromProject() has not remove user from project', array(
-				'uri' => $uri,
-				'params' => $params,
-				'result' => $result
-			));
 			throw new RestApiException('Error removing from project');
 		}
 	}
@@ -733,6 +660,7 @@ class RestApi
 	 * @param $email
 	 * @param $pid
 	 * @param string $role
+	 * @return mixed
 	 * @throws \Exception|\Guzzle\Http\Exception\ClientErrorResponseException
 	 * @throws RestApiException
 	 */
@@ -758,11 +686,6 @@ class RestApi
 		if (isset($result['createdInvitations']['uri']) && count($result['createdInvitations']['uri'])) {
 			return current($result['createdInvitations']['uri']);
 		} else {
-			$this->logAlert('inviteUserToProject() has not invited user to project', array(
-				'uri' => $uri,
-				'params' => $params,
-				'result' => $result
-			));
 			throw new RestApiException('Error in invitation to project');
 		}
 	}
@@ -798,17 +721,9 @@ class RestApi
 				}
 			}
 		} else {
-			$this->logAlert('inviteUserToProject() has bad response', array(
-				'uri' => $rolesUri,
-				'result' => $rolesResult
-			));
 			throw new RestApiException('Roles in project could not be fetched');
 		}
 
-		$this->logAlert('inviteUserToProject() has not found role in project', array(
-			'role' => $role,
-			'result' => $rolesResult
-		));
 		throw new RestApiException('Role in project not found');
 	}
 
@@ -879,10 +794,6 @@ class RestApi
 				$taskResponse = $this->jsonRequest($result['pullTask']['uri']);
 
 				if (!isset($taskResponse['taskStatus'])) {
-					$this->logAlert('loadData() has bad response', array(
-						'uri' => $result['pullTask']['uri'],
-						'result' => $taskResponse
-					));
 					throw new RestApiException('ETL task could not be checked');
 				}
 
@@ -899,10 +810,6 @@ class RestApi
 			return $taskResponse;
 
 		} else {
-			$this->logAlert('loadData() has bad response', array(
-				'uri' => $uri,
-				'result' => $result
-			));
 			throw new RestApiException('ETL task could not be started');
 		}
 	}
@@ -1002,10 +909,6 @@ class RestApi
 								'description' => $description
 							);
 						} else {
-							$this->logAlert('updateProjectModel() has bad response', array(
-								'uri' => $uri,
-								'result' => $result
-							));
 							throw new RestApiException('Update Project Model task could not be finished');
 						}
 					}
@@ -1014,10 +917,6 @@ class RestApi
 				} while (true);
 
 			} else {
-				$this->logAlert('updateProjectModel() has bad response', array(
-					'uri' => $uri,
-					'result' => $result
-				));
 				throw new RestApiException('Update Project Model task could not be started');
 			}
 
@@ -1053,10 +952,6 @@ class RestApi
 					if (isset($taskResponse['projectModelView']['model'])) {
 						return $taskResponse['projectModelView']['model'];
 					} else {
-						$this->logAlert('getProjectModel() has bad response', array(
-							'uri' => $uri,
-							'result' => $result
-						));
 						throw new RestApiException('Get Project Model task could not be finished');
 					}
 				}
@@ -1065,10 +960,6 @@ class RestApi
 			} while (true);
 
 		} else {
-			$this->logAlert('getProjectModel() has bad response', array(
-				'uri' => $uri,
-				'result' => $result
-			));
 			throw new RestApiException('Get Project Model task could not be started');
 		}
 
@@ -1224,11 +1115,6 @@ class RestApi
 		}
 
 		if (empty($pollLink)) {
-			$this->logAlert('executeMaqlAsync() result is missing status url in entries.link', array(
-				'uri' => $uri,
-				'maql' => $maql,
-				'result' => $result
-			));
 			throw new RestApiException('Error in result of /ldm/manage2 task');
 		}
 
@@ -1238,10 +1124,6 @@ class RestApi
 			$taskResponse = $this->jsonRequest($pollLink);
 
 			if (!isset($taskResponse['wTaskStatus']['status'])) {
-				$this->logAlert('executeMaql() has bad response', array(
-					'uri' => $result['pullTask']['uri'],
-					'result' => $taskResponse
-				));
 				throw new RestApiException('Task /ldm/manage2 could not be checked');
 			}
 
@@ -1313,11 +1195,6 @@ class RestApi
 		if (isset($result['uri'])) {
 			return $result['uri'];
 		} else {
-			$this->logAlert('createFilters() has bad response', array(
-				'uri' => $filterUri,
-				'params' => $params,
-				'result' => $result
-			));
 			throw new RestApiException('Error in attempt to create filter');
 		}
 	}
@@ -1358,10 +1235,6 @@ class RestApi
 		if (isset($result['query']['entries'])) {
 			return $result['query']['entries'];
 		} else {
-			$this->logAlert('getFilters() has bad response', array(
-				'uri' => $uri,
-				'result' => $result
-			));
 			throw new RestApiException('Filters in project could not be fetched');
 		}
 	}
@@ -1374,10 +1247,6 @@ class RestApi
 		if (isset($result['query']['entries'])) {
 			return $result['query']['entries'];
 		} else {
-			$this->logAlert('getAttributes() has bad response', array(
-				'uri' => $uri,
-				'result' => $result
-			));
 			throw new RestApiException('Attributes in project could not be fetched');
 		}
 	}
@@ -1411,10 +1280,6 @@ class RestApi
 			if (isset($result['attribute'])) {
 				return $result['attribute'];
 			} else {
-				$this->logAlert('getAttribute() has bad response', array(
-					'uri' => $attrUri,
-					'result' => $result
-				));
 				throw new RestApiException(sprintf("Attribute '%s' with uri '%s' could not be fetched", $search, $attrUri));
 			}
 		}
@@ -1427,10 +1292,6 @@ class RestApi
 		if (isset($result['attributeElements']['elements'])) {
 			return $result['attributeElements']['elements'];
 		} else {
-			$this->logAlert('getAttributeValues() has bad response', array(
-				'uri' => $valuesUri,
-				'result' => $result
-			));
 			throw new RestApiException(sprintf('Values of attribute \'%s\' could not be fetched', $attribute['meta']['identifier']));
 		}
 	}
@@ -1497,10 +1358,6 @@ class RestApi
 				)
 			));
 			if (empty($result['uri'])) {
-				$this->logAlert('optimizeSliHash task has bad response', array(
-					'uri' => $result['pullTask']['uri'],
-					'result' => $result
-				));
 				throw new RestApiException('Bad response from optimizeSliHash call' . json_encode($result));
 			}
 			$pollLink = $result['uri'];
@@ -1511,10 +1368,6 @@ class RestApi
 				$taskResponse = $this->jsonRequest($pollLink);
 
 				if (!isset($taskResponse['wTaskStatus']['status'])) {
-					$this->logAlert('optimizeSliHash task has bad response', array(
-						'uri' => $result['pullTask']['uri'],
-						'result' => $taskResponse
-					));
 					throw new RestApiException('Task optimizeSliHash could not be checked');
 				}
 
@@ -1548,10 +1401,6 @@ class RestApi
 					$repeat = false;
 				}
 			} else {
-				$this->logAlert('waitForTask() has bad response', array(
-					'uri' => $uri,
-					'result' => $result
-				));
 				throw new RestApiException('Bad response');
 			}
 
@@ -1559,10 +1408,6 @@ class RestApi
 		} while ($repeat);
 
 		if ($result['taskState']['status'] != 'OK') {
-			$this->logAlert('waitForTask() has bad response', array(
-				'uri' => $uri,
-				'result' => $result
-			));
 			throw new RestApiException('Bad response');
 		}
 	}
@@ -1571,9 +1416,9 @@ class RestApi
 	/**
 	 * Common request expecting json result
 	 */
-	protected function jsonRequest($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true)
+	protected function jsonRequest($uri, $method='GET', $params=array(), $headers=array())
 	{
-		return $this->request($uri, $method, $params, $headers, $logCall)->json();
+		return $this->request($uri, $method, $params, $headers)->json();
 	}
 
 	public function getStream($uri)
@@ -1625,7 +1470,7 @@ class RestApi
 			try {
 				$response = $request->send();
 
-				$this->logCall($uri, 'GET', array("filename" => $filename), '["-- omitted --"]', time() - $startTime, $response->getStatusCode());
+				$this->log($uri, 'GET', array('filename' => $filename), array(), $request, time() - $startTime);
 
 				if ($response->getStatusCode() == 200) {
 					return $filename;
@@ -1634,7 +1479,7 @@ class RestApi
 
 				if ($e instanceof ClientErrorResponseException) {
 					$response = $request->getResponse();
-					$this->logCall($uri, 'GET', array("filename" => $filename), $response->getBody(true), time() - $startTime, $response->getStatusCode());
+					$this->log($uri, 'GET', array('filename' => $filename), array(), $request, time() - $startTime);
 
 					if ($request->getResponse()->getStatusCode() == 201) {
 
@@ -1676,13 +1521,8 @@ class RestApi
 	/**
 	 * @return \Guzzle\Http\Message\Response
 	 */
-	private function request($uri, $method = 'GET', $params = array(), $headers = array(), $logCall = true, $refreshToken = true)
+	private function request($uri, $method = 'GET', $params = array(), $headers = array(), $refreshToken = true)
 	{
-		if ($this->eventLogger) {
-			$this->eventLogger->log($this->jobId, $this->runId, sprintf('Rest API call %s %s started', $method, $uri),
-				null, array('params' => $params));
-		}
-
 		if ($refreshToken && !$this->authTt) {
 			$this->refreshToken();
 		}
@@ -1726,15 +1566,9 @@ class RestApi
 				$response = $request->send();
 
 				$duration = time() - $startTime;
-				if ($logCall) $this->logCall($uri, $method, $params, $response->getBody(true), $duration, $request->getResponse()->getStatusCode());
 
-				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
+				$this->log($uri, $method, $params, $headers, $request, $duration);
 				if ($response->isSuccessful()) {
-
-					if ($this->eventLogger) {
-						$this->eventLogger->log($this->jobId, $this->runId, sprintf('Rest API call %s %s finished',
-							$method, $uri), null, array('params' => $params, 'response' => $response->json()), $startTime);
-					}
 					return $response;
 				}
 
@@ -1747,16 +1581,10 @@ class RestApi
 					$response = $request->getResponse()->getBody(true);
 				}
 
-				if ($logCall) $this->logCall($uri, $method, $params, $response, $duration, $responseObject? $responseObject->getStatusCode() : null);
-				$this->logUsage($uri, $method, $params, $headers, $request, $duration);
+				$this->log($uri, $method, $params, $headers, $request, $duration);
 
 				$responseJson = json_decode($response, true);
 
-				if ($this->eventLogger) {
-					$this->eventLogger->log($this->jobId, $this->runId, sprintf('Rest API call %s %s finished with error',
-						$method, $uri), null, array('params' => $params, 'response' => $responseJson), $startTime,
-						Event::TYPE_ERROR);
-				}
 
 				if ($e instanceof ClientErrorResponseException) {
 					if ($responseObject && $responseObject->getStatusCode() == 401) {
@@ -1828,40 +1656,40 @@ class RestApi
 
 		/** @var $response \Guzzle\Http\Message\Response */
 		$statusCode = $request ? $request->getResponse()->getStatusCode() : null;
-		$this->logAlert('GoodData API error', array(
-			'uri' => $uri,
-			'method' => $method,
-			'params' => $jsonParams,
-			'headers' => $headers,
-			'response' => $response,
-			'status' => $statusCode,
-			'exception' => $exception
-		));
-		throw new RestApiException('GoodData API error ' . $statusCode, $response);
+		throw new RestApiException('GoodData API error ' . $statusCode, $response, $statusCode, $exception);
 	}
 
-	protected function logUsage($uri, $method, $params, $headers, RequestInterface $request, $duration)
+	protected function log($uri, $method, $params, $headers, RequestInterface $request, $duration)
 	{
-		if (!$this->usageLogger) {
-			return;
+		$response = $request->getResponse();
+
+		if ($this->logger) {
+			$this->logger->debug($method . ' ' . $uri, array(
+				'jobId' => $this->jobId,
+				'request' => array(
+					'params' => $params,
+					'headers' => $headers,
+					'response' => array(
+						'status' => $response? $response->getStatusCode() : null,
+						'body' => $response? $response->getBody(true) : null
+					)
+				),
+				'duration' => $duration,
+				'app' => $this->appConfiguration->appName,
+				'component' => 'gooddata-writer',
+				'pid' => getmypid()
+			));
 		}
 
-		$response = $request->getResponse();
-		$this->usageLogger->debug($method . ' ' . $uri, array(
-			'jobId' => $this->jobId,
-			'request' => array(
-				'params' => $params,
-				'headers' => $headers,
-				'response' => array(
-					'status' => $response? $response->getStatusCode() : null,
-					'body' => $response? $response->getBody(true) : null
-				)
-			),
-			'duration' => $duration,
-			'app' => $this->appConfiguration->appName,
-			'component' => 'gooddata-writer',
-			'pid' => getmypid()
-		));
+		if ($this->eventLogger) {
+			try {
+				$responseJson = $response->json();
+			} catch (RuntimeException $e) {
+				$responseJson = '-- skipped, not a json --';
+			}
+			$this->eventLogger->log($this->jobId, $this->runId, sprintf('Called Rest API: %s %s', $method, $uri),
+				array('params' => $params, 'response' => $responseJson), $duration);
+		}
 	}
 
 	/**
@@ -1873,7 +1701,6 @@ class RestApi
 	{
 		$this->username = $username;
 		$this->password = $password;
-		$this->clearFromLog[] = $password;
 
 		if (!$this->username || !$this->password) {
 			throw new RestApiException('Rest API login failed, missing username or password');
@@ -1886,17 +1713,13 @@ class RestApi
 					'password' => $password,
 					'remember' => 0
 				)
-			), array(), true, false);
+			), array(), false);
 		} catch (RestApiException $e) {
 			throw new RestApiException('Rest API Login failed', $e->getMessage());
 		}
 
 		$this->authSst = $this->findCookie($response, 'GDCAuthSST');
 		if (!$this->authSst) {
-			$this->logAlert('Invalid login - GDCAuthSST not found', array(
-				'response' => $response->getBody(true),
-				'status' => $response->getStatusCode()
-			));
 			throw new RestApiException('Rest API login failed');
 		}
 
@@ -1907,18 +1730,14 @@ class RestApi
 	public function refreshToken()
 	{
 		try {
-			$response = $this->request('/gdc/account/token', 'GET', array(), array(), true, false);
+			$response = $this->request('/gdc/account/token', 'GET', array(), array(), false);
 		} catch (RestApiException $e) {
 			throw new RestApiException('Refresh token failed', $e->getMessage());
 		}
 
 		$this->authTt = $this->findCookie($response, 'GDCAuthTT');
 		if (!$this->authTt) {
-			$this->logAlert('Invalid login - GDCAuthTT not found', array(
-				'response' => $response->getBody(true),
-				'status' => $response->getStatusCode()
-			));
-			throw new RestApiException('Rest refresh token failed');
+			throw new RestApiException('Refresh token failed');
 		}
 	}
 
@@ -1950,52 +1769,6 @@ class RestApi
 		} else {
 			return false;
 		}
-	}
-
-
-	protected function logAlert($message, $context)
-	{
-		$this->logger->alert($message, array_merge($context, array('jobId' => $this->jobId)));
-	}
-
-
-	protected function logCall($uri, $method, $params, $response, $duration, $statusCode)
-	{
-		$decodedResponse = json_decode($response, true);
-		if (!$decodedResponse) {
-			$decodedResponse = array($response);
-		}
-
-		$clearFromLog = $this->clearFromLog;
-		$sanitize = function(&$value) use($clearFromLog) {
-			if ($value && !is_object($value) && in_array((string)$value, $clearFromLog)) {
-				$value = '***';
-			}
-		};
-		array_walk_recursive($params, $sanitize);
-		array_walk_recursive($decodedResponse, $sanitize);
-
-		$this->logFile->fwrite(json_encode(array(
-			'time' => date('c'),
-			'duration' => $duration,
-			'uri' => $this->client->getBaseUrl() . $uri,
-			'method' => $method,
-			'params' => $params,
-			'status' => $statusCode,
-			'response' => $decodedResponse
-		), JSON_PRETTY_PRINT) . ',');
-	}
-
-	public function initLog()
-	{
-		$this->logFile = $this->tempService->createTmpFile('.json')->openFile('a');
-		$this->logFile->fwrite('[');
-	}
-
-	public function getLogPath()
-	{
-		$this->logFile->fwrite('null]');
-		return $this->logFile->getRealPath();
 	}
 
 }

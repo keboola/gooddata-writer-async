@@ -20,7 +20,6 @@ use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent,
 	Keboola\StorageApi\Exception as StorageApiException;
-use Keboola\GoodDataWriter\Service\Lock;
 use Monolog\Logger;
 use Symfony\Component\Translation\TranslatorInterface;
 use Syrup\ComponentBundle\Filesystem\TempServiceFactory;
@@ -190,7 +189,6 @@ class JobExecutor
 				$this->restApi->setJobId($job['id']);
 				$this->restApi->setRunId($job['runId']);
 				$this->restApi->setEventLogger($this->eventLogger);
-				$this->restApi->initLog();
 				
 				$tempService = $this->tempServiceFactory->get('gooddata_writer');
 				/**
@@ -199,7 +197,6 @@ class JobExecutor
 				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedConfig, $s3Client,
 					$this->translator, $this->storageApiClient, $this->eventLogger);
 				$command->setTempService($tempService);
-				$command->initLog();
 				$command->setLogger($this->logger); //@TODO deprecated - only for CL tool
 				$command->setQueue($this->queue);
 
@@ -214,8 +211,6 @@ class JobExecutor
 					);
 
 					if ($e instanceof RestApiException) {
-						$command->logEvent('restApi', array('error' => $e->getMessage()), $this->restApi->getLogPath());
-
 						$jobData['result']['error'] = $this->translator->trans('error.rest_api') . '. ' . $e->getMessage();
 						$debug['details'] = $e->getDetails();
 					} elseif ($e instanceof CLToolApiErrorException) {
@@ -247,10 +242,7 @@ class JobExecutor
 					$jobData['debug'] = $s3Client->url($jobData['debug']);
 				}
 
-				$apiLog = $s3Client->uploadFile($command->getLogPath(), 'text/plain', $job['id'] . '/log.json');
-
 				$jobData['logs'] = $command->getLogs();
-				$jobData['logs']['API Requests'] = $apiLog;
 
 			} catch (\Exception $e) {
 				if ($e instanceof QueueUnavailableException) {
@@ -311,7 +303,7 @@ class JobExecutor
 
 		if (isset($data['debug']))
 			unset($data['debug']);
-		$this->eventLogger->log($job['id'], $job['runId'], $message, null, $data, $startTime);
+		$this->eventLogger->log($job['id'], $job['runId'], $message, $data, time()-$startTime);
 	}
 
 
@@ -336,7 +328,7 @@ class JobExecutor
 			if ($key == 'password') $val = '***';
 		});
 		$this->eventLogger->log($job['id'], $this->storageApiClient->getRunId(),
-			$this->translator->trans($this->translator->trans('log.job.created')), '', array(
+			$this->translator->trans($this->translator->trans('log.job.created')), array(
 				'projectId' => $projectId,
 				'writerId' => $writerId,
 				'runId' => $this->storageApiClient->getRunId(),
