@@ -1527,7 +1527,7 @@ class RestApi
 	/**
 	 * @return \Guzzle\Http\Message\Response
 	 */
-	private function request($uri, $method = 'GET', $params = array(), $headers = array(), $refreshToken = true)
+	private function request($uri, $method='GET', $params=array(), $headers=array(), $refreshToken=true)
 	{
 		if ($refreshToken && !$this->authTt) {
 			$this->refreshToken();
@@ -1667,6 +1667,11 @@ class RestApi
 
 	protected function log($uri, $method, $params, $headers, RequestInterface $request, $duration)
 	{
+		foreach ($params as $k => &$v) {
+			if ($k == 'password') {
+				$v = '***';
+			}
+		}
 		$response = $request->getResponse();
 
 		if ($this->logger) {
@@ -1687,7 +1692,7 @@ class RestApi
 			));
 		}
 
-		if ($this->eventLogger) {
+		if ($this->eventLogger && $this->username != 'gooddata@keboola.com') {
 			try {
 				$responseJson = $response->json();
 			} catch (RuntimeException $e) {
