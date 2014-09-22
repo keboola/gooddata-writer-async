@@ -886,14 +886,21 @@ class RestApi
 
 					if (!isset($taskResponse['asyncTask']['link']['poll'])) {
 						if (isset($taskResponse['projectModelDiff']['updateScripts'])) {
-							$cascadeDrops = array();
-							$noCascadeDrops = array();
+							$lessDestructive = array();
+							$moreDestructive = array();
+							// Preserve data if possible
 							foreach($taskResponse['projectModelDiff']['updateScripts'] as $updateScript) {
-								if (!$updateScript['updateScript']['preserveData'] && !$updateScript['updateScript']['cascadeDrops']) {
-									$noCascadeDrops = $updateScript['updateScript']['maqlDdlChunks'];
+								if ($updateScript['updateScript']['preserveData'] && !$updateScript['updateScript']['cascadeDrops']) {
+									$lessDestructive = $updateScript['updateScript']['maqlDdlChunks'];
+								}
+								if (!count($lessDestructive) && !$updateScript['updateScript']['preserveData'] && !$updateScript['updateScript']['cascadeDrops']) {
+									$lessDestructive = $updateScript['updateScript']['maqlDdlChunks'];
 								}
 								if (!$updateScript['updateScript']['preserveData'] && $updateScript['updateScript']['cascadeDrops']) {
-									$cascadeDrops = $updateScript['updateScript']['maqlDdlChunks'];
+									$moreDestructive = $updateScript['updateScript']['maqlDdlChunks'];
+								}
+								if (!count($moreDestructive) && $updateScript['updateScript']['preserveData'] && $updateScript['updateScript']['cascadeDrops']) {
+									$moreDestructive = $updateScript['updateScript']['maqlDdlChunks'];
 								}
 							}
 
@@ -903,8 +910,8 @@ class RestApi
 							}
 
 							return array(
-								'moreDestructiveMaql' => $cascadeDrops,
-								'lessDestructiveMaql' => $noCascadeDrops,
+								'moreDestructiveMaql' => $moreDestructive,
+								'lessDestructiveMaql' => $lessDestructive,
 								'description' => $description
 							);
 						} else {
