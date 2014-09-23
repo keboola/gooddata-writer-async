@@ -24,6 +24,9 @@ class LoadData extends AbstractJob
 	public function prepare($params)
 	{
 		$this->checkParams($params, array('writerId', 'tables'));
+		if (!is_array($params['tables'])) {
+			throw new JobProcessException($this->translator->trans('parameters.tables_not_array'));
+		}
 		$this->checkWriterExistence($params['writerId']);
 		$this->configuration->checkBucketAttributes();
 		$result = array(
