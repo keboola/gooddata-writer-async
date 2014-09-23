@@ -488,14 +488,13 @@ class RestApi
 	 */
 	public function userId($email, $domain)
 	{
-		foreach($this->usersInDomain($domain) as $user) {
-			if (!empty($user['accountSetting']['login']) && strtolower($user['accountSetting']['login']) == strtolower($email)) {
-				if (!empty($user['accountSetting']['links']['self'])) {
-					if (substr($user['accountSetting']['links']['self'], 0, 21) == '/gdc/account/profile/') {
-						return substr($user['accountSetting']['links']['self'], 21);
-					}
-				}
-				return false;
+		$result = $this->jsonRequest(sprintf('/gdc/account/domains/%s/users?login=%s', $domain, $email), 'GET');
+		if (!empty($result['accountSettings']['items'])
+			&& count($result['accountSettings']['items'])
+			&& !empty($result['accountSettings']['items'][0]['accountSetting']['links']['self'])
+		) {
+			if (substr($result['accountSettings']['items'][0]['accountSetting']['links']['self'], 0, 21) == '/gdc/account/profile/') {
+				return substr($result['accountSettings']['items'][0]['accountSetting']['links']['self'], 21);
 			}
 		}
 		return false;
