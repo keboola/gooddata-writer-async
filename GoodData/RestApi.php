@@ -1475,7 +1475,7 @@ class RestApi
 			try {
 				$response = $request->send();
 
-				$this->log($uri, 'GET', array('filename' => $filename), array(), $request, time() - $startTime);
+				$this->log($uri, 'GET', array('filename' => $filename), array(), null, time() - $startTime);
 
 				if ($response->getStatusCode() == 200) {
 					return $filename;
@@ -1484,7 +1484,7 @@ class RestApi
 
 				if ($e instanceof ClientErrorResponseException) {
 					$response = $request->getResponse();
-					$this->log($uri, 'GET', array('filename' => $filename), array(), $request, time() - $startTime);
+					$this->log($uri, 'GET', array('filename' => $filename), array(), null, time() - $startTime);
 
 					if ($request->getResponse()->getStatusCode() == 201) {
 
@@ -1664,14 +1664,14 @@ class RestApi
 		throw new RestApiException('GoodData API error ' . $statusCode, $response, $statusCode, $exception);
 	}
 
-	protected function log($uri, $method, $params, $headers, RequestInterface $request, $duration)
+	protected function log($uri, $method, $params, $headers, RequestInterface $request=null, $duration)
 	{
 		foreach ($params as $k => &$v) {
 			if ($k == 'password') {
 				$v = '***';
 			}
 		}
-		$response = $request->getResponse();
+		$response = $request? $request->getResponse() : false;
 
 		if ($this->logger) {
 			$this->logger->debug($method . ' ' . $uri, array(
@@ -1679,10 +1679,10 @@ class RestApi
 				'request' => array(
 					'params' => $params,
 					'headers' => $headers,
-					'response' => array(
-						'status' => $response? $response->getStatusCode() : null,
-						'body' => $response? $response->getBody(true) : null
-					)
+					'response' => $response? array(
+						'status' => $response->getStatusCode(),
+						'body' => $response->getBody(true)
+					) : null
 				),
 				'duration' => $duration,
 				'app' => $this->appConfiguration->appName,
@@ -1693,7 +1693,7 @@ class RestApi
 
 		if ($this->eventLogger && $this->username != 'gooddata@keboola.com') {
 			try {
-				$responseJson = $response->json();
+				$responseJson = $response? $response->json() : null;
 			} catch (RuntimeException $e) {
 				$responseJson = '-- skipped, not a json --';
 			}
