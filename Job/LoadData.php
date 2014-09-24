@@ -100,7 +100,7 @@ class LoadData extends AbstractJob
 		$this->logs['Manifest'] = $this->s3Client->uploadFile($this->getTmpDir($job['id']) . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
 		$e = $stopWatch->stop($stopWatchId);
 		$this->logEvent('Manifest file for csv prepared', $job['id'], $job['runId'], array(
-			'manifest' => $this->logs['Manifest']
+			'manifest' => $this->s3Client->url($this->logs['Manifest'])
 		), $e->getDuration());
 
 
