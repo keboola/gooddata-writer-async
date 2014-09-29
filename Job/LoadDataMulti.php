@@ -158,10 +158,10 @@ class LoadDataMulti extends AbstractJob
 				$error = $e->getDetails();
 			}
 
-			$sw = $stopWatch->stop($stopWatchId);
+			$sw = $stopWatch->isStarted($stopWatchId)? $stopWatch->stop($stopWatchId) : null;
 			$this->logEvent('ETL task failed', $job['id'], $job['runId'], array(
 				'error' => $error
-			), $sw->getDuration());
+			), $sw? $sw->getDuration() : 0);
 
 			if (!($e instanceof RestApiException) && !($e instanceof WebDavException)) {
 				throw $e;

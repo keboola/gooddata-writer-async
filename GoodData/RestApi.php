@@ -1603,7 +1603,7 @@ class RestApi
 								$message = 'Login to GoodData failed. Check your writer\'s configuration';
 								if (isset($responseJson['message'])) {
 									if (isset($responseJson['parameters']) && count($responseJson['parameters'])) {
-										$message = sprintf($responseJson['message'], $responseJson['parameters']);
+										$message = vsprintf($responseJson['message'], $responseJson['parameters']);
 									} else {
 										$message = $responseJson['message'];
 									}
@@ -1617,7 +1617,7 @@ class RestApi
 						$message = 'GoodData user ' . $this->username . ' does not have access to the resource.';
 						if (isset($responseJson['error']['message'])) {
 							if (isset($responseJson['error']['parameters']) && count($responseJson['error']['parameters'])) {
-								$message .= ' (' . sprintf($responseJson['error']['message'], $responseJson['error']['parameters']) . ')';
+								$message .= ' (' . vsprintf($responseJson['error']['message'], $responseJson['error']['parameters']) . ')';
 							} else {
 								$message .= ' (' . $responseJson['error']['message'] . ')';
 							}
