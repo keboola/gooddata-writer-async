@@ -34,6 +34,9 @@ class SSO
 	public function __construct($username, AppConfiguration $appConfiguration)
 	{
 		$this->tmpPath = $appConfiguration->tmpPath;
+		if (!file_exists($appConfiguration->tmpPath)) {
+			mkdir($appConfiguration->tmpPath);
+		}
 
 		$this->ssoUser = $username;
 		$this->ssoProvider = $appConfiguration->gd_ssoProvider;
