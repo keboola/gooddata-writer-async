@@ -862,7 +862,11 @@ class RestApi
 			try {
 				$this->executeMaql($pid, $m);
 			} catch (RestApiException $e) {
-				$this->executeMaql($pid, $update['moreDestructiveMaql'][$i]);
+				if (!empty($update['moreDestructiveMaql'][$i])) {
+					$this->executeMaql($pid, $update['moreDestructiveMaql'][$i]);
+				} else {
+					throw $e;
+				}
 			}
 
 			return $update['description'];
