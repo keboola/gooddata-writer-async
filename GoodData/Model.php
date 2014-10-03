@@ -179,6 +179,8 @@ class Model
 						if (!empty($column['dataTypeSize'])) {
 							$label['dataType'] .= '(' . $column['dataTypeSize'] . ')';
 						}
+					} elseif ($column['type'] == 'HYPERLINK') {
+						$label['dataType'] = 'VARCHAR(255)';
 					}
 					$labels[$column['reference']][] = array(
 						'label' => $label
