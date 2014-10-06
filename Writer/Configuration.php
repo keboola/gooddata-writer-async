@@ -324,6 +324,9 @@ class Configuration extends StorageApiConfiguration
 		$outputTables = $this->getOutputSapiTables();
 		$configuredTables = array();
 		foreach ($this->fetchTableRows($tableId) as $row) {
+			if (!isset($row['id'])) {
+				throw new WrongConfigurationException('Configuration table ' . $tableId . ' is missing column id');
+			}
 			if (!in_array($row['id'], $configuredTables)) {
 				$configuredTables[] = $row['id'];
 			}
