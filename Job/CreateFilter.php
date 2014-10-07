@@ -27,7 +27,7 @@ class createFilter extends AbstractJob
 		}
 
 		if ($this->configuration->getFilter($params['name'])) {
-			throw new WrongParametersException($this->translator->trans('parameters.filter.already_exists'));
+			throw new WrongParametersException($this->translator->trans('parameters.filters.already_exists'));
 		}
 
 		$result = array(
@@ -40,7 +40,7 @@ class createFilter extends AbstractJob
 
 		$this->configuration->getTableIdFromAttribute($params['attribute']);
 		if ((isset($params['over']) && !isset($params['to'])) || (!isset($params['over']) && isset($params['to']))) {
-			throw new WrongParametersException($this->translator->trans('parameters.filter.over_to_missing'));
+			throw new WrongParametersException($this->translator->trans('parameters.filters.over_to_missing'));
 		}
 		if (isset($params['over']) && isset($params['to'])) {
 			$this->configuration->getTableIdFromAttribute($params['over']);
@@ -64,7 +64,7 @@ class createFilter extends AbstractJob
 		if ($filter) {
 			foreach ($this->configuration->getFiltersProjectsByFilter($params['name']) as $fp) {
 				if ($fp == $params['pid']) {
-					throw new WrongParametersException($this->translator->trans('parameters.filter.already_exists'));
+					throw new WrongParametersException($this->translator->trans('parameters.filters.already_exists'));
 				}
 			}
 		}
@@ -78,7 +78,7 @@ class createFilter extends AbstractJob
 		$overAttrId = null;
 		$toAttrId = null;
 		if ((isset($params['over']) && !isset($params['to'])) || (!isset($params['over']) && isset($params['to']))) {
-			throw new WrongParametersException($this->translator->trans('parameters.filter.over_to_missing'));
+			throw new WrongParametersException($this->translator->trans('parameters.filters.over_to_missing'));
 		}
 		if (isset($params['over']) && isset($params['to'])) {
 			$overTableId = $this->configuration->getTableIdFromAttribute($params['over']);
