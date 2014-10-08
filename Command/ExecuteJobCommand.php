@@ -25,8 +25,6 @@ class ExecuteJobCommand extends ContainerAwareCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
-		$this->getContainer()->get('syrup.monolog.json_formatter')->setComponentName('gooddata-writer');
-
 		$executor = $this->getContainer()->get('gooddata_writer.job_executor');
 		$executor->runJob($input->getArgument('jobId'), $input->getOption('force'));
 	}

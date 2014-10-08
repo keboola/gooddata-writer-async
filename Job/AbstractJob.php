@@ -39,9 +39,9 @@ abstract class AbstractJob
 	protected $s3Client;
 	/**
 	 * For CsvHandler
-	 * @var TempService
+	 * @var Temp
 	 */
-	protected $tempService;
+	protected $temp;
 	/**
 	 * @var TranslatorInterface
 	 */
@@ -114,9 +114,9 @@ abstract class AbstractJob
 	}
 
 
-	public function setTempService($tempService)
+	public function setTemp($temp)
 	{
-		$this->tempService = $tempService;
+		$this->temp = $temp;
 	}
 
 	public function setEventLogger($logger)

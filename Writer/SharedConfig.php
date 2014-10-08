@@ -13,7 +13,9 @@ use Keboola\GoodDataWriter\Service\Lock;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\Service\StorageApiConfiguration;
-use Syrup\ComponentBundle\Service\Encryption\EncryptorFactory;
+use Keboola\StorageApi\Components;
+use Keboola\StorageApi\Options\Components\Configuration;
+use Syrup\ComponentBundle\Encryption\Encryptor;
 
 
 class SharedConfigException extends \Exception
@@ -54,14 +56,14 @@ class SharedConfig extends StorageApiConfiguration
 	private $db;
 
 
-	public function __construct(AppConfiguration $appConfiguration, EncryptorFactory $encryptorFactory)
+	public function __construct(AppConfiguration $appConfiguration, Encryptor $encryptor)
 	{
 		$this->storageApiClient = new StorageApiClient(array(
 			'token' => $appConfiguration->sharedSapi_token,
 			'url' => $appConfiguration->sharedSapi_url,
 			'userAgent' => $appConfiguration->userAgent
 		));
-        $this->encryptor = $encryptorFactory->get('gooddata-writer'); //@TODO $appConfiguration->appName // will need to re-encrypt passwords in testing environments
+        $this->encryptor = $encryptor;
 
 		$config = new \Doctrine\DBAL\Configuration();
 		$connectionParams = array(

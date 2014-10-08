@@ -65,7 +65,7 @@ class LoadDataMulti extends AbstractJob
 		// Init
 		$tmpFolderName = basename($this->getTmpDir($job['id']));
 		$this->goodDataModel = new Model($this->appConfiguration);
-		$csvHandler = new CsvHandler($this->tempService, $this->appConfiguration->scriptsPath, $this->storageApiClient, $this->logger);
+		$csvHandler = new CsvHandler($this->temp, $this->appConfiguration->scriptsPath, $this->storageApiClient, $this->logger);
 		$csvHandler->setJobId($job['id']);
 		$csvHandler->setRunId($job['runId']);
 

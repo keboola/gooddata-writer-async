@@ -22,7 +22,7 @@ use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Exception as StorageApiException;
 use Monolog\Logger;
 use Symfony\Component\Translation\TranslatorInterface;
-use Syrup\ComponentBundle\Filesystem\TempServiceFactory;
+use Syrup\ComponentBundle\Filesystem\Temp;
 
 
 class QueueUnavailableException extends \Exception
@@ -50,9 +50,9 @@ class JobExecutor
 	 */
 	protected $logger;
 	/**
-	 * @var \Syrup\ComponentBundle\Filesystem\TempServiceFactory
+	 * @var Temp
 	 */
-	protected $tempServiceFactory;
+	protected $temp;
 
 	/**
 	 * @var StorageApiClient
@@ -76,7 +76,7 @@ class JobExecutor
 	 *
 	 */
 	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi,
-								Logger $logger, TempServiceFactory $tempServiceFactory, Queue $queue, TranslatorInterface $translator)
+								Logger $logger, Temp $temp, Queue $queue, TranslatorInterface $translator)
 	{
 		if (!defined('JSON_PRETTY_PRINT')) {
 			// fallback for PHP <= 5.3
@@ -87,7 +87,7 @@ class JobExecutor
 		$this->sharedConfig = $sharedConfig;
 		$this->restApi = $restApi;
 		$this->logger = $logger;
-		$this->tempServiceFactory = $tempServiceFactory;
+		$this->temp = $temp;
 		$this->queue = $queue;
 		$this->translator = $translator;
 	}
@@ -190,13 +190,12 @@ class JobExecutor
 				$this->restApi->setRunId($job['runId']);
 				$this->restApi->setEventLogger($this->eventLogger);
 				
-				$tempService = $this->tempServiceFactory->get('gooddata_writer');
 				/**
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 				 */
 				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedConfig, $s3Client,
 					$this->translator, $this->storageApiClient, $this->eventLogger);
-				$command->setTempService($tempService);
+				$command->setTemp($this->temp);
 				$command->setLogger($this->logger); //@TODO deprecated - only for CL tool
 				$command->setQueue($this->queue);
 
