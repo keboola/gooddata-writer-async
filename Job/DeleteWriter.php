@@ -9,6 +9,7 @@ namespace Keboola\GoodDataWriter\Job;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
+use Keboola\StorageApi\Components;
 
 class DeleteWriter extends AbstractJob
 {
@@ -75,6 +76,10 @@ class DeleteWriter extends AbstractJob
 		}
 
 		$this->configuration->deleteWriter();
+
+		$c = new Components($this->storageApiClient);
+		$c->deleteConfiguration('gooddata-writer', $params['writerId']);
+
 		return array();
 	}
 }

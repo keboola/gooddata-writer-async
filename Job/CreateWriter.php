@@ -12,6 +12,7 @@ use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\GoodData\UserAlreadyExistsException;
 use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Writer\SharedConfig;
+use Keboola\StorageApi\Components;
 
 class CreateWriter extends AbstractJob
 {
@@ -72,6 +73,14 @@ class CreateWriter extends AbstractJob
 
 		$this->configuration->createWriter($params['writerId']);
 		$this->sharedConfig->setWriterStatus($projectId, $params['writerId'], SharedConfig::WRITER_STATUS_PREPARING);
+
+		$c = new Components($this->storageApiClient);
+		$c->addConfiguration((new \Keboola\StorageApi\Options\Components\Configuration())
+			->setComponentId('gooddata-writer')
+			->setConfigurationId($params['writerId'])
+			->setName($params['writerId'])
+			->setDescription($params['description']? $params['description'] : null)
+		);
 
 		return $result;
 	}
