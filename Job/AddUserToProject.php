@@ -85,8 +85,6 @@ class AddUserToProject extends AbstractJob
 				// try create new user in domain
 				$childJob = new CreateUser($this->configuration, $this->appConfiguration, $this->sharedConfig,
 					$this->s3Client, $this->translator, $this->storageApiClient, $this->eventLogger);
-				$childJob->setTempService($this->tempService);
-				$childJob->setLogger($this->logger); //@TODO deprecated - only for CL tool
 				$childJob->setQueue($this->queue);
 
 

@@ -5,7 +5,6 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\Csv\CsvFile;
 use Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\WebDav;
@@ -399,7 +398,7 @@ class DatasetsTest extends AbstractControllerTest
 			$this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/products.csv' should exist.", $jobId));
 		}
 		$rows = StorageApiClient::parseCsv($csv);
-		foreach ($rows as $i => $row) {
+		foreach ($rows as $row) {
 			// csv will contain also date facts, therefore number 6 (3 columns are just for date)
 			$this->assertCount(6, $row, 'Table should contain columns without products');
 		}

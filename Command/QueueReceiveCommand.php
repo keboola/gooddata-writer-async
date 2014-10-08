@@ -46,8 +46,6 @@ class QueueReceiveCommand extends ContainerAwareCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
-		$this->getContainer()->get('syrup.monolog.json_formatter')->setComponentName('gooddata-writer');
-
 		$this->queue = $this->getContainer()->get('gooddata_writer.jobs_queue');
 		$this->translator = $this->getContainer()->get('translator');
 
