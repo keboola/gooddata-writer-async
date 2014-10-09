@@ -4,24 +4,24 @@
         "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "9fd66fa6f8312b2bfaedc30999d74c18",
+    "hash": "cf9a1e6be68e37c71a547297a676d064",
     "packages": [
         {
             "name": "aws/aws-sdk-php",
-            "version": "2.6.16",
+            "version": "2.7.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/aws/aws-sdk-php.git",
-                "reference": "36434f2cd96ea78844478d897fb568a1866bce5a"
+                "reference": "0db559ed31748770bff88a55c56d8a84208851a3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/aws/aws-sdk-php/zipball/36434f2cd96ea78844478d897fb568a1866bce5a",
-                "reference": "36434f2cd96ea78844478d897fb568a1866bce5a",
+                "url": "https://api.github.com/repos/aws/aws-sdk-php/zipball/0db559ed31748770bff88a55c56d8a84208851a3",
+                "reference": "0db559ed31748770bff88a55c56d8a84208851a3",
                 "shasum": ""
             },
             "require": {
-                "guzzle/guzzle": ">=3.7.0,<=3.9.9",
+                "guzzle/guzzle": ">=3.7,<4",
                 "php": ">=5.3.3"
             },
             "require-dev": {
@@ -41,7 +41,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-master": "2.6.x-dev"
+                    "dev-master": "2.7.x-dev"
                 }
             },
             "autoload": {
@@ -71,7 +71,7 @@
                 "s3",
                 "sdk"
             ],
-            "time": "2014-09-11 22:10:11"
+            "time": "2014-10-08 17:59:12"
         },
         {
             "name": "doctrine/annotations",
@@ -1221,77 +1221,28 @@
             "time": "2013-07-15 12:02:24"
         },
         {
-            "name": "keboola/php-temp",
-            "version": "0.1.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/keboola/php-temp.git",
-                "reference": "ba7951bc813228d4b580872be966a39262c4f933"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/keboola/php-temp/zipball/ba7951bc813228d4b580872be966a39262c4f933",
-                "reference": "ba7951bc813228d4b580872be966a39262c4f933",
-                "shasum": ""
-            },
-            "require": {
-                "php": ">=5.3.3",
-                "symfony/symfony": ">2.1.0"
-            },
-            "require-dev": {
-                "phpunit/phpunit": "3.7.*"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-0": {
-                    "Keboola\\Temp": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Miro Cillik",
-                    "email": "miro@keboola.cz"
-                },
-                {
-                    "name": "Ondrej Vana",
-                    "email": "kachna@keboola.cz"
-                }
-            ],
-            "description": "Temp service - handles application's temporary files",
-            "keywords": [
-                "filesystem",
-                "temp"
-            ],
-            "time": "2014-09-30 02:21:07"
-        },
-        {
             "name": "keboola/storage-api-client",
-            "version": "2.11.20",
+            "version": "2.11.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/keboola/storage-api-php-client.git",
-                "reference": "965a5970c2d7f1855013e1e9d050d39cf078501d"
+                "reference": "2bedbe5b2e04a8f2dd5e61d23463616a28ecbd14"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/keboola/storage-api-php-client/zipball/965a5970c2d7f1855013e1e9d050d39cf078501d",
-                "reference": "965a5970c2d7f1855013e1e9d050d39cf078501d",
+                "url": "https://api.github.com/repos/keboola/storage-api-php-client/zipball/2bedbe5b2e04a8f2dd5e61d23463616a28ecbd14",
+                "reference": "2bedbe5b2e04a8f2dd5e61d23463616a28ecbd14",
                 "shasum": ""
             },
             "require": {
-                "aws/aws-sdk-php": "2.6.*",
                 "guzzlehttp/guzzle": "~4.0.2",
                 "guzzlehttp/log-subscriber": "1.*",
                 "guzzlehttp/retry-subscriber": "~0.1.1",
                 "keboola/csv": "~1.1.3",
-                "symfony/filesystem": "~2.3",
-                "symfony/process": "~2.3"
+                "symfony/filesystem": "~2.4"
             },
             "require-dev": {
+                "aws/aws-sdk-php": "2.5.*",
                 "phpunit/phpunit": "3.7.*"
             },
             "type": "library",
@@ -1306,20 +1257,20 @@
             ],
             "description": "Keboola Storage API PHP CLient",
             "homepage": "http://keboola.com",
-            "time": "2014-09-16 13:37:09"
+            "time": "2014-05-30 09:08:44"
         },
         {
             "name": "keboola/syrup",
-            "version": "1.6.4",
+            "version": "1.5.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/keboola/syrup.git",
-                "reference": "627ff1623a28b0387cf117f108abbd1881175844"
+                "reference": "7a684814855bb60b968e29559b1776d4fde27390"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/keboola/syrup/zipball/627ff1623a28b0387cf117f108abbd1881175844",
-                "reference": "627ff1623a28b0387cf117f108abbd1881175844",
+                "url": "https://api.github.com/repos/keboola/syrup/zipball/7a684814855bb60b968e29559b1776d4fde27390",
+                "reference": "7a684814855bb60b968e29559b1776d4fde27390",
                 "shasum": ""
             },
             "require": {
@@ -1350,7 +1301,7 @@
                 "MIT"
             ],
             "description": "Syrup - Concentrated extract(or)s",
-            "time": "2014-10-08 16:12:27"
+            "time": "2014-09-24 19:03:16"
         },
         {
             "name": "kriswallsmith/assetic",
@@ -2176,17 +2127,17 @@
         },
         {
             "name": "syrup/component-bundle",
-            "version": "1.9.9",
+            "version": "1.8.10",
             "target-dir": "Syrup/ComponentBundle",
             "source": {
                 "type": "git",
                 "url": "https://github.com/keboola/syrup-component-bundle.git",
-                "reference": "0dc1330c5be7d0725e5a8cd014c4e7fa818d044a"
+                "reference": "9ed308d64de67a09b78bd0fcdbefde3323700bae"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/keboola/syrup-component-bundle/zipball/0dc1330c5be7d0725e5a8cd014c4e7fa818d044a",
-                "reference": "0dc1330c5be7d0725e5a8cd014c4e7fa818d044a",
+                "url": "https://api.github.com/repos/keboola/syrup-component-bundle/zipball/9ed308d64de67a09b78bd0fcdbefde3323700bae",
+                "reference": "9ed308d64de67a09b78bd0fcdbefde3323700bae",
                 "shasum": ""
             },
             "require": {
@@ -2195,9 +2146,8 @@
                 "guzzle/guzzle": ">=3.0.0",
                 "keboola/csv": "1.1.*",
                 "keboola/php-encryption": "~0.2.0",
-                "keboola/php-temp": ">=0.1.0",
                 "keboola/storage-api-client": "~2.11.0",
-                "keboola/syrup": "~1.6.0",
+                "keboola/syrup": "~1.5.3",
                 "php": ">=5.3.5",
                 "pimple/pimple": "2.0.*",
                 "sensio/generator-bundle": "~2.3"
@@ -2229,7 +2179,7 @@
                 }
             ],
             "description": "Syrup ComponentBundle",
-            "time": "2014-10-08 09:55:14"
+            "time": "2014-10-09 11:42:57"
         },
         {
             "name": "twig/twig",

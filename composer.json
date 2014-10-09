@@ -10,7 +10,7 @@
 		}
 	],
 	"require": {
-		"syrup/component-bundle": "~1.9.0",
+		"syrup/component-bundle": "~1.8.0",
 		"php": ">=5.3.5"
 	},
 	"require-dev": {
@@ -18,12 +18,12 @@
 	},
 	"scripts": {
 		"post-install-cmd": [
-            "Syrup\\CoreBundle\\DeploymentHandler\\ScriptHandler::getSharedParameters",
-			"Incenteev\\ParameterHandler\\ScriptHandler::buildParameters",
+            "Incenteev\\ParameterHandler\\ScriptHandler::buildParameters",
             "Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap",
             "Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::clearCache"
 		],
 		"post-update-cmd": [
+            "Incenteev\\ParameterHandler\\ScriptHandler::buildParameters",
 			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap",
 			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::clearCache"
 		]
