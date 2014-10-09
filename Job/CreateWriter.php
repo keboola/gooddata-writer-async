@@ -79,7 +79,7 @@ class CreateWriter extends AbstractJob
 			->setComponentId('gooddata-writer')
 			->setConfigurationId($params['writerId'])
 			->setName($params['writerId'])
-			->setDescription($params['description']? $params['description'] : null)
+			->setDescription(!empty($params['description'])? $params['description'] : null)
 		);
 
 		return $result;
