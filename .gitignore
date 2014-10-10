@@ -1,5 +1,6 @@
 .bundle
 parameters.yml
+parameters_shared.yml
 *.log
 .idea
 composer.phar
