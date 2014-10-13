@@ -30,11 +30,15 @@ class AssignFiltersToUser extends AbstractJob
 		foreach ($this->configuration->getFilters() as $f) {
 			$configuredFilters[] = $f['name'];
 		}
-		foreach ($params['filters'] as $f) {
-			if (!in_array($f, $configuredFilters)) {
-				$filters = is_array($f)? implode(', ', $f) : $f;
-				throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $filters)));
+		if (is_array($params['filters'])) {
+			foreach ($params['filters'] as $f) {
+				if (!in_array($f, $configuredFilters)) {
+					$filters = is_array($f)? implode(', ', $f) : $f;
+					throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $filters)));
+				}
 			}
+		} else {
+			throw new WrongParametersException($this->translator->trans('parameters.filters.not_array'));
 		}
 		$this->checkWriterExistence($params['writerId']);
 
