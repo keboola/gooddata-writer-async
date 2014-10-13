@@ -10,7 +10,7 @@ use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 
-class createFilter extends AbstractJob
+class CreateFilter extends AbstractJob
 {
 
 	public function prepare($params)
