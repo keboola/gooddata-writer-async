@@ -13,8 +13,6 @@ use Keboola\GoodDataWriter\Service\Lock;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\Service\StorageApiConfiguration;
-use Keboola\StorageApi\Components;
-use Keboola\StorageApi\Options\Components\Configuration;
 use Syrup\ComponentBundle\Encryption\Encryptor;
 
 
