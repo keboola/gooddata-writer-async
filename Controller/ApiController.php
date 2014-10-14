@@ -507,7 +507,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$validity = (isset($this->params['validity']))? $this->params['validity'] : 86400;
 
 		$domainUser = $this->getSharedConfig()->getDomainUser($this->appConfiguration->gd_domain);
-		$sso = new SSO($domainUser->username, $this->appConfiguration);
+		$sso = new SSO($domainUser->username, $this->appConfiguration, $this->container->get('syrup.temp'));
 		$ssoLink = $sso->url($targetUrl, $this->params['email'], $validity);
 
 		if (null == $ssoLink) {

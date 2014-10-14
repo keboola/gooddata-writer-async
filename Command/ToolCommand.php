@@ -9,6 +9,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Keboola\GoodDataWriter\GoodData\Model;
+use Syrup\ComponentBundle\Filesystem\Temp;
 
 class ToolCommand extends ContainerAwareCommand
 {
@@ -49,11 +50,13 @@ class ToolCommand extends ContainerAwareCommand
 		$restApi = $this->getContainer()->get('gooddata_writer.rest_api');
 		$restApi->login($domainUser->username, $domainUser->password);
 
+		/** @var Temp $temp */
+		$temp = $this->getContainer()->get('syrup.temp');
 
 		$webDav = new WebDav($domainUser->username, $domainUser->password);
 
 		$tmpFolderName = 'tool-'.uniqid();
-		$tmpDir = $appConfiguration->tmpPath . '/' . $tmpFolderName;
+		$tmpDir = $temp->getTmpFolder() . '/' . $tmpFolderName;
 		mkdir($tmpDir);
 		$dimensionName = Model::getId($dimensionName);
 		$tmpFolderDimension = $tmpDir . '/' . $dimensionName;

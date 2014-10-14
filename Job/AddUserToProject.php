@@ -112,6 +112,9 @@ class AddUserToProject extends AbstractJob
 			$this->configuration->saveProjectInvite($params['pid'], $params['email'], $params['role']);
 		}
 
-		return $userId? array() : array('flag' => 'invitation');
+		$result = array();
+		if ($userId) {
+			$result['flags'] = array('invitation' => $this->translator->trans('result.flag.invitation'));
+		}
 	}
 }

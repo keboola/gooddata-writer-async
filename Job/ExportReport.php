@@ -62,7 +62,7 @@ class ExportReport extends AbstractJob
 		$this->uploadToS3($stream->getStream());
 		 */
 
-		$filename = $this->appConfiguration->tmpPath . '/' . uniqid("report-export", true) .'.csv';
+		$filename = $this->getTmpDir($job['id']) . '/' . uniqid("report-export", true) .'.csv';
 		$restApi->getToFile($csvUri, $filename);
 
 		$this->uploadToSapi($filename, $params['table']);
