@@ -180,7 +180,8 @@ class UpdateModel extends AbstractJob
 			$result['info'] = $updateOperations;
 		}
 		if ($ldmChange) {
-			$result['ldmChange'] = true;
+			$result['ldmChange'] = true;  //@TODO remove after UI update
+			$result['flags'] = array('ldm' => $this->translator->trans('result.flag.ldm'));
 		}
 
 		return $result;

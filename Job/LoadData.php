@@ -179,8 +179,11 @@ class LoadData extends AbstractJob
 		}
 
 		$result = array(
-			'incrementalLoad' => (int) $incrementalLoad
+			'incrementalLoad' => (int) $incrementalLoad //@TODO remove after UI update
 		);
+		if ($incrementalLoad) {
+			$result['flags'] = array('incremental' => $this->translator->trans('result.flag.incremental %1', array('%1' => $incrementalLoad)));
+		}
 		if (!empty($error)) {
 			$result['error'] = $error;
 		}

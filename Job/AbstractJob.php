@@ -17,7 +17,7 @@ use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\StorageApi\Client as StorageApiClient;
 use Monolog\Logger;
 use Symfony\Component\Translation\TranslatorInterface;
-use Syrup\ComponentBundle\Filesystem\TempService;
+use Syrup\ComponentBundle\Filesystem\Temp;
 
 abstract class AbstractJob
 {
@@ -38,7 +38,6 @@ abstract class AbstractJob
 	 */
 	protected $s3Client;
 	/**
-	 * For CsvHandler
 	 * @var Temp
 	 */
 	protected $temp;
@@ -96,11 +95,10 @@ abstract class AbstractJob
 
 	protected function getTmpDir($jobId)
 	{
-		if (!$this->tmpDir) {
-			$this->tmpDir = sprintf('%s/%s', $this->appConfiguration->tmpPath, $jobId);
-			if (!file_exists($this->appConfiguration->tmpPath)) mkdir($this->appConfiguration->tmpPath);
-			if (!file_exists($this->tmpDir)) mkdir($this->tmpDir);
-		}
+		$this->tmpDir = sprintf('%s/%s', $this->temp->getTmpFolder(), $jobId);
+		if (!file_exists($this->temp->getTmpFolder())) mkdir($this->temp->getTmpFolder());
+		if (!file_exists($this->tmpDir)) mkdir($this->tmpDir);
+
 		return $this->tmpDir;
 	}
 

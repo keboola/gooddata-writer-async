@@ -83,6 +83,8 @@ class JobExecutor
 			define('JSON_PRETTY_PRINT', 0);
 		}
 
+		$temp->initRunFolder();
+
 		$this->appConfiguration = $appConfiguration;
 		$this->sharedConfig = $sharedConfig;
 		$this->restApi = $restApi;

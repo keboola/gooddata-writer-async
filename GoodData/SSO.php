@@ -10,6 +10,7 @@ namespace Keboola\GoodDataWriter\GoodData;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Symfony\Component\Process\Process;
 use Syrup\ComponentBundle\Exception\SyrupComponentException;
+use Syrup\ComponentBundle\Filesystem\Temp;
 
 class GoodDataSSOException extends \Exception
 {
@@ -26,17 +27,18 @@ class SSO
 	protected $ssoUser;
 	protected $passphrase;
 
-	public $tmpPath;
+	/**
+	 * @var \Syrup\ComponentBundle\Filesystem\Temp
+	 */
+	public $temp;
 	public $emailTemplate;
 
 	protected $gooddataHost = 'secure.gooddata.com';
 
-	public function __construct($username, AppConfiguration $appConfiguration)
+	public function __construct($username, AppConfiguration $appConfiguration, Temp $temp)
 	{
-		$this->tmpPath = $appConfiguration->tmpPath;
-		if (!file_exists($appConfiguration->tmpPath)) {
-			mkdir($appConfiguration->tmpPath);
-		}
+		$temp->initRunFolder();
+		$this->temp = $temp;
 
 		$this->ssoUser = $username;
 		$this->ssoProvider = $appConfiguration->gd_ssoProvider;
@@ -45,7 +47,7 @@ class SSO
 
 	public function url($targetUrl, $email, $validity = 86400)
 	{
-		$jsonFile = sprintf('%s/%s-%s.json', $this->tmpPath, date('Ymd-His'), uniqid());
+		$jsonFile = sprintf('%s/%s-%s.json', $this->temp->getTmpFolder(), date('Ymd-His'), uniqid());
 		$signData = array(
 			'email' => $email,
 			'validity' => time() + $validity
@@ -65,7 +67,6 @@ class SSO
 			$output = $process->getOutput();
 
 			if ($process->isSuccessful() && !$error) {
-
 				if (file_exists($jsonFile)) {
 					unlink($jsonFile);
 				}
@@ -81,7 +82,6 @@ class SSO
 
 					return $url;
 				}
-
 			}
 
 			sleep($i * 60);

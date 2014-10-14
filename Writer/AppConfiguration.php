@@ -12,7 +12,6 @@ namespace Keboola\GoodDataWriter\Writer;
 class AppConfiguration
 {
 	public $userAgent;
-	public $tmpPath;
 	public $scriptsPath;
 	public $zipPath;
 
@@ -50,7 +49,6 @@ class AppConfiguration
 		$this->storageApiUrl = $storageApiUrl;
 
 		$this->userAgent = $mainConfig['user_agent'];
-		$this->tmpPath = $mainConfig['tmp_path'];
 		$this->scriptsPath = $mainConfig['scripts_path'];
 		$this->clPath = isset($mainConfig['cl_path']) ? $mainConfig['cl_path'] : null;
 		$this->rubyPath = isset($mainConfig['ruby_path']) ? $mainConfig['ruby_path'] : null;

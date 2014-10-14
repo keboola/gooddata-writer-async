@@ -97,6 +97,10 @@ result:
   cancelled: Job processing cancelled by user
   missing: Job processing ended without required result. Contact support please
   unknown: Job processing failed with unknown reason. Contact support please
+  flag:
+    ldm: Dataset model has been changed
+    incremental %1: "Data has been loaded incrementally. Incremental load: %1"
+    invitation: The user has been added to project by email invitation
 
 wait_for_invitation:
   lasts_too_long: Writer is waiting for access to your project too long. Contact support please
