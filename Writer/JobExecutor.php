@@ -191,6 +191,10 @@ class JobExecutor
 				$this->restApi->setJobId($job['id']);
 				$this->restApi->setRunId($job['runId']);
 				$this->restApi->setEventLogger($this->eventLogger);
+				$bucketAttributes = $configuration->bucketAttributes();
+				if (!empty($bucketAttributes['gd']['apiUrl'])) {
+					$this->restApi->setApiUrl($bucketAttributes['gd']['apiUrl']);
+				}
 				
 				/**
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
