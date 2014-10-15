@@ -149,11 +149,6 @@ class RestApi
 		));
 	}
 
-	public function setApiUrl($url)
-	{
-		$this->client->setBaseUrl($url);
-	}
-
 	public function setJobId($jobId)
 	{
 		$this->jobId = $jobId;

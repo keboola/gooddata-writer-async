@@ -193,7 +193,7 @@ class JobExecutor
 				$this->restApi->setEventLogger($this->eventLogger);
 				$bucketAttributes = $configuration->bucketAttributes();
 				if (!empty($bucketAttributes['gd']['apiUrl'])) {
-					$this->restApi->setApiUrl($bucketAttributes['gd']['apiUrl']);
+					$this->restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
 				}
 				
 				/**
