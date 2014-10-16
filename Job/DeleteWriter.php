@@ -78,7 +78,7 @@ class DeleteWriter extends AbstractJob
 		$this->configuration->deleteWriter();
 
 		$c = new Components($this->storageApiClient);
-		$c->deleteConfiguration('gooddata-writer', $params['writerId']);
+		$c->deleteConfiguration('gooddata-writer', $job['writerId']);
 
 		return array();
 	}
