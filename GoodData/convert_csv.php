@@ -36,10 +36,14 @@ while ($line = fgetcsv($fh)) {
 		if (in_array($i+1, $dateColumns) || in_array($i+1, $timeColumns)) {
 			$resultLine .= '"' . $column . '",';
 
-			$timestamp = empty($column) ? $start : strtotime($column);
-			if ($timestamp === false) {
-				fwrite($stdErr, sprintf('Error in date column value: "%s" on row %d', $column, $rowNumber));
-				die(1);
+			if (is_numeric($column)) {
+				$timestamp = $column;
+			} else {
+				$timestamp = empty($column) ? $start : strtotime($column);
+				if ($timestamp === false) {
+					fwrite($stdErr, sprintf('Error in date column value: "%s" on row %d', $column, $rowNumber));
+					die(1);
+				}
 			}
 			if ($start > $timestamp) {
 				fwrite($stdErr, sprintf('Error in date column value: "%s" on row %d', $column, $rowNumber));

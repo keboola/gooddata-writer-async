@@ -28,7 +28,8 @@ class CsvConversionTest extends WebTestCase
 		$csvHeaders = '"id","name","date","date_dt","date_tm","date_id"';
 		$csvRows = '"1","product 1","2013-01-01 00:01:59"
 "2","product 2","2013-01-03 11:12:05"
-"3","product 3","2012-10-28 23:07:06"';
+"3","product 3","2012-10-28 23:07:06"
+"4","product 3","1351462026"';
 
 		$command = sprintf('echo %s; (echo %s | php %s -d3 -t3)', escapeshellarg($csvHeaders), escapeshellarg($csvRows), escapeshellarg($this->scriptPath));
 		$process = new Process($command);
