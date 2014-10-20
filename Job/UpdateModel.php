@@ -165,7 +165,7 @@ class UpdateModel extends AbstractJob
 			} elseif ($e instanceof RestApiException) {
 				$error = $e->getDetails();
 			}
-			$this->logEvent('CL tool failed', $job['id'], $job['runId'], $eventDetails, $event->getDuration());
+			$this->logEvent('Model update failed', $job['id'], $job['runId'], $eventDetails, $event->getDuration());
 
 			if (!($e instanceof CLToolApiErrorException) && !($e instanceof RestApiException)) {
 				throw $e;

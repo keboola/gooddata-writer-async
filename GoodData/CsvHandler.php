@@ -160,7 +160,7 @@ class CsvHandler
 
 
 	/**
-	 * Assemble curl to upload wo GD WebDav and run whole command
+	 * Assemble curl to upload to GD WebDav and run whole command
 	 * There is approx. 38 minutes backoff for 5xx errors from WebDav (via --retry 12)
 	 */
 	public function runUpload($username, $password, $fileUrl, $definition, $tableId, $incrementalLoad=false, $filterColumn=false, $filterValue=null, $noDateFacts=false)
@@ -204,7 +204,8 @@ class CsvHandler
 					$errors[] = array(
 						'error' => str_replace(array(
 							"\ngzip: stdin: unexpected end of file\n",
-							"tail: write error: Broken pipe"
+							"tail: write error: Broken pipe",
+							"tail: write error"
 						), "", $currentError),
 						'command' => str_replace($password, '***', $command)
 					);
@@ -219,10 +220,7 @@ class CsvHandler
 			}
 
 			$error = array(
-				'error' => str_replace(array(
-					"\ngzip: stdin: unexpected end of file\n",
-					"tail: write error: Broken pipe"
-				), "", $currentError),
+				'error' => $currentError,
 				'command' => str_replace($password, '***', $command),
 				'retry' => $i+1,
 				'jobId' => $this->jobId,
