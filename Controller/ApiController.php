@@ -847,8 +847,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$definition = $this->getConfiguration()->getDataSetDefinition($tableId);
 			$tableConfiguration = $this->getConfiguration()->getDataSet($tableId);
 			foreach ($this->getProjectsToUse() as $pid) {
+				$loadParams = array('pid' => $pid, 'tableId' => $tableId);
+				if (isset($params['incrementalLoad'])) {
+					$loadParams['incrementalLoad'] = $params['incrementalLoad'];
+				}
 				$datasetName = !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'];
-				$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, array('pid' => $pid, 'tableId' => $tableId), $batchId,
+				$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $loadParams, $batchId,
 					isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $datasetName));
 				$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $job['id'], $tableId), json_encode($definition));
 				$this->sharedConfig->saveJob($job['id'], array('definition' => $definitionUrl));
@@ -882,7 +886,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				);
 			}
 
-			$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, array('pid' => $pid, 'tables' => $params['tables']),
+			$loadParams = array('pid' => $pid, 'tables' => $params['tables']);
+			if (isset($params['incrementalLoad'])) {
+				$loadParams['incrementalLoad'] = $params['incrementalLoad'];
+			}
+			$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $loadParams,
 				$batchId, isset($this->params['queue'])? $this->params['queue'] : null);
 			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/definition.json', $job['id']), json_encode($definition));
 			$this->sharedConfig->saveJob($job['id'], array('definition' => $definitionUrl));
