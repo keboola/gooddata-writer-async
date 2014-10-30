@@ -35,7 +35,7 @@ class OptimizeSliHash extends AbstractJob
 			$dataSetsToOptimize = array();
 			foreach ($this->configuration->getDataSets() as $dataSet) if ($dataSet['export'] && $dataSet['isExported']) {
 				$definition = $this->configuration->getDataSetDefinition($dataSet['id']);
-				$manifests[] = Model::getDataLoadManifest($definition, false);
+				$manifests[] = Model::getDataLoadManifest($definition, false, $this->configuration->noDateFacts);
 				$dataSetsToOptimize[] = Model::getDatasetId($definition['name']);
 			}
 			foreach ($this->configuration->getDateDimensions() as $dimension) if ($dimension['includeTime'] && $dimension['isExported']) {
