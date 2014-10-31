@@ -468,8 +468,9 @@ class SharedConfig extends StorageApiConfiguration
 
 	public function projectBelongsToWriter($projectId, $writerId, $pid)
 	{
-		$result = $this->db->fetchAssoc('SELECT * FROM projects WHERE pid=?', array($pid));
-		return $result && ($result['project_id'] == $projectId) && ($result['writer_id'] == $writerId);
+		$result = $this->db->fetchAssoc('SELECT * FROM projects WHERE pid=? AND project_id=? AND writer_id=?',
+			array($pid, $projectId, $writerId));
+		return (bool)$result;
 	}
 
 	/**

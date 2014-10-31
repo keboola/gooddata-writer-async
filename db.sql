@@ -25,7 +25,7 @@ CREATE TABLE `projects` (
   `removal_time` datetime DEFAULT NULL,
   `keep_on_removal` tinyint(1) unsigned DEFAULT '0',
   `deleted_time` datetime DEFAULT NULL,
-  PRIMARY KEY (`pid`),
+  PRIMARY KEY (`pid`,`project_id`,`writer_id`),
   KEY `project_id` (`project_id`,`writer_id`,`removal_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
