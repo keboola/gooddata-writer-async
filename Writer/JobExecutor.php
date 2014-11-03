@@ -9,7 +9,6 @@ namespace Keboola\GoodDataWriter\Writer;
 use Guzzle\Http\Exception\CurlException;
 use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\Exception\ClientException,
-	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\StorageApi\ClientException as StorageApiClientException;
 use Keboola\GoodDataWriter\GoodData\CsvHandlerNetworkException;
@@ -201,8 +200,8 @@ class JobExecutor
 				 */
 				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedConfig, $s3Client,
 					$this->translator, $this->storageApiClient, $this->eventLogger);
-				$command->setTemp($this->temp);
-				$command->setLogger($this->logger); //@TODO deprecated - only for CL tool
+				$command->setTemp($this->temp); //For csv handler
+				$command->setLogger($this->logger); //For csv handler
 				$command->setQueue($this->queue);
 
 				$error = null;
@@ -218,9 +217,6 @@ class JobExecutor
 					if ($e instanceof RestApiException) {
 						$jobData['result']['error'] = $this->translator->trans('error.rest_api') . '. ' . $e->getMessage();
 						$debug['details'] = $e->getDetails();
-					} elseif ($e instanceof CLToolApiErrorException) {
-						$jobData['result']['error'] = $this->translator->trans('error.cl_tool') . '. ' . $e->getMessage();
-						$debug['details'] = $e->getData();
 					} elseif ($e instanceof StorageApiClientException) {
 						$jobData['result']['error'] = $this->translator->trans('error.storage_api') . '. ' . $e->getMessage();
 						if ($e->getPrevious() instanceof CurlException) {

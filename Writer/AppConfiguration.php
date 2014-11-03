@@ -50,7 +50,6 @@ class AppConfiguration
 
 		$this->userAgent = $mainConfig['user_agent'];
 		$this->scriptsPath = $mainConfig['scripts_path'];
-		$this->clPath = isset($mainConfig['cl_path']) ? $mainConfig['cl_path'] : null;
 		$this->rubyPath = isset($mainConfig['ruby_path']) ? $mainConfig['ruby_path'] : null;
 
 		$this->sharedSapi_url = $mainConfig['shared_sapi']['url'];

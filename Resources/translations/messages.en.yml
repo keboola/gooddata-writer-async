@@ -14,7 +14,6 @@ configuration:
 
 error:
   application: Application Error
-  cl_tool: CL Tool Error
   csv_not_uploaded %1: Csv file has not been uploaded to '%1'
   dimension_uploaded: Dimension is already uploaded to GoodData and cannot be removed from configuration
   max_retries_exceeded: Maximum execution retries exceeded. Contact support please

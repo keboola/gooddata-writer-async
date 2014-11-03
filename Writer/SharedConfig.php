@@ -120,8 +120,7 @@ class SharedConfig extends StorageApiConfiguration
 			),
 			'bucket' => $result['bucket'],
 			'feats' => array(
-				'date_facts' => (bool)$result['date_facts'],
-				'cl_tool' => (bool)$result['cl_tool']
+				'date_facts' => (bool)$result['date_facts']
 			)
 		);
 
