@@ -7,10 +7,8 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
-	Keboola\GoodDataWriter\GoodData\CLToolApiErrorException,
 	Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
-use Keboola\GoodDataWriter\GoodData\CLToolApi;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Symfony\Component\Stopwatch\Stopwatch;
@@ -79,16 +77,6 @@ class UpdateModel extends AbstractJob
 		$dataSetId = Model::getDatasetId($dataSetName);
 
 
-		//@TODO REMOVE WITH CL TOOL
-		$clToolApi = null;
-		if ($this->configuration->clTool) {
-			$clToolApi = new CLToolApi($this->logger, $this->appConfiguration->clPath);
-			$clToolApi->s3client = $this->s3Client;
-			$clToolApi->setCredentials($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		}
-		//@TODO REMOVE WITH CL TOOL
-
-
 		$updateOperations = array();
 		$ldmChange = false;
 		try {
@@ -96,78 +84,33 @@ class UpdateModel extends AbstractJob
 			$stopWatchId = 'GoodData';
 			$stopWatch->start($stopWatchId);
 
-			if (!$this->configuration->clTool) {
-				$result = $restApi->updateDataSet($params['pid'], $definition, $this->configuration->noDateFacts);
-				if ($result) {
-					$updateOperations[] = $result;
-					$ldmChange = true;
-				}
-
-				if (empty($tableDefinition['isExported'])) {
-					// Save export status to definition
-					$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
-				}
-
-				$e = $stopWatch->stop($stopWatchId);
-				$this->logEvent('LDM API called', $job['id'], $job['runId'], array(
-					'operations' => $updateOperations
-				), $e->getDuration());
-
-			//@TODO REMOVE WITH CL TOOL
-			} else {
-				$clToolApi->debugLogUrl = null;
-				$clToolApi->s3Dir = $tmpFolderName;
-				$clToolApi->tmpDir = $this->getTmpDir($job['id']);
-				if (!file_exists($clToolApi->tmpDir)) mkdir($clToolApi->tmpDir);
-				$xml = CLToolApi::getXml($definition);
-
-				$existingDataSets = $restApi->getDataSets($params['pid']);
-				$dataSetExists = in_array($dataSetId, array_keys($existingDataSets));
-
-				$maql = $dataSetExists? $clToolApi->updateDataSetMaql($params['pid'], $xml, 1, $dataSetName)
-					: $clToolApi->createDataSetMaql($params['pid'], $xml, $dataSetName);
-				if ($maql) {
-					$restApi->executeMaql($params['pid'], $maql);
-					$ldmChange = true;
-				}
-				if (empty($tableDefinition['isExported'])) {
-					// Save export status to definition
-					$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
-				}
-				if ($clToolApi->debugLogUrl) {
-					$this->logs['CL Tool'] = $clToolApi->debugLogUrl;
-					$clToolApi->debugLogUrl = null;
-				}
-				$e = $stopWatch->stop($stopWatchId);
-				$this->logEvent('CL tool called', $job['id'], $job['runId'], array(
-					'xml' => $xml,
-					'clTool' => $clToolApi->output
-				), $e->getDuration());
+			$result = $restApi->updateDataSet($params['pid'], $definition, $this->configuration->noDateFacts);
+			if ($result) {
+				$updateOperations[] = $result;
+				$ldmChange = true;
 			}
-			//@TODO REMOVE WITH CL TOOL
+
+			if (empty($tableDefinition['isExported'])) {
+				// Save export status to definition
+				$this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
+			}
+
+			$e = $stopWatch->stop($stopWatchId);
+			$this->logEvent('LDM API called', $job['id'], $job['runId'], array(
+				'operations' => $updateOperations
+			), $e->getDuration());
 
 		} catch (\Exception $e) {
 			$error = $e->getMessage();
 			$event = $stopWatch->stop($stopWatchId);
 
 			$restApiLogPath = null;
-			$eventDetails = array();
-			if ($e instanceof CLToolApiErrorException) {
-				if ($clToolApi->debugLogUrl) {
-					$this->logs['CL Tool Error'] = $clToolApi->debugLogUrl;
-					$clToolApi->debugLogUrl = null;
-				}
-				$eventDetails['clTool'] = $clToolApi->output;
-				$data = $e->getData();
-				if (count($data)) {
-					$this->logs['CL Tool Debug'] = $this->s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($data));
-				}
-			} elseif ($e instanceof RestApiException) {
+			if ($e instanceof RestApiException) {
 				$error = $e->getDetails();
 			}
-			$this->logEvent('Model update failed', $job['id'], $job['runId'], $eventDetails, $event->getDuration());
+			$this->logEvent('Model update failed', $job['id'], $job['runId'], array(), $event->getDuration());
 
-			if (!($e instanceof CLToolApiErrorException) && !($e instanceof RestApiException)) {
+			if (!($e instanceof RestApiException)) {
 				throw $e;
 			}
 		}

@@ -91,7 +91,6 @@ class Configuration extends StorageApiConfiguration
 
 	public $gdDomain = false;
 	public $testingWriter = false;
-	public $clTool = false;
 	public $noDateFacts = false;
 
 
@@ -123,10 +122,6 @@ class Configuration extends StorageApiConfiguration
 			$writer = $this->sharedConfig->getWriter($this->projectId, $writerId);
 			$this->bucketId = $writer['bucket'];
 			$this->noDateFacts = !$writer['feats']['date_facts'];
-			$this->clTool = !$this->noDateFacts && $writer['feats']['cl_tool'];
-			if ($this->noDateFacts) {
-				$this->clTool = false;
-			}
 		} catch (SharedConfigException $e) {
 			$this->bucketId = 'sys.c-wr-gooddata-' . $writerId;
 			try {
