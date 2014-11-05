@@ -34,10 +34,10 @@
 
 	<target name="copyParameters" depends="cacheClear">
 		<exec executable="bash" failonerror="true">
-			<arg value="cp parameters.yml vendor/keboola/syrup/app/config"/>
+			<arg value="cp ${basedir}/parameters.yml ${basedir}/vendor/keboola/syrup/app/config"/>
 		</exec>
 		<exec executable="bash" failonerror="true">
-			<arg value="cp parameters_shared.yml vendor/keboola/syrup/app/config"/>
+			<arg value="cp ${basedir}/parameters_shared.yml ${basedir}/vendor/keboola/syrup/app/config"/>
 		</exec>
 	</target>
 
