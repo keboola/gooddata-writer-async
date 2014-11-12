@@ -10,53 +10,6 @@ use Keboola\StorageApi\Client as StorageApiClient,
 
 class FiltersTest extends AbstractControllerTest
 {
-	public function testMigration()
-	{
-		$configBucketId = 'sys.c-wr-gooddata-' . $this->writerId;
-
-		$table = new StorageApiTable($this->storageApi, $configBucketId . '.filters', null, 'name');
-		$table->setHeader(array('name', 'attribute', 'element', 'operator', 'uri'));
-		$table->setFromArray(array(
-			array('filter', 'out.c-main.products.id', 'Product 1', '=', '/gdc/md/pid/obj/1111')
-		));
-		$table->save();
-
-		$table = new StorageApiTable($this->storageApi, $configBucketId . '.filters_projects', null, 'filterName');
-		$table->setHeader(array('filterName', 'pid'));
-		$table->setFromArray(array(
-			array('filter', 'pid')
-		));
-		$table->save();
-
-		$table = new StorageApiTable($this->storageApi, $configBucketId . '.filters_users', null, 'filterName');
-		$table->setHeader(array('filterName', 'userEmail'));
-		$table->setFromArray(array(
-			array('filter', 'email')
-		));
-		$table->save();
-
-		// Enforce migration
-		$this->configuration->checkFiltersTable();
-
-		$filtersTable = $this->storageApi->getTable($configBucketId . '.filters');
-		$this->assertEquals(array('name', 'attribute', 'operator', 'value'), $filtersTable['columns'], 'Table filters has not been migrated successfully');
-		$filtersTableData = StorageApiClient::parseCsv($this->storageApi->exportTable($configBucketId . '.filters'), true);
-		$this->assertCount(1, $filtersTableData, 'Table filters has not been migrated successfully');
-		$this->assertEquals(array('name' => 'filter', 'attribute' => 'out.c-main.products.id', 'operator' => '=',  'value' =>'Product 1'), current($filtersTableData), 'Table filters has not been migrated successfully');
-
-		$filtersProjectsTable = $this->storageApi->getTable($configBucketId . '.filters_projects');
-		$this->assertEquals(array('uri', 'filter', 'pid'), $filtersProjectsTable['columns'], 'Table filters_projects has not been migrated successfully');
-		$filtersProjectsData = StorageApiClient::parseCsv($this->storageApi->exportTable($configBucketId . '.filters_projects'), true);
-		$this->assertCount(1, $filtersProjectsData, 'Table filters_projects has not been migrated successfully');
-		$this->assertEquals(array( 'uri' =>'/gdc/md/pid/obj/1111',  'filter' =>'filter',  'pid' =>'pid'), current($filtersProjectsData), 'Table filters_projects has not been migrated successfully');
-
-		$filtersUsersTable = $this->storageApi->getTable($configBucketId . '.filters_users');
-		$this->assertEquals(array('id', 'filter', 'email'), $filtersUsersTable['columns'], 'Table filters_users has not been migrated successfully');
-		$filtersUsersData = StorageApiClient::parseCsv($this->storageApi->exportTable($configBucketId . '.filters_users'), true);
-		$this->assertCount(1, $filtersUsersData, 'Table filters_users has not been migrated successfully');
-		$this->assertEquals(array( 'id' =>sha1('filter.email'),  'filter' =>'filter',  'email' =>'email'), current($filtersUsersData), 'Table filters_users has not been migrated successfully');
-	}
-
 	public function testFilters()
 	{
 		$bucketAttributes = $this->configuration->bucketAttributes();
@@ -75,7 +28,7 @@ class FiltersTest extends AbstractControllerTest
 			'pid' => $pid,
 			'name' => $filterName,
 			'attribute' => $this->dataBucketId . '.products.name',
-			'element' => 'Product 1'
+			'value' => 'Product 1'
 		));
 
 		// Check result
@@ -214,10 +167,36 @@ class FiltersTest extends AbstractControllerTest
 			'pid' => $pid,
 			'name' => 'Over-To Filter',
 			'attribute' => $this->dataBucketId . '.users.name',
-			'element' => 'User 1',
+			'value' => 'User 1',
 			'over' => $this->dataBucketId . '.users.id',
 			'to' => $this->dataBucketId . '.products.id'
 		));
+
+
+		/**
+		 * Filter with IN
+		 */
+		$batchId = $this->processJob('/filters', array(
+			'pid' => $pid,
+			'name' => 'Filter IN',
+			'attribute' => $this->dataBucketId . '.products.name',
+			'operator' => 'IN',
+			'value' => 'Product 1'
+		));
+		$responseJson = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
+		$this->assertArrayHasKey('status', $responseJson, "Response for GoodData API call '/batch' should contain 'status' key.");
+		$this->assertEquals('success', $responseJson['status'], "Batch '$batchId' should have status 'success'.");
+
+		$batchId = $this->processJob('/filters', array(
+			'pid' => $pid,
+			'name' => 'Filter IN',
+			'attribute' => $this->dataBucketId . '.products.name',
+			'operator' => 'IN',
+			'value' => array('Product 1', 'Product 2')
+		));
+		$responseJson = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
+		$this->assertArrayHasKey('status', $responseJson, "Response for GoodData API call '/batch' should contain 'status' key.");
+		$this->assertEquals('success', $responseJson['status'], "Batch '$batchId' should have status 'success'.");
 	}
 
 }
