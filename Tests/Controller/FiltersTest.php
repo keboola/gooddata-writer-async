@@ -189,7 +189,7 @@ class FiltersTest extends AbstractControllerTest
 
 		$batchId = $this->processJob('/filters', array(
 			'pid' => $pid,
-			'name' => 'Filter IN',
+			'name' => 'Filter IN 2',
 			'attribute' => $this->dataBucketId . '.products.name',
 			'operator' => 'IN',
 			'value' => array('Product 1', 'Product 2')
