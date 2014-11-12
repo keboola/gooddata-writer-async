@@ -30,6 +30,7 @@ class SyncFilters extends AbstractJob
 	 */
 	function run($job, $params, RestApi $restApi)
 	{
+		$this->configuration->checkFiltersTable();
 		$bucketAttributes = $this->configuration->bucketAttributes();
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 

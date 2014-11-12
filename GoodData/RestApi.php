@@ -1165,6 +1165,8 @@ class RestApi
 				}
 
 				$expression .= '(' . implode(',', $elementArray) . ')';
+			} elseif ($operator == 'IN') {
+				$expression .= '([' . $this->getAttributeValueUri($gdAttribute, $value) . '])';
 			} else {
 				$expression .= '[' . $this->getAttributeValueUri($gdAttribute, $value) . ']';
 			}
