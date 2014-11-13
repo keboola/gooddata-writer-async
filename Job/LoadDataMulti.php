@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\Exception\ClientException;
 use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException;
@@ -104,9 +105,13 @@ class LoadDataMulti extends AbstractJob
 
 				$datasetName = Model::getId($d['columns']['name']);
 				$webDavFileUrl = sprintf('%s/%s/%s.csv', $webDav->getUrl(), $tmpFolderName, $datasetName);
-				$csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'],
-					$webDavFileUrl, $d['columns'], $tableId, $d['incrementalLoad'], $d['filterColumn'], $params['pid'],
-					$this->configuration->noDateFacts);
+				try {
+					$csvHandler->runUpload($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password'],
+						$webDavFileUrl, $d['columns'], $tableId, $d['incrementalLoad'], $d['filterColumn'], $params['pid'],
+						$this->configuration->noDateFacts);
+				} catch (ClientException $e) {
+					throw new ClientException('Error during upload of dataset ' . $datasetName . ': ' . $e->getMessage(), $e);
+				}
 				if (!$webDav->fileExists(sprintf('%s/%s.csv', $tmpFolderName, $datasetName))) {
 					throw new JobProcessException($this->translator->trans('error.csv_not_uploaded %1', array('%1' => $webDavFileUrl)));
 				}
