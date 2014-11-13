@@ -801,8 +801,23 @@ class RestApi
 			if ($taskResponse['taskStatus'] == 'ERROR' || $taskResponse['taskStatus'] == 'WARNING') {
 				// Find upload message
 				$taskId = substr($result['pullTask']['uri'], strrpos($result['pullTask']['uri'], '/')+1);
-				$upload = $this->get(sprintf('/gdc/md/%s/data/upload/%s', $pid, $taskId));
-				throw new RestApiException(isset($upload['dataUpload']['msg'])? $upload['dataUpload']['msg'] : 'Data load failed');
+
+				if (strpos($taskId, ':') !== false) {
+					$taskIds = explode(':', $taskId);
+					array_shift($t);
+					array_shift($t);
+					foreach ($taskIds as $taskId) {
+						$upload = $this->get(sprintf('/gdc/md/%s/data/upload/%s', $pid, $taskId));
+						if (isset($upload['dataUpload']['status']) && $upload['dataUpload']['status'] == 'ERROR') {
+							$dataset = $this->get($upload['dataUpload']['etlInterface']);
+							throw new RestApiException('Error during ETL task of dataset ' . $dataset['dataSet']['meta']['title']
+								. ': ' . (isset($upload['dataUpload']['msg'])? $upload['dataUpload']['msg'] : 'Data load failed'));
+						}
+					}
+				} else {
+					$upload = $this->get(sprintf('/gdc/md/%s/data/upload/%s', $pid, $taskId));
+					throw new RestApiException(isset($upload['dataUpload']['msg'])? $upload['dataUpload']['msg'] : 'Data load failed');
+				}
 			}
 
 			return $taskResponse;
