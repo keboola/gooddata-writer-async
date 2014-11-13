@@ -804,8 +804,8 @@ class RestApi
 
 				if (strpos($taskId, ':') !== false) {
 					$taskIds = explode(':', $taskId);
-					array_shift($t);
-					array_shift($t);
+					array_shift($taskIds);
+					array_shift($taskIds);
 					foreach ($taskIds as $taskId) {
 						$upload = $this->get(sprintf('/gdc/md/%s/data/upload/%s', $pid, $taskId));
 						if (isset($upload['dataUpload']['status']) && $upload['dataUpload']['status'] == 'ERROR') {
