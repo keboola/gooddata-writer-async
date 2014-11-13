@@ -109,6 +109,14 @@ class DatasetsTest extends AbstractControllerTest
 
 
 		/**
+		 * Multi load
+		 */
+		$batchId = $this->processJob('/load-data-multi', array('tables' => array($this->dataBucketId . '.products', $this->dataBucketId . '.categories')));
+		$responseJson = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
+		$this->assertArrayHasKey('status', $responseJson, "Response for GoodData API call '/batch' should contain 'status' key.");
+		$this->assertEquals('success', $responseJson['status'], "Batch '$batchId' should have status 'success'.");
+
+		/**
 		 * Check if upload table contains updateModel when needed
 		 */
 		$tableId = $this->dataBucketId . '.products';
@@ -519,16 +527,6 @@ class DatasetsTest extends AbstractControllerTest
 		$responseJson = $this->getWriterApi('/date-dimensions?writerId=' . $this->writerId);
 		$this->assertCount(2, $responseJson['dimensions'], "Response for writer call '/date-dimensions' should contain one dimension.");
 		$this->assertArrayNotHasKey($dimensionName, $responseJson['dimensions'], "Response for writer call '/date-dimensions' should not contain dimension 'TestDate'.");
-
-
-
-		/**
-		 * @TODO Test update model
-		 */
-
-		/**
-		 * @TODO Test load data
-		 */
 	}
 
 
