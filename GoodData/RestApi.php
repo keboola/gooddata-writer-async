@@ -149,6 +149,17 @@ class RestApi
 		));
 	}
 
+	public function ping()
+	{
+		$request = $this->client->get('/gdc/ping');
+		try {
+			$request->send();
+			return $request->getResponse()->getStatusCode() != 503;
+		} catch (ServerErrorResponseException $e) {
+			return false;
+		}
+	}
+
 	public function setJobId($jobId)
 	{
 		$this->jobId = $jobId;

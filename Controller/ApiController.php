@@ -163,6 +163,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		try {
 			/** @var RestApi $restApi */
 			$restApi = $this->container->get('gooddata_writer.rest_api');
+			if (!$restApi->ping()) {
+				return $this->createMaintenanceResponse();
+			}
 			$bucketAttributes = $this->getConfiguration()->bucketAttributes();
 			if (!empty($bucketAttributes['gd']['apiUrl'])) {
 				$restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
@@ -573,6 +576,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 		/** @var RestApi $restApi */
 		$restApi = $this->container->get('gooddata_writer.rest_api');
+		if (!$restApi->ping()) {
+			return $this->createMaintenanceResponse();
+		}
 
 		$bucketAttributes = $this->getConfiguration()->bucketAttributes();
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -952,6 +958,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		try {
 			/** @var RestApi $restApi */
 			$restApi = $this->container->get('gooddata_writer.rest_api');
+			if (!$restApi->ping()) {
+				return $this->createMaintenanceResponse();
+			}
+
 			$bucketAttributes = $this->getConfiguration()->bucketAttributes();
 			$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			if (!empty($bucketAttributes['gd']['apiUrl'])) {
@@ -1066,6 +1076,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		try {
 			/** @var RestApi $restApi */
 			$restApi = $this->container->get('gooddata_writer.rest_api');
+			if (!$restApi->ping()) {
+				return $this->createMaintenanceResponse();
+			}
 			$bucketAttributes = $this->getConfiguration()->bucketAttributes();
 			$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			if (!empty($bucketAttributes['gd']['apiUrl'])) {
@@ -1522,6 +1535,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		}
 
 		return $this->createJsonResponse($responseBody, $statusCode);
+	}
+
+	public function createMaintenanceResponse() {
+		return $this->createApiResponse(array(
+			'error' => 'There is undergoing maintenance on GoodData backend, please try again later.'
+		), 503);
 	}
 
 	private function createPollResponse($batchId, $writerId, $jobId=null, $responseCode=202)
