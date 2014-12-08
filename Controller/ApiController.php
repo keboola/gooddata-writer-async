@@ -438,6 +438,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function getSsoAction()
 	{
+		/** @var RestApi $restApi */
+		$restApi = $this->container->get('gooddata_writer.rest_api');
+		if (!$restApi->ping()) {
+			return $this->createMaintenanceResponse();
+		}
+
 		// Init parameters
 		$this->checkParams(array('writerId', 'email', 'pid'));
 		$this->checkWriterExistence();
