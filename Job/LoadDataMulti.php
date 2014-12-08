@@ -110,7 +110,7 @@ class LoadDataMulti extends AbstractJob
 						$webDavFileUrl, $d['columns'], $tableId, $d['incrementalLoad'], $d['filterColumn'], $params['pid'],
 						$this->configuration->noDateFacts);
 				} catch (ClientException $e) {
-					throw new ClientException('Error during upload of dataset ' . $datasetName . ': ' . $e->getMessage(), $e);
+					throw new ClientException(sprintf("Error during upload of dataset '%s': %s", $datasetName, $e->getMessage()), $e);
 				}
 				if (!$webDav->fileExists(sprintf('%s/%s.csv', $tmpFolderName, $datasetName))) {
 					throw new JobProcessException($this->translator->trans('error.csv_not_uploaded %1', array('%1' => $webDavFileUrl)));
