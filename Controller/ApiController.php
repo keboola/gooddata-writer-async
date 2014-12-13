@@ -1523,10 +1523,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 * @section Helpers
 	 */
 
-	private function createApiResponse($response = array(), $statusCode = 200)
+	private function createApiResponse($response=array(), $statusCode=200, $statusMessage=null)
 	{
+		if (!$statusMessage) {
+			$statusMessage = ($statusCode >= 300)? 'error' : 'ok';
+		}
 		$responseBody = array(
-			'status'    => 'ok'
+			'status' => $statusMessage
 		);
 
 		if ($this->stopWatch->isStarted(self::STOPWATCH_NAME_REQUEST)) {
@@ -1546,7 +1549,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	public function createMaintenanceResponse() {
 		return $this->createApiResponse(array(
 			'error' => 'There is undergoing maintenance on GoodData backend, please try again later.'
-		), 503);
+		), 503, 'maintenance');
 	}
 
 	private function createPollResponse($batchId, $writerId, $jobId=null, $responseCode=202)
