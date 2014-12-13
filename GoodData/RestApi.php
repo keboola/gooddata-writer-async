@@ -154,19 +154,9 @@ class RestApi
 		$request = $this->client->get('/gdc/ping');
 		try {
 			$request->send();
-			if ($request->getResponse()->getStatusCode() > 300) {
-				$this->logger->addDebug('ping failed in try', array(
-					'code' => $request->getResponse()->getStatusCode(),
-					'body' => $request->getResponse()->getBody(true)
-				));
-			}
 			return $request->getResponse()->getStatusCode() != 503;
 		} catch (ServerErrorResponseException $e) {
-			$response = $request->getResponse();
-			$this->logger->addDebug('ping failed in catch', array(
-				'code' => $response? $response->getStatusCode() : null,
-				'body' => $response? $response->getBody(true) : null
-			));
+			//@TODO Log to SAPI events? ($this->eventLogger is empty)
 			return false;
 		}
 	}
