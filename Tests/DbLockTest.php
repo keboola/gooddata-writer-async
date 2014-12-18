@@ -15,14 +15,13 @@ class DbLockTest extends WebTestCase
 	public function testLocks()
 	{
 		$container = static::createClient()->getContainer();
-		/** @var AppConfiguration $appConfiguration */
-		$appConfiguration = $container->get('gooddata_writer.app_configuration');
 		$config = new \Doctrine\DBAL\Configuration();
 		$connectionParams = array(
-			'dbname' => $appConfiguration->db_name,
-			'user' => $appConfiguration->db_user,
-			'password' => $appConfiguration->db_password,
-			'host' => $appConfiguration->db_host,
+			'dbname' => $container->getParameter('database_name'),
+			'user' => $container->getParameter('database_user'),
+			'password' => $container->getParameter('database_password'),
+			'host' => $container->getParameter('database_host'),
+			'port' => $container->getParameter('database_port'),
 			'driver' => 'pdo_mysql',
 			'charset' => 'utf8'
 		);

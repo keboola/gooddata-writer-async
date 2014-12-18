@@ -54,7 +54,7 @@ class SharedConfig extends StorageApiConfiguration
 	private $db;
 
 
-	public function __construct(AppConfiguration $appConfiguration, Encryptor $encryptor)
+	public function __construct(AppConfiguration $appConfiguration, Connection $db, Encryptor $encryptor)
 	{
 		$this->storageApiClient = new StorageApiClient(array(
 			'token' => $appConfiguration->sharedSapi_token,
@@ -63,16 +63,7 @@ class SharedConfig extends StorageApiConfiguration
 		));
         $this->encryptor = $encryptor;
 
-		$config = new \Doctrine\DBAL\Configuration();
-		$connectionParams = array(
-			'dbname' => $appConfiguration->db_name,
-			'user' => $appConfiguration->db_user,
-			'password' => $appConfiguration->db_password,
-			'host' => $appConfiguration->db_host,
-			'driver' => 'pdo_mysql',
-			'charset' => 'utf8'
-		);
-		$this->db = \Doctrine\DBAL\DriverManager::getConnection($connectionParams, $config);
+		$this->db = $db;
 		$this->db->exec('SET wait_timeout = 31536000;');
 	}
 

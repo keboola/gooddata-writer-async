@@ -30,7 +30,7 @@ services:
 
   gooddata_writer.shared_config:
     class: Keboola\GoodDataWriter\Writer\SharedConfig
-    arguments: [@gooddata_writer.app_configuration, @syrup.encryptor]
+    arguments: [@gooddata_writer.app_configuration, @doctrine.dbal.default_connection, @syrup.encryptor]
 
   gooddata_writer.invitations_handler:
       class: Keboola\GoodDataWriter\GoodData\InvitationsHandler

@@ -27,11 +27,6 @@ class AppConfiguration
 	public $gd_invitations_email;
 	public $gd_invitations_password;
 
-	public $db_host;
-	public $db_name;
-	public $db_user;
-	public $db_password;
-
 	public $aws_accessKey;
 	public $aws_secretKey;
 	public $aws_region;
@@ -63,11 +58,6 @@ class AppConfiguration
 		$this->gd_projectNameTemplate = $mainConfig['gd']['project_name'];
 		$this->gd_invitations_email = $mainConfig['gd']['invitations_email'];
 		$this->gd_invitations_password = $mainConfig['gd']['invitations_password'];
-
-		$this->db_host = $mainConfig['db']['host'];
-		$this->db_name = $mainConfig['db']['name'];
-		$this->db_user = $mainConfig['db']['user'];
-		$this->db_password = $mainConfig['db']['password'];
 
 		$this->aws_accessKey = $mainConfig['aws']['access_key'];
 		$this->aws_secretKey = $mainConfig['aws']['secret_key'];
