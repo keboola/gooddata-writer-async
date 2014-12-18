@@ -10,7 +10,7 @@
 		}
 	],
 	"require": {
-		"syrup/component-bundle": "~1.9.0",
+		"syrup/component-bundle": "~1.10",
 		"php": ">=5.3.5"
 	},
 	"require-dev": {
