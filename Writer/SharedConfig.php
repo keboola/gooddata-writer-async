@@ -251,14 +251,14 @@ class SharedConfig extends StorageApiConfiguration
 		unset($params['queue']);
 		$jobInfo = array_merge($jobInfo, $params);
 
-		$this->saveJob($jobId, $jobInfo);
+		$this->saveJob($jobId, $jobInfo, true);
 		return $jobInfo;
 	}
 
 	/**
 	 * Update existing job
 	 */
-	public function saveJob($jobId, $fields)
+	public function saveJob($jobId, $fields, $create=false)
 	{
 		$keysToEncode = array('parameters', 'result', 'logs', 'debug');
 		foreach ($keysToEncode as $key) {
@@ -273,7 +273,17 @@ class SharedConfig extends StorageApiConfiguration
 		if (!isset($fields['id'])) {
 			$fields['id'] = $jobId;
 		}
+
 		$this->updateTableRow(self::JOBS_TABLE_ID, 'id', $fields);
+
+		unset($fields['gdWriteStartTime']);
+		unset($fields['projectIdWriterId']);
+		if ($create) {
+			$this->db->insert('jobs', $fields);
+		} else {
+			unset($fields['id']);
+			$this->db->update('jobs', $fields, array('id' => $jobId));
+		}
 	}
 
 	/**
