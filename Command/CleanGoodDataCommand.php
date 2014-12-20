@@ -27,8 +27,6 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
-		$this->getContainer()->get('syrup.monolog.json_formatter')->setComponentName('gooddata-writer');
-
 		/** @var AppConfiguration $appConfiguration */
 		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
 		/** @var SharedConfig $sharedConfig */
