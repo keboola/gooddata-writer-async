@@ -8,7 +8,6 @@ namespace Keboola\GoodDataWriter\Writer;
 
 use Guzzle\Http\Exception\CurlException;
 use Keboola\GoodDataWriter\Exception\JobProcessException,
-	Keboola\GoodDataWriter\Exception\ClientException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\StorageApi\ClientException as StorageApiClientException;
 use Keboola\GoodDataWriter\GoodData\CsvHandlerNetworkException;
@@ -21,6 +20,7 @@ use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Exception as StorageApiException;
 use Monolog\Logger;
 use Symfony\Component\Translation\TranslatorInterface;
+use Syrup\ComponentBundle\Exception\UserException;
 use Syrup\ComponentBundle\Filesystem\Temp;
 
 
@@ -232,7 +232,7 @@ class JobExecutor
 							'exception' => $e,
 							'runId' => $this->storageApiClient->getRunId()
 						));
-					} elseif ($e instanceof ClientException) {
+					} elseif ($e instanceof UserException) {
 						$jobData['result']['error'] = $e->getMessage();
 						$debug['details'] = $e->getData();
 					} else {

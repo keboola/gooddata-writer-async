@@ -9,16 +9,16 @@ namespace Keboola\GoodDataWriter\GoodData;
 use Keboola\StorageApi\Client;
 use Monolog\Logger;
 use Symfony\Component\Process\Process;
-use Keboola\GoodDataWriter\Exception\ClientException;
+use Syrup\ComponentBundle\Exception\UserException;
 use Syrup\ComponentBundle\Filesystem\Temp;
 use Keboola\StorageApi\TableExporter;
 
-class CsvHandlerException extends ClientException
+class CsvHandlerException extends UserException
 {
 
 }
 
-class CsvHandlerNetworkException extends ClientException
+class CsvHandlerNetworkException extends UserException
 {
 
 }

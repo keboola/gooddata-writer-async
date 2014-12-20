@@ -6,7 +6,9 @@
 
 namespace Keboola\GoodDataWriter\Exception;
 
-class JobProcessException extends ClientException
+use Syrup\ComponentBundle\Exception\UserException;
+
+class JobProcessException extends UserException
 {
 
 }
