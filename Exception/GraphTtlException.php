@@ -2,7 +2,9 @@
 
 namespace Keboola\GoodDataWriter\Exception;
 
-class GraphTtlException extends ClientException
+use Syrup\ComponentBundle\Exception\UserException;
+
+class GraphTtlException extends UserException
 {
 
 }

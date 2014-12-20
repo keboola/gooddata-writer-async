@@ -2,7 +2,9 @@
 
 namespace Keboola\GoodDataWriter\Exception;
 
-class WrongConfigurationException extends ClientException
+use Syrup\ComponentBundle\Exception\UserException;
+
+class WrongConfigurationException extends UserException
 {
 
 }
