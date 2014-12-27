@@ -10,19 +10,17 @@ use Doctrine\DBAL\Connection;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\User;
 use Keboola\GoodDataWriter\Service\Lock;
-use Keboola\StorageApi\Client as StorageApiClient,
-	Keboola\GoodDataWriter\Service\S3Client,
-	Keboola\GoodDataWriter\Service\StorageApiConfiguration;
+use Keboola\GoodDataWriter\Service\S3Client;
 use Syrup\ComponentBundle\Encryption\Encryptor;
 
 
-class SharedConfigException extends \Exception
+class SharedStorageException extends \Exception
 {
 
 }
 
 
-class SharedConfig extends StorageApiConfiguration
+class SharedStorage
 {
 	const WRITER_NAME = 'gooddata_writer';
 	const DOMAINS_TABLE_ID = 'in.c-wr-gooddata.domains';
@@ -54,14 +52,9 @@ class SharedConfig extends StorageApiConfiguration
 	private $db;
 
 
-	public function __construct(AppConfiguration $appConfiguration, Connection $db, Encryptor $encryptor)
+	public function __construct(Connection $db, Encryptor $encryptor)
 	{
-		$this->storageApiClient = new StorageApiClient(array(
-			'token' => $appConfiguration->sharedSapi_token,
-			'url' => $appConfiguration->sharedSapi_url,
-			'userAgent' => $appConfiguration->userAgent
-		));
-        $this->encryptor = $encryptor;
+		$this->encryptor = $encryptor;
 
 		$this->db = $db;
 		$this->db->exec('SET wait_timeout = 31536000;');
@@ -100,7 +93,7 @@ class SharedConfig extends StorageApiConfiguration
 	public function getWriter($projectId, $writerId)
 	{
 		$result = $this->db->fetchAssoc('SELECT * FROM writers WHERE project_id=? AND writer_id=?', array($projectId, $writerId));
-		if (!$result) throw new SharedConfigException('Writer ' . $writerId . ' does not exist in Shared Config');
+		if (!$result) throw new SharedStorageException('Writer ' . $writerId . ' does not exist in Shared Config');
 
 		$return = array(
 			'status' => $result['status'],
@@ -141,14 +134,14 @@ class SharedConfig extends StorageApiConfiguration
 
 	public static function isJobFinished($status)
 	{
-		return !in_array($status, array(SharedConfig::JOB_STATUS_WAITING, SharedConfig::JOB_STATUS_PROCESSING));
+		return !in_array($status, array(SharedStorage::JOB_STATUS_WAITING, SharedStorage::JOB_STATUS_PROCESSING));
 	}
 
 	public function getDomainUser($domain)
 	{
 		$result = $this->db->fetchAssoc('SELECT * FROM domains WHERE name=?', array($domain));
 		if (!$result || !isset($result['name']))
-			throw new SharedConfigException(sprintf("User for domain '%s' does not exist", $domain));
+			throw new SharedStorageException(sprintf("User for domain '%s' does not exist", $domain));
 
 		$user = new User();
 		$user->domain = $result['name'];
@@ -172,10 +165,25 @@ class SharedConfig extends StorageApiConfiguration
 
 	public function fetchJobs($projectId, $writerId, $days=7)
 	{
-		return $this->fetchTableRows(self::JOBS_TABLE_ID, 'projectIdWriterId', $projectId . '.' . $writerId, array(
-			'changedSince' => '-' . $days . ' days',
-			'limit' => 1000
-		), false);
+		$query = $this->db->createQueryBuilder()
+			->select('*')
+			->from('jobs')
+			->where('projectId = ?')
+			->andWhere('writerId = ?')
+			->setParameters(array(
+				$projectId,
+				$writerId
+			));
+		if ($days) {
+			$query->andWhere('createdTime >= DATE_SUB(NOW(), INTERVAL ? DAY)')
+			->setParameter(2, $days);
+		}
+
+		$result = array();
+		foreach ($query->execute()->fetchAll() as $job) {
+			$result[] = $this->decodeJob($job);
+		}
+		return $result;
 	}
 
 	/**
@@ -184,16 +192,22 @@ class SharedConfig extends StorageApiConfiguration
 	 * @param null $projectId
 	 * @return mixed
 	 */
-	public function fetchJob($jobId, $writerId = null, $projectId = null)
+	public function fetchJob($jobId, $writerId=null, $projectId=null)
 	{
-		$job = $this->fetchTableRows(self::JOBS_TABLE_ID, 'id', $jobId, array(), false);
-		$job = reset($job);
-
-		if ((!$writerId || $job['writerId'] == $writerId) && (!$projectId || $job['projectId'] == $projectId)) {
-			return $job;
+		$query = $this->db->createQueryBuilder()
+			->select('*')
+			->from('jobs')
+			->where('id = ?')
+			->setParameter(0, $jobId);
+		if ($writerId && $projectId) {
+			$query->andWhere('projectId = ?')
+				->andWhere('writerId = ?')
+				->setParameter(1, $projectId)
+				->setParameter(2, $writerId);
 		}
+		$result = $query->execute()->fetchAll();
 
-		return false;
+		return count($result)? $this->decodeJob(current($result)) : false;
 	}
 
 	/**
@@ -201,7 +215,31 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function fetchBatch($batchId)
 	{
-		return $this->fetchTableRows(self::JOBS_TABLE_ID, 'batchId', $batchId, array(), false);
+		$query = $this->db->createQueryBuilder()
+			->select('*')
+			->from('jobs')
+			->where('batchId = ?')
+			->setParameter(0, $batchId);
+
+		$result = array();
+		foreach ($query->execute()->fetchAll() as $job) {
+			$result[] = $this->decodeJob($job);
+		}
+		return $result;
+	}
+
+	private function decodeJob($job)
+	{
+		$keysToDecode = array('parameters', 'result', 'logs', 'debug');
+		foreach ($keysToDecode as $key) {
+			if (isset($job[$key])) {
+				$decodedParameters = json_decode($job[$key], true);
+				if ($decodedParameters) {
+					$job[$key] = $decodedParameters;
+				}
+			}
+		}
+		return $job;
 	}
 
 	/**
@@ -209,19 +247,18 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function cancelJobs($projectId, $writerId)
 	{
-		foreach ($this->fetchJobs($projectId, $writerId) as $job) {
-			if ($job['status'] == self::JOB_STATUS_WAITING) {
-				$this->saveJob($job['id'], array('status' => self::JOB_STATUS_CANCELLED));
-			}
-		}
+		$this->db->update('jobs', array('status' => self::JOB_STATUS_CANCELLED), array(
+			'projectId' => $projectId,
+			'writerId' => $writerId,
+			'status' => self::JOB_STATUS_WAITING
+		));
 	}
 
 	/**
 	 * Create new job
 	 */
-	public function createJob($projectId, $writerId, $runId, $token, $tokenId, $tokenOwner, $params)
+	public function createJob($jobId, $projectId, $writerId, $runId, $token, $tokenId, $tokenOwner, $params)
 	{
-		$jobId = $this->storageApiClient->generateId();
 		if (!isset($params['batchId'])) {
 			$params['batchId'] = $jobId;
 		}
@@ -236,7 +273,6 @@ class SharedConfig extends StorageApiConfiguration
 			'tokenDesc' => $tokenOwner,
 			'createdTime' => null,
 			'startTime' => null,
-			'gdWriteStartTime' => null,
 			'endTime' => null,
 			'command' => null,
 			'dataset' => null,
@@ -245,7 +281,6 @@ class SharedConfig extends StorageApiConfiguration
 			'status' => self::JOB_STATUS_WAITING,
 			'logs' => null,
 			'debug' => null,
-			'projectIdWriterId' => sprintf('%s.%s', $projectId, $writerId),
 			'queueId' => sprintf('%s.%s.%s', $projectId, $writerId, isset($params['queue']) ? $params['queue'] : self::PRIMARY_QUEUE)
 		);
 		unset($params['queue']);
@@ -274,10 +309,6 @@ class SharedConfig extends StorageApiConfiguration
 			$fields['id'] = $jobId;
 		}
 
-		$this->updateTableRow(self::JOBS_TABLE_ID, 'id', $fields);
-
-		unset($fields['gdWriteStartTime']);
-		unset($fields['projectIdWriterId']);
 		if ($create) {
 			$this->db->insert('jobs', $fields);
 		} else {
@@ -291,18 +322,6 @@ class SharedConfig extends StorageApiConfiguration
 	 */
 	public function jobToApiResponse(array $job, S3Client $s3Client = null)
 	{
-		$keysToDecode = array('parameters', 'result', 'logs', 'debug');
-		foreach ($keysToDecode as $key) {
-			if (!is_array($job[$key])) {
-				$result = json_decode($job[$key], true);
-				if (isset($result['debug']) && !is_array($result['debug']))
-					$result['debug'] = json_decode($result['debug'], true);
-				if ($result) {
-					$job[$key] = $result;
-				}
-			}
-		}
-
 		if (isset($job['parameters']['accessToken'])) {
 			$job['parameters']['accessToken'] = '***';
 		}
@@ -350,7 +369,7 @@ class SharedConfig extends StorageApiConfiguration
 			'dataset' => $job['dataset'],
 			'parameters' => $job['parameters'],
 			'result' => $job['result'],
-			'gdWriteStartTime' => $job['gdWriteStartTime'],
+			'gdWriteStartTime' => false,
 			'status' => $job['status'],
 			'logs' => $logs
 		);
@@ -390,13 +409,13 @@ class SharedConfig extends StorageApiConfiguration
 			if (!$data['projectId']) {
 				$data['projectId'] = $job['projectId'];
 			} elseif ($data['projectId'] != $job['projectId']) {
-				throw new SharedConfigException(sprintf('ProjectId of job %s: %s does not match projectId %s of previous job.',
+				throw new SharedStorageException(sprintf('ProjectId of job %s: %s does not match projectId %s of previous job.',
 					$job['id'], $job['projectId'], $data['projectId']));
 			}
 			if (!$data['writerId']) {
 				$data['writerId'] = $job['writerId'];
 			} elseif ($data['writerId'] != $job['writerId']) {
-				throw new SharedConfigException(sprintf('WriterId of job %s: %s does not match writerId %s of previous job.',
+				throw new SharedStorageException(sprintf('WriterId of job %s: %s does not match writerId %s of previous job.',
 					$job['id'], $job['projectId'], $data['projectId']));
 			}
 

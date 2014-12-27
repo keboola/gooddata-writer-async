@@ -42,9 +42,9 @@ class ToolCommand extends ContainerAwareCommand
 
 		/** @var AppConfiguration $appConfiguration */
 		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
-		$sharedConfig = $this->getContainer()->get('gooddata_writer.shared_config');
+		$sharedStorage = $this->getContainer()->get('gooddata_writer.shared_storage');
 
-		$domainUser = $sharedConfig->getDomainUser('keboola');
+		$domainUser = $sharedStorage->getDomainUser('keboola');
 
 		/** @var RestApi $restApi */
 		$restApi = $this->getContainer()->get('gooddata_writer.rest_api');

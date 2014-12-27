@@ -37,9 +37,9 @@ class JobExecutor
 	 */
 	protected $appConfiguration;
 	/**
-	 * @var SharedConfig
+	 * @var SharedStorage
 	 */
-	protected $sharedConfig;
+	protected $sharedStorage;
 	/**
 	 * @var RestApi
 	 */
@@ -74,18 +74,11 @@ class JobExecutor
 	/**
 	 *
 	 */
-	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig, RestApi $restApi,
+	public function __construct(AppConfiguration $appConfiguration, SharedStorage $sharedStorage, RestApi $restApi,
 								Logger $logger, Temp $temp, Queue $queue, TranslatorInterface $translator)
 	{
-		if (!defined('JSON_PRETTY_PRINT')) {
-			// fallback for PHP <= 5.3
-			define('JSON_PRETTY_PRINT', 0);
-		}
-
-		$temp->initRunFolder();
-
 		$this->appConfiguration = $appConfiguration;
-		$this->sharedConfig = $sharedConfig;
+		$this->sharedStorage = $sharedStorage;
 		$this->restApi = $restApi;
 		$this->logger = $logger;
 		$this->temp = $temp;
@@ -93,57 +86,32 @@ class JobExecutor
 		$this->translator = $translator;
 	}
 
-	public function runBatch($batchId, $forceRun = false)
-	{
-		$batch = $this->sharedConfig->batchToApiResponse($batchId);
-
-		// Batch already executed?
-		if (!$forceRun && $batch['status'] != SharedConfig::JOB_STATUS_WAITING) {
-			return;
-		}
-
-		// Lock
-		$lock = $this->sharedConfig->getLock($batch['queueId']);
-		if (!$lock->lock()) {
-			throw new QueueUnavailableException($this->translator->trans('queue.in_use %1', array('%1' => $batchId)));
-		}
-
-		foreach ($batch['jobs'] as $job) {
-			$this->runJob($job['id'], $forceRun);
-		}
-
-		$lock->unlock();
-	}
-
 	/**
 	 * Job execution
 	 * Performs execution of job tasks and logging
 	 */
-	public function runJob($jobId, $forceRun = false)
+	public function run($jobId, $forceRun = false)
 	{
+		$this->temp->initRunFolder();
+
 		$startTime = time();
 
-		$job = $this->sharedConfig->fetchJob($jobId);
+		$job = $this->sharedStorage->fetchJob($jobId);
 		if (!$job) {
 			throw new JobProcessException($this->translator->trans('job_executor.job_not_found %1', array('%1' => $jobId)));
 		}
 
 		// Job already executed?
-		if (!$forceRun && $job['status'] != SharedConfig::JOB_STATUS_WAITING) {
+		if (!$forceRun && $job['status'] != SharedStorage::JOB_STATUS_WAITING) {
 			return;
 		}
 
 		$queueIdArray = explode('.', $job['queueId']);
-		$serviceRun = isset($queueIdArray[2]) && $queueIdArray[2] == SharedConfig::SERVICE_QUEUE;
+		$serviceRun = isset($queueIdArray[2]) && $queueIdArray[2] == SharedStorage::SERVICE_QUEUE;
 
 		$jobData = array('result' => array());
-		$logParams = $job['parameters'];
 		try {
-			$s3Client = new S3Client(
-				$this->appConfiguration,
-				$job['projectId'] . '.' . $job['writerId'],
-				$this->logger
-			);
+			$s3Client = new S3Client($this->appConfiguration, $job['projectId'] . '.' . $job['writerId'], $this->logger);
 
 			$this->storageApiClient = new StorageApiClient(array(
 				'token' => $job['token'],
@@ -154,31 +122,21 @@ class JobExecutor
 			$this->eventLogger = new EventLogger($this->appConfiguration, $this->storageApiClient, $s3Client);
 
 			try {
-				if ($job['parameters']) {
-					$parameters = json_decode($job['parameters'], true);
-					if ($parameters === false) {
-						throw new JobProcessException($this->translator->trans('job_executor.bad_parameters'));
-					}
-				} else {
-					$parameters = array();
-				}
-
-				$configuration = new Configuration($this->storageApiClient, $this->sharedConfig);
+				$configuration = new Configuration($this->storageApiClient, $this->sharedStorage);
 				$configuration->setWriterId($job['writerId']);
-				$writerInfo = $this->sharedConfig->getWriter($job['projectId'], $job['writerId']);
-				if (!$serviceRun && $writerInfo['status'] == SharedConfig::WRITER_STATUS_MAINTENANCE) {
+				$writerInfo = $this->sharedStorage->getWriter($job['projectId'], $job['writerId']);
+				if (!$serviceRun && $writerInfo['status'] == SharedStorage::WRITER_STATUS_MAINTENANCE) {
 					throw new QueueUnavailableException($this->translator->trans('queue.maintenance'));
 				}
 
-				$this->sharedConfig->saveJob($jobId, array(
-					'status' => SharedConfig::JOB_STATUS_PROCESSING,
+				$this->sharedStorage->saveJob($jobId, array(
+					'status' => SharedStorage::JOB_STATUS_PROCESSING,
 					'startTime' => date('c', $startTime),
 					'endTime' => null
 				));
-				$logParams = $parameters;
 				$this->logEvent($this->translator->trans('log.job.started %1', array('%1' => $job['id'])), $job, array(
 					'command' => $job['command'],
-					'params' => $logParams
+					'params' => $job['parameters']
 				));
 
 				$commandName = ucfirst($job['command']);
@@ -198,7 +156,7 @@ class JobExecutor
 				/**
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 				 */
-				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedConfig, $s3Client,
+				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedStorage, $s3Client,
 					$this->translator, $this->storageApiClient, $this->eventLogger);
 				$command->setTemp($this->temp); //For csv handler
 				$command->setLogger($this->logger); //For csv handler
@@ -207,7 +165,7 @@ class JobExecutor
 				$error = null;
 
 				try {
-					$jobData['result'] = $command->run($job, $parameters, $this->restApi);
+					$jobData['result'] = $command->run($job, $job['parameters'], $this->restApi);
 				} catch (\Exception $e) {
 					$debug = array(
 						'message' => $e->getMessage(),
@@ -265,15 +223,11 @@ class JobExecutor
 		$jobData['status'] = empty($jobData['result']['error']) ? StorageApiEvent::TYPE_SUCCESS : StorageApiEvent::TYPE_ERROR;
 		$jobData['endTime'] = date('c');
 
-		if (isset($jobData['result']['gdWriteStartTime'])) {
-			$jobData['gdWriteStartTime'] = $jobData['result']['gdWriteStartTime'];
-			unset($jobData['result']['gdWriteStartTime']);
-		}
-		$this->sharedConfig->saveJob($jobId, $jobData);
+		$this->sharedStorage->saveJob($jobId, $jobData);
 
 		$log = array(
 			'command' => $job['command'],
-			'params' => $logParams,
+			'params' => $job['parameters'],
 			'status' => $jobData['status'],
 			'result' => $jobData['result']
 		);
@@ -322,8 +276,9 @@ class JobExecutor
 		}
 
 		$tokenData = $this->storageApiClient->getLogData();
-		$job = $this->sharedConfig->createJob($projectId, $writerId, $this->storageApiClient->getRunId(),
-			$this->storageApiClient->token, $tokenData['id'], $tokenData['description'], $jobData);
+		$job = $this->sharedStorage->createJob($this->storageApiClient->generateId(), $projectId, $writerId,
+			$this->storageApiClient->getRunId(), $this->storageApiClient->token, $tokenData['id'],
+			$tokenData['description'], $jobData);
 
 		array_walk($params, function(&$val, $key) {
 			if ($key == 'password') $val = '***';

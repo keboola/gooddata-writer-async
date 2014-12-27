@@ -10,7 +10,7 @@ namespace Keboola\GoodDataWriter\Controller;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Service\EventLogger;
-use Keboola\GoodDataWriter\Writer\SharedConfigException;
+use Keboola\GoodDataWriter\Writer\SharedStorageException;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Method;
 
@@ -27,7 +27,7 @@ use Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\Model\Graph,
 	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\GoodDataWriter\Writer\SharedConfig,
+	Keboola\GoodDataWriter\Writer\SharedStorage,
 	Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\Exception\GraphTtlException,
@@ -44,9 +44,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public $configuration;
 	/**
-	 * @var SharedConfig
+	 * @var SharedStorage
 	 */
-	public $sharedConfig;
+	public $sharedStorage;
 
 	/**
 	 * @var AppConfiguration
@@ -105,8 +105,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$param = trim($param);
 		});
 
-		if (isset($this->params['queue']) && !in_array($this->params['queue'], array(SharedConfig::PRIMARY_QUEUE, SharedConfig::SECONDARY_QUEUE))) {
-			throw new WrongParametersException($this->translator->trans('parameters.queue %1', array('%1' => SharedConfig::PRIMARY_QUEUE . ', ' . SharedConfig::SECONDARY_QUEUE)));
+		if (isset($this->params['queue']) && !in_array($this->params['queue'], array(SharedStorage::PRIMARY_QUEUE, SharedStorage::SECONDARY_QUEUE))) {
+			throw new WrongParametersException($this->translator->trans('parameters.queue %1', array('%1' => SharedStorage::PRIMARY_QUEUE . ', ' . SharedStorage::SECONDARY_QUEUE)));
 		}
 
 		$tokenInfo = $this->storageApi->getLogData();
@@ -135,7 +135,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$batchId = $this->storageApi->generateId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedConfig::SERVICE_QUEUE);
+		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedStorage::SERVICE_QUEUE);
 		$this->enqueueWriter($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
@@ -152,7 +152,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if (!$this->writerId) {
 			throw new WrongConfigurationException($this->translator->trans('parameters.required %1', array('%1' => 'writerId')));
 		}
-		if ($this->getSharedConfig()->writerExists($this->projectId, $this->writerId)) {
+		if ($this->getSharedStorage()->writerExists($this->projectId, $this->writerId)) {
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.exists'));
 		}
 
@@ -177,11 +177,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			throw $e;
 		}
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedConfig::SERVICE_QUEUE);
+		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedStorage::SERVICE_QUEUE);
 
 		if(!empty($params['users'])) foreach ($params['users'] as $user) {
 			$this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'addUserToProject',
-				array('email' => $user, 'role' => 'admin'), $batchId, SharedConfig::SERVICE_QUEUE, array('dataset' => $user));
+				array('email' => $user, 'role' => 'admin'), $batchId, SharedStorage::SERVICE_QUEUE, array('dataset' => $user));
 		}
 
 		$this->enqueueWriter($batchId);
@@ -226,7 +226,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$batchId = $this->storageApi->generateId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedConfig::SERVICE_QUEUE);
+		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedStorage::SERVICE_QUEUE);
 		$this->enqueueWriter($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
@@ -262,25 +262,25 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 			$configuration = $this->getConfiguration()->formatWriterAttributes($this->getConfiguration()->bucketAttributes());
 			try {
-				$sharedConfiguration = $this->getSharedConfig()->getWriter($this->projectId, $this->writerId);
-				unset($sharedConfiguration['feats']);
-			} catch (SharedConfigException $e) {
-				$sharedConfiguration = array('status' => SharedConfig::WRITER_STATUS_READY, 'createdTime' => '');
+				$sharedStorageuration = $this->getSharedStorage()->getWriter($this->projectId, $this->writerId);
+				unset($sharedStorageuration['feats']);
+			} catch (SharedStorageException $e) {
+				$sharedStorageuration = array('status' => SharedStorage::WRITER_STATUS_READY, 'createdTime' => '');
 			}
 			return $this->createApiResponse(array(
-				'writer' => array_merge($configuration, $sharedConfiguration)
+				'writer' => array_merge($configuration, $sharedStorageuration)
 			));
 		} else {
-			$configuration = new Configuration($this->storageApi, $this->getSharedConfig());
+			$configuration = new Configuration($this->storageApi, $this->getSharedStorage());
 			$result = array();
 			foreach ($configuration->getWriters() as $writer) {
 				try {
-					$sharedConfiguration = $this->getSharedConfig()->getWriter($this->projectId, $writer['id']);
-					unset($sharedConfiguration['feats']);
-				} catch (SharedConfigException $e) {
-					$sharedConfiguration = array('status' => SharedConfig::WRITER_STATUS_READY, 'createdTime' => '');
+					$sharedStorageuration = $this->getSharedStorage()->getWriter($this->projectId, $writer['id']);
+					unset($sharedStorageuration['feats']);
+				} catch (SharedStorageException $e) {
+					$sharedStorageuration = array('status' => SharedStorage::WRITER_STATUS_READY, 'createdTime' => '');
 				}
-				$result[] = array_merge($writer, $sharedConfiguration);
+				$result[] = array_merge($writer, $sharedStorageuration);
 			}
 
 			return $this->createApiResponse(array(
@@ -448,7 +448,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkParams(array('writerId', 'email', 'pid'));
 		$this->checkWriterExistence();
 
-		if (!$this->getSharedConfig()->projectBelongsToWriter($this->projectId, $this->writerId, $this->params['pid'])) {
+		if (!$this->getSharedStorage()->projectBelongsToWriter($this->projectId, $this->writerId, $this->params['pid'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.sso_wrong_pid'));
 		}
 
@@ -458,24 +458,24 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$jobFinished = false;
 			$i = 1;
 			do {
-				$job = $this->getSharedConfig()->fetchJob($jsonResult['job'], $this->writerId, $this->projectId);
+				$job = $this->getSharedStorage()->fetchJob($jsonResult['job'], $this->writerId, $this->projectId);
 				if (!$job) {
 					throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
 				}
-				$jobInfo = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
-				if (isset($jobInfo['status']) && SharedConfig::isJobFinished($jobInfo['status'])) {
+				$jobInfo = $this->getSharedStorage()->jobToApiResponse($job, $this->getS3Client());
+				if (isset($jobInfo['status']) && SharedStorage::isJobFinished($jobInfo['status'])) {
 					$jobFinished = true;
 				}
 				if (!$jobFinished) sleep($i * 5);
 				$i++;
 			} while(!$jobFinished);
 
-			if ($jobInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS) {
+			if ($jobInfo['status'] == SharedStorage::JOB_STATUS_SUCCESS) {
 				if (!empty($jobInfo['result']['alreadyExists'])) {
 					throw new JobProcessException($this->translator->trans('result.cancelled'));
 				}
 				// Do nothing
-			} elseif ($jobInfo['status'] == SharedConfig::JOB_STATUS_CANCELLED) {
+			} elseif ($jobInfo['status'] == SharedStorage::JOB_STATUS_CANCELLED) {
 				throw new JobProcessException($this->translator->trans('result.cancelled'));
 			} else {
 				$e = new JobProcessException(!empty($jobInfo['result']['error'])? $jobInfo['result']['error'] : $this->translator->trans('result.unknown'));
@@ -489,21 +489,21 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$jobFinished = false;
 			$i = 1;
 			do {
-				$job = $this->getSharedConfig()->fetchJob($jsonResult['job'], $this->writerId, $this->projectId);
+				$job = $this->getSharedStorage()->fetchJob($jsonResult['job'], $this->writerId, $this->projectId);
 				if (!$job) {
 					throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
 				}
-				$jobInfo = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
-				if (isset($jobInfo['status']) && SharedConfig::isJobFinished($jobInfo['status'])) {
+				$jobInfo = $this->getSharedStorage()->jobToApiResponse($job, $this->getS3Client());
+				if (isset($jobInfo['status']) && SharedStorage::isJobFinished($jobInfo['status'])) {
 					$jobFinished = true;
 				}
 				if (!$jobFinished) sleep($i * 5);
 				$i++;
 			} while(!$jobFinished);
 
-			if ($jobInfo['status'] == SharedConfig::JOB_STATUS_SUCCESS) {
+			if ($jobInfo['status'] == SharedStorage::JOB_STATUS_SUCCESS) {
 				// Do nothing
-			} elseif ($jobInfo['status'] == SharedConfig::JOB_STATUS_CANCELLED) {
+			} elseif ($jobInfo['status'] == SharedStorage::JOB_STATUS_CANCELLED) {
 				throw new JobProcessException($this->translator->trans('result.cancelled'));
 			} else {
 				$e = new JobProcessException(!empty($jobInfo['result']['error'])? $jobInfo['result']['error'] : $this->translator->trans('result.unknown'));
@@ -512,14 +512,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			}
 		}
 
-		if (!$this->getSharedConfig()->userBelongsToWriter($this->projectId, $this->writerId, $this->params['email'])) {
+		if (!$this->getSharedStorage()->userBelongsToWriter($this->projectId, $this->writerId, $this->params['email'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.sso_wrong_email'));
 		}
 
 		$targetUrl = isset($this->params['targetUrl'])? $this->params['targetUrl'] : '/#s=/gdc/projects/' . $this->params['pid'];
 		$validity = (isset($this->params['validity']))? $this->params['validity'] : 86400;
 
-		$domainUser = $this->getSharedConfig()->getDomainUser($this->appConfiguration->gd_domain);
+		$domainUser = $this->getSharedStorage()->getDomainUser($this->appConfiguration->gd_domain);
 		$sso = new SSO($domainUser->username, $this->appConfiguration, $this->container->get('syrup.temp'));
 		$ssoLink = $sso->url($targetUrl, $this->params['email'], $validity);
 
@@ -834,7 +834,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, array('pid' => $pid, 'tableId' => $params['tableId']), $batchId,
 				isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $datasetName));
 			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $job['id'], $params['tableId']), json_encode($definition));
-			$this->sharedConfig->saveJob($job['id'], array('definition' => $definitionUrl));
+			$this->sharedStorage->saveJob($job['id'], array('definition' => $definitionUrl));
 		}
 
 		$this->enqueueWriter($batchId);
@@ -867,7 +867,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $loadParams, $batchId,
 					isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $datasetName));
 				$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $job['id'], $tableId), json_encode($definition));
-				$this->sharedConfig->saveJob($job['id'], array('definition' => $definitionUrl));
+				$this->sharedStorage->saveJob($job['id'], array('definition' => $definitionUrl));
 			}
 		}
 
@@ -905,7 +905,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $loadParams,
 				$batchId, isset($this->params['queue'])? $this->params['queue'] : null);
 			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/definition.json', $job['id']), json_encode($definition));
-			$this->sharedConfig->saveJob($job['id'], array('definition' => $definitionUrl));
+			$this->sharedStorage->saveJob($job['id'], array('definition' => $definitionUrl));
 		}
 
 		$this->enqueueWriter($batchId);
@@ -998,7 +998,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 						array('dataset' => $dataSetName, 'runId' => $runId));
 
 					$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $this->params['tableId']), json_encode($definition));
-					$this->sharedConfig->saveJob($jobData['id'], array(
+					$this->sharedStorage->saveJob($jobData['id'], array(
 						'definition' => $definitionUrl
 					));
 				}
@@ -1013,7 +1013,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'loadData', $params, $batchId,
 					isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $dataSetName, 'runId' => $runId));
 				$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $job['id'], $this->params['tableId']), json_encode($definition));
-				$this->sharedConfig->saveJob($job['id'], array('definition' => $definitionUrl));
+				$this->sharedStorage->saveJob($job['id'], array('definition' => $definitionUrl));
 			}
 		} catch (RestApiException $e) {
 			$e = new JobProcessException($e->getMessage(), $e);
@@ -1115,7 +1115,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 							array('dataset' => $dataSet['title'], 'runId' => $runId));
 
 						$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $dataSet['tableId']), json_encode($dataSet['definition']));
-						$this->sharedConfig->saveJob($jobData['id'], array(
+						$this->sharedStorage->saveJob($jobData['id'], array(
 							'definition' => $definitionUrl
 						));
 					}
@@ -1132,7 +1132,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 						array('dataset' => $dataSet['title'], 'runId' => $runId));
 
 					$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $dataSet['tableId']), json_encode($dataSet['definition']));
-					$this->sharedConfig->saveJob($jobData['id'], array(
+					$this->sharedStorage->saveJob($jobData['id'], array(
 						'definition' => $definitionUrl
 					));
 				}
@@ -1439,13 +1439,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			$command = empty($this->params['command']) ? null : $this->params['command'];
 			$tokenId = empty($this->params['tokenId']) ? null : $this->params['tokenId'];
 			$status = empty($this->params['status']) ? null : $this->params['status'];
-			$jobs = $this->getSharedConfig()->fetchJobs($this->projectId, $this->writerId, $days, $tableId);
+			$jobs = $this->getSharedStorage()->fetchJobs($this->projectId, $this->writerId, $days, $tableId);
 
 			$result = array();
 			foreach ($jobs as $job) {
 				if ((empty($command) || $command == $job['command']) && (empty($tokenId) || $tokenId == $job['tokenId'])
 					&& (empty($status) || $status == $job['status'])) {
-					$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
 					if (empty($tableId) || (!empty($job['parameters']['tableId']) && $job['parameters']['tableId'] == $tableId)) {
 						$result[] = $job;
 					}
@@ -1459,12 +1458,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			if (is_array($this->params['jobId'])) {
 				throw new WrongParametersException($this->translator->trans('parameters.jobId_number'));
 			}
-			$job = $this->getSharedConfig()->fetchJob($this->params['jobId'], $this->writerId, $this->projectId);
+			$job = $this->getSharedStorage()->fetchJob($this->params['jobId'], $this->writerId, $this->projectId);
 			if (!$job) {
 				throw new WrongParametersException($this->translator->trans('parameters.job'));
 			}
 
-			$job = $this->getSharedConfig()->jobToApiResponse($job, $this->getS3Client());
+			$job = $this->getSharedStorage()->jobToApiResponse($job, $this->getS3Client());
 
 			$this->logApiCall();
 			return $this->createJsonResponse($job);
@@ -1482,7 +1481,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkParams(array('writerId', 'batchId'));
 		$this->checkWriterExistence();
 
-		$batch = $this->getSharedConfig()->batchToApiResponse($this->params['batchId'], $this->getS3Client());
+		$batch = $this->getSharedStorage()->batchToApiResponse($this->params['batchId'], $this->getS3Client());
 
 		$this->logApiCall();
 		return $this->createJsonResponse($batch);
@@ -1498,7 +1497,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	{
 		$this->checkParams(array('writerId'));
 
-		$this->getSharedConfig()->cancelJobs($this->projectId, $this->writerId);
+		$this->getSharedStorage()->cancelJobs($this->projectId, $this->writerId);
 		return $this->createApiResponse();
 	}
 
@@ -1572,7 +1571,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.required'));
 		}
 		if (!$this->configuration) {
-			$this->configuration = new Configuration($this->storageApi, $this->getSharedConfig());
+			$this->configuration = new Configuration($this->storageApi, $this->getSharedStorage());
 			$this->configuration->setWriterId($this->writerId);
 		}
 		return $this->configuration;
@@ -1593,15 +1592,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		return $this->s3Client;
 	}
 
-	private function getSharedConfig()
+	private function getSharedStorage()
 	{
-		if (!$this->sharedConfig) {
+		if (!$this->sharedStorage) {
 			if (!$this->appConfiguration) {
 				$this->appConfiguration = $this->container->get('gooddata_writer.app_configuration');
 			}
-			$this->sharedConfig = $this->container->get('gooddata_writer.shared_config');
+			$this->sharedStorage = $this->container->get('gooddata_writer.shared_storage');
 		}
-		return $this->sharedConfig;
+		return $this->sharedStorage;
 	}
 
 	private function checkParams($required)
@@ -1615,7 +1614,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 	private function checkWriterExistence()
 	{
-		if (!$this->getSharedConfig()->writerExists($this->projectId, $this->writerId)) {
+		if (!$this->getSharedStorage()->writerExists($this->projectId, $this->writerId)) {
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.not_found'));
 		}
 	}
@@ -1657,7 +1656,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		/**
 		 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 		 */
-		$command = new $commandClass($this->getConfiguration(), $this->appConfiguration, $this->getSharedConfig(),
+		$command = new $commandClass($this->getConfiguration(), $this->appConfiguration, $this->getSharedStorage(),
 			$this->getS3Client(), $this->translator, $this->storageApi, $this->eventLogger);
 		$command->setQueue($this->container->get('gooddata_writer.jobs_queue'));
 		return $command;

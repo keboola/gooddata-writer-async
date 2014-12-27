@@ -58,7 +58,7 @@ class CreateUser extends AbstractJob
 
 		$this->configuration->saveUser($params['email'], $userId);
 		if (!$alreadyExists) {
-			$this->sharedConfig->saveUser($job['projectId'], $job['writerId'], $userId, $params['email']);
+			$this->sharedStorage->saveUser($job['projectId'], $job['writerId'], $userId, $params['email']);
 		}
 
 		return array(

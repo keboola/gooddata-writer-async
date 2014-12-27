@@ -109,7 +109,6 @@ class UploadDateDimension extends AbstractJob
 				), $e->getDuration());
 
 				// Run ETL task of time dimensions
-				$gdWriteStartTime = date('c');
 				$stopWatchId = sprintf('runEtlTimeDimension-%s', $params['name']);
 				$stopWatch->start($stopWatchId);
 
@@ -155,9 +154,6 @@ class UploadDateDimension extends AbstractJob
 			$this->configuration->setDateDimensionIsExported($params['name']);
 		} else {
 			$result['error'] = $error;
-		}
-		if (!empty($gdWriteStartTime)) {
-			$result['gdWriteStartTime'] = $gdWriteStartTime;
 		}
 
 		return $result;

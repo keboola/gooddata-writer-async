@@ -9,7 +9,7 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
-use Keboola\GoodDataWriter\Writer\SharedConfig;
+use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Symfony\Component\Process\Process;
 
 class InvitationsHandler
@@ -21,12 +21,12 @@ class InvitationsHandler
 	private $gdPassword;
 	private $emailUsername;
 	private $emailPassword;
-	private $sharedConfig;
+	private $sharedStorage;
 
-	public function __construct(AppConfiguration $appConfiguration, SharedConfig $sharedConfig)
+	public function __construct(AppConfiguration $appConfiguration, SharedStorage $sharedStorage)
 	{
-		$this->sharedConfig = $sharedConfig;
-		$domainUser = $sharedConfig->getDomainUser($appConfiguration->gd_domain);
+		$this->sharedStorage = $sharedStorage;
+		$domainUser = $sharedStorage->getDomainUser($appConfiguration->gd_domain);
 		$this->gdUsername = $domainUser->username;
 		$this->gdPassword = $domainUser->password;
 		$this->emailUsername = $appConfiguration->gd_invitations_email;
@@ -58,7 +58,7 @@ class InvitationsHandler
 				foreach (explode("\n", $result) as $row) {
 					$json = json_decode($row, true);
 					if ($json && !empty($json['pid']) && !empty($json['sender']) && !empty($json['createDate']) && !empty($json['status'])) {
-						$this->sharedConfig->logInvitation($json);
+						$this->sharedStorage->logInvitation($json);
 					}
 				}
 			}

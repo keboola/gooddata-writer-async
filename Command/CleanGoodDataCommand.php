@@ -8,7 +8,7 @@ namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
-use Keboola\GoodDataWriter\Writer\SharedConfig;
+use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand,
 	Symfony\Component\Console\Input\InputInterface,
 	Symfony\Component\Console\Output\OutputInterface;
@@ -29,10 +29,10 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 	{
 		/** @var AppConfiguration $appConfiguration */
 		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
-		/** @var SharedConfig $sharedConfig */
-		$sharedConfig = $this->getContainer()->get('gooddata_writer.shared_config');
+		/** @var SharedStorage $sharedStorage */
+		$sharedStorage = $this->getContainer()->get('gooddata_writer.shared_storage');
 
-		$lock = $sharedConfig->getLock('CleanGoodDataCommand');
+		$lock = $sharedStorage->getLock('CleanGoodDataCommand');
 		if (!$lock->lock()) {
 			return;
 		}
@@ -42,11 +42,11 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 
 		/** @var RestApi */
 		$restApi = $this->getContainer()->get('gooddata_writer.rest_api');
-		$domainUser = $sharedConfig->getDomainUser($appConfiguration->gd_domain);
+		$domainUser = $sharedStorage->getDomainUser($appConfiguration->gd_domain);
 		$restApi->login($domainUser->username, $domainUser->password);
 
 		$pids = array();
-		foreach ($sharedConfig->projectsToDelete() as $project) {
+		foreach ($sharedStorage->projectsToDelete() as $project) {
 			try {
 				$restApi->dropProject($project['pid']);
 				$output->writeln(sprintf('Project %s deleted', $project['pid']));
@@ -60,11 +60,11 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		}
 
 		if (count($pids)) {
-			$sharedConfig->markProjectsDeleted($pids);
+			$sharedStorage->markProjectsDeleted($pids);
 		}
 
 		$uids = array();
-		foreach ($sharedConfig->usersToDelete() as $user) {
+		foreach ($sharedStorage->usersToDelete() as $user) {
 			try {
 				$restApi->dropUser($user['uid']);
 				$output->writeln(sprintf('User %s deleted', $user['uid']));
@@ -78,7 +78,7 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 		}
 
 		if (count($uids)) {
-			$sharedConfig->markUsersDeleted($uids);
+			$sharedStorage->markUsersDeleted($uids);
 		}
 
 		$lock->unlock();

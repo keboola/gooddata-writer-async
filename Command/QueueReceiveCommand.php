@@ -2,7 +2,7 @@
 namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\GoodDataWriter\Writer\QueueUnavailableException;
-use Keboola\GoodDataWriter\Writer\SharedConfig;
+use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -130,16 +130,16 @@ class QueueReceiveCommand extends ContainerAwareCommand
 
 	protected function errorMaximumRetriesExceeded($batchId)
 	{
-		$sharedConfig = $this->getContainer()->get('gooddata_writer.shared_config');
+		$sharedStorage = $this->getContainer()->get('gooddata_writer.shared_storage');
 
-		$batch = $sharedConfig->fetchBatch($batchId);
+		$batch = $sharedStorage->fetchBatch($batchId);
 		if (!$batch) {
 			return;
 		}
 
 		foreach ($batch as $job) {
-			$sharedConfig->saveJob($job['id'], array(
-				'status' => SharedConfig::JOB_STATUS_ERROR,
+			$sharedStorage->saveJob($job['id'], array(
+				'status' => SharedStorage::JOB_STATUS_ERROR,
 				'error' => $this->translator->trans('error.max_retries_exceeded')
 			));
 		}
