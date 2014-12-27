@@ -9,7 +9,7 @@ namespace Keboola\GoodDataWriter\Job;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
-use Keboola\GoodDataWriter\Writer\SharedConfig;
+use Keboola\GoodDataWriter\Writer\SharedStorage;
 
 class OptimizeSliHash extends AbstractJob
 {
@@ -18,7 +18,7 @@ class OptimizeSliHash extends AbstractJob
 	{
 		$this->checkParams($params, array('writerId'));
 		$this->checkWriterExistence($params['writerId']);
-		$this->sharedConfig->setWriterStatus($this->configuration->projectId, $params['writerId'], SharedConfig::WRITER_STATUS_MAINTENANCE);
+		$this->sharedStorage->setWriterStatus($this->configuration->projectId, $params['writerId'], SharedStorage::WRITER_STATUS_MAINTENANCE);
 		return array();
 	}
 
@@ -44,20 +44,20 @@ class OptimizeSliHash extends AbstractJob
 			}
 
 			// Ensure that all other jobs are finished
-			$this->sharedConfig->saveJob($job['id'], array('status' => SharedConfig::JOB_STATUS_WAITING));
+			$this->sharedStorage->saveJob($job['id'], array('status' => SharedStorage::JOB_STATUS_WAITING));
 			$i = 0;
 			do {
 				sleep($i * 60);
 				$wait = false;
-				foreach($this->sharedConfig->fetchJobs($this->configuration->projectId, $this->configuration->writerId, 2) as $job) {
+				foreach($this->sharedStorage->fetchJobs($this->configuration->projectId, $this->configuration->writerId, 2) as $job) {
 					$queueIdArray = explode('.', $job['queueId']);
-					if ($job['status'] == SharedConfig::JOB_STATUS_PROCESSING && (isset($queueIdArray[2]) && $queueIdArray[2] != SharedConfig::SERVICE_QUEUE)) {
+					if ($job['status'] == SharedStorage::JOB_STATUS_PROCESSING && (isset($queueIdArray[2]) && $queueIdArray[2] != SharedStorage::SERVICE_QUEUE)) {
 						$wait = true;
 					}
 				}
 				$i++;
 			} while ($wait);
-			$this->sharedConfig->saveJob($job['id'], array('status' => SharedConfig::JOB_STATUS_PROCESSING));
+			$this->sharedStorage->saveJob($job['id'], array('status' => SharedStorage::JOB_STATUS_PROCESSING));
 
 			$bucketAttributes = $this->configuration->bucketAttributes();
 			$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -78,11 +78,11 @@ class OptimizeSliHash extends AbstractJob
 
 			$restApi->optimizeSliHash($bucketAttributes['gd']['pid'], $manifests);
 
-			$this->sharedConfig->setWriterStatus($job['projectId'], $job['writerId'], SharedConfig::WRITER_STATUS_READY);
+			$this->sharedStorage->setWriterStatus($job['projectId'], $job['writerId'], SharedStorage::WRITER_STATUS_READY);
 
 			return array();
 		} catch (\Exception $e) {
-			$this->sharedConfig->setWriterStatus($job['projectId'], $job['writerId'], SharedConfig::WRITER_STATUS_READY);
+			$this->sharedStorage->setWriterStatus($job['projectId'], $job['writerId'], SharedStorage::WRITER_STATUS_READY);
 			throw $e;
 		}
 	}

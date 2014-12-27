@@ -8,7 +8,7 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
-use Keboola\GoodDataWriter\Writer\SharedConfig;
+use Keboola\GoodDataWriter\Writer\SharedStorage;
 
 class WaitForInvitation extends AbstractJob
 {
@@ -31,7 +31,7 @@ class WaitForInvitation extends AbstractJob
 		if ($restApi->hasAccessToProject($bucketAttributes['gd']['pid'])) {
 
 			$restApi->addUserToProject($bucketAttributes['gd']['uid'], $bucketAttributes['gd']['pid']);
-			$this->sharedConfig->setWriterStatus($job['projectId'], $job['writerId'], SharedConfig::WRITER_STATUS_READY);
+			$this->sharedStorage->setWriterStatus($job['projectId'], $job['writerId'], SharedStorage::WRITER_STATUS_READY);
 			$this->configuration->updateWriter('waitingForInvitation', null);
 
 		} else {
@@ -41,14 +41,15 @@ class WaitForInvitation extends AbstractJob
 			}
 
 			$tokenData = $this->storageApiClient->getLogData();
-			$waitJob = $this->sharedConfig->createJob($this->configuration->projectId, $this->configuration->writerId,
-				$this->storageApiClient->getRunId(), $this->storageApiClient->token, $tokenData['id'], $tokenData['description'], array(
+			$waitJob = $this->sharedStorage->createJob($this->storageApiClient->generateId(),
+				$this->configuration->projectId, $this->configuration->writerId, $this->storageApiClient->getRunId(),
+				$this->storageApiClient->token, $tokenData['id'], $tokenData['description'], array(
 				'command' => 'waitForInvitation',
 				'createdTime' => date('c'),
 				'parameters' => array(
 					'try' => $params['try'] + 1
 				),
-				'queue' => SharedConfig::SERVICE_QUEUE
+				'queue' => SharedStorage::SERVICE_QUEUE
 			));
 			$this->queue->enqueue(array(
 				'projectId' => $this->configuration->projectId,
@@ -57,7 +58,7 @@ class WaitForInvitation extends AbstractJob
 			), $params['try'] * 60);
 
 			return array(
-				'status' => SharedConfig::JOB_STATUS_ERROR,
+				'status' => SharedStorage::JOB_STATUS_ERROR,
 				'error' => $this->translator->trans('wait_for_invitation.not_yet_ready')
 			);
 

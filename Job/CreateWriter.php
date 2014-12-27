@@ -11,7 +11,7 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\GoodData\UserAlreadyExistsException;
 use Keboola\GoodDataWriter\Exception\JobProcessException;
-use Keboola\GoodDataWriter\Writer\SharedConfig;
+use Keboola\GoodDataWriter\Writer\SharedStorage;
 
 class CreateWriter extends AbstractJob
 {
@@ -71,7 +71,7 @@ class CreateWriter extends AbstractJob
 		}
 
 		$this->configuration->createWriter($params['writerId']);
-		$this->sharedConfig->setWriterStatus($projectId, $params['writerId'], SharedConfig::WRITER_STATUS_PREPARING);
+		$this->sharedStorage->setWriterStatus($projectId, $params['writerId'], SharedStorage::WRITER_STATUS_PREPARING);
 
 		return $result;
 	}
@@ -132,17 +132,18 @@ class CreateWriter extends AbstractJob
 				}
 
 				$this->configuration->updateWriter('waitingForInvitation', '1');
-				$this->sharedConfig->setWriterStatus($job['projectId'], $job['writerId'], SharedConfig::WRITER_STATUS_MAINTENANCE);
+				$this->sharedStorage->setWriterStatus($job['projectId'], $job['writerId'], SharedStorage::WRITER_STATUS_MAINTENANCE);
 
 				$tokenData = $this->storageApiClient->getLogData();
-				$waitJob = $this->sharedConfig->createJob($this->configuration->projectId, $this->configuration->writerId,
-					$this->storageApiClient->getRunId(), $this->storageApiClient->token, $tokenData['id'], $tokenData['description'], array(
+				$waitJob = $this->sharedStorage->createJob($this->storageApiClient->generateId(),
+					$this->configuration->projectId, $this->configuration->writerId, $this->storageApiClient->getRunId(),
+					$this->storageApiClient->token, $tokenData['id'], $tokenData['description'], array(
 						'command' => 'waitForInvitation',
 						'createdTime' => date('c'),
 						'parameters' => array(
 							'try' => 1
 						),
-						'queue' => SharedConfig::SERVICE_QUEUE
+						'queue' => SharedStorage::SERVICE_QUEUE
 					));
 				$this->queue->enqueue(array(
 					'projectId' => $waitJob['projectId'],
@@ -171,9 +172,9 @@ class CreateWriter extends AbstractJob
 			}
 
 
-			$this->sharedConfig->saveProject($job['projectId'], $job['writerId'], $projectPid, isset($params['accessToken']) ? $params['accessToken'] : null, $existingProject);
-			$this->sharedConfig->saveUser($job['projectId'], $job['writerId'], $userId, $username);
-			$this->sharedConfig->setWriterStatus($job['projectId'], $job['writerId'], SharedConfig::WRITER_STATUS_READY);
+			$this->sharedStorage->saveProject($job['projectId'], $job['writerId'], $projectPid, isset($params['accessToken']) ? $params['accessToken'] : null, $existingProject);
+			$this->sharedStorage->saveUser($job['projectId'], $job['writerId'], $userId, $username);
+			$this->sharedStorage->setWriterStatus($job['projectId'], $job['writerId'], SharedStorage::WRITER_STATUS_READY);
 
 
 			return array(
@@ -181,8 +182,8 @@ class CreateWriter extends AbstractJob
 				'pid' => $projectPid
 			);
 		} catch (\Exception $e) {
-			$this->sharedConfig->updateWriter($job['projectId'], $job['writerId'], array(
-				'status' => SharedConfig::WRITER_STATUS_ERROR,
+			$this->sharedStorage->updateWriter($job['projectId'], $job['writerId'], array(
+				'status' => SharedStorage::WRITER_STATUS_ERROR,
 				'failure' => $e->getMessage()
 			));
 			throw $e;

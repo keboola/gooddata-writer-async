@@ -68,7 +68,7 @@ class CloneProject extends AbstractJob
 		$restApi->addUserToProject($bucketAttributes['gd']['uid'], $projectPid);
 
 		$this->configuration->saveProject($projectPid);
-		$this->sharedConfig->saveProject($job['projectId'], $job['writerId'], $projectPid);
+		$this->sharedStorage->saveProject($job['projectId'], $job['writerId'], $projectPid);
 
 		return array(
 			'pid' => $projectPid

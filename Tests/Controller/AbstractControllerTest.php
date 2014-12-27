@@ -7,7 +7,7 @@ namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
-use Keboola\GoodDataWriter\Writer\SharedConfig;
+use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase,
 	Symfony\Bundle\FrameworkBundle\Console\Application,
 	Symfony\Component\Console\Tester\CommandTester;
@@ -47,9 +47,9 @@ abstract class AbstractControllerTest extends WebTestCase
 	 */
 	protected $appConfiguration;
 	/**
-	 * @var SharedConfig
+	 * @var SharedStorage
 	 */
-	protected $sharedConfig;
+	protected $sharedStorage;
 	protected $domainUser;
 
 
@@ -94,8 +94,8 @@ abstract class AbstractControllerTest extends WebTestCase
 			'url' => $container->getParameter('storage_api.url'))
 		);
 
-		$this->sharedConfig = $container->get('gooddata_writer.shared_config');
-		$this->domainUser = $this->sharedConfig->getDomainUser($this->appConfiguration->gd_domain);
+		$this->sharedStorage = $container->get('gooddata_writer.shared_storage');
+		$this->domainUser = $this->sharedStorage->getDomainUser($this->appConfiguration->gd_domain);
 
 
 		$this->restApi = $container->get('gooddata_writer.rest_api');
@@ -168,7 +168,7 @@ abstract class AbstractControllerTest extends WebTestCase
 		$this->processJob('/writers', array());
 
 		// Reset configuration
-		$this->configuration = new Configuration($this->storageApi, $this->sharedConfig);
+		$this->configuration = new Configuration($this->storageApi, $this->sharedStorage);
 		$this->configuration->setWriterId($this->writerId);
 	}
 
@@ -251,7 +251,7 @@ abstract class AbstractControllerTest extends WebTestCase
 		));
 
 		// Reset configuration
-		$this->configuration = new Configuration($this->storageApi, $this->sharedConfig);
+		$this->configuration = new Configuration($this->storageApi, $this->sharedStorage);
 		$this->configuration->setWriterId($this->writerId);
 	}
 

@@ -11,7 +11,7 @@ use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Service\Queue;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\GoodDataWriter\Writer\SharedConfig,
+	Keboola\GoodDataWriter\Writer\SharedStorage,
 	Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\StorageApi\Client as StorageApiClient;
@@ -30,9 +30,9 @@ abstract class AbstractJob
 	 */
 	protected $appConfiguration;
 	/**
-	 * @var SharedConfig
+	 * @var SharedStorage
 	 */
-	protected $sharedConfig;
+	protected $sharedStorage;
 	/**
 	 * @var S3Client
 	 */
@@ -73,13 +73,13 @@ abstract class AbstractJob
 	protected $scriptsPath;
 
 
-	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedConfig $sharedConfig,
+	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedStorage $sharedStorage,
 	                            S3Client $s3Client, TranslatorInterface $translator, StorageApiClient $storageApiClient,
 								EventLogger $eventLogger)
 	{
 		$this->configuration = $configuration;
 		$this->appConfiguration = $appConfiguration;
-		$this->sharedConfig = $sharedConfig;
+		$this->sharedStorage = $sharedStorage;
 		$this->s3Client = $s3Client;
 		$this->translator = $translator;
 		$this->storageApiClient = $storageApiClient;
@@ -105,7 +105,7 @@ abstract class AbstractJob
 	protected function getDomainUser()
 	{
 		if (!$this->domainUser) {
-			$this->domainUser = $this->sharedConfig->getDomainUser($this->configuration->gdDomain?
+			$this->domainUser = $this->sharedStorage->getDomainUser($this->configuration->gdDomain?
 				$this->configuration->gdDomain : $this->appConfiguration->gd_domain);
 		}
 		return $this->domainUser;
@@ -161,7 +161,7 @@ abstract class AbstractJob
 		$tokenInfo = $this->storageApiClient->getLogData();
 		$projectId = $tokenInfo['owner']['id'];
 
-		if (!$this->sharedConfig->writerExists($projectId, $writerId)) {
+		if (!$this->sharedStorage->writerExists($projectId, $writerId)) {
 			throw new WrongConfigurationException($this->translator->trans('parameters.writerId.not_found'));
 		}
 	}

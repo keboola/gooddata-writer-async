@@ -8,7 +8,7 @@ namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Writer\Configuration;
-use Keboola\GoodDataWriter\Writer\SharedConfig;
+use Keboola\GoodDataWriter\Writer\SharedStorage;
 
 class WritersTest extends AbstractControllerTest
 {
@@ -70,7 +70,7 @@ class WritersTest extends AbstractControllerTest
 			'users' => $user1 . ',' . $user2,
 			'description' => $description
 		));
-		$this->configuration = new Configuration($this->storageApi, $this->sharedConfig);
+		$this->configuration = new Configuration($this->storageApi, $this->sharedStorage);
 		$this->configuration->setWriterId($writerId);
 
 		// Check invitations existence in GD
@@ -146,20 +146,20 @@ class WritersTest extends AbstractControllerTest
 			$jobsFinished = true;
 			$jobs = $this->getWriterApi('/jobs?writerId=' . $existingProjectWriterId);
 			foreach($jobs['jobs'] as $job) {
-				if (!SharedConfig::isJobFinished($job['status'])) {
+				if (!SharedStorage::isJobFinished($job['status'])) {
 					$this->commandTester->execute(array(
 						'command' => 'gooddata-writer:execute-job',
 						'batchId' => $job['id']
 					));
 					$jobInfo = $this->getWriterApi('/jobs?writerId=' . $existingProjectWriterId . '&jobId=' . $job['id']);
-					if ($jobInfo['status'] != SharedConfig::JOB_STATUS_SUCCESS)
+					if ($jobInfo['status'] != SharedStorage::JOB_STATUS_SUCCESS)
 						$jobsFinished = false;
 				}
 			}
 			$i++;
 		} while (!$jobsFinished);
 
-		$configuration = new Configuration($this->storageApi, $this->sharedConfig);
+		$configuration = new Configuration($this->storageApi, $this->sharedStorage);
 		$configuration->setWriterId($existingProjectWriterId);
 		$bucketAttributes = $configuration->bucketAttributes();
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);

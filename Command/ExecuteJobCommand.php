@@ -1,6 +1,7 @@
 <?php
 namespace Keboola\GoodDataWriter\Command;
 
+use Keboola\GoodDataWriter\Writer\JobExecutor;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -25,8 +26,9 @@ class ExecuteJobCommand extends ContainerAwareCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
+		/** @var JobExecutor $executor */
 		$executor = $this->getContainer()->get('gooddata_writer.job_executor');
-		$executor->runJob($input->getArgument('jobId'), $input->getOption('force'));
+		$executor->run($input->getArgument('jobId'), $input->getOption('force'));
 	}
 
 }

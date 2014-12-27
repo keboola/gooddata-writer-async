@@ -80,9 +80,9 @@ class Configuration extends StorageApiConfiguration
 
 
 	/**
-	 * @var SharedConfig
+	 * @var SharedStorage
 	 */
-	private $sharedConfig;
+	private $sharedStorage;
 
 	public $bucketId;
 	public $projectId;
@@ -98,10 +98,10 @@ class Configuration extends StorageApiConfiguration
 	 * Prepare configuration
 	 * Get bucket attributes for Rest API calls
 	 */
-	public function __construct(StorageApiClient $storageApiClient, SharedConfig $sharedConfig)
+	public function __construct(StorageApiClient $storageApiClient, SharedStorage $sharedStorage)
 	{
 		parent::__construct($storageApiClient);
-		$this->sharedConfig = $sharedConfig;
+		$this->sharedStorage = $sharedStorage;
 
 		$logData = $this->storageApiClient->getLogData();
 		if (!empty($logData['owner']['features'])) {
@@ -119,15 +119,15 @@ class Configuration extends StorageApiConfiguration
 		$this->projectId = $this->tokenInfo['owner']['id'];
 
 		try {
-			$writer = $this->sharedConfig->getWriter($this->projectId, $writerId);
+			$writer = $this->sharedStorage->getWriter($this->projectId, $writerId);
 			$this->bucketId = $writer['bucket'];
 			$this->noDateFacts = !$writer['feats']['date_facts'];
-		} catch (SharedConfigException $e) {
+		} catch (SharedStorageException $e) {
 			$this->bucketId = 'sys.c-wr-gooddata-' . $writerId;
 			try {
-				$this->sharedConfig->createWriter($this->projectId, $writerId, $this->bucketId, $this->tokenInfo['id'], $this->tokenInfo['description']);
-				$this->sharedConfig->setWriterStatus($this->projectId, $writerId, SharedConfig::WRITER_STATUS_READY);
-			} catch (SharedConfigException $e) {}
+				$this->sharedStorage->createWriter($this->projectId, $writerId, $this->bucketId, $this->tokenInfo['id'], $this->tokenInfo['description']);
+				$this->sharedStorage->setWriterStatus($this->projectId, $writerId, SharedStorage::WRITER_STATUS_READY);
+			} catch (SharedStorageException $e) {}
 		}
 	}
 
@@ -182,7 +182,7 @@ class Configuration extends StorageApiConfiguration
 		try {
 			$this->checkBucketAttributes($attributes);
 		} catch (WrongConfigurationException $e) {
-			$attributes['status'] = SharedConfig::WRITER_STATUS_ERROR;
+			$attributes['status'] = SharedStorage::WRITER_STATUS_ERROR;
 			$attributes['info'] = $e->getMessage();
 		}
 

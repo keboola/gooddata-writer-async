@@ -18,8 +18,8 @@ class DeleteWriter extends AbstractJob
 		$this->checkParams($params, array('writerId'));
 		$this->checkWriterExistence($params['writerId']);
 
-		$this->sharedConfig->cancelJobs($this->configuration->projectId, $this->configuration->writerId);
-		$this->sharedConfig->deleteWriter($this->configuration->projectId, $this->configuration->writerId);
+		$this->sharedStorage->cancelJobs($this->configuration->projectId, $this->configuration->writerId);
+		$this->sharedStorage->deleteWriter($this->configuration->projectId, $this->configuration->writerId);
 
 		return array();
 	}
@@ -36,16 +36,16 @@ class DeleteWriter extends AbstractJob
 
 		$restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
 
-		foreach ($this->sharedConfig->getProjects($job['projectId'], $job['writerId']) as $project) if (!$project['keep_on_removal']) {
+		foreach ($this->sharedStorage->getProjects($job['projectId'], $job['writerId']) as $project) if (!$project['keep_on_removal']) {
 			if ($this->configuration->testingWriter) {
 				try {
 					$restApi->dropProject($project['pid']);
 				} catch (RestApiException $e) {
 					// Ignore, project may have been already deleted
 				}
-				$this->sharedConfig->markProjectsDeleted(array($project['pid']));
+				$this->sharedStorage->markProjectsDeleted(array($project['pid']));
 			} else {
-				$this->sharedConfig->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid']);
+				$this->sharedStorage->enqueueProjectToDelete($job['projectId'], $job['writerId'], $project['pid']);
 
 				// Disable users in project
 				try {
@@ -63,13 +63,13 @@ class DeleteWriter extends AbstractJob
 
 		// Remove only users created by Writer
 		$writerDomain = substr($this->appConfiguration->gd_userEmailTemplate, strpos($this->appConfiguration->gd_userEmailTemplate, '@'));
-		foreach ($this->sharedConfig->getUsers($job['projectId'], $job['writerId']) as $user) {
+		foreach ($this->sharedStorage->getUsers($job['projectId'], $job['writerId']) as $user) {
 			if (strpos($user['email'], $writerDomain) !== false) {
 				if ($this->configuration->testingWriter) {
 					$restApi->dropUser($user['uid']);
-					$this->sharedConfig->markUsersDeleted(array($user['uid']));
+					$this->sharedStorage->markUsersDeleted(array($user['uid']));
 				} else {
-					$this->sharedConfig->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid']);
+					$this->sharedStorage->enqueueUserToDelete($job['projectId'], $job['writerId'], $user['uid']);
 				}
 			}
 		}

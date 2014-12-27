@@ -1,6 +1,9 @@
 <?php
 namespace Keboola\GoodDataWriter\Command;
 
+use Keboola\GoodDataWriter\Writer\JobExecutor;
+use Keboola\GoodDataWriter\Writer\QueueUnavailableException;
+use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -25,8 +28,30 @@ class ExecuteBatchCommand extends ContainerAwareCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
+		/** @var JobExecutor $executor */
 		$executor = $this->getContainer()->get('gooddata_writer.job_executor');
-		$executor->runBatch($input->getArgument('batchId'), $input->getOption('force'));
+		/** @var SharedStorage $sharedStorage */
+		$sharedStorage = $this->getContainer()->get('gooddata_writer.shared_storage');
+
+		$batch = $sharedStorage->batchToApiResponse($input->getArgument('batchId'));
+
+		// Batch already executed?
+		if (!$input->getOption('force') && $batch['status'] != SharedStorage::JOB_STATUS_WAITING) {
+			return;
+		}
+
+		// Lock
+		$lock = $sharedStorage->getLock($batch['queueId']);
+		if (!$lock->lock()) {
+			throw new QueueUnavailableException($this->getContainer()->get('translator')->trans('queue.in_use %1',
+				array('%1' => $input->getArgument('batchId'))));
+		}
+
+		foreach ($batch['jobs'] as $job) {
+			$executor->run($job['id'], $input->getOption('force'));
+		}
+
+		$lock->unlock();
 	}
 
 }
