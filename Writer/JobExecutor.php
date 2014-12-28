@@ -90,7 +90,7 @@ class JobExecutor
 	 * Job execution
 	 * Performs execution of job tasks and logging
 	 */
-	public function run($jobId, $forceRun = false)
+	public function run($jobId, $forceRun=false)
 	{
 		$this->temp->initRunFolder();
 
@@ -239,7 +239,7 @@ class JobExecutor
 	/**
 	 * Log event to client SAPI and to system log
 	 */
-	protected function logEvent($message, $job, $data = null, $startTime = null)
+	protected function logEvent($message, $job, $data=null, $startTime=null)
 	{
 		$logData = array(
 			'jobId' => $job['id'],
