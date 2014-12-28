@@ -232,7 +232,7 @@ class SharedStorage
 		foreach ($keysToDecode as $key) {
 			if (isset($job[$key])) {
 				$decodedParameters = json_decode($job[$key], true);
-				if ($decodedParameters) {
+				if (is_array($decodedParameters)) {
 					$job[$key] = $decodedParameters;
 				}
 			}
