@@ -54,10 +54,8 @@ class SharedStorage
 
 	public function __construct(Connection $db, Encryptor $encryptor)
 	{
-		$this->encryptor = $encryptor;
-
 		$this->db = $db;
-		$this->db->exec('SET wait_timeout = 31536000;');
+		$this->encryptor = $encryptor;
 	}
 
 	public function getLock($name)
@@ -192,7 +190,7 @@ class SharedStorage
 	 * @param null $projectId
 	 * @return mixed
 	 */
-	public function fetchJob($jobId, $writerId=null, $projectId=null)
+	public function fetchJob($jobId, $projectId=null, $writerId=null)
 	{
 		$query = $this->db->createQueryBuilder()
 			->select('*')
@@ -257,7 +255,7 @@ class SharedStorage
 	/**
 	 * Create new job
 	 */
-	public function createJob($jobId, $projectId, $writerId, $runId, $token, $tokenId, $tokenOwner, $params)
+	public function createJob($jobId, $projectId, $writerId, $params, $queue=self::PRIMARY_QUEUE)
 	{
 		if (!isset($params['batchId'])) {
 			$params['batchId'] = $jobId;
@@ -265,12 +263,13 @@ class SharedStorage
 
 		$jobInfo = array(
 			'id' => $jobId,
-			'runId' => $runId,
+			'runId' => isset($params['runId'])? $params['runId'] : $jobId,
+			'batchId' => isset($params['batchId'])? $params['batchId'] : $jobId,
 			'projectId' => $projectId,
 			'writerId' => $writerId,
-			'token' => $token,
-			'tokenId' => $tokenId,
-			'tokenDesc' => $tokenOwner,
+			'token' => null,
+			'tokenId' => null,
+			'tokenDesc' => null,
 			'createdTime' => null,
 			'startTime' => null,
 			'endTime' => null,
@@ -281,9 +280,8 @@ class SharedStorage
 			'status' => self::JOB_STATUS_WAITING,
 			'logs' => null,
 			'debug' => null,
-			'queueId' => sprintf('%s.%s.%s', $projectId, $writerId, isset($params['queue']) ? $params['queue'] : self::PRIMARY_QUEUE)
+			'queueId' => sprintf('%s.%s.%s', $projectId, $writerId, $queue)
 		);
-		unset($params['queue']);
 		$jobInfo = array_merge($jobInfo, $params);
 
 		$this->saveJob($jobId, $jobInfo, true);
@@ -320,7 +318,7 @@ class SharedStorage
 	/**
 	 *
 	 */
-	public function jobToApiResponse(array $job, S3Client $s3Client = null)
+	public static function jobToApiResponse(array $job, S3Client $s3Client=null)
 	{
 		if (isset($job['parameters']['accessToken'])) {
 			$job['parameters']['accessToken'] = '***';
@@ -380,13 +378,8 @@ class SharedStorage
 	/**
 	 *
 	 */
-	public function batchToApiResponse($batchId, $s3Client = null)
+	public static function batchToApiResponse($batchId, array $jobs, $s3Client=null)
 	{
-		$jobs = $this->fetchBatch($batchId);
-		if (!count($jobs)) {
-			throw new WrongParametersException(sprintf("Batch '%d' not found", $batchId));
-		}
-
 		$data = array(
 			'batchId' => (int)$batchId,
 			'projectId' => null,
@@ -404,7 +397,7 @@ class SharedStorage
 		$errorJobs = 0;
 		$successJobs = 0;
 		foreach ($jobs as $job) {
-			$job = $this->jobToApiResponse($job, $s3Client);
+			$job = self::jobToApiResponse($job, $s3Client);
 
 			if (!$data['projectId']) {
 				$data['projectId'] = $job['projectId'];
@@ -475,13 +468,13 @@ class SharedStorage
 	 * @param $writerId
 	 * @return mixed
 	 */
-	public function getProjects($projectId = null, $writerId = null)
+	public function getProjects($projectId=null, $writerId=null)
 	{
 		if ($projectId && $writerId) {
-			return $this->db->fetchAll('SELECT * FROM projects WHERE project_id=? AND writer_id=? AND removal_time=NULL',
+			return $this->db->fetchAll('SELECT * FROM projects WHERE project_id=? AND writer_id=? AND removal_time IS NULL',
 				array($projectId, $writerId));
 		} else {
-			return $this->db->fetchAll('SELECT * FROM projects WHERE removal_time=NULL');
+			return $this->db->fetchAll('SELECT * FROM projects WHERE removal_time IS NULL');
 		}
 	}
 
