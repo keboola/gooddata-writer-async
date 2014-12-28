@@ -19,6 +19,7 @@
             <file>Tests/DbLockTest.php</file>
             <file>Tests/GraphTest.php</file>
 			<file>Tests/CsvConversionTest.php</file>
+			<file>Tests/SharedStorageTest.php</file>
 			<file>Tests/Controller/DatasetsTest.php</file>
             <file>Tests/Controller/ReportsTest.php</file>
 		</testsuite>

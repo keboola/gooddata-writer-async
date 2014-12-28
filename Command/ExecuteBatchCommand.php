@@ -33,7 +33,11 @@ class ExecuteBatchCommand extends ContainerAwareCommand
 		/** @var SharedStorage $sharedStorage */
 		$sharedStorage = $this->getContainer()->get('gooddata_writer.shared_storage');
 
-		$batch = $sharedStorage->batchToApiResponse($input->getArgument('batchId'));
+		$jobs = $sharedStorage->fetchBatch($input->getArgument('batchId'));
+		if (!count($jobs)) {
+			throw new \Exception(sprintf("Batch '%d' not found in Shared Storage", $input->getArgument('batchId')));
+		}
+		$batch = SharedStorage::batchToApiResponse($input->getArgument('batchId'), $jobs);
 
 		// Batch already executed?
 		if (!$input->getOption('force') && $batch['status'] != SharedStorage::JOB_STATUS_WAITING) {

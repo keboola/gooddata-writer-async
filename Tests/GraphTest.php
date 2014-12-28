@@ -5,23 +5,10 @@
  */
 namespace Keboola\GoodDataWriter\Tests;
 
-use Keboola\GoodDataWriter\DependencyInjection\Configuration;
 use Keboola\GoodDataWriter\Model\Graph;
-use Keboola\GoodDataWriter\Exception\GraphTtlException;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
-class GraphTest extends WebTestCase
+class GraphTest extends \PHPUnit_Framework_TestCase
 {
-
-
-
-	/**
-	 * Setup called before every test
-	 */
-	protected function setUp()
-	{
-		$this->configuration = new Configuration();
-	}
 
 	public function testAddTransition()
 	{

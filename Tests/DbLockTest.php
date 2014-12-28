@@ -6,7 +6,6 @@
 namespace Keboola\GoodDataWriter\Tests;
 
 use Keboola\GoodDataWriter\Service\Lock;
-use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 class DbLockTest extends WebTestCase
@@ -15,7 +14,6 @@ class DbLockTest extends WebTestCase
 	public function testLocks()
 	{
 		$container = static::createClient()->getContainer();
-		$config = new \Doctrine\DBAL\Configuration();
 		$connectionParams = array(
 			'dbname' => $container->getParameter('database_name'),
 			'user' => $container->getParameter('database_user'),
@@ -26,10 +24,10 @@ class DbLockTest extends WebTestCase
 			'charset' => 'utf8'
 		);
 
-		$db1 = \Doctrine\DBAL\DriverManager::getConnection($connectionParams, $config);
+		$db1 = \Doctrine\DBAL\DriverManager::getConnection($connectionParams);
 		$db1->exec('SET wait_timeout = 31536000;');
 
-		$db2 = \Doctrine\DBAL\DriverManager::getConnection($connectionParams, $config);
+		$db2 = \Doctrine\DBAL\DriverManager::getConnection($connectionParams);
 		$db2->exec('SET wait_timeout = 31536000;');
 
 		$lockName = uniqid();

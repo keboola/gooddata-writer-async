@@ -42,15 +42,17 @@ class WaitForInvitation extends AbstractJob
 
 			$tokenData = $this->storageApiClient->getLogData();
 			$waitJob = $this->sharedStorage->createJob($this->storageApiClient->generateId(),
-				$this->configuration->projectId, $this->configuration->writerId, $this->storageApiClient->getRunId(),
-				$this->storageApiClient->token, $tokenData['id'], $tokenData['description'], array(
-				'command' => 'waitForInvitation',
-				'createdTime' => date('c'),
-				'parameters' => array(
-					'try' => $params['try'] + 1
-				),
-				'queue' => SharedStorage::SERVICE_QUEUE
-			));
+				$this->configuration->projectId, $this->configuration->writerId, array(
+					'command' => 'waitForInvitation',
+					'createdTime' => date('c'),
+					'parameters' => array(
+						'try' => $params['try'] + 1
+					),
+					'runId' => $this->storageApiClient->getRunId(),
+					'token' => $this->storageApiClient->token,
+					'tokenId' => $tokenData['id'],
+					'tokenDesc' => $tokenData['description']
+				), SharedStorage::SERVICE_QUEUE);
 			$this->queue->enqueue(array(
 				'projectId' => $this->configuration->projectId,
 				'writerId' => $this->configuration->writerId,

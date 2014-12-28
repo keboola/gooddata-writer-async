@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS `domains`;
 CREATE TABLE `domains` (
   `name` varchar(20) NOT NULL,
   `username` varchar(255) NOT NULL,
@@ -6,6 +7,7 @@ CREATE TABLE `domains` (
   PRIMARY KEY (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `jobs`;
 CREATE TABLE `jobs` (
   `id` int(11) unsigned NOT NULL,
   `batchId` int(11) DEFAULT NULL,
@@ -32,6 +34,7 @@ CREATE TABLE `jobs` (
   KEY `projectId` (`projectId`,`writerId`,`createdTime`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `project_invitations`;
 CREATE TABLE `project_invitations` (
   `pid` char(32) NOT NULL,
   `sender` varchar(255) NOT NULL,
@@ -42,6 +45,7 @@ CREATE TABLE `project_invitations` (
   PRIMARY KEY (`pid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `projects`;
 CREATE TABLE `projects` (
   `pid` char(32) NOT NULL,
   `project_id` int(10) unsigned NOT NULL,
@@ -55,6 +59,7 @@ CREATE TABLE `projects` (
   KEY `project_id` (`project_id`,`writer_id`,`removal_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
   `uid` char(50) NOT NULL,
   `email` varchar(255) NOT NULL,
@@ -67,6 +72,7 @@ CREATE TABLE `users` (
   KEY `email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS `writers`;
 CREATE TABLE `writers` (
   `project_id` int(11) unsigned NOT NULL,
   `writer_id` varchar(50) NOT NULL DEFAULT '',

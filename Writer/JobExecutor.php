@@ -264,21 +264,22 @@ class JobExecutor
 
 	public function createJob($projectId, $writerId, $command, $params, $batchId, $queue=null, $others=array())
 	{
+		$tokenData = $this->storageApiClient->getLogData();
 		$jobData = array(
 			'command' => $command,
 			'batchId' => $batchId,
 			'createdTime' => date('c'),
 			'parameters' => $params,
-			'queue' => $queue
+			'runId' => $this->storageApiClient->getRunId(),
+			'token' => $this->storageApiClient->token,
+			'tokenId' => $tokenData['id'],
+			'tokenDesc' => $tokenData['description']
 		);
 		if (count($others)) {
 			$jobData = array_merge($jobData, $others);
 		}
 
-		$tokenData = $this->storageApiClient->getLogData();
-		$job = $this->sharedStorage->createJob($this->storageApiClient->generateId(), $projectId, $writerId,
-			$this->storageApiClient->getRunId(), $this->storageApiClient->token, $tokenData['id'],
-			$tokenData['description'], $jobData);
+		$job = $this->sharedStorage->createJob($this->storageApiClient->generateId(), $projectId, $writerId, $jobData, $queue);
 
 		array_walk($params, function(&$val, $key) {
 			if ($key == 'password') $val = '***';
