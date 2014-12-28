@@ -47,9 +47,6 @@ class AppConfiguration
 		$this->scriptsPath = $mainConfig['scripts_path'];
 		$this->rubyPath = isset($mainConfig['ruby_path']) ? $mainConfig['ruby_path'] : null;
 
-		$this->sharedSapi_url = $mainConfig['shared_sapi']['url'];
-		$this->sharedSapi_token = $mainConfig['shared_sapi']['token'];
-
 		$this->gd_accessToken = $mainConfig['gd']['access_token'];
 		$this->gd_domain = $mainConfig['gd']['domain'];
 		$this->gd_ssoProvider = $mainConfig['gd']['sso_provider'];
