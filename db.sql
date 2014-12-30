@@ -19,7 +19,7 @@ CREATE TABLE `jobs` (
   `createdTime` datetime NOT NULL,
   `startTime` datetime DEFAULT NULL,
   `endTime` datetime DEFAULT NULL,
-  `command` varchar(20) NOT NULL DEFAULT '',
+  `command` varchar(30) NOT NULL DEFAULT '',
   `dataset` varchar(255) DEFAULT '',
   `parameters` text,
   `result` text,

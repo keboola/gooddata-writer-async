@@ -83,9 +83,9 @@ class AddUserToProject extends AbstractJob
 		if (!$userId) {
 			if (!empty($params['createUser'])) {
 				// try create new user in domain
-				$childJob = new CreateUser($this->configuration, $this->appConfiguration, $this->sharedStorage,
-					$this->s3Client, $this->translator, $this->storageApiClient, $this->eventLogger);
+				$childJob = new CreateUser($this->configuration, $this->appConfiguration, $this->sharedStorage, $this->storageApiClient);
 				$childJob->setQueue($this->queue);
+				$childJob->setTranslator($this->translator);
 
 
 				$childParams = array(

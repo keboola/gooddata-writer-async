@@ -9,10 +9,7 @@ namespace Keboola\GoodDataWriter\Service;
 use Aws\Common\Enum\ClientOptions;
 use Aws\S3\S3Client as Client,
 	Aws\S3\Enum\CannedAcl;
-use Keboola\GoodDataWriter\Service\Aws\BackoffLogAdapter;
-use Keboola\GoodDataWriter\Service\Aws\BackoffPlugin;
-use Keboola\GoodDataWriter\Writer\AppConfiguration;
-use Monolog\Logger;
+use Keboola\StorageApi\Aws\Plugin\Backoff\BackoffPlugin;
 
 class S3Client
 {
@@ -24,30 +21,28 @@ class S3Client
 	 * @var string
 	 */
 	protected $bucket;
-	/**
-	 * @var string
-	 */
-	protected $path;
 
-
-	public function __construct(AppConfiguration $appConfiguration, $path, Logger $logger)
+	public function __construct($config)
 	{
-		$this->client = Client::factory(array(
-			'key' => $appConfiguration->aws_accessKey,
-			'secret' => $appConfiguration->aws_secretKey,
-			ClientOptions::BACKOFF => BackoffPlugin::factory(),
-			ClientOptions::BACKOFF_LOGGER => new BackoffLogAdapter($logger)
+		$this->config = $config;
+		$this->client = $this->getClient();
+	}
+
+	protected function getClient()
+	{
+		return Client::factory(array(
+			'key' => $this->config['aws-access-key'],
+			'secret' => $this->config['aws-secret-key'],
+			ClientOptions::BACKOFF => BackoffPlugin::factory()
 		));
-		$this->bucket = $appConfiguration->aws_s3Bucket;
-		$this->path = $path;
 	}
 
 	public function downloadFile($url)
 	{
 		$lastDashPos = strrpos($url, '/');
 		$result = $this->client->getObject(array(
-			'Bucket' =>  $this->bucket . '/' . substr($url, 0, $lastDashPos),
-			'Key' => substr($url, $lastDashPos+1)
+			'Bucket' => $this->config['s3-upload-path'] . '/' . substr($url, 0, $lastDashPos),
+			'Key' => substr($url, $lastDashPos + 1)
 		));
 
 		return (string)$result['Body'];
@@ -60,7 +55,7 @@ class S3Client
 	 * @throws \Exception
 	 * @return string
 	 */
-	public function uploadFile($filePath, $contentType = 'text/plain', $destinationName = null)
+	public function uploadFile($filePath, $contentType='text/plain', $destinationName=null)
 	{
 		$name = $destinationName ? $destinationName : basename($filePath);
 		$fp = fopen($filePath, 'r');
@@ -82,12 +77,12 @@ class S3Client
 	 * @param string $contentType Content Type
 	 * @return string
 	 */
-	public function uploadString($name, $content, $contentType = 'text/plain')
+	public function uploadString($name, $content, $contentType='text/plain')
 	{
-		$s3FileName = date('Y/m/d/') . $this->path . '/' . $name;
+		$s3FileName = 'kb-gooddata-writer/' . date('Y/m/d/') . $name;
 		$this->client->getConfig()->set('curl.options', array('body_as_string' => true));
 		$this->client->putObject(array(
-			'Bucket' => $this->bucket,
+			'Bucket' => $this->config['s3-upload-path'],
 			'Key'    => $s3FileName,
 			'Body'   => $content,
 			'ACL'    => CannedAcl::AUTHENTICATED_READ,
@@ -97,13 +92,10 @@ class S3Client
 	}
 
 	/**
-	 * @param $object
-	 * @param int $expires default is two days
-	 * @return string
 	 */
-	public function url($object, $expires = 172800)
+	public function url($object)
 	{
-		return $this->client->getObjectUrl($this->bucket, $object, '+' . $expires . ' seconds');
+		return 'https://connection.keboola.com/admin/utils/logs?file=' . $object;
 	}
 
 }

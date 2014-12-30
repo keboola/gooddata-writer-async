@@ -111,7 +111,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->writerId = empty($this->params['writerId'])? null : $this->params['writerId'];
 
 
-		$this->eventLogger = new EventLogger($this->appConfiguration, $this->storageApi, $this->getS3Client());
+		$this->eventLogger = new EventLogger($this->appConfiguration, $this->storageApi, $this->container->get('syrup.monolog.s3_uploader'));
 
 		$this->stopWatch = new Stopwatch();
 		$this->stopWatch->start(self::STOPWATCH_NAME_REQUEST);
@@ -459,7 +459,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				if (!$job) {
 					throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
 				}
-				$jobInfo = SharedStorage::jobToApiResponse($job, $this->getS3Client());
+				$jobInfo = SharedStorage::jobToApiResponse($job);
 				if (isset($jobInfo['status']) && SharedStorage::isJobFinished($jobInfo['status'])) {
 					$jobFinished = true;
 				}
@@ -490,7 +490,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				if (!$job) {
 					throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
 				}
-				$jobInfo = SharedStorage::jobToApiResponse($job, $this->getS3Client());
+				$jobInfo = SharedStorage::jobToApiResponse($job);
 				if (isset($jobInfo['status']) && SharedStorage::isJobFinished($jobInfo['status'])) {
 					$jobFinished = true;
 				}
@@ -1454,7 +1454,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				throw new WrongParametersException($this->translator->trans('parameters.job'));
 			}
 
-			$job = SharedStorage::jobToApiResponse($job, $this->getS3Client());
+			$job = SharedStorage::jobToApiResponse($job);
 
 			$this->logApiCall();
 			return $this->createJsonResponse($job);
@@ -1476,7 +1476,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		if (!count($jobs)) {
 			throw new WrongParametersException(sprintf("Batch '%d' not found", $this->params['batchId']));
 		}
-		$batch = SharedStorage::batchToApiResponse($this->params['batchId'], $jobs, $this->getS3Client());
+		$batch = SharedStorage::batchToApiResponse($this->params['batchId'], $jobs);
 
 		$this->logApiCall();
 		return $this->createJsonResponse($batch);
@@ -1575,14 +1575,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	private function getS3Client()
 	{
 		if (!$this->s3Client) {
-			if (!$this->appConfiguration) {
-				$this->appConfiguration = $this->container->get('gooddata_writer.app_configuration');
-			}
-			$this->s3Client = new S3Client(
-				$this->appConfiguration,
-				$this->projectId . '.' . $this->writerId,
-				$this->container->get('logger')
-			);
+			$this->s3Client = $this->container->get('gooddata_writer.s3Client');
 		}
 		return $this->s3Client;
 	}
@@ -1651,8 +1644,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		/**
 		 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 		 */
-		$command = new $commandClass($this->getConfiguration(), $this->appConfiguration, $this->getSharedStorage(),
-			$this->getS3Client(), $this->translator, $this->storageApi, $this->eventLogger);
+		$command = new $commandClass($this->getConfiguration(), $this->appConfiguration, $this->getSharedStorage(), $this->storageApi);
+		$command->setS3Client($this->getS3Client());
+		$command->setTranslator($this->translator);
+		$command->setEventLogger($this->eventLogger);
 		$command->setQueue($this->container->get('gooddata_writer.jobs_queue'));
 		return $command;
 	}

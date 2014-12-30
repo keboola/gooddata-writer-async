@@ -318,7 +318,7 @@ class SharedStorage
 	/**
 	 *
 	 */
-	public static function jobToApiResponse(array $job, S3Client $s3Client=null)
+	public static function jobToApiResponse(array $job)
 	{
 		if (isset($job['parameters']['accessToken'])) {
 			$job['parameters']['accessToken'] = '***';
@@ -333,18 +333,16 @@ class SharedStorage
 		}
 
 		// Find private links and make them accessible
-		if ($s3Client) {
-			foreach ($logs as &$log) {
-				if (is_array($log)) foreach ($log as &$v) {
-					$url = parse_url($v);
-					if (empty($url['host'])) {
-						$v = $s3Client->url($v);
-					}
-				} else {
-					$url = parse_url($log);
-					if (empty($url['host'])) {
-						$log = $s3Client->url($log);
-					}
+		foreach ($logs as &$log) {
+			if (is_array($log)) foreach ($log as &$v) {
+				$url = parse_url($v);
+				if (empty($url['host'])) {
+					$v = 'https://connection.keboola.com/admin/utils/logs?file=' . $v;
+				}
+			} else {
+				$url = parse_url($log);
+				if (empty($url['host'])) {
+					$log = 'https://connection.keboola.com/admin/utils/logs?file=' . $log;
 				}
 			}
 		}
@@ -378,7 +376,7 @@ class SharedStorage
 	/**
 	 *
 	 */
-	public static function batchToApiResponse($batchId, array $jobs, $s3Client=null)
+	public static function batchToApiResponse($batchId, array $jobs)
 	{
 		$data = array(
 			'batchId' => (int)$batchId,
@@ -397,7 +395,7 @@ class SharedStorage
 		$errorJobs = 0;
 		$successJobs = 0;
 		foreach ($jobs as $job) {
-			$job = self::jobToApiResponse($job, $s3Client);
+			$job = self::jobToApiResponse($job);
 
 			if (!$data['projectId']) {
 				$data['projectId'] = $job['projectId'];

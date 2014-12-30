@@ -195,7 +195,6 @@ class SharedStorageTest extends WebTestCase
 		$this->assertCount(1, $batch);
 
 		// jobToApiResponse()
-		//@TODO Test S3 Client
 		$job = $this->sharedStorage->fetchJob($jobId);
 		$response = SharedStorage::jobToApiResponse($job);
 		$this->assertArrayHasKey('token', $response);
@@ -203,9 +202,7 @@ class SharedStorageTest extends WebTestCase
 		$this->assertArrayHasKey('description', $response['token']);
 		$this->assertArrayHasKey('logs', $response);
 
-
 		// batchToApiResponse()
-		//@TODO Test S3 Client
 		$response = SharedStorage::batchToApiResponse($jobId, array($job));
 		$this->assertArrayHasKey('jobs', $response);
 		$this->assertCount(1, $response['jobs']);

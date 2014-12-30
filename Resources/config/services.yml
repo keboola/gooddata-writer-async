@@ -8,12 +8,13 @@ services:
     class: Keboola\GoodDataWriter\GoodData\Model
     arguments: [@gooddata_writer.app_configuration]
 
-  gooddata_writer.rest_api.s3_client:
+  gooddata_writer.s3Client:
     class: Keboola\GoodDataWriter\Service\S3Client
-    arguments: [@gooddata_writer.app_configuration, "RestAPI", @logger]
+    arguments: [%uploader%]
+
   gooddata_writer.rest_api.log_formatter:
-    class: Keboola\GoodDataWriter\Service\RestAPILogFormatter
-    arguments: [@gooddata_writer.rest_api.s3_client]
+    class: Keboola\GoodDataWriter\Monolog\Formatter\RestAPILogFormatter
+    arguments: [@syrup.monolog.s3_uploader]
   gooddata_writer.rest_api.syslog_handler:
     class: Monolog\Handler\SyslogHandler
     arguments: [%app_name%]
@@ -38,7 +39,7 @@ services:
 
   gooddata_writer.job_executor:
     class: Keboola\GoodDataWriter\Writer\JobExecutor
-    arguments: [@gooddata_writer.app_configuration, @gooddata_writer.shared_storage, @gooddata_writer.rest_api, @logger, @syrup.temp, @gooddata_writer.jobs_queue, @translator]
+    arguments: [@gooddata_writer.app_configuration, @gooddata_writer.shared_storage, @gooddata_writer.rest_api, @logger, @syrup.temp, @gooddata_writer.jobs_queue, @translator, @syrup.monolog.s3_uploader, @gooddata_writer.s3Client]
 
   gooddata_writer.jobs_queue:
     class: Keboola\GoodDataWriter\Service\Queue

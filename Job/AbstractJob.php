@@ -18,6 +18,7 @@ use Keboola\GoodDataWriter\Writer\Configuration,
 use Monolog\Logger;
 use Symfony\Component\Translation\TranslatorInterface;
 use Syrup\ComponentBundle\Filesystem\Temp;
+use Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader;
 
 abstract class AbstractJob
 {
@@ -35,8 +36,13 @@ abstract class AbstractJob
 	protected $sharedStorage;
 	/**
 	 * @var S3Client
+	 * @deprecated
 	 */
 	protected $s3Client;
+	/**
+	 * @var SyrupS3Uploader
+	 */
+	protected $s3Uploader;
 	/**
 	 * @var Temp
 	 */
@@ -73,17 +79,12 @@ abstract class AbstractJob
 	protected $scriptsPath;
 
 
-	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedStorage $sharedStorage,
-	                            S3Client $s3Client, TranslatorInterface $translator, StorageApiClient $storageApiClient,
-								EventLogger $eventLogger)
+	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedStorage $sharedStorage, StorageApiClient $storageApiClient)
 	{
 		$this->configuration = $configuration;
 		$this->appConfiguration = $appConfiguration;
 		$this->sharedStorage = $sharedStorage;
-		$this->s3Client = $s3Client;
-		$this->translator = $translator;
 		$this->storageApiClient = $storageApiClient;
-		$this->eventLogger = $eventLogger;
 
 		$this->logs = array();
 	}
@@ -130,6 +131,21 @@ abstract class AbstractJob
 	public function setQueue(Queue $queue)
 	{
 		$this->queue = $queue;
+	}
+
+	public function setTranslator(TranslatorInterface $translator)
+	{
+		$this->translator = $translator;
+	}
+
+	public function setS3Uploader(SyrupS3Uploader $s3Uploader)
+	{
+		$this->s3Uploader = $s3Uploader;
+	}
+
+	public function setS3Client(S3Client $s3Client)
+	{
+		$this->s3Client = $s3Client;
 	}
 
 	public function getLogs()
