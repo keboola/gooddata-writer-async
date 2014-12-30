@@ -6,16 +6,20 @@
  * Time: 9:00
  */
 
-namespace Keboola\GoodDataWriter\Service;
+namespace Keboola\GoodDataWriter\Monolog\Formatter;
 
 use Monolog\Formatter\JsonFormatter;
+use Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader;
 
 
 class RestAPILogFormatter extends JsonFormatter
 {
+	/**
+	 * @var SyrupS3Uploader
+	 */
 	private $uploader;
 
-	public function __construct(S3Client $uploader)
+	public function __construct(SyrupS3Uploader $uploader)
 	{
 		$this->uploader = $uploader;
 	}
@@ -67,7 +71,7 @@ class RestAPILogFormatter extends JsonFormatter
 			if ($record['jobId'])
 				$s3file .= $record['jobId'] . '/';
 			$s3file .= time() . '-' . uniqid() . '.json';
-			$record['request'] = $this->uploader->url($this->uploader->uploadString($s3file , $jsonRequest));
+			$record['request'] = $this->uploader->uploadString($s3file , $jsonRequest);
 		}
 
 		return json_encode($record);

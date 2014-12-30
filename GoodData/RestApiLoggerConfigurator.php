@@ -8,7 +8,7 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
-use Keboola\GoodDataWriter\Service\RestAPILogFormatter;
+use Keboola\GoodDataWriter\Monolog\Formatter\RestAPILogFormatter;
 use Monolog\Handler\SyslogHandler;
 use Monolog\Logger;
 

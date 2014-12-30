@@ -87,10 +87,10 @@ class LoadDataMulti extends AbstractJob
 
 
 		file_put_contents($this->getTmpDir($job['id']) . '/upload_info.json', json_encode($manifest));
-		$this->logs['Manifest'] = $this->s3Client->uploadFile($this->getTmpDir($job['id']) . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
+		$this->logs['Manifest'] = $this->s3Uploader->uploadFile($this->getTmpDir($job['id']) . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json');
 		$e = $stopWatch->stop($stopWatchId);
 		$this->logEvent('Manifest file for csv prepared', $job['id'], $job['runId'], array(
-			'manifest' => $this->s3Client->url($this->logs['Manifest'])
+			'manifest' => $this->logs['Manifest']
 		), $e->getDuration());
 
 		try {
@@ -144,9 +144,8 @@ class LoadDataMulti extends AbstractJob
 				$logSaved = $webDav->saveLogs($tmpFolderName, $debugFile);
 				if ($logSaved) {
 					if (filesize($debugFile) > 1024 * 1024) {
-						$logUrl = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/etl.log', $tmpFolderName));
-						$this->logs['ETL task error'] = $logUrl;
-						$e->setDetails(array($logUrl));
+						$this->logs['ETL task error'] = $this->s3Uploader->uploadFile($debugFile, 'text/plain', sprintf('%s/etl.log', $tmpFolderName));
+						$e->setDetails(array($this->logs['ETL task error']));
 					} else {
 						$e->setDetails(file_get_contents($debugFile));
 					}

@@ -22,6 +22,7 @@ use Monolog\Logger;
 use Symfony\Component\Translation\TranslatorInterface;
 use Syrup\ComponentBundle\Exception\UserException;
 use Syrup\ComponentBundle\Filesystem\Temp;
+use Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader;
 
 
 class QueueUnavailableException extends \Exception
@@ -69,13 +70,18 @@ class JobExecutor
 	 * @var EventLogger
 	 */
 	protected $eventLogger;
+	/**
+	 * @var SyrupS3Uploader
+	 */
+	protected $s3Uploader;
 
 
 	/**
 	 *
 	 */
 	public function __construct(AppConfiguration $appConfiguration, SharedStorage $sharedStorage, RestApi $restApi,
-								Logger $logger, Temp $temp, Queue $queue, TranslatorInterface $translator)
+								Logger $logger, Temp $temp, Queue $queue, TranslatorInterface $translator,
+								SyrupS3Uploader $s3Uploader, S3Client $s3Client)
 	{
 		$this->appConfiguration = $appConfiguration;
 		$this->sharedStorage = $sharedStorage;
@@ -84,6 +90,8 @@ class JobExecutor
 		$this->temp = $temp;
 		$this->queue = $queue;
 		$this->translator = $translator;
+		$this->s3Uploader = $s3Uploader;
+		$this->s3Client = $s3Client;
 	}
 
 	/**
@@ -111,15 +119,13 @@ class JobExecutor
 
 		$jobData = array('result' => array());
 		try {
-			$s3Client = new S3Client($this->appConfiguration, $job['projectId'] . '.' . $job['writerId'], $this->logger);
-
 			$this->storageApiClient = new StorageApiClient(array(
 				'token' => $job['token'],
 				'url' => $this->appConfiguration->storageApiUrl,
 				'userAgent' => $this->appConfiguration->userAgent
 			));
 			$this->storageApiClient->setRunId($jobId);
-			$this->eventLogger = new EventLogger($this->appConfiguration, $this->storageApiClient, $s3Client);
+			$this->eventLogger = new EventLogger($this->appConfiguration, $this->storageApiClient, $this->s3Uploader);
 
 			try {
 				$configuration = new Configuration($this->storageApiClient, $this->sharedStorage);
@@ -156,11 +162,14 @@ class JobExecutor
 				/**
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 				 */
-				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedStorage, $s3Client,
-					$this->translator, $this->storageApiClient, $this->eventLogger);
+				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedStorage, $this->storageApiClient);
+				$command->setEventLogger($this->eventLogger);
+				$command->setTranslator($this->translator);
 				$command->setTemp($this->temp); //For csv handler
 				$command->setLogger($this->logger); //For csv handler
+				$command->setS3Client($this->s3Client); //For dataset definitions and manifests
 				$command->setQueue($this->queue);
+				$command->setS3Uploader($this->s3Uploader);
 
 				$error = null;
 
@@ -197,8 +206,7 @@ class JobExecutor
 						throw $e;
 					}
 
-					$jobData['debug'] = $s3Client->uploadString($job['id'] . '/debug-data.json', json_encode($debug, JSON_PRETTY_PRINT));
-					$jobData['debug'] = $s3Client->url($jobData['debug']);
+					$jobData['debug'] = $this->s3Uploader->uploadString($job['id'] . '/debug-data.json', json_encode($debug, JSON_PRETTY_PRINT));
 				}
 
 				$jobData['logs'] = $command->getLogs();

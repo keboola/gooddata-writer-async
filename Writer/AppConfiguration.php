@@ -30,7 +30,6 @@ class AppConfiguration
 	public $aws_accessKey;
 	public $aws_secretKey;
 	public $aws_region;
-	public $aws_s3Bucket;
 	public $aws_jobsSqsUrl;
 
 	public $appName;
@@ -59,7 +58,6 @@ class AppConfiguration
 		$this->aws_accessKey = $mainConfig['aws']['access_key'];
 		$this->aws_secretKey = $mainConfig['aws']['secret_key'];
 		$this->aws_region = $mainConfig['aws']['region'];
-		$this->aws_s3Bucket = $mainConfig['aws']['s3_bucket'];
 		$this->aws_jobsSqsUrl = $mainConfig['aws']['queue_url'];
 	}
 }

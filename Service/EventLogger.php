@@ -11,14 +11,24 @@ namespace Keboola\GoodDataWriter\Service;
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent;
 use Keboola\GoodDataWriter\Writer\AppConfiguration;
+use Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader;
 
 class EventLogger
 {
+	/**
+	 * @var AppConfiguration
+	 */
 	private $appConfiguration;
+	/**
+	 * @var StorageApiClient
+	 */
 	private $storageApiClient;
+	/**
+	 * @var SyrupS3Uploader
+	 */
 	private $uploader;
 
-	public function __construct(AppConfiguration $appConfiguration, StorageApiClient $storageApiClient, S3Client $uploader)
+	public function __construct(AppConfiguration $appConfiguration, StorageApiClient $storageApiClient, SyrupS3Uploader $uploader)
 	{
 		$this->appConfiguration = $appConfiguration;
 		$this->storageApiClient = $storageApiClient;
@@ -40,7 +50,7 @@ class EventLogger
 			$jsonParams = json_encode($params, JSON_PRETTY_PRINT);
 			if (strlen($jsonParams) > 1000) {
 				$s3file = $jobId . '/' . time() . '-' . uniqid() . '.json';
-				$params = array('details' => $this->uploader->url($this->uploader->uploadString($s3file , $jsonParams)));
+				$params = array('details' => $this->uploader->uploadString($s3file , $jsonParams));
 			}
 			$event->setParams($params);
 		}
