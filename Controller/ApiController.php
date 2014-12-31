@@ -1437,7 +1437,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				if ((empty($command) || $command == $job['command']) && (empty($tokenId) || $tokenId == $job['tokenId'])
 					&& (empty($status) || $status == $job['status'])) {
 					if (empty($tableId) || (!empty($job['parameters']['tableId']) && $job['parameters']['tableId'] == $tableId)) {
-						$result[] = $job;
+						$result[] = SharedStorage::jobToApiResponse($job);
 					}
 				}
 			}
