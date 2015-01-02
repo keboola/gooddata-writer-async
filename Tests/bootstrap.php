@@ -1,4 +1,6 @@
 <?php
+use Syrup\ComponentBundle\Encryption\Encryptor;
+
 ini_set('memory_limit', '256M');
 
 if (file_exists(__DIR__ . '/config/config.php')) {
@@ -22,3 +24,18 @@ setupConst('GD_DOMAIN_PASSWORD', '');
 setupConst('ENCRYPTION_KEY', md5(uniqid()));
 
 require_once __DIR__ . '/../vendor/autoload.php';
+
+$db = \Doctrine\DBAL\DriverManager::getConnection(array(
+	'driver' => 'pdo_mysql',
+	'host' => DB_HOST,
+	'dbname' => DB_NAME,
+	'user' => DB_USER,
+	'password' => DB_PASSWORD,
+));
+
+$stmt = $db->prepare(file_get_contents(__DIR__ . '/../db.sql'));
+$stmt->execute();
+$stmt->closeCursor();
+
+$encryptor = new Encryptor(ENCRYPTION_KEY);
+$db->insert('domains', array('name' => GD_DOMAIN_NAME, 'username' => GD_DOMAIN_USER, 'password' => $encryptor->encrypt(GD_DOMAIN_PASSWORD)));
