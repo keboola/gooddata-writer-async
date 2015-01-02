@@ -43,8 +43,8 @@ class InvitationsHandler
 		$this->scriptPath = $scriptsPath . '/' . self::SCRIPT_NAME;
 		if (!file_exists($this->scriptPath))
 			throw new \Exception('Script for accepting invitations does not exist');
-		$this->rubyPath = $config['rubyPath'];
-		if ($this->rubyPath) {
+		if (isset($config['ruby_path'])) {
+			$this->rubyPath = $config['ruby_path'];
 			if (!file_exists($this->rubyPath))
 				throw new \Exception('Ruby on path defined in parameters.yml does not exist');
 		} else {
