@@ -36,7 +36,10 @@ class SharedStorageTest extends WebTestCase
 		$stmt = $this->db->prepare(file_get_contents(__DIR__ . '/../db.sql'));
 		$stmt->execute();
 
-		$this->sharedStorage = new SharedStorage($this->db, new Encryptor(md5(uniqid())));
+		$encryptor = new Encryptor(ENCRYPTION_KEY);
+		$this->db->insert('domains', array('name' => GD_DOMAIN_NAME, 'username' => GD_DOMAIN_USER, 'password' => $encryptor->encrypt(GD_DOMAIN_PASSWORD)));
+
+		$this->sharedStorage = new SharedStorage($this->db, $encryptor);
 	}
 
 	public function testWriters()
