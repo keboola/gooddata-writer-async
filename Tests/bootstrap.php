@@ -5,24 +5,20 @@ if (file_exists(__DIR__ . '/config/config.php')) {
 	require_once __DIR__ . '/config/config.php';
 }
 
+function setupConst($name, $default=null)
+{
+	defined($name) || define($name, getenv($name)? getenv($name) : $default);
+}
 
-defined('STORAGE_API_URL')
-|| define('STORAGE_API_URL', getenv('STORAGE_API_URL') ? getenv('STORAGE_API_URL') : 'https://connection.keboola.com');
-
-defined('STORAGE_API_TOKEN')
-|| define('STORAGE_API_TOKEN', getenv('STORAGE_API_TOKEN') ? getenv('STORAGE_API_TOKEN') : 'your_token');
-
-
-defined('DB_HOST')
-|| define('DB_HOST', getenv('DB_HOST') ? getenv('DB_HOST') : '127.0.0.1');
-
-defined('DB_NAME')
-|| define('DB_NAME', getenv('DB_NAME') ? getenv('DB_NAME') : 'gooddata_writer');
-
-defined('DB_USER')
-|| define('DB_USER', getenv('DB_USER') ? getenv('DB_USER') : 'user');
-
-defined('DB_PASSWORD')
-|| define('DB_PASSWORD', getenv('DB_PASSWORD') ? getenv('DB_PASSWORD') : '');
+setupConst('STORAGE_API_URL', 'https://connection.keboola.com');
+setupConst('STORAGE_API_TOKEN', 'your_token');
+setupConst('DB_HOST', '127.0.0.1');
+setupConst('DB_NAME', 'gooddata_writer');
+setupConst('DB_USER', 'user');
+setupConst('DB_PASSWORD', '');
+setupConst('GD_DOMAIN_NAME', 'keboola-devel');
+setupConst('GD_DOMAIN_USER', 'gooddata-devel@keboola.com');
+setupConst('GD_DOMAIN_PASSWORD', '');
+setupConst('ENCRYPTION_KEY', md5(uniqid()));
 
 require_once __DIR__ . '/../vendor/autoload.php';
