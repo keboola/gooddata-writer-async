@@ -8,20 +8,17 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
-use Keboola\GoodDataWriter\Writer\AppConfiguration;
-
 class Model
 {
 
 	const TIME_DIMENSION_MANIFEST = 'time-dimension-manifest.json';
-	const TIME_DIMENSION_MODEL = 'time-dimension-ldm.json';
 	const API_TIME_ZONE = 'Europe/Prague';
 
-	public function __construct(AppConfiguration $appConfiguration)
-	{
-		$this->timeDimensionManifestPath = $appConfiguration->scriptsPath . '/' . self::TIME_DIMENSION_MANIFEST;
-		$this->timeDimensionModelPath = $appConfiguration->scriptsPath . '/' . self::TIME_DIMENSION_MODEL;
-	}
+	const PROJECT_NAME_TEMPLATE = '%s - %s - %s';
+	const PROJECT_NAME_PREFIX = 'KBC';
+	const USERNAME_TEMPLATE = '%s-%s@%s';
+	const USERNAME_DOMAIN = 'clients.keboola.com';
+	const SSO_PROVIDER = 'keboola.com';
 
 	/**
 	 * Create identifier from name
@@ -64,7 +61,7 @@ class Model
 	/**
  	 * Create json for LDM model manipulation
  	*/
-	public function getLDM($tableDefinition, $noDateFacts=false)
+	public static function getLDM($tableDefinition, $noDateFacts=false)
 	{
 		$dataSetId = self::getId($tableDefinition['name']);
 		// add default connection point
@@ -353,9 +350,13 @@ class Model
 	/**
 	 * Create manifest for data load of time dimension
 	 */
-	public function getTimeDimensionDataLoadManifest($dimensionName)
+	public static function getTimeDimensionDataLoadManifest($scriptsPath, $dimensionName)
 	{
-		$manifest = file_get_contents($this->timeDimensionManifestPath);
+		$timeDimensionManifestPath = $scriptsPath . '/' . self::TIME_DIMENSION_MANIFEST;
+		if (!file_exists($timeDimensionManifestPath)) {
+			throw new \Exception(sprintf("Time dimension manifest file '%s' does not exist", $timeDimensionManifestPath));
+		}
+		$manifest = file_get_contents($timeDimensionManifestPath);
 		$manifest = str_replace('%NAME%', self::getId($dimensionName), $manifest);
 		return $manifest;
 	}

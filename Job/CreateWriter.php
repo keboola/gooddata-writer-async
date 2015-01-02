@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
+use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\GoodData\UserAlreadyExistsException;
@@ -62,8 +63,8 @@ class CreateWriter extends AbstractJob
 				throw new WrongParametersException($this->translator->trans('parameters.gd.user_not_admin'));
 			}
 		} else {
-			$result['accessToken'] = !empty($params['accessToken'])? $params['accessToken'] : $this->appConfiguration->gd_accessToken;
-			$result['projectName'] = sprintf($this->appConfiguration->gd_projectNameTemplate, $tokenInfo['owner']['name'], $params['writerId']);
+			$result['accessToken'] = !empty($params['accessToken'])? $params['accessToken'] : $this->gdAccessToken;
+			$result['projectName'] = sprintf(Model::PROJECT_NAME_TEMPLATE, $this->gdProjectNamePrefix, $tokenInfo['owner']['name'], $params['writerId']);
 		}
 
 		if (isset($params['users'])) {
@@ -85,7 +86,7 @@ class CreateWriter extends AbstractJob
 		try {
 			$this->configuration->updateDataSetsFromSapi();
 
-			$username = sprintf($this->appConfiguration->gd_userEmailTemplate, $job['projectId'], $job['writerId'] . '-' . uniqid());
+			$username = sprintf(Model::USERNAME_TEMPLATE, $job['projectId'], $job['writerId'] . '-' . uniqid(), $this->gdUsernameDomain);
 			$password = md5(uniqid());
 
 			$existingProject = !empty($params['pid']) && !empty($params['username']) && !empty($params['password']);
@@ -110,7 +111,7 @@ class CreateWriter extends AbstractJob
 			// Create writer's GD user
 			$restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
 			try {
-				$userId = $restApi->createUser($this->getDomainUser()->domain, $username, $password, 'KBC', 'Writer', $this->appConfiguration->gd_ssoProvider);
+				$userId = $restApi->createUser($this->getDomainUser()->domain, $username, $password, 'KBC', 'Writer', $this->gdSsoProvider);
 			} catch (UserAlreadyExistsException $e) {
 				$userId = $e->getMessage();
 				if (!$userId) {

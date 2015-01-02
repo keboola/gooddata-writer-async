@@ -30,7 +30,6 @@ class OptimizeSliHash extends AbstractJob
 	public function run($job, $params, RestApi $restApi)
 	{
 		try {
-			$goodDataModel = new Model($this->appConfiguration);
 			$manifests = array();
 			$dataSetsToOptimize = array();
 			foreach ($this->configuration->getDataSets() as $dataSet) if ($dataSet['export'] && $dataSet['isExported']) {
@@ -39,7 +38,7 @@ class OptimizeSliHash extends AbstractJob
 				$dataSetsToOptimize[] = Model::getDatasetId($definition['name']);
 			}
 			foreach ($this->configuration->getDateDimensions() as $dimension) if ($dimension['includeTime'] && $dimension['isExported']) {
-				$manifests[] = json_decode($goodDataModel->getTimeDimensionDataLoadManifest($dimension['name']), true);
+				$manifests[] = json_decode(Model::getTimeDimensionDataLoadManifest($this->scriptsPath, $dimension['name']), true);
 				$dataSetsToOptimize[] = Model::getTimeDimensionId($dimension['name']);
 			}
 

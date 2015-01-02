@@ -15,7 +15,6 @@ use Symfony\Component\Stopwatch\Stopwatch;
 
 class UpdateModel extends AbstractJob
 {
-	private $goodDataModel;
 
 	public function prepare($params)
 	{
@@ -51,8 +50,6 @@ class UpdateModel extends AbstractJob
 
 
 		// Init
-		$tmpFolderName = basename($this->getTmpDir($job['id']));
-		$this->goodDataModel = new Model($this->appConfiguration);
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
@@ -74,7 +71,6 @@ class UpdateModel extends AbstractJob
 		), $e->getDuration());
 
 		$dataSetName = !empty($tableDefinition['name']) ? $tableDefinition['name'] : $tableDefinition['id'];
-		$dataSetId = Model::getDatasetId($dataSetName);
 
 
 		$updateOperations = array();

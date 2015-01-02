@@ -7,7 +7,6 @@
 namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\GoodDataWriter\GoodData\RestApiException;
-use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand,
 	Symfony\Component\Console\Input\InputInterface,
@@ -27,8 +26,7 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 
 	protected function execute(InputInterface $input, OutputInterface $output)
 	{
-		/** @var AppConfiguration $appConfiguration */
-		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
+		$gdConfig = $this->getContainer()->getParameter('gdwr_gd');
 		/** @var SharedStorage $sharedStorage */
 		$sharedStorage = $this->getContainer()->get('gooddata_writer.shared_storage');
 
@@ -42,7 +40,7 @@ class CleanGoodDataCommand extends ContainerAwareCommand
 
 		/** @var RestApi */
 		$restApi = $this->getContainer()->get('gooddata_writer.rest_api');
-		$domainUser = $sharedStorage->getDomainUser($appConfiguration->gd_domain);
+		$domainUser = $sharedStorage->getDomainUser($gdConfig['domain']);
 		$restApi->login($domainUser->username, $domainUser->password);
 
 		$pids = array();

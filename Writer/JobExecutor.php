@@ -34,10 +34,6 @@ class QueueUnavailableException extends \Exception
 class JobExecutor
 {
 	/**
-	 * @var AppConfiguration
-	 */
-	protected $appConfiguration;
-	/**
 	 * @var SharedStorage
 	 */
 	protected $sharedStorage;
@@ -74,16 +70,21 @@ class JobExecutor
 	 * @var SyrupS3Uploader
 	 */
 	protected $s3Uploader;
+	protected $scriptsPath;
+	protected $userAgent;
+	protected $gdConfig;
 
 
 	/**
 	 *
 	 */
-	public function __construct(AppConfiguration $appConfiguration, SharedStorage $sharedStorage, RestApi $restApi,
+	public function __construct($scriptsPath, $userAgent, $gdConfig, SharedStorage $sharedStorage, RestApi $restApi,
 								Logger $logger, Temp $temp, Queue $queue, TranslatorInterface $translator,
 								SyrupS3Uploader $s3Uploader, S3Client $s3Client)
 	{
-		$this->appConfiguration = $appConfiguration;
+
+
+		$this->gdConfig = $gdConfig;
 		$this->sharedStorage = $sharedStorage;
 		$this->restApi = $restApi;
 		$this->logger = $logger;
@@ -92,6 +93,8 @@ class JobExecutor
 		$this->translator = $translator;
 		$this->s3Uploader = $s3Uploader;
 		$this->s3Client = $s3Client;
+		$this->scriptsPath = $scriptsPath;
+		$this->userAgent = $userAgent;
 	}
 
 	/**
@@ -121,11 +124,10 @@ class JobExecutor
 		try {
 			$this->storageApiClient = new StorageApiClient(array(
 				'token' => $job['token'],
-				'url' => $this->appConfiguration->storageApiUrl,
-				'userAgent' => $this->appConfiguration->userAgent
+				'userAgent' => $this->userAgent
 			));
 			$this->storageApiClient->setRunId($jobId);
-			$this->eventLogger = new EventLogger($this->appConfiguration, $this->storageApiClient, $this->s3Uploader);
+			$this->eventLogger = new EventLogger($this->storageApiClient, $this->s3Uploader);
 
 			try {
 				$configuration = new Configuration($this->storageApiClient, $this->sharedStorage);
@@ -162,7 +164,8 @@ class JobExecutor
 				/**
 				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 				 */
-				$command = new $commandClass($configuration, $this->appConfiguration, $this->sharedStorage, $this->storageApiClient);
+				$command = new $commandClass($configuration, $this->gdConfig, $this->sharedStorage, $this->storageApiClient);
+				$command->setScriptsPath($this->scriptsPath);
 				$command->setEventLogger($this->eventLogger);
 				$command->setTranslator($this->translator);
 				$command->setTemp($this->temp); //For csv handler

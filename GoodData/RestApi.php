@@ -19,7 +19,6 @@ use Guzzle\Stream\PhpStreamRequestFactory;
 use Guzzle\Http\Message\RequestInterface;
 use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Service\EventLogger;
-use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Monolog\Logger;
 use stdClass;
 
@@ -104,10 +103,6 @@ class RestApi
 	 */
 	protected $client;
 	/**
-	 * @var Model
-	 */
-	protected $model;
-	/**
 	 * @var Logger
 	 */
 	private $logger;
@@ -127,14 +122,13 @@ class RestApi
 	private $username;
 	private $password;
 
-	private $appConfiguration;
+	private $appName;
 
 
-	public function __construct(AppConfiguration $appConfiguration, Model $model, Logger $logger)
+	public function __construct($appName, Logger $logger)
 	{
-		$this->model = $model;
 		$this->logger = $logger;
-		$this->appConfiguration = $appConfiguration;
+		$this->appName = $appName;
 
 		$this->client = new Client(self::API_URL, array(
 			'curl.options' => array(
@@ -843,7 +837,7 @@ class RestApi
 
 	public function updateDataSet($pid, $definition, $noDateFacts=false)
 	{
-		$dataSetModel = $this->model->getLDM($definition, $noDateFacts);
+		$dataSetModel = Model::getLDM($definition, $noDateFacts);
 		$model = $this->getProjectModel($pid);
 
 		if (!isset($model['projectModel']['datasets']))
@@ -1718,7 +1712,7 @@ class RestApi
 					) : null
 				),
 				'duration' => $duration,
-				'app' => $this->appConfiguration->appName,
+				'app' => $this->appName,
 				'component' => 'gooddata-writer',
 				'pid' => getmypid()
 			));
