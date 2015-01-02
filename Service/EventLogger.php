@@ -10,15 +10,10 @@ namespace Keboola\GoodDataWriter\Service;
 
 use Keboola\StorageApi\Client as StorageApiClient,
 	Keboola\StorageApi\Event as StorageApiEvent;
-use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader;
 
 class EventLogger
 {
-	/**
-	 * @var AppConfiguration
-	 */
-	private $appConfiguration;
 	/**
 	 * @var StorageApiClient
 	 */
@@ -28,9 +23,8 @@ class EventLogger
 	 */
 	private $uploader;
 
-	public function __construct(AppConfiguration $appConfiguration, StorageApiClient $storageApiClient, SyrupS3Uploader $uploader)
+	public function __construct(StorageApiClient $storageApiClient, SyrupS3Uploader $uploader)
 	{
-		$this->appConfiguration = $appConfiguration;
 		$this->storageApiClient = $storageApiClient;
 		$this->uploader = $uploader;
 	}

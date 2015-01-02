@@ -99,7 +99,7 @@ class UsersTest extends AbstractControllerTest
 
 		$this->assertNotEmpty($otherUser, "User from other domain should be configured in tests config file.");
 
-		$otherUserId = $this->restApi->userId($otherUser, $this->appConfiguration->gd_domain);
+		$otherUserId = $this->restApi->userId($otherUser, $this->gdDomain);
 
 		$this->assertFalse($otherUserId, "Invited user for writer call '/project-users' should not exist in same domain.");
 
@@ -263,7 +263,7 @@ class UsersTest extends AbstractControllerTest
 
 		$this->assertNotEmpty($otherUser, "User from other domain should be configured in tests config file.");
 
-		$otherUserId = $this->restApi->userId($otherUser, $this->appConfiguration->gd_domain);
+		$otherUserId = $this->restApi->userId($otherUser, $this->gdDomain);
 
 		$this->assertFalse($otherUserId, "Invited user for writer call '/project-users' should not exist in same domain.");
 

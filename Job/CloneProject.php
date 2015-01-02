@@ -6,6 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 
 class CloneProject extends AbstractJob
@@ -19,10 +20,10 @@ class CloneProject extends AbstractJob
 		$this->configuration->checkProjectsTable();
 
 		if (empty($params['accessToken'])) {
-			$params['accessToken'] = $this->appConfiguration->gd_accessToken;
+			$params['accessToken'] = $this->gdAccessToken;
 		}
 		if (empty($params['name'])) {
-			$params['name'] = sprintf($this->appConfiguration->gd_projectNameTemplate, $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
+			$params['name'] = sprintf(Model::PROJECT_NAME_TEMPLATE, $this->gdProjectNamePrefix, $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 		}
 
 		$bucketAttributes = $this->configuration->bucketAttributes();

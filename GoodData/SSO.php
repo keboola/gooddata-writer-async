@@ -7,7 +7,6 @@
  */
 namespace Keboola\GoodDataWriter\GoodData;
 
-use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Symfony\Component\Process\Process;
 use Syrup\ComponentBundle\Exception\SyrupComponentException;
 use Syrup\ComponentBundle\Filesystem\Temp;
@@ -23,31 +22,10 @@ class SSO
 	const GOODDATA_EMAIL = 'security@gooddata.com';
 	const SSO_SCRIPT_PATH = '/usr/local/bin/gooddata-sso.sh';
 
-	protected $ssoProvider;
-	protected $ssoUser;
-	protected $passphrase;
-
-	/**
-	 * @var \Syrup\ComponentBundle\Filesystem\Temp
-	 */
-	public $temp;
-	public $emailTemplate;
-
-	protected $gooddataHost = 'secure.gooddata.com';
-
-	public function __construct($username, AppConfiguration $appConfiguration, Temp $temp)
+	public static function url($domainUser, $ssoProvider, $passphrase, Temp $temp, $targetUrl, $email, $validity=86400)
 	{
 		$temp->initRunFolder();
-		$this->temp = $temp;
-
-		$this->ssoUser = $username;
-		$this->ssoProvider = $appConfiguration->gd_ssoProvider;
-		$this->passphrase = $appConfiguration->gd_keyPassphrase;
-	}
-
-	public function url($targetUrl, $email, $validity = 86400)
-	{
-		$jsonFile = sprintf('%s/%s-%s.json', $this->temp->getTmpFolder(), date('Ymd-His'), uniqid());
+		$jsonFile = sprintf('%s/%s-%s.json', $temp->getTmpFolder(), date('Ymd-His'), uniqid());
 		$signData = array(
 			'email' => $email,
 			'validity' => time() + $validity
@@ -55,7 +33,7 @@ class SSO
 		file_put_contents($jsonFile, json_encode($signData));
 
 		$command = sprintf('sudo -u root %s %s %s %s %s 2>&1',
-			self::SSO_SCRIPT_PATH, $this->passphrase, $jsonFile, $this->ssoUser, self::GOODDATA_EMAIL);
+			self::SSO_SCRIPT_PATH, $passphrase, $jsonFile, $domainUser, self::GOODDATA_EMAIL);
 
 		$error = null;
 		$output = null;
@@ -74,11 +52,8 @@ class SSO
 					$sign = file_get_contents($jsonFile . '.enc');
 					unlink($jsonFile . '.enc');
 
-					$url = sprintf("https://{$this->gooddataHost}/gdc/account/customerlogin?sessionId=%s&serverURL=%s&targetURL=%s",
-						urlencode($sign),
-						urlencode($this->ssoProvider),
-						urlencode($targetUrl)
-					);
+					$url = sprintf("https://secure.gooddata.com/gdc/account/customerlogin?sessionId=%s&serverURL=%s&targetURL=%s",
+						urlencode($sign), urlencode($ssoProvider), urlencode($targetUrl));
 
 					return $url;
 				}

@@ -8,6 +8,7 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 
@@ -32,9 +33,8 @@ class ResetProject extends AbstractJob
 	{
 		$removeClones = isset($params['removeClones']) ? (bool)$params['removeClones'] : false;
 
-		$projectName = sprintf($this->appConfiguration->gd_projectNameTemplate, $this->configuration->tokenInfo['owner']['name'],
-			$this->configuration->writerId);
-		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->appConfiguration->gd_accessToken;
+		$projectName = sprintf(Model::PROJECT_NAME_TEMPLATE, $this->gdProjectNamePrefix, $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
+		$accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->gdAccessToken;
 		$bucketAttributes = $this->configuration->bucketAttributes();
 
 		$oldPid = $bucketAttributes['gd']['pid'];

@@ -27,8 +27,7 @@ use Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\Model\Graph,
 	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\Writer\Configuration,
-	Keboola\GoodDataWriter\Writer\SharedStorage,
-	Keboola\GoodDataWriter\Writer\AppConfiguration;
+	Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\GoodDataWriter\Exception\GraphTtlException,
 	Keboola\GoodDataWriter\Exception\JobProcessException,
@@ -48,10 +47,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public $sharedStorage;
 
-	/**
-	 * @var AppConfiguration
-	 */
-	private $appConfiguration;
 	/**
 	 * @var S3Client
 	 */
@@ -90,7 +85,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		parent::preExecute($request);
 
 		$this->translator = $this->container->get('translator');
-		$this->appConfiguration = $this->container->get('gooddata_writer.app_configuration');
 
 		set_time_limit(3 * 60 * 60);
 
@@ -111,7 +105,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->writerId = empty($this->params['writerId'])? null : $this->params['writerId'];
 
 
-		$this->eventLogger = new EventLogger($this->appConfiguration, $this->storageApi, $this->container->get('syrup.monolog.s3_uploader'));
+		$this->eventLogger = new EventLogger($this->storageApi, $this->container->get('syrup.monolog.s3_uploader'));
 
 		$this->stopWatch = new Stopwatch();
 		$this->stopWatch->start(self::STOPWATCH_NAME_REQUEST);
@@ -516,9 +510,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$targetUrl = isset($this->params['targetUrl'])? $this->params['targetUrl'] : '/#s=/gdc/projects/' . $this->params['pid'];
 		$validity = (isset($this->params['validity']))? $this->params['validity'] : 86400;
 
-		$domainUser = $this->getSharedStorage()->getDomainUser($this->appConfiguration->gd_domain);
-		$sso = new SSO($domainUser->username, $this->appConfiguration, $this->container->get('syrup.temp'));
-		$ssoLink = $sso->url($targetUrl, $this->params['email'], $validity);
+		$gdConfig = $config = $this->container->getParameter('gdwr_gd');
+		if (!isset($gdConfig['domain'])) {
+			throw new \Exception("Key 'domain' is missing from gd config");
+		}
+		$domainUser = $this->getSharedStorage()->getDomainUser($gdConfig['domain']);
+
+		$ssoProvider = isset($gdConfig['sso_provider'])? $gdConfig['sso_provider'] : Model::SSO_PROVIDER;
+		$passphrase = $this->container->getParameter('gdwr_key_passphrase');
+		$ssoLink = SSO::url($domainUser->username, $ssoProvider, $passphrase, $this->container->get('syrup.temp'), $targetUrl, $this->params['email'], $validity);
 
 		if (null == $ssoLink) {
 			$e = new SyrupComponentException(500, $this->translator->trans('error.sso_unknown'));
@@ -1583,9 +1583,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	private function getSharedStorage()
 	{
 		if (!$this->sharedStorage) {
-			if (!$this->appConfiguration) {
-				$this->appConfiguration = $this->container->get('gooddata_writer.app_configuration');
-			}
 			$this->sharedStorage = $this->container->get('gooddata_writer.shared_storage');
 		}
 		return $this->sharedStorage;
@@ -1644,7 +1641,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		/**
 		 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
 		 */
-		$command = new $commandClass($this->getConfiguration(), $this->appConfiguration, $this->getSharedStorage(), $this->storageApi);
+		$command = new $commandClass($this->getConfiguration(), $this->container->getParameter('gdwr_gd'), $this->getSharedStorage(), $this->storageApi);
 		$command->setS3Client($this->getS3Client());
 		$command->setTranslator($this->translator);
 		$command->setEventLogger($this->eventLogger);

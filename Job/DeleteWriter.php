@@ -62,9 +62,8 @@ class DeleteWriter extends AbstractJob
 		}
 
 		// Remove only users created by Writer
-		$writerDomain = substr($this->appConfiguration->gd_userEmailTemplate, strpos($this->appConfiguration->gd_userEmailTemplate, '@'));
 		foreach ($this->sharedStorage->getUsers($job['projectId'], $job['writerId']) as $user) {
-			if (strpos($user['email'], $writerDomain) !== false) {
+			if (strpos($user['email'], $this->gdUsernameDomain) !== false) {
 				if ($this->configuration->testingWriter) {
 					$restApi->dropUser($user['uid']);
 					$this->sharedStorage->markUsersDeleted(array($user['uid']));

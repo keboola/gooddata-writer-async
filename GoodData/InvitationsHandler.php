@@ -8,7 +8,6 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
-use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Symfony\Component\Process\Process;
 
@@ -23,18 +22,28 @@ class InvitationsHandler
 	private $emailPassword;
 	private $sharedStorage;
 
-	public function __construct(AppConfiguration $appConfiguration, SharedStorage $sharedStorage)
+	public function __construct($scriptsPath, $config, SharedStorage $sharedStorage)
 	{
+		if (!isset($config['domain'])) {
+			throw new \Exception("Key 'domain' is missing from invitations config");
+		}
+		if (!isset($config['email'])) {
+			throw new \Exception("Key 'email' is missing from invitations config");
+		}
+		if (!isset($config['password'])) {
+			throw new \Exception("Key 'password' is missing from invitations config");
+		}
+
 		$this->sharedStorage = $sharedStorage;
-		$domainUser = $sharedStorage->getDomainUser($appConfiguration->gd_domain);
+		$domainUser = $sharedStorage->getDomainUser($config['domain']);
 		$this->gdUsername = $domainUser->username;
 		$this->gdPassword = $domainUser->password;
-		$this->emailUsername = $appConfiguration->gd_invitations_email;
-		$this->emailPassword = $appConfiguration->gd_invitations_password;
-		$this->scriptPath = $appConfiguration->scriptsPath . '/' . self::SCRIPT_NAME;
+		$this->emailUsername = $config['email'];
+		$this->emailPassword = $config['password'];
+		$this->scriptPath = $scriptsPath . '/' . self::SCRIPT_NAME;
 		if (!file_exists($this->scriptPath))
 			throw new \Exception('Script for accepting invitations does not exist');
-		$this->rubyPath = $appConfiguration->rubyPath;
+		$this->rubyPath = $config['rubyPath'];
 		if ($this->rubyPath) {
 			if (!file_exists($this->rubyPath))
 				throw new \Exception('Ruby on path defined in parameters.yml does not exist');

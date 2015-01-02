@@ -6,10 +6,6 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Aws\Common\Exception\MultipartUploadException;
-use Aws\S3\Model\MultipartUpload\AbstractTransfer;
-use Aws\S3\Model\MultipartUpload\UploadBuilder;
-use Aws\S3\S3Client;
 use Keboola\Csv\CsvFile;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
@@ -121,30 +117,4 @@ class ExportReport extends AbstractJob
 		return $destPath;
 	}
 
-	protected function uploadToS3($stream)
-	{
-		$client = S3Client::factory(array(
-			'key'    => $this->appConfiguration->aws_accessKey,
-			'secret' => $this->appConfiguration->aws_secretKey
-		));
-
-		/** @var AbstractTransfer $uploader */
-		$uploader = UploadBuilder::newInstance()
-			->setClient($client)
-			->setSource($stream)
-			->setBucket($this->appConfiguration->aws_s3Bucket)
-			->setKey('gooddata-report-export-text.csv')
-//			->setOption('Metadata', array('Foo' => 'Bar'))
-//			->setOption('CacheControl', 'max-age=3600')
-			->build();
-
-		// Perform the upload. Abort the upload if something goes wrong
-		try {
-			$uploader->upload();
-			echo "Upload complete.\n";
-		} catch (MultipartUploadException $e) {
-			$uploader->abort();
-			echo "Upload failed.\n";
-		}
-	}
 }

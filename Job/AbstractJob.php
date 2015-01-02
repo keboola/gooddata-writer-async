@@ -7,9 +7,8 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\Service\EventLogger;
+use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Service\Queue;
-use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\Writer\SharedStorage,
 	Keboola\GoodDataWriter\GoodData\RestApi,
@@ -26,10 +25,6 @@ abstract class AbstractJob
 	 * @var Configuration
 	 */
 	protected $configuration;
-	/**
-	 * @var AppConfiguration
-	 */
-	protected $appConfiguration;
 	/**
 	 * @var SharedStorage
 	 */
@@ -76,15 +71,33 @@ abstract class AbstractJob
 	protected $logs;
 
 	private $tmpDir;
+
+	protected $gdConfig;
 	protected $scriptsPath;
+	protected $gdDomain;
+	protected $gdSsoProvider;
+	protected $gdProjectNamePrefix;
+	protected $gdUsernameDomain;
 
 
-	public function __construct(Configuration $configuration, AppConfiguration $appConfiguration, SharedStorage $sharedStorage, StorageApiClient $storageApiClient)
+	public function __construct(Configuration $configuration, $gdConfig, SharedStorage $sharedStorage, StorageApiClient $storageApiClient)
 	{
 		$this->configuration = $configuration;
-		$this->appConfiguration = $appConfiguration;
 		$this->sharedStorage = $sharedStorage;
 		$this->storageApiClient = $storageApiClient;
+
+		$this->gdConfig = $gdConfig;
+		if (!isset($gdConfig['access_token'])) {
+			throw new \Exception("Key 'access_token' is missing from gd config");
+		}
+		$this->gdAccessToken = $gdConfig['access_token'];
+		if (!isset($gdConfig['domain'])) {
+			throw new \Exception("Key 'domain' is missing from gd config");
+		}
+		$this->gdDomain = $this->configuration->gdDomain? $this->configuration->gdDomain : $gdConfig['domain'];
+		$this->gdSsoProvider = isset($gdConfig['ssoProvider'])? $gdConfig['ssoProvider'] : Model::SSO_PROVIDER;
+		$this->gdProjectNamePrefix = isset($gdConfig['projectNamePrefix'])? $gdConfig['projectNamePrefix'] : Model::PROJECT_NAME_PREFIX;
+		$this->gdUsernameDomain = isset($gdConfig['usernameDomain'])? $gdConfig['usernameDomain'] : Model::USERNAME_DOMAIN;
 
 		$this->logs = array();
 	}
@@ -106,8 +119,7 @@ abstract class AbstractJob
 	protected function getDomainUser()
 	{
 		if (!$this->domainUser) {
-			$this->domainUser = $this->sharedStorage->getDomainUser($this->configuration->gdDomain?
-				$this->configuration->gdDomain : $this->appConfiguration->gd_domain);
+			$this->domainUser = $this->sharedStorage->getDomainUser($this->gdDomain);
 		}
 		return $this->domainUser;
 	}
@@ -146,6 +158,11 @@ abstract class AbstractJob
 	public function setS3Client(S3Client $s3Client)
 	{
 		$this->s3Client = $s3Client;
+	}
+
+	public function setScriptsPath($scriptsPath)
+	{
+		$this->scriptsPath = $scriptsPath;
 	}
 
 	public function getLogs()

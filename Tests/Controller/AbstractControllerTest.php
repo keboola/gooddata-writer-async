@@ -6,7 +6,6 @@
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\GoodData\RestApiException;
-use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase,
 	Symfony\Bundle\FrameworkBundle\Console\Application,
@@ -43,10 +42,6 @@ abstract class AbstractControllerTest extends WebTestCase
 	 */
 	protected $commandTester;
 	/**
-	 * @var AppConfiguration
-	 */
-	protected $appConfiguration;
-	/**
 	 * @var SharedStorage
 	 */
 	protected $sharedStorage;
@@ -58,6 +53,7 @@ abstract class AbstractControllerTest extends WebTestCase
 	protected $dataBucketName;
 	protected $dataBucketId;
 	protected $writerId;
+	protected $gdDomain;
 
 
 	/**
@@ -88,14 +84,19 @@ abstract class AbstractControllerTest extends WebTestCase
 			'HTTP_X-StorageApi-Token' => $this->storageApiToken
 		));
 
-		$this->appConfiguration = $container->get('gooddata_writer.app_configuration');
 		$this->storageApi = new StorageApiClient(array(
 			'token' => $this->storageApiToken,
 			'url' => $container->getParameter('storage_api.url'))
 		);
 
 		$this->sharedStorage = $container->get('gooddata_writer.shared_storage');
-		$this->domainUser = $this->sharedStorage->getDomainUser($this->appConfiguration->gd_domain);
+		$gdConfig = $config = $container->getParameter('gdwr_gd');
+		if (!isset($gdConfig['domain'])) {
+			throw new \Exception("Key 'domain' is missing from gd config");
+		}
+		$this->gdDomain = $gdConfig['domain'];
+
+		$this->domainUser = $this->sharedStorage->getDomainUser($this->gdDomain);
 
 
 		$this->restApi = $container->get('gooddata_writer.rest_api');

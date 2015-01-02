@@ -3,7 +3,6 @@ namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\WebDav;
-use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -40,8 +39,6 @@ class ToolCommand extends ContainerAwareCommand
 	{
 		$this->output->writeln('- Loading time dimension ' . $dimensionName);
 
-		/** @var AppConfiguration $appConfiguration */
-		$appConfiguration = $this->getContainer()->get('gooddata_writer.app_configuration');
 		$sharedStorage = $this->getContainer()->get('gooddata_writer.shared_storage');
 
 		$domainUser = $sharedStorage->getDomainUser('keboola');
@@ -63,10 +60,10 @@ class ToolCommand extends ContainerAwareCommand
 		$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
 
 		mkdir($tmpFolderDimension);
-		$manifest = file_get_contents($appConfiguration->scriptsPath . '/time-dimension-manifest.json');
+		$manifest = file_get_contents($this->getContainer()->getParameter('gdwr_scripts_path') . '/time-dimension-manifest.json');
 		$timeDimensionManifest = str_replace('%NAME%', $dimensionName, $manifest);
 		file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
-		copy($appConfiguration->scriptsPath . '/time-dimension.csv', $tmpFolderDimension . '/' . $dimensionName . '.csv');
+		copy($this->getContainer()->getParameter('gdwr_scripts_path') . '/time-dimension.csv', $tmpFolderDimension . '/' . $dimensionName . '.csv');
 		$webDav->upload($tmpFolderDimension . '/upload_info.json', $tmpFolderNameDimension);
 		$webDav->upload($tmpFolderDimension . '/' . $dimensionName . '.csv', $tmpFolderNameDimension);
 

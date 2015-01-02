@@ -43,11 +43,10 @@ class CreateUser extends AbstractJob
 		$params['email'] = strtolower($params['email']);
 
 		$restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
-		$ssoProvider = empty($params['ssoProvider']) ? $this->appConfiguration->gd_ssoProvider : $params['ssoProvider'];
 		$alreadyExists = false;
 		try {
 			$userId = $restApi->createUser($this->getDomainUser()->domain, $params['email'], $params['password'],
-				$params['firstName'], $params['lastName'], $ssoProvider);
+				$params['firstName'], $params['lastName'], $this->gdSsoProvider);
 		} catch (UserAlreadyExistsException $e) {
 			$userId = $e->getMessage();
 			$alreadyExists = true;

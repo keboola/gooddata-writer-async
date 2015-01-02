@@ -5,7 +5,6 @@
  */
 namespace Keboola\GoodDataWriter\Tests;
 
-use Keboola\GoodDataWriter\Writer\AppConfiguration;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Process\Process;
 use Keboola\StorageApi\Client as StorageApiClient;
@@ -17,9 +16,7 @@ class CsvConversionTest extends WebTestCase
 	protected function setUp()
 	{
 		$container = static::createClient()->getContainer();
-		/** @var AppConfiguration $appConfiguration */
-		$appConfiguration = $container->get('gooddata_writer.app_configuration');
-		$this->scriptPath = $appConfiguration->scriptsPath . '/convert_csv.php';
+		$this->scriptPath = $container->getParameter('gdwr_scripts_path') . '/convert_csv.php';
 	}
 
 

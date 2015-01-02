@@ -4,7 +4,6 @@ namespace Keboola\GoodDataWriter\Service;
 
 
 use Aws\Sqs\SqsClient;
-use Keboola\GoodDataWriter\Writer\AppConfiguration;
 
 class Queue
 {
@@ -15,14 +14,27 @@ class Queue
 	protected $client;
 	protected $queueUrl;
 
-	public function __construct(AppConfiguration $appConfiguration)
+	public function __construct($config)
 	{
+		if (!isset($config['access_key'])) {
+			throw new \Exception("Key 'access_key' is missing from config");
+		}
+		if (!isset($config['secret_key'])) {
+			throw new \Exception("Key 'secret_key' is missing from config");
+		}
+		if (!isset($config['region'])) {
+			throw new \Exception("Key 'region' is missing from config");
+		}
+		if (!isset($config['queue_url'])) {
+			throw new \Exception("Key 'queue_url' is missing from config");
+		}
+
 		$this->client = SqsClient::factory(array(
-			'key' => $appConfiguration->aws_accessKey,
-			'secret' => $appConfiguration->aws_secretKey,
-			'region' => $appConfiguration->aws_region
+			'key' => $config['access_key'],
+			'secret' => $config['secret_key'],
+			'region' => $config['region']
 		));
-		$this->queueUrl = $appConfiguration->aws_jobsSqsUrl;
+		$this->queueUrl = $config['queue_url'];
 	}
 
 

@@ -19,7 +19,6 @@ use Symfony\Component\Stopwatch\Stopwatch;
 
 class LoadData extends AbstractJob
 {
-	private $goodDataModel;
 
 	public function prepare($params)
 	{
@@ -61,8 +60,7 @@ class LoadData extends AbstractJob
 
 		// Init
 		$tmpFolderName = basename($this->getTmpDir($job['id']));
-		$this->goodDataModel = new Model($this->appConfiguration);
-		$csvHandler = new CsvHandler($this->temp, $this->appConfiguration->scriptsPath, $this->storageApiClient, $this->logger);
+		$csvHandler = new CsvHandler($this->temp, $this->scriptsPath, $this->storageApiClient, $this->logger);
 		$csvHandler->setJobId($job['id']);
 		$csvHandler->setRunId($job['runId']);
 

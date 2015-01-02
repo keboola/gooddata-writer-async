@@ -19,10 +19,6 @@ use Symfony\Component\Stopwatch\Stopwatch;
 
 class UploadDateDimension extends AbstractJob
 {
-	/**
-	 * @var Model
-	 */
-	private $goodDataModel;
 	public $eventsLog;
 
 	public function prepare($params)
@@ -66,7 +62,6 @@ class UploadDateDimension extends AbstractJob
 
 		// Init
 		$tmpFolderName = basename($this->getTmpDir($job['id']));
-		$this->goodDataModel = new Model($this->appConfiguration);
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$includeTime = $dateDimensions[$params['name']]['includeTime'];
@@ -95,9 +90,9 @@ class UploadDateDimension extends AbstractJob
 				$tmpFolderNameDimension = $tmpFolderName . '-' . $dimensionName;
 
 				mkdir($tmpFolderDimension);
-				$timeDimensionManifest = $this->goodDataModel->getTimeDimensionDataLoadManifest($params['name']);
+				$timeDimensionManifest = Model::getTimeDimensionDataLoadManifest($this->scriptsPath, $params['name']);
 				file_put_contents($tmpFolderDimension . '/upload_info.json', $timeDimensionManifest);
-				copy($this->appConfiguration->scriptsPath . '/time-dimension.csv', $tmpFolderDimension . '/' . $dimensionName . '.csv');
+				copy($this->scriptsPath . '/time-dimension.csv', $tmpFolderDimension . '/' . $dimensionName . '.csv');
 				$webDav->prepareFolder($tmpFolderNameDimension);
 				$webDav->upload($tmpFolderDimension . '/upload_info.json', $tmpFolderNameDimension);
 				$webDav->upload($tmpFolderDimension . '/' . $dimensionName . '.csv', $tmpFolderNameDimension);
