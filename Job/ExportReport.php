@@ -59,9 +59,12 @@ class ExportReport extends AbstractJob
 		 */
 
 		$filename = $this->getTmpDir($job['id']) . '/' . uniqid("report-export", true) .'.csv';
-		$restApi->getToFile($csvUri, $filename);
 
-		$this->uploadToSapi($filename, $params['table']);
+		if (false !== $restApi->getToFile($csvUri, $filename)) {
+			$this->uploadToSapi($filename, $params['table']);
+		} else {
+			$this->logger->warn("Report export timed out");
+		}
 
 		return array();
 	}
