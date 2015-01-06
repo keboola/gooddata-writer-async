@@ -8,18 +8,17 @@ namespace Keboola\GoodDataWriter\Tests;
 use Keboola\GoodDataWriter\Service\Lock;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
-class DbLockTest extends WebTestCase
+class DbLockTest extends \PHPUnit_Framework_TestCase
 {
 
 	public function testLocks()
 	{
-		$container = static::createClient()->getContainer();
 		$connectionParams = array(
-			'dbname' => $container->getParameter('database_name'),
-			'user' => $container->getParameter('database_user'),
-			'password' => $container->getParameter('database_password'),
-			'host' => $container->getParameter('database_host'),
-			'port' => $container->getParameter('database_port'),
+			'dbname' => DB_NAME,
+			'user' => DB_USER,
+			'password' => DB_PASSWORD,
+			'host' => DB_HOST,
+			'port' => DB_PORT,
 			'driver' => 'pdo_mysql',
 			'charset' => 'utf8'
 		);

@@ -78,11 +78,7 @@ class LoadData extends AbstractJob
 		$stopWatch->start($stopWatchId);
 		$definitionFile = $job['definition'];
 
-		$definition = $this->s3Client->downloadFile($definitionFile);
-		$definition = json_decode($definition, true);
-		if (!$definition) {
-			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . $definitionFile);
-		}
+		$definition = $this->factory->getDefinition($definitionFile);
 
 		$e = $stopWatch->stop($stopWatchId);
 		$this->logEvent('Data set definition from S3 downloaded', $job['id'], $job['runId'], array(

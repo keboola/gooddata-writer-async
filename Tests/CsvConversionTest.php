@@ -5,18 +5,16 @@
  */
 namespace Keboola\GoodDataWriter\Tests;
 
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Process\Process;
 use Keboola\StorageApi\Client as StorageApiClient;
 
-class CsvConversionTest extends WebTestCase
+class CsvConversionTest extends \PHPUnit_Framework_TestCase
 {
 	protected $scriptPath;
 
 	protected function setUp()
 	{
-		$container = static::createClient()->getContainer();
-		$this->scriptPath = $container->getParameter('gdwr_scripts_path') . '/convert_csv.php';
+		$this->scriptPath = SCRIPTS_PATH . '/convert_csv.php';
 	}
 
 
@@ -68,7 +66,7 @@ class CsvConversionTest extends WebTestCase
 
 	public function testEscaping()
 	{
-		$csvPath = $this->getPhpUnitXmlDir() . '/Tests/data/escaping.csv';
+		$csvPath = __DIR__ . '/data/escaping.csv';
 		$this->assertFileExists($csvPath, 'Csv file for scaping test should exist');
 
 		$command = sprintf('cat %s | php %s', escapeshellarg($csvPath), escapeshellarg($this->scriptPath));

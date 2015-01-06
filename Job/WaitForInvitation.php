@@ -40,24 +40,8 @@ class WaitForInvitation extends AbstractJob
 				throw new WrongConfigurationException($this->translator->trans('wait_for_invitation.lasts_too_long'));
 			}
 
-			$tokenData = $this->storageApiClient->getLogData();
-			$waitJob = $this->sharedStorage->createJob($this->storageApiClient->generateId(),
-				$this->configuration->projectId, $this->configuration->writerId, array(
-					'command' => 'waitForInvitation',
-					'createdTime' => date('c'),
-					'parameters' => array(
-						'try' => $params['try'] + 1
-					),
-					'runId' => $this->storageApiClient->getRunId(),
-					'token' => $this->storageApiClient->token,
-					'tokenId' => $tokenData['id'],
-					'tokenDesc' => $tokenData['description']
-				), SharedStorage::SERVICE_QUEUE);
-			$this->queue->enqueue(array(
-				'projectId' => $this->configuration->projectId,
-				'writerId' => $this->configuration->writerId,
-				'batchId' => $waitJob['batchId']
-			), $params['try'] * 60);
+			$waitJobData = $this->factory->createJob('waitForInvitation', array('try' => $params['try'] + 1), null, SharedStorage::SERVICE_QUEUE);
+			$this->factory->enqueueJob($waitJobData['batchId'], $params['try'] * 60);
 
 			return array(
 				'status' => SharedStorage::JOB_STATUS_ERROR,

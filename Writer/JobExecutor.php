@@ -12,6 +12,7 @@ use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\StorageApi\ClientException as StorageApiClientException;
 use Keboola\GoodDataWriter\GoodData\CsvHandlerNetworkException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Job\JobFactory;
 use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Service\Queue;
 use Keboola\GoodDataWriter\Service\S3Client;
@@ -82,8 +83,6 @@ class JobExecutor
 								Logger $logger, Temp $temp, Queue $queue, TranslatorInterface $translator,
 								SyrupS3Uploader $s3Uploader, S3Client $s3Client)
 	{
-
-
 		$this->gdConfig = $gdConfig;
 		$this->sharedStorage = $sharedStorage;
 		$this->restApi = $restApi;
@@ -107,32 +106,31 @@ class JobExecutor
 
 		$startTime = time();
 
-		$job = $this->sharedStorage->fetchJob($jobId);
-		if (!$job) {
+		$jobData = $this->sharedStorage->fetchJob($jobId);
+		if (!$jobData) {
 			throw new JobProcessException($this->translator->trans('job_executor.job_not_found %1', array('%1' => $jobId)));
 		}
 
 		// Job already executed?
-		if (!$forceRun && $job['status'] != SharedStorage::JOB_STATUS_WAITING) {
+		if (!$forceRun && $jobData['status'] != SharedStorage::JOB_STATUS_WAITING) {
 			return;
 		}
 
-		$queueIdArray = explode('.', $job['queueId']);
+		$queueIdArray = explode('.', $jobData['queueId']);
 		$serviceRun = isset($queueIdArray[2]) && $queueIdArray[2] == SharedStorage::SERVICE_QUEUE;
 
-		$jobData = array('result' => array());
 		try {
 			$this->storageApiClient = new StorageApiClient(array(
-				'token' => $job['token'],
+				'token' => $jobData['token'],
 				'userAgent' => $this->userAgent
 			));
-			$this->storageApiClient->setRunId($jobId);
+			$this->storageApiClient->setRunId($jobData['runId']);
 			$this->eventLogger = new EventLogger($this->storageApiClient, $this->s3Uploader);
 
 			try {
 				$configuration = new Configuration($this->storageApiClient, $this->sharedStorage);
-				$configuration->setWriterId($job['writerId']);
-				$writerInfo = $this->sharedStorage->getWriter($job['projectId'], $job['writerId']);
+				$configuration->setWriterId($jobData['writerId']);
+				$writerInfo = $this->sharedStorage->getWriter($jobData['projectId'], $jobData['writerId']);
 				if (!$serviceRun && $writerInfo['status'] == SharedStorage::WRITER_STATUS_MAINTENANCE) {
 					throw new QueueUnavailableException($this->translator->trans('queue.maintenance'));
 				}
@@ -142,42 +140,28 @@ class JobExecutor
 					'startTime' => date('c', $startTime),
 					'endTime' => null
 				));
-				$this->logEvent($this->translator->trans('log.job.started %1', array('%1' => $job['id'])), $job, array(
-					'command' => $job['command'],
-					'params' => $job['parameters']
+				$this->logEvent($this->translator->trans('log.job.started %1', array('%1' => $jobData['id'])), $jobData, array(
+					'command' => $jobData['command'],
+					'params' => $jobData['parameters']
 				));
 
-				$commandName = ucfirst($job['command']);
-				$commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
-				if (!class_exists($commandClass)) {
-					throw new JobProcessException($this->translator->trans('job_executor.command_not_found %1', array('%1' => $commandName)));
-				}
-
-				$this->restApi->setJobId($job['id']);
-				$this->restApi->setRunId($job['runId']);
+				$this->restApi->setJobId($jobData['id']);
+				$this->restApi->setRunId($jobData['runId']);
 				$this->restApi->setEventLogger($this->eventLogger);
 				$bucketAttributes = $configuration->bucketAttributes();
 				if (!empty($bucketAttributes['gd']['apiUrl'])) {
 					$this->restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
 				}
-				
-				/**
-				 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
-				 */
-				$command = new $commandClass($configuration, $this->gdConfig, $this->sharedStorage, $this->storageApiClient);
-				$command->setScriptsPath($this->scriptsPath);
-				$command->setEventLogger($this->eventLogger);
-				$command->setTranslator($this->translator);
-				$command->setTemp($this->temp); //For csv handler
-				$command->setLogger($this->logger); //For csv handler
-				$command->setS3Client($this->s3Client); //For dataset definitions and manifests
-				$command->setQueue($this->queue);
-				$command->setS3Uploader($this->s3Uploader);
+
+				$jobFactory = new JobFactory($this->gdConfig, $this->sharedStorage, $configuration, $this->storageApiClient,
+					$this->scriptsPath, $this->eventLogger, $this->translator, $this->temp, $this->logger, $this->s3Client,
+					$this->s3Uploader, $this->queue);
+				$job = $jobFactory->getJobClass($jobData['command']);
 
 				$error = null;
 
 				try {
-					$jobData['result'] = $command->run($job, $job['parameters'], $this->restApi);
+					$jobData['result'] = $job->run($jobData, $jobData['parameters'], $this->restApi);
 				} catch (\Exception $e) {
 					$debug = array(
 						'message' => $e->getMessage(),
@@ -198,7 +182,7 @@ class JobExecutor
 						$jobData['result']['error'] = $e->getMessage();
 						$debug['details'] = $e->getData();
 						$this->logger->alert($e->getMessage(), array(
-							'job' => $job,
+							'job' => $jobData,
 							'exception' => $e,
 							'runId' => $this->storageApiClient->getRunId()
 						));
@@ -209,17 +193,17 @@ class JobExecutor
 						throw $e;
 					}
 
-					$jobData['debug'] = $this->s3Uploader->uploadString($job['id'] . '/debug-data.json', json_encode($debug, JSON_PRETTY_PRINT));
+					$jobData['debug'] = $this->s3Uploader->uploadString($jobData['id'] . '/debug-data.json', json_encode($debug, JSON_PRETTY_PRINT));
 				}
 
-				$jobData['logs'] = $command->getLogs();
+				$jobData['logs'] = $job->getLogs();
 
 			} catch (\Exception $e) {
 				if ($e instanceof QueueUnavailableException) {
 					throw $e;
 				} else {
 					$this->logger->alert($e->getMessage(), array(
-						'job' => $job,
+						'job' => $jobData,
 						'exception' => $e,
 						'runId' => $this->storageApiClient->getRunId()
 					));
@@ -237,13 +221,13 @@ class JobExecutor
 		$this->sharedStorage->saveJob($jobId, $jobData);
 
 		$log = array(
-			'command' => $job['command'],
-			'params' => $job['parameters'],
+			'command' => $jobData['command'],
+			'params' => $jobData['parameters'],
 			'status' => $jobData['status'],
 			'result' => $jobData['result']
 		);
 		if (isset($jobData['debug'])) $log['debug'] = $jobData['debug'];
-		$this->logEvent($this->translator->trans('log.job.finished %1', array('%1' => $job['id'])), $job, $log, $startTime);
+		$this->logEvent($this->translator->trans('log.job.finished %1', array('%1' => $jobData['id'])), $jobData, $log, $startTime);
 	}
 
 
@@ -271,59 +255,4 @@ class JobExecutor
 			unset($data['debug']);
 		$this->eventLogger->log($job['id'], $job['runId'], $message, $data, time()-$startTime);
 	}
-
-
-	public function createJob($projectId, $writerId, $command, $params, $batchId, $queue=null, $others=array())
-	{
-		$tokenData = $this->storageApiClient->getLogData();
-		$jobData = array(
-			'command' => $command,
-			'batchId' => $batchId,
-			'createdTime' => date('c'),
-			'parameters' => $params,
-			'runId' => $this->storageApiClient->getRunId(),
-			'token' => $this->storageApiClient->token,
-			'tokenId' => $tokenData['id'],
-			'tokenDesc' => $tokenData['description']
-		);
-		if (count($others)) {
-			$jobData = array_merge($jobData, $others);
-		}
-
-		$job = $this->sharedStorage->createJob($this->storageApiClient->generateId(), $projectId, $writerId, $jobData, $queue);
-
-		array_walk($params, function(&$val, $key) {
-			if ($key == 'password') $val = '***';
-		});
-		$this->eventLogger->log($job['id'], $this->storageApiClient->getRunId(),
-			$this->translator->trans($this->translator->trans('log.job.created')), array(
-				'projectId' => $projectId,
-				'writerId' => $writerId,
-				'runId' => $this->storageApiClient->getRunId(),
-				'command' => $command,
-				'params' => $params
-			));
-
-		return $job;
-	}
-
-	public function addBatchToQueue($projectId, $writerId, $batchId)
-	{
-		$this->queue->enqueue(array(
-			'projectId' => $projectId,
-			'writerId' => $writerId,
-			'batchId' => $batchId
-		));
-	}
-
-	public function setStorageApiClient(StorageApiClient $storageApiClient)
-	{
-		$this->storageApiClient = $storageApiClient;
-	}
-
-	public function setEventLogger(EventLogger $eventLogger)
-	{
-		$this->eventLogger = $eventLogger;
-	}
-
 }

@@ -8,11 +8,9 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\Model;
-use Keboola\GoodDataWriter\Service\Queue;
 use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\Writer\SharedStorage,
 	Keboola\GoodDataWriter\GoodData\RestApi,
-	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\StorageApi\Client as StorageApiClient;
 use Monolog\Logger;
 use Symfony\Component\Translation\TranslatorInterface;
@@ -22,6 +20,10 @@ use Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader;
 abstract class AbstractJob
 {
 	/**
+	 * @var JobFactory
+	 */
+	protected $factory;
+	/**
 	 * @var Configuration
 	 */
 	protected $configuration;
@@ -29,11 +31,6 @@ abstract class AbstractJob
 	 * @var SharedStorage
 	 */
 	protected $sharedStorage;
-	/**
-	 * @var S3Client
-	 * @deprecated
-	 */
-	protected $s3Client;
 	/**
 	 * @var SyrupS3Uploader
 	 */
@@ -56,10 +53,6 @@ abstract class AbstractJob
 	 */
 	protected $storageApiClient;
 	/**
-	 * @var Queue
-	 */
-	protected $queue;
-	/**
 	 * @var \Keboola\GoodDataWriter\GoodData\User
 	 */
 	private $domainUser;
@@ -72,7 +65,6 @@ abstract class AbstractJob
 
 	private $tmpDir;
 
-	protected $gdConfig;
 	protected $scriptsPath;
 	protected $gdDomain;
 	protected $gdSsoProvider;
@@ -86,7 +78,6 @@ abstract class AbstractJob
 		$this->sharedStorage = $sharedStorage;
 		$this->storageApiClient = $storageApiClient;
 
-		$this->gdConfig = $gdConfig;
 		if (!isset($gdConfig['access_token'])) {
 			throw new \Exception("Key 'access_token' is missing from gd config");
 		}
@@ -124,6 +115,11 @@ abstract class AbstractJob
 		return $this->domainUser;
 	}
 
+	public function setFactory($factory)
+	{
+		$this->factory = $factory;
+	}
+
 
 	public function setTemp($temp)
 	{
@@ -140,11 +136,6 @@ abstract class AbstractJob
 		$this->logger = $logger;
 	}
 
-	public function setQueue(Queue $queue)
-	{
-		$this->queue = $queue;
-	}
-
 	public function setTranslator(TranslatorInterface $translator)
 	{
 		$this->translator = $translator;
@@ -153,11 +144,6 @@ abstract class AbstractJob
 	public function setS3Uploader(SyrupS3Uploader $s3Uploader)
 	{
 		$this->s3Uploader = $s3Uploader;
-	}
-
-	public function setS3Client(S3Client $s3Client)
-	{
-		$this->s3Client = $s3Client;
 	}
 
 	public function setScriptsPath($scriptsPath)

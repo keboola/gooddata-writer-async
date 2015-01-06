@@ -54,13 +54,7 @@ class LoadDataMulti extends AbstractJob
 
 		$stopWatch = new Stopwatch();
 
-
-		$definition = $this->s3Client->downloadFile($job['definition']);
-		$definition = json_decode($definition, true);
-		if (!$definition) {
-			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . $job['definition']);
-		}
-
+		$definition = $this->factory->getDefinition($job['definition']);
 
 		// Init
 		$tmpFolderName = basename($this->getTmpDir($job['id']));

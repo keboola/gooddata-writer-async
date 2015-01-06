@@ -26,7 +26,7 @@ class CreateWriter extends AbstractJob
 		if (!preg_match('/^[a-zA-Z0-9_]+$/', $params['writerId'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.format'));
 		}
-		if (strlen($params['writerId'] > 50)) {
+		if (strlen($params['writerId']) > 50) {
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.length'));
 		}
 
@@ -135,24 +135,8 @@ class CreateWriter extends AbstractJob
 				$this->configuration->updateWriter('waitingForInvitation', '1');
 				$this->sharedStorage->setWriterStatus($job['projectId'], $job['writerId'], SharedStorage::WRITER_STATUS_MAINTENANCE);
 
-				$tokenData = $this->storageApiClient->getLogData();
-				$waitJob = $this->sharedStorage->createJob($this->storageApiClient->generateId(),
-					$this->configuration->projectId, $this->configuration->writerId, array(
-						'command' => 'waitForInvitation',
-						'createdTime' => date('c'),
-						'parameters' => array(
-							'try' => 1
-						),
-						'runId' => $this->storageApiClient->getRunId(),
-						'token' => $this->storageApiClient->token,
-						'tokenId' => $tokenData['id'],
-						'tokenDesc' => $tokenData['description']
-					), SharedStorage::SERVICE_QUEUE);
-				$this->queue->enqueue(array(
-					'projectId' => $waitJob['projectId'],
-					'writerId' => $waitJob['writerId'],
-					'batchId' => $waitJob['batchId']
-				), 30);
+				$waitJobData = $this->factory->createJob('waitForInvitation', array('try' => 1), null, SharedStorage::SERVICE_QUEUE);
+				$this->factory->enqueueJob($waitJobData['batchId'], 30);
 
 			} else {
 				$projectPid = $restApi->createProject($params['projectName'], $params['accessToken'], json_encode(array(
