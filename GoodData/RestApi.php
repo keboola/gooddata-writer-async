@@ -1509,24 +1509,26 @@ class RestApi
 				}
 			} catch (\Exception $e) {
 
+				$statusCode = $request->getResponse()->getStatusCode();
+
 				if ($e instanceof ClientErrorResponseException) {
-					$response = $request->getResponse();
+
 					$this->log($uri, 'GET', array('filename' => $filename), array(), null, time() - $startTime);
 
-					if ($request->getResponse()->getStatusCode() == 201) {
+					if ($statusCode == 201) {
 
 						// file not ready yet do nothing
 
-					} elseif ($request->getResponse()->getStatusCode() == 401) {
+					} elseif ($statusCode == 401) {
 
 						// TT token expired
 						$this->refreshToken();
 
 					} else {
-						throw new RestApiException("Error occurred while downloading file. Status code ". $response->getStatusCode(), 500, $e);
+						throw new RestApiException("Error occurred while downloading file. Status code ". $statusCode, 500, $e);
 					}
 				} elseif ($e instanceof ServerErrorResponseException) {
-					if ($request->getResponse()->getStatusCode() == 503) {
+					if ($statusCode == 503) {
 						// GD maintenance
 						$isMaintenance = true;
 					}
@@ -1545,6 +1547,14 @@ class RestApi
 			}
 
 		} while ($isMaintenance || $retriesCount <= self::RETRIES_COUNT);
+
+		$this->logger->debug("Report export: downloading file timed out", [
+			'uri'           => $uri,
+			'statusCode'    => $request->getResponse()->getStatusCode(),
+			'filename'      => $filename,
+			'retries'       => $retriesCount,
+			'isMaintenance' => $isMaintenance
+		]);
 
 		return false;
 	}
