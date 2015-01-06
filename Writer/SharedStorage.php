@@ -7,10 +7,8 @@
 namespace Keboola\GoodDataWriter\Writer;
 
 use Doctrine\DBAL\Connection;
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\User;
 use Keboola\GoodDataWriter\Service\Lock;
-use Keboola\GoodDataWriter\Service\S3Client;
 use Syrup\ComponentBundle\Encryption\Encryptor;
 
 
@@ -47,7 +45,6 @@ class SharedStorage
 	const SECONDARY_QUEUE = 'secondary';
 	const SERVICE_QUEUE = 'service';
 
-	protected $storageApiClient;
 	private $encryptor;
 	private $db;
 
@@ -126,7 +123,11 @@ class SharedStorage
 
 	public function deleteWriter($projectId, $writerId)
 	{
-		$this->db->update('writers', array('status' => self::WRITER_STATUS_DELETED, 'deleted_time' => date('c')), array('project_id' => $projectId, 'writer_id' => $writerId));
+		$this->db->update(
+			'writers',
+			array('status' => self::WRITER_STATUS_DELETED, 'deleted_time' => date('c')),
+			array('project_id' => $projectId, 'writer_id' => $writerId)
+		);
 	}
 
 
@@ -255,37 +256,33 @@ class SharedStorage
 	/**
 	 * Create new job
 	 */
-	public function createJob($jobId, $projectId, $writerId, $params, $queue=self::PRIMARY_QUEUE)
+	public function createJob($jobId, $projectId, $writerId, $data, $queue=self::PRIMARY_QUEUE)
 	{
-		if (!isset($params['batchId'])) {
-			$params['batchId'] = $jobId;
-		}
-
-		$jobInfo = array(
+		$jobData = array(
 			'id' => $jobId,
-			'runId' => isset($params['runId'])? $params['runId'] : $jobId,
-			'batchId' => isset($params['batchId'])? $params['batchId'] : $jobId,
+			'runId' => isset($data['runId'])? $data['runId'] : $jobId,
+			'batchId' => isset($data['batchId'])? $data['batchId'] : $jobId,
 			'projectId' => $projectId,
 			'writerId' => $writerId,
 			'token' => null,
 			'tokenId' => null,
 			'tokenDesc' => null,
-			'createdTime' => null,
+			'createdTime' => date('c'),
 			'startTime' => null,
 			'endTime' => null,
 			'command' => null,
 			'dataset' => null,
-			'parameters' => null,
-			'result' => null,
+			'parameters' => array(),
+			'result' => array(),
 			'status' => self::JOB_STATUS_WAITING,
-			'logs' => null,
+			'logs' => array(),
 			'debug' => null,
 			'queueId' => sprintf('%s.%s.%s', $projectId, $writerId, $queue)
 		);
-		$jobInfo = array_merge($jobInfo, $params);
+		$jobData = array_merge($jobData, $data);
 
-		$this->saveJob($jobId, $jobInfo, true);
-		return $jobInfo;
+		$this->saveJob($jobId, $jobData, true);
+		return $jobData;
 	}
 
 	/**
@@ -384,7 +381,7 @@ class SharedStorage
 			'writerId' => null,
 			'queueId' => null,
 			'createdTime' => date('c'),
-			'startTime' => date('c'),
+			'startTime' => null,
 			'endTime' => null,
 			'status' => null,
 			'jobs' => array()
@@ -443,7 +440,7 @@ class SharedStorage
 	/**
 	 * Save project to shared config
 	 */
-	public function saveProject($projectId, $writerId, $pid, $accessToken=null, $keepOnRemoval = false)
+	public function saveProject($projectId, $writerId, $pid, $accessToken=null, $keepOnRemoval=false)
 	{
 		$this->db->executeUpdate('REPLACE INTO projects SET pid=?, project_id=?, writer_id=?, created_time=?, '
 			. 'access_token=?, keep_on_removal=?', array($pid, $projectId, $writerId, date('c'), $accessToken, $keepOnRemoval));

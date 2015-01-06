@@ -148,8 +148,8 @@ class WritersTest extends AbstractControllerTest
 			foreach($jobs['jobs'] as $job) {
 				if (!SharedStorage::isJobFinished($job['status'])) {
 					$this->commandTester->execute(array(
-						'command' => 'gooddata-writer:execute-job',
-						'batchId' => $job['id']
+						'command' => 'gooddata-writer:execute-batch',
+						'batchId' => $job['batchId']
 					));
 					$jobInfo = $this->getWriterApi('/jobs?writerId=' . $existingProjectWriterId . '&jobId=' . $job['id']);
 					if ($jobInfo['status'] != SharedStorage::JOB_STATUS_SUCCESS)

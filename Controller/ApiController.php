@@ -9,6 +9,7 @@ namespace Keboola\GoodDataWriter\Controller;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\Model;
+use Keboola\GoodDataWriter\Job\JobFactory;
 use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Writer\SharedStorageException;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
@@ -48,11 +49,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	public $sharedStorage;
 
 	/**
-	 * @var S3Client
-	 */
-	private $s3Client;
-
-	/**
 	 * @var \Symfony\Component\Translation\Translator
 	 */
 	private $translator;
@@ -71,11 +67,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 	private $projectId;
 	private $writerId;
+	private $paramQueue;
 
 	/**
-	 * @var \Keboola\GoodDataWriter\Writer\JobExecutor
+	 * @var JobFactory
 	 */
-	private $jobExecutor;
+	private $jobFactory;
 
 	/**
 	 * Common things to do for each request
@@ -99,6 +96,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			throw new WrongParametersException($this->translator->trans('parameters.queue %1',
 				array('%1' => SharedStorage::PRIMARY_QUEUE . ', ' . SharedStorage::SECONDARY_QUEUE)));
 		}
+		$this->paramQueue = isset($this->params['queue'])? $this->params['queue'] : null;
 
 		$tokenInfo = $this->storageApi->getLogData();
 		$this->projectId = $tokenInfo['owner']['id'];
@@ -120,14 +118,15 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postOptimizeSliHashAction()
 	{
-		$commandName = 'optimizeSliHash';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'optimizeSliHash';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedStorage::SERVICE_QUEUE);
-		$this->enqueueWriter($batchId);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, SharedStorage::SERVICE_QUEUE);
+
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -147,10 +146,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			throw new WrongParametersException($this->translator->trans('parameters.writerId.exists'));
 		}
 
-		$commandName = 'createWriter';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'createWriter';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		try {
 			/** @var RestApi $restApi */
 			$restApi = $this->container->get('gooddata_writer.rest_api');
@@ -168,14 +167,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			throw $e;
 		}
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedStorage::SERVICE_QUEUE);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, SharedStorage::SERVICE_QUEUE);
 
 		if(!empty($params['users'])) foreach ($params['users'] as $user) {
-			$this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'addUserToProject',
-				array('email' => $user, 'role' => 'admin'), $batchId, SharedStorage::SERVICE_QUEUE, array('dataset' => $user));
+			$this->getJobFactory()->createJob('addUserToProject', array('email' => $user, 'role' => 'admin'), $batchId,
+				SharedStorage::SERVICE_QUEUE, array('dataset' => $user));
 		}
 
-		$this->enqueueWriter($batchId);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -211,14 +210,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function deleteWritersAction()
 	{
-		$commandName = 'deleteWriter';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'deleteWriter';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId, SharedStorage::SERVICE_QUEUE);
-		$this->enqueueWriter($batchId);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, SharedStorage::SERVICE_QUEUE);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -253,25 +252,25 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 			$configuration = $this->getConfiguration()->formatWriterAttributes($this->getConfiguration()->bucketAttributes());
 			try {
-				$sharedStorageuration = $this->getSharedStorage()->getWriter($this->projectId, $this->writerId);
-				unset($sharedStorageuration['feats']);
+				$writerData = $this->getSharedStorage()->getWriter($this->projectId, $this->writerId);
+				unset($writerData['feats']);
 			} catch (SharedStorageException $e) {
-				$sharedStorageuration = array('status' => SharedStorage::WRITER_STATUS_READY, 'createdTime' => '');
+				$writerData = array('status' => SharedStorage::WRITER_STATUS_READY, 'createdTime' => '');
 			}
 			return $this->createApiResponse(array(
-				'writer' => array_merge($configuration, $sharedStorageuration)
+				'writer' => array_merge($configuration, $writerData)
 			));
 		} else {
 			$configuration = new Configuration($this->storageApi, $this->getSharedStorage());
 			$result = array();
 			foreach ($configuration->getWriters() as $writer) {
 				try {
-					$sharedStorageuration = $this->getSharedStorage()->getWriter($this->projectId, $writer['id']);
-					unset($sharedStorageuration['feats']);
+					$writerData = $this->getSharedStorage()->getWriter($this->projectId, $writer['id']);
+					unset($writerData['feats']);
 				} catch (SharedStorageException $e) {
-					$sharedStorageuration = array('status' => SharedStorage::WRITER_STATUS_READY, 'createdTime' => '');
+					$writerData = array('status' => SharedStorage::WRITER_STATUS_READY, 'createdTime' => '');
 				}
-				$result[] = array_merge($writer, $sharedStorageuration);
+				$result[] = array_merge($writer, $writerData);
 			}
 
 			return $this->createApiResponse(array(
@@ -290,15 +289,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postProjectsAction()
 	{
-		$commandName = 'cloneProject';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'cloneProject';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
-			isset($this->params['queue'])? $this->params['queue'] : null);
-		$this->enqueueWriter($batchId);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -327,15 +325,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postProjectUsersAction()
 	{
-		$commandName = 'addUserToProject';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'addUserToProject';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
-			isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $params['email']));
-		$this->enqueueWriter($batchId);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue, array('dataset' => $params['email']));
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -347,15 +344,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function deleteProjectUsersAction()
 	{
-		$commandName = 'removeUserFromProject';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'removeUserFromProject';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
-			isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $params['email']));
-		$this->enqueueWriter($batchId);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue, array('dataset' => $params['email']));
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -384,15 +380,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postUsersAction()
 	{
-		$commandName = 'createUser';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'createUser';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
-			isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $params['email']));
-		$this->enqueueWriter($batchId);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue, array('dataset' => $params['email']));
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -541,15 +536,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postProxyAction()
 	{
-		$commandName = 'proxyCall';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'proxyCall';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
-			isset($this->params['queue'])? $this->params['queue'] : null);
-		$this->enqueueWriter($batchId);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -610,15 +604,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postFiltersAction()
 	{
-		$commandName = 'createFilter';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'createFilter';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
-			isset($this->params['queue'])? $this->params['queue'] : null);
-		$this->enqueueWriter($batchId);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -630,15 +623,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function deleteFiltersAction()
 	{
-		$commandName = 'deleteFilter';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'deleteFilter';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
-			isset($this->params['queue'])? $this->params['queue'] : null);
-		$this->enqueueWriter($batchId);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -733,15 +725,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postFilterUsersAction()
 	{
-		$commandName = 'assignFiltersToUser';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'assignFiltersToUser';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
-			isset($this->params['queue'])? $this->params['queue'] : null);
-		$this->enqueueWriter($batchId);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -753,19 +744,18 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postSyncFiltersAction()
 	{
-		$commandName = 'syncFilters';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'syncFilters';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
 		$job = false;
 		$projects = empty($params['pid'])? $this->getProjectsToUse() : array($params['pid']);
 		foreach ($projects as $pid) {
-			$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, array('pid' => $pid),
-				$batchId, isset($this->params['queue']) ? $this->params['queue'] : null);
+			$job = $this->getJobFactory()->createJob($jobName, array('pid' => $pid), $batchId, $this->paramQueue);
 		}
-		$this->enqueueWriter($batchId);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
 	}
 
@@ -793,20 +783,19 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postUploadDateDimensionAction()
 	{
-		$commandName = 'UploadDateDimension';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'UploadDateDimension';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
 		$job = false;
 		foreach ($this->getProjectsToUse() as $pid) {
 			$pars = array('pid' => $pid, 'name' => $params['name'], 'includeTime' => $params['includeTime']);
-			$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $pars, $batchId,
-				isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $pars['name']));
+			$job = $this->getJobFactory()->createJob($jobName, $pars, $batchId, $this->paramQueue, array('dataset' => $pars['name']));
 		}
 
-		$this->enqueueWriter($batchId);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
 	}
 
@@ -817,10 +806,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postUpdateModel()
 	{
-		$commandName = 'updateModel';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'updateModel';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
 		$job = false;
@@ -828,13 +817,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$tableConfiguration = $this->getConfiguration()->getDataSet($params['tableId']);
 		foreach ($this->getProjectsToUse() as $pid) {
 			$datasetName = !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'];
-			$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, array('pid' => $pid, 'tableId' => $params['tableId']), $batchId,
-				isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $datasetName));
-			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $job['id'], $params['tableId']), json_encode($definition));
-			$this->sharedStorage->saveJob($job['id'], array('definition' => $definitionUrl));
+			$job = $this->getJobFactory()->createJob($jobName, array('pid' => $pid, 'tableId' => $params['tableId']),
+				$batchId, $this->paramQueue, array('dataset' => $datasetName));
+			$this->getJobFactory()->saveDefinition($job['id'], $definition);
 		}
 
-		$this->enqueueWriter($batchId);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
 	}
 
@@ -845,10 +833,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postLoadData()
 	{
-		$commandName = 'loadData';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'loadData';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
 		$job = false;
@@ -861,14 +849,12 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 					$loadParams['incrementalLoad'] = $params['incrementalLoad'];
 				}
 				$datasetName = !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'];
-				$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $loadParams, $batchId,
-					isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $datasetName));
-				$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $job['id'], $tableId), json_encode($definition));
-				$this->sharedStorage->saveJob($job['id'], array('definition' => $definitionUrl));
+				$job = $this->getJobFactory()->createJob($jobName, $loadParams, $batchId, $this->paramQueue, array('dataset' => $datasetName));
+				$this->getJobFactory()->saveDefinition($job['id'], $definition);
 			}
 		}
 
-		$this->enqueueWriter($batchId);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
 	}
 
@@ -879,13 +865,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postLoadDataMulti()
 	{
-		$commandName = 'loadDataMulti';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'loadDataMulti';
+		$command = $this->getJobFactory()->getJobClass($jobName);
 
 		$params = $command->prepare($this->params);
 
 		$job = false;
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		foreach ($this->getProjectsToUse() as $pid) {
 			$definition = array();
 			foreach ($params['tables'] as $tableId) {
@@ -899,13 +885,11 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			if (isset($params['incrementalLoad'])) {
 				$loadParams['incrementalLoad'] = $params['incrementalLoad'];
 			}
-			$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $loadParams,
-				$batchId, isset($this->params['queue'])? $this->params['queue'] : null);
-			$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/definition.json', $job['id']), json_encode($definition));
-			$this->sharedStorage->saveJob($job['id'], array('definition' => $definitionUrl));
+			$job = $this->getJobFactory()->createJob($jobName, $loadParams, $batchId, $this->paramQueue);
+			$this->getJobFactory()->saveDefinition($job['id'], $definition);
 		}
 
-		$this->enqueueWriter($batchId);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
 	}
 
@@ -923,8 +907,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->checkWriterExistence();
 		$this->getConfiguration()->checkBucketAttributes();
 
-		$batchId = $this->storageApi->generateId();
-		$runId = $this->storageApi->getRunId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$definition = $this->getConfiguration()->getDataSetDefinition($this->params['tableId']);
 		$projectsToUse = $this->getProjectsToUse();
 
@@ -951,9 +934,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 						'name' => $dimension,
 						'includeTime' => $dateDimensions[$dimension]['includeTime']
 					);
-					$this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'uploadDateDimension', $params,
-						$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
-						array('dataset' => $dimension, 'runId' => $runId));
+					$this->getJobFactory()->createJob('uploadDateDimension', $params, $batchId, $this->paramQueue,
+						array('dataset' => $dimension));
 				}
 			}
 		}
@@ -971,7 +953,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				$restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
 			}
 
-			$job = null;
+			$jobData = null;
 			$tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
 			foreach ($projectsToUse as $pid) {
 
@@ -990,12 +972,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 						'pid' => $pid,
 						'tableId' => $this->params['tableId']
 					);
-					$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'updateModel', $params,
-						$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
-						array('dataset' => $dataSetName, 'runId' => $runId));
-
-					$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $this->params['tableId']), json_encode($definition));
-					$this->sharedStorage->saveJob($jobData['id'], array('definition' => $definitionUrl));
+					$jobData = $this->getJobFactory()->createJob('updateModel', $params, $batchId, $this->paramQueue,
+						array('dataset' => $dataSetName));
+					$this->getJobFactory()->saveDefinition($jobData['id'], $definition);
 				}
 
 				$params = array(
@@ -1005,10 +984,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				if (isset($this->params['incrementalLoad'])) {
 					$params['incrementalLoad'] = $this->params['incrementalLoad'];
 				}
-				$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'loadData', $params, $batchId,
-					isset($this->params['queue'])? $this->params['queue'] : null, array('dataset' => $dataSetName, 'runId' => $runId));
-				$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $job['id'], $this->params['tableId']), json_encode($definition));
-				$this->sharedStorage->saveJob($job['id'], array('definition' => $definitionUrl));
+				$jobData = $this->getJobFactory()->createJob('loadData', $params, $batchId, $this->paramQueue,
+					array('dataset' => $dataSetName));
+				$this->getJobFactory()->saveDefinition($jobData['id'], $definition);
 			}
 		} catch (RestApiException $e) {
 			$e = new JobProcessException($e->getMessage(), $e);
@@ -1016,9 +994,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			throw $e;
 		}
 
-		$this->enqueueWriter($batchId);
-
-		return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
+		$this->getJobFactory()->enqueueJob($batchId);
+		return $this->createPollResponse($batchId, $this->writerId, $jobData? $jobData['id'] : null);
 	}
 
 	/**
@@ -1035,8 +1012,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$projectsToUse = $this->getProjectsToUse();
 
 		$this->getConfiguration()->getDateDimensions();
-		$runId = $this->storageApi->getRunId();
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 
 		$sortedDataSets = $this->getConfiguration()->getSortedDataSets();
 
@@ -1065,9 +1041,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 							'name' => $dimension,
 							'includeTime' => $dateDimensions[$dimension]['includeTime']
 						);
-						$this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'uploadDateDimension', $params,
-							$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
-							array('dataset' => $dimension, 'runId' => $runId));
+						$this->getJobFactory()->createJob('uploadDateDimension', $params, $batchId, $this->paramQueue,
+							array('dataset' => $dimension));
 					}
 				}
 			}
@@ -1105,12 +1080,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 							'pid' => $pid,
 							'tableId' => $dataSet['tableId']
 						);
-						$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'updateModel', $params,
-							$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
-							array('dataset' => $dataSet['title'], 'runId' => $runId));
-
-						$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $dataSet['tableId']), json_encode($dataSet['definition']));
-						$this->sharedStorage->saveJob($jobData['id'], array('definition' => $definitionUrl));
+						$jobData = $this->getJobFactory()->createJob('updateModel', $params, $batchId, $this->paramQueue,
+							array('dataset' => $dataSet['title']));
+						$this->getJobFactory()->saveDefinition($jobData['id'], $dataSet['definition']);
 					}
 
 					$params = array(
@@ -1120,12 +1092,9 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 					if (isset($this->params['incrementalLoad'])) {
 						$params['incrementalLoad'] = $this->params['incrementalLoad'];
 					}
-					$jobData = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'loadData', $params,
-						$batchId, isset($this->params['queue'])? $this->params['queue'] : null,
-						array('dataset' => $dataSet['title'], 'runId' => $runId));
-
-					$definitionUrl = $this->getS3Client()->uploadString(sprintf('%s/%s.json', $jobData['id'], $dataSet['tableId']), json_encode($dataSet['definition']));
-					$this->sharedStorage->saveJob($jobData['id'], array('definition' => $definitionUrl));
+					$jobData = $this->getJobFactory()->createJob('loadData', $params, $batchId, $this->paramQueue,
+						array('dataset' => $dataSet['title']));
+					$this->getJobFactory()->saveDefinition($jobData['id'], $dataSet['definition']);
 				}
 			}
 		} catch (RestApiException $e) {
@@ -1137,12 +1106,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		// Execute reports
 		$job = null;
 		foreach ($projectsToUse as $pid) {
-			$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, 'executeReports', array('pid' => $pid),
-				$batchId, isset($this->params['queue'])? $this->params['queue'] : null, array('runId' => $runId));
+			$job = $this->getJobFactory()->createJob('executeReports', array('pid' => $pid), $batchId, $this->paramQueue);
 		}
 
-		$this->enqueueWriter($batchId);
-
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
 	}
 
@@ -1154,15 +1121,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postResetTableAction()
 	{
-		$commandName = 'resetTable';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'resetTable';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
-			isset($this->params['queue'])? $this->params['queue'] : null);
-		$this->enqueueWriter($batchId);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -1175,15 +1141,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postResetProjectAction()
 	{
-		$commandName = 'resetProject';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'resetProject';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
-			isset($this->params['queue'])? $this->params['queue'] : null);
-		$this->enqueueWriter($batchId);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -1195,15 +1160,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postExecuteReportsAction()
 	{
-		$commandName = 'executeReports';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'executeReports';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
-			isset($this->params['queue'])? $this->params['queue'] : null);
-		$this->enqueueWriter($batchId);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -1216,15 +1180,14 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function postExportReportAction()
 	{
-		$commandName = 'exportReport';
-		$command = $this->getCommand($commandName, $this->params);
+		$jobName = 'exportReport';
+		$command = $this->getJobFactory()->getJobClass($jobName, $this->params);
 
-		$batchId = $this->storageApi->generateId();
+		$batchId = $this->getJobFactory()->createBatchId();
 		$params = $command->prepare($this->params);
 
-		$job = $this->getJobExecutor()->createJob($this->projectId, $this->writerId, $commandName, $params, $batchId,
-			isset($this->params['queue'])? $this->params['queue'] : null);
-		$this->enqueueWriter($batchId);
+		$job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
+		$this->getJobFactory()->enqueueJob($batchId);
 		return $this->createPollResponse($batchId, $this->writerId, $job['id']);
 	}
 
@@ -1572,14 +1535,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		return $this->configuration;
 	}
 
-	private function getS3Client()
-	{
-		if (!$this->s3Client) {
-			$this->s3Client = $this->container->get('gooddata_writer.s3Client');
-		}
-		return $this->s3Client;
-	}
-
 	private function getSharedStorage()
 	{
 		if (!$this->sharedStorage) {
@@ -1606,13 +1561,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 
 
-	protected function enqueueWriter($batchId)
-	{
-		$this->getJobExecutor()->addBatchToQueue($this->projectId, $this->writerId, $batchId);
-	}
-
-
-
 	protected function getProjectsToUse()
 	{
 		$this->configuration->checkProjectsTable();
@@ -1631,37 +1579,27 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		return $projects;
 	}
 
-	protected function getCommand($commandName)
+	protected function getJobFactory()
 	{
-		$commandName = ucfirst($commandName);
-		$commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
-		if (!class_exists($commandClass)) {
-			throw new JobProcessException($this->translator->trans('job_executor.command_not_found %1', array('%1' => $commandName)));
+		if (!$this->jobFactory) {
+			$this->jobFactory = new JobFactory(
+				$this->container->getParameter('gdwr_gd'),
+				$this->getSharedStorage(),
+				$this->getConfiguration(),
+				$this->storageApi,
+				$this->container->getParameter('gdwr_scripts_path'),
+				$this->eventLogger,
+				$this->translator,
+				$this->temp,
+				$this->logger,
+				$this->container->get('gooddata_writer.s3Client'),
+				$this->container->get('syrup.monolog.s3_uploader'),
+				$this->container->get('gooddata_writer.jobs_queue')
+			);
 		}
-		/**
-		 * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
-		 */
-		$command = new $commandClass($this->getConfiguration(), $this->container->getParameter('gdwr_gd'), $this->getSharedStorage(), $this->storageApi);
-		$command->setS3Client($this->getS3Client());
-		$command->setTranslator($this->translator);
-		$command->setEventLogger($this->eventLogger);
-		$command->setQueue($this->container->get('gooddata_writer.jobs_queue'));
-		return $command;
+		return $this->jobFactory;
 	}
-
-	/**
-	 * @return \Keboola\GoodDataWriter\Writer\JobExecutor
-	 */
-	protected function getJobExecutor()
-	{
-		if (!$this->jobExecutor) {
-			$this->jobExecutor = $this->container->get('gooddata_writer.job_executor');
-			$this->jobExecutor->setStorageApiClient($this->storageApi);
-			$this->jobExecutor->setEventLogger($this->eventLogger);
-		}
-		return $this->jobExecutor;
-	}
-
+	
 
 	public function logApiCall($duration=null)
 	{

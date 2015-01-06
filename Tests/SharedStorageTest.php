@@ -9,10 +9,9 @@ namespace Keboola\GoodDataWriter\Tests;
 
 use Doctrine\DBAL\Connection;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Syrup\ComponentBundle\Encryption\Encryptor;
 
-class SharedStorageTest extends WebTestCase
+class SharedStorageTest extends \PHPUnit_Framework_TestCase
 {
 	/**
 	 * @var SharedStorage $sharedStorage
@@ -165,7 +164,7 @@ class SharedStorageTest extends WebTestCase
 
 		// createJob()
 		$this->sharedStorage->createJob($jobId, $projectId, $writerId, array('command' => $command, 'token' => uniqid(),
-			'tokenId' => uniqid(), 'tokenDesc' => uniqid(), 'createdTime' => date('c')));
+			'tokenId' => rand(1, 128), 'tokenDesc' => uniqid(), 'createdTime' => date('c')));
 
 		// fetchJob(), fetchJobs()
 		$jobs = $this->sharedStorage->fetchJobs($projectId, $writerId);

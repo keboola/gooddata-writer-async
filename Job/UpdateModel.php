@@ -59,19 +59,12 @@ class UpdateModel extends AbstractJob
 		$stopWatch->start($stopWatchId);
 		$definitionFile = $job['definition'];
 
-		$definition = $this->s3Client->downloadFile($definitionFile);
-		$definition = json_decode($definition, true);
-		if (!$definition) {
-			throw new \Exception($this->translator->trans('error.s3_download_fail') . ': ' . $definitionFile);
-		}
+		$definition = $this->factory->getDefinition($definitionFile);
 
 		$e = $stopWatch->stop($stopWatchId);
 		$this->logEvent('Definition downloaded from s3', $job['id'], $job['runId'], array(
 			'file' => $definitionFile
 		), $e->getDuration());
-
-		$dataSetName = !empty($tableDefinition['name']) ? $tableDefinition['name'] : $tableDefinition['id'];
-
 
 		$updateOperations = array();
 		$ldmChange = false;
