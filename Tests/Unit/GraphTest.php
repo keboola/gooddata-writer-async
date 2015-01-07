@@ -3,7 +3,7 @@
  * @author Jakub Matejka <jakub@keboola.com>
  * @date 2013-03-26
  */
-namespace Keboola\GoodDataWriter\Tests;
+namespace Keboola\GoodDataWriter\Tests\Unit;
 
 use Keboola\GoodDataWriter\Model\Graph;
 
