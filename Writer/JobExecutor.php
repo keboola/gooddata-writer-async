@@ -164,7 +164,10 @@ class JobExecutor
 					$jobData['result'] = $job->run($jobData, $jobData['parameters'], $this->restApi);
 				} catch (\Exception $e) {
 					$debug = array(
+						'code' => $e->getCode(),
 						'message' => $e->getMessage(),
+						'file' => $e->getFile(),
+						'line' => $e->getLine(),
 						'trace' => explode("\n", $e->getTraceAsString())
 					);
 
