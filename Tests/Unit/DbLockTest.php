@@ -3,7 +3,7 @@
  * @author Jakub Matejka <jakub@keboola.com>
  * @date 2014-08-28
  */
-namespace Keboola\GoodDataWriter\Tests;
+namespace Keboola\GoodDataWriter\Tests\Unit;
 
 use Keboola\GoodDataWriter\Service\Lock;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;

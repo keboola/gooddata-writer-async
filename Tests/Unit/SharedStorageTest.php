@@ -5,7 +5,7 @@
  * @author Jakub Matejka <jakub@keboola.com>
  */
 
-namespace Keboola\GoodDataWriter\Tests;
+namespace Keboola\GoodDataWriter\Tests\Unit;
 
 use Doctrine\DBAL\Connection;
 use Keboola\GoodDataWriter\Writer\SharedStorage;

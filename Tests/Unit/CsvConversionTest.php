@@ -3,7 +3,7 @@
  * @author Jakub Matejka <jakub@keboola.com>
  * @date 2014-07-01
  */
-namespace Keboola\GoodDataWriter\Tests;
+namespace Keboola\GoodDataWriter\Tests\Unit;
 
 use Symfony\Component\Process\Process;
 use Keboola\StorageApi\Client as StorageApiClient;
