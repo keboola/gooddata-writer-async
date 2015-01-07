@@ -113,7 +113,7 @@ class JobFactory
 		), $delay);
 	}
 
-	public function createJob($jobName, $params, $batchId=null, $queue=null, $others=array())
+	public function createJob($jobName, $params, $batchId=null, $queue=SharedStorage::PRIMARY_QUEUE, $others=array())
 	{
 		$jobId = $this->storageApiClient->generateId();
 		$tokenData = $this->storageApiClient->getLogData();
