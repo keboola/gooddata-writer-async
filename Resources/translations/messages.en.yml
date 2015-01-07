@@ -65,7 +65,7 @@ parameters:
   report:
     no_definitions %1: Report '%1' has no definitions to export
     not_valid %1: Parameter 'reports' is not valid. Report uri '%1' does not belong to the project
-    table_not_exist %1: Table '%1' does not exist in Storage API
+    table_not_valid %1: Table identifier '%1' does not have valid format
   required %1: Parameter '%1' is required
   role %1: "Parameter 'role' is not valid, must be one of: %1"
   sso_wrong_pid: Parameter 'pid' does not correspond with any project created by the writer and cannot be used for sso access

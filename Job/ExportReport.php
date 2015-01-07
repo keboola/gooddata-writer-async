@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\Csv\CsvFile;
+use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\RestApiException;
 use Aws\Common\Client as AwsClient;
@@ -40,8 +41,8 @@ class ExportReport extends AbstractJob
 		$this->configuration->checkBucketAttributes($bucketAttributes);
 		$this->configuration->checkProjectsTable();
 
-		if (!$this->storageApiClient->tableExists($params['table'])) {
-			throw new RestApiException($this->translator->trans('parameters.report.table_not_exist %1', array('%1' => $params['table'])));
+		if (!preg_match('/^([^\.]+)\.([^\.]+)\.([^\.]+)$/', $params['table'])) {
+			throw new WrongParametersException($this->translator->trans('parameters.report.table_not_valid %1', array('%1' => $params['table'])));
 		}
 
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
