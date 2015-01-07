@@ -40,6 +40,10 @@ class ExportReport extends AbstractJob
 		$this->configuration->checkBucketAttributes($bucketAttributes);
 		$this->configuration->checkProjectsTable();
 
+		if (!$this->storageApiClient->tableExists($params['table'])) {
+			throw new RestApiException($this->translator->trans('parameters.report.table_not_exist %1', array('%1' => $params['table'])));
+		}
+
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 		$report = $restApi->get($params['report']);
