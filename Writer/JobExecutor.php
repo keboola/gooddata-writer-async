@@ -119,6 +119,7 @@ class JobExecutor
 		$queueIdArray = explode('.', $jobData['queueId']);
 		$serviceRun = isset($queueIdArray[2]) && $queueIdArray[2] == SharedStorage::SERVICE_QUEUE;
 
+		$jobDataToSave = array('result' => array());
 		try {
 			$this->storageApiClient = new StorageApiClient(array(
 				'token' => $jobData['token'],
@@ -161,7 +162,7 @@ class JobExecutor
 				$error = null;
 
 				try {
-					$jobData['result'] = $job->run($jobData, $jobData['parameters'], $this->restApi);
+					$jobDataToSave['result'] = $job->run($jobData, $jobData['parameters'], $this->restApi);
 				} catch (\Exception $e) {
 					$debug = array(
 						'code' => $e->getCode(),
@@ -172,17 +173,17 @@ class JobExecutor
 					);
 
 					if ($e instanceof RestApiException) {
-						$jobData['result']['error'] = $this->translator->trans('error.rest_api') . '. ' . $e->getMessage();
+						$jobDataToSave['result']['error'] = $this->translator->trans('error.rest_api') . '. ' . $e->getMessage();
 						$debug['details'] = $e->getDetails();
 					} elseif ($e instanceof StorageApiClientException) {
-						$jobData['result']['error'] = $this->translator->trans('error.storage_api') . '. ' . $e->getMessage();
+						$jobDataToSave['result']['error'] = $this->translator->trans('error.storage_api') . '. ' . $e->getMessage();
 						if ($e->getPrevious() instanceof CurlException) {
 							/* @var CurlException $curlException */
 							$curlException = $e->getPrevious();
 							$debug['curl'] = $curlException->getCurlInfo();
 						}
 					} elseif ($e instanceof CsvHandlerNetworkException) {
-						$jobData['result']['error'] = $e->getMessage();
+						$jobDataToSave['result']['error'] = $e->getMessage();
 						$debug['details'] = $e->getData();
 						$this->logger->alert($e->getMessage(), array(
 							'job' => $jobData,
@@ -190,16 +191,16 @@ class JobExecutor
 							'runId' => $this->storageApiClient->getRunId()
 						));
 					} elseif ($e instanceof UserException) {
-						$jobData['result']['error'] = $e->getMessage();
+						$jobDataToSave['result']['error'] = $e->getMessage();
 						$debug['details'] = $e->getData();
 					} else {
 						throw $e;
 					}
 
-					$jobData['debug'] = $this->s3Uploader->uploadString($jobData['id'] . '/debug-data.json', json_encode($debug, JSON_PRETTY_PRINT));
+					$jobDataToSave['debug'] = $this->s3Uploader->uploadString($jobData['id'] . '/debug-data.json', json_encode($debug, JSON_PRETTY_PRINT));
 				}
 
-				$jobData['logs'] = $job->getLogs();
+				$jobDataToSave['logs'] = $job->getLogs();
 
 			} catch (\Exception $e) {
 				if ($e instanceof QueueUnavailableException) {
@@ -210,24 +211,24 @@ class JobExecutor
 						'exception' => $e,
 						'runId' => $this->storageApiClient->getRunId()
 					));
-					$jobData['result']['error'] = $this->translator->trans('error.application');
+					$jobDataToSave['result']['error'] = $this->translator->trans('error.application');
 				}
 			}
 
 		} catch(StorageApiException $e) {
-			$jobData['result']['error'] = $this->translator->trans('error.storage_api') . ': ' . $e->getMessage();
+			$jobDataToSave['result']['error'] = $this->translator->trans('error.storage_api') . ': ' . $e->getMessage();
 		}
 
-		$jobData['status'] = empty($jobData['result']['error']) ? StorageApiEvent::TYPE_SUCCESS : StorageApiEvent::TYPE_ERROR;
-		$jobData['endTime'] = date('c');
+		$jobDataToSave['status'] = empty($jobData['result']['error']) ? StorageApiEvent::TYPE_SUCCESS : StorageApiEvent::TYPE_ERROR;
+		$jobDataToSave['endTime'] = date('c');
 
-		$this->sharedStorage->saveJob($jobId, $jobData);
+		$this->sharedStorage->saveJob($jobId, $jobDataToSave);
 
 		$log = array(
 			'command' => $jobData['command'],
 			'params' => $jobData['parameters'],
-			'status' => $jobData['status'],
-			'result' => $jobData['result']
+			'status' => $jobDataToSave['status'],
+			'result' => $jobDataToSave['result']
 		);
 		if (isset($jobData['debug'])) $log['debug'] = $jobData['debug'];
 		$this->logEvent($this->translator->trans('log.job.finished %1', array('%1' => $jobData['id'])), $jobData, $log, $startTime);

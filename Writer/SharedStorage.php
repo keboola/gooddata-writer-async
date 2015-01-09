@@ -381,7 +381,7 @@ class SharedStorage
 			'writerId' => null,
 			'queueId' => null,
 			'createdTime' => date('c'),
-			'startTime' => null,
+			'startTime' => date('c'),
 			'endTime' => null,
 			'status' => null,
 			'jobs' => array()
@@ -432,6 +432,9 @@ class SharedStorage
 		elseif ($waitingJobs > 0) $data['status'] = self::JOB_STATUS_WAITING;
 		elseif ($errorJobs > 0) $data['status'] = self::JOB_STATUS_ERROR;
 		else $data['status'] = self::JOB_STATUS_SUCCESS;
+		if ($data['status'] == self::JOB_STATUS_WAITING && $data['startTime']) {
+			$data['startTime'] = null;
+		}
 
 		return $data;
 	}
