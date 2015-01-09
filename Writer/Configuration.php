@@ -1435,15 +1435,15 @@ class Configuration extends StorageApiConfiguration
 
 	public function getTableIdFromAttribute($attr)
 	{
-		$attr = explode('.', $attr);
-		if (count($attr) != 4) {
+		$attrArray = explode('.', $attr);
+		if (count($attrArray) != 4) {
 			throw new WrongConfigurationException(sprintf("Attribute parameter '%s' has wrong format", $attr));
 		}
-		$tableId = sprintf('%s.%s.%s', $attr[0], $attr[1], $attr[2]);
+		$tableId = sprintf('%s.%s.%s', $attrArray[0], $attrArray[1], $attrArray[2]);
 
 		$sapiTable = $this->getSapiTable($tableId);
-		if (!in_array($attr[3], $sapiTable['columns'])) {
-			throw new WrongParametersException(sprintf("Attribute parameter '%s' has wrong format, column '%s' not found in table '%s'", $attr, $attr[3], $tableId));
+		if (!in_array($attrArray[3], $sapiTable['columns'])) {
+			throw new WrongParametersException(sprintf("Attribute parameter '%s' has wrong format, column '%s' not found in table '%s'", $attr, $attrArray[3], $tableId));
 		}
 
 		return $tableId;
