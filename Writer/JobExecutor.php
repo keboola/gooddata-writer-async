@@ -219,7 +219,7 @@ class JobExecutor
 			$jobDataToSave['result']['error'] = $this->translator->trans('error.storage_api') . ': ' . $e->getMessage();
 		}
 
-		$jobDataToSave['status'] = empty($jobData['result']['error']) ? StorageApiEvent::TYPE_SUCCESS : StorageApiEvent::TYPE_ERROR;
+		$jobDataToSave['status'] = empty($jobDataToSave['result']['error']) ? StorageApiEvent::TYPE_SUCCESS : StorageApiEvent::TYPE_ERROR;
 		$jobDataToSave['endTime'] = date('c');
 
 		$this->sharedStorage->saveJob($jobId, $jobDataToSave);
@@ -230,7 +230,7 @@ class JobExecutor
 			'status' => $jobDataToSave['status'],
 			'result' => $jobDataToSave['result']
 		);
-		if (isset($jobData['debug'])) $log['debug'] = $jobData['debug'];
+		if (isset($jobDataToSave['debug'])) $log['debug'] = $jobDataToSave['debug'];
 		$this->logEvent($this->translator->trans('log.job.finished %1', array('%1' => $jobData['id'])), $jobData, $log, $startTime);
 	}
 
