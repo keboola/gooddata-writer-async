@@ -1549,9 +1549,11 @@ class RestApi
 		} while ($isMaintenance || $retriesCount <= self::RETRIES_COUNT);
 
 		$this->logger->debug("Report export: downloading file timed out", [
-			'uri'           => $uri,
+			'request'       => [
+				'uri'       => $uri,
+				'filename'  => $filename,
+			],
 			'statusCode'    => $request->getResponse()->getStatusCode(),
-			'filename'      => $filename,
 			'retries'       => $retriesCount,
 			'isMaintenance' => $isMaintenance
 		]);
