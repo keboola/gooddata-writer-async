@@ -96,7 +96,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			throw new WrongParametersException($this->translator->trans('parameters.queue %1',
 				array('%1' => SharedStorage::PRIMARY_QUEUE . ', ' . SharedStorage::SECONDARY_QUEUE)));
 		}
-		$this->paramQueue = isset($this->params['queue'])? $this->params['queue'] : null;
+		$this->paramQueue = isset($this->params['queue'])? $this->params['queue'] : SharedStorage::PRIMARY_QUEUE;
 
 		$tokenInfo = $this->storageApi->getLogData();
 		$this->projectId = $tokenInfo['owner']['id'];
