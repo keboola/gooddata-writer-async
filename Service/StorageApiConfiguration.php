@@ -83,6 +83,9 @@ abstract class StorageApiConfiguration
 		} catch (ClientException $e) {
 			// Ignore if table does not exist
 			if (!in_array($e->getCode(), array(400, 404))) {
+				if ($e->getCode() == 403) {
+					throw new WrongConfigurationException('Your token does not have access to table ' . $tableId);
+				}
 				throw $e;
 			}
 		}
@@ -123,18 +126,25 @@ abstract class StorageApiConfiguration
 	 */
 	protected function saveTable($tableId, $primaryKey, $headers, $data = array(), $incremental = true, $partial = true, $indices = array())
 	{
-		$table = new StorageApiTable($this->storageApiClient, $tableId, null, $primaryKey);
-		$table->setHeader($headers);
-		if (count($data)) {
-			$table->setFromArray($data);
+		try {
+			$table = new StorageApiTable($this->storageApiClient, $tableId, null, $primaryKey);
+			$table->setHeader($headers);
+			if (count($data)) {
+				$table->setFromArray($data);
+			}
+			if (count($indices) && !$this->storageApiClient->tableExists($tableId)) {
+				$table->setIndices($indices);
+			}
+			$table->setIncremental($incremental);
+			$table->setPartial($partial);
+			$table->save();
+			return $table;
+		} catch (\Keboola\StorageApi\ClientException $e) {
+			if ($e->getCode() == 403) {
+				throw new WrongConfigurationException('Your token does not have access to table ' . $tableId);
+			}
+			throw $e;
 		}
-		if (count($indices) && !$this->storageApiClient->tableExists($tableId)) {
-			$table->setIndices($indices);
-		}
-		$table->setIncremental($incremental);
-		$table->setPartial($partial);
-		$table->save();
-		return $table;
 	}
 
 
@@ -152,7 +162,8 @@ abstract class StorageApiConfiguration
 			$tableId,
 			$this->tables[$tableName]['primaryKey'],
 			$this->tables[$tableName]['columns'],
-			$this->tables[$tableName]['indices']);
+			$this->tables[$tableName]['indices']
+		);
 	}
 
 	/**
@@ -164,7 +175,8 @@ abstract class StorageApiConfiguration
 
 		$this->saveTable($this->bucketId . '.' . $tableName,
 			$this->tables[$tableName]['primaryKey'], $this->tables[$tableName]['columns'], array(), false, false,
-			$this->tables[$tableName]['indices']);
+			$this->tables[$tableName]['indices']
+		);
 	}
 
 	/**
@@ -225,80 +237,6 @@ abstract class StorageApiConfiguration
 	protected function checkConfigTable($tableName, $columns)
 	{
 		if (!isset($this->tables[$tableName])) return false;
-
-		//@TODO Remove sometimes in october ;o)
-		// MIGRATE FILTERS CONFIGURATION
-		if (($tableName == 'filters_projects' && count($columns) == 2)
-			|| ($tableName == 'filters_users' && count($columns) == 2)
-			|| ($tableName == 'filters' && in_array('uri', $columns))) {
-			try {
-				$oldFilters = $this->fetchTableRows($this->bucketId . '.filters');
-				$oldFiltersUsers = $this->fetchTableRows($this->bucketId . '.filters_users');
-
-				$this->storageApiClient->dropTable($this->bucketId . '.filters');
-				$this->storageApiClient->dropTable($this->bucketId . '.filters_projects');
-				$this->storageApiClient->dropTable($this->bucketId . '.filters_users');
-
-				$filtersData = array();
-				$filtersProjectsData = array();
-				$filtersUsersData = array();
-
-				$filtersTable = new StorageApiTable($this->storageApiClient, $this->bucketId . '.filters', null, 'name');
-				$filtersTable->setHeader(array('name', 'attribute', 'operator', 'value'));
-
-				$filtersProjectsTable = new StorageApiTable($this->storageApiClient, $this->bucketId . '.filters_projects', null, 'uri');
-				$filtersProjectsTable->setHeader(array('uri', 'filter', 'pid'));
-				$filtersProjectsTable->setIndices(array('filter', 'pid'));
-
-				foreach ($oldFilters as $f) {
-					preg_match('/^\/gdc\/md\/([a-z0-9]+)\/obj\/([0-9]+)$/', $f['uri'], $uri);
-					if (count($uri) == 3) {
-						$filtersData[] = array($f['name'], $f['attribute'], $f['operator'], $f['element']);
-						$filtersProjectsData[] = array($f['uri'], $f['name'], $uri[1]);
-					} else {
-						throw new WrongConfigurationException('Filters configuration could not be migrated. Filters uri ' . $f['uri'] . ' does not seem valid');
-					}
-				}
-
-				$filtersProjectsTable->setFromArray($filtersProjectsData);
-				$filtersProjectsTable->save();
-				$filtersTable->setFromArray($filtersData);
-				$filtersTable->save();
-
-
-				$filtersUsersTable = new StorageApiTable($this->storageApiClient, $this->bucketId . '.filters_users', null, 'id');
-				$filtersUsersTable->setHeader(array('id', 'filter', 'email'));
-				$filtersUsersTable->setIndices(array('filter', 'email'));
-				foreach ($oldFiltersUsers as $fu) {
-					$filtersUsersData[] = array(sha1($fu['filterName'] . '.' . $fu['userEmail']), $fu['filterName'], $fu['userEmail']);
-				}
-				$filtersUsersTable->setFromArray($filtersUsersData);
-				$filtersUsersTable->save();
-
-			} catch (\Exception $e) {
-				// ignore - race condition
-			}
-
-			return true;
-		}
-		if ($tableName == 'filters' && !in_array('over', $columns)) {
-			try {
-				$this->storageApiClient->addTableColumn($this->bucketId . '.filters', 'over');
-			} catch (\Exception $e) {
-				// ignore - race condition
-			}
-			$columns[] = 'over';
-		}
-		if ($tableName == 'filters' && !in_array('to', $columns)) {
-			try {
-				$this->storageApiClient->addTableColumn($this->bucketId . '.filters', 'to');
-			} catch (\Exception $e) {
-				// ignore - race condition
-			}
-			$columns[] = 'to';
-		}
-		//@TODO Remove sometimes in october ;o)
-
 
 		// Allow tables to have more columns then according to definitions
 		if (count(array_diff($this->tables[$tableName]['columns'], $columns))) {
@@ -423,7 +361,14 @@ abstract class StorageApiConfiguration
 	{
 		$cacheKey = 'getTable.' . $tableId;
 		if (!isset($this->cache[$cacheKey])) {
-			$this->cache[$cacheKey] = $this->storageApiClient->getTable($tableId);
+			try {
+				$this->cache[$cacheKey] = $this->storageApiClient->getTable($tableId);
+			} catch (\Keboola\StorageApi\ClientException $e) {
+				if ($e->getCode() == 403) {
+					throw new WrongConfigurationException('Your token does not have access to table ' . $tableId);
+				}
+				throw $e;
+			}
 		}
 		return $this->cache[$cacheKey];
 	}
@@ -440,7 +385,14 @@ abstract class StorageApiConfiguration
 			$cacheKey .=  '.' . implode(':', array_keys($keyOptions)) . '.' . implode(':', array_values($keyOptions));
 		}
 		if (!isset($this->cache[$cacheKey]) || !$cache) {
-			$csv = $this->storageApiClient->exportTable($tableId, null, $options);
+			try {
+				$csv = $this->storageApiClient->exportTable($tableId, null, $options);
+			} catch (\Keboola\StorageApi\ClientException $e) {
+				if ($e->getCode() == 403) {
+					throw new WrongConfigurationException('Your token does not have access to table ' . $tableId);
+				}
+				throw $e;
+			}
 			$this->cache[$cacheKey] = StorageApiClient::parseCsv($csv, true);
 		}
 		return $this->cache[$cacheKey];

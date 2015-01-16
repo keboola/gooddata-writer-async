@@ -22,6 +22,10 @@ class AssignFiltersToUser extends AbstractJob
 		}
 		////
 
+		if (is_array($params['email'])) {
+			throw new WrongParametersException($this->translator->trans('parameters.filters.email_is_array'));
+		}
+
 		$this->checkParams($params, array('writerId', 'email'));
 		if (!isset($params['filters'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.filters.required'));
