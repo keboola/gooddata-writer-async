@@ -46,6 +46,7 @@ parameters:
   email_not_configured_in_project: Parameter 'email' does not correspond with any user configured for the project in parameter 'pid'
   filters:
     already_exists: Filter with such name is already configured in the writer
+    email_is_array: Parameter 'email' cannot contain more than one email
     not_array: Parameter 'filters' must be an array
     not_exist %1: Filter '%1' is not configured in the writer
     over_to_missing: You have to use parameter 'over' together with 'to'
