@@ -1379,37 +1379,34 @@ class RestApi
 
 
 
-	public function optimizeSliHash($pid, $manifests=array())
+	public function optimizeSliHash($pid)
 	{
-		if (count($manifests)) {
-			$result = $this->post(sprintf('/gdc/md/%s/etl/mode', $pid), array(
-				'etlMode' => array(
-					'mode' => 'SLI',
-					'lookup' => 'recreate',
-					'sli' => $manifests
-				)
-			));
-			if (empty($result['uri'])) {
-				throw new RestApiException('Bad response from optimizeSliHash call' . json_encode($result));
+		$result = $this->post(sprintf('/gdc/md/%s/etl/mode', $pid), array(
+			'etlMode' => array(
+				'mode' => 'SLI',
+				'lookup' => 'recreate'
+			)
+		));
+		if (empty($result['uri'])) {
+			throw new RestApiException('Bad response from optimizeSliHash call' . json_encode($result));
+		}
+		$pollLink = $result['uri'];
+
+		$try = 0;
+		do {
+			sleep(10 * $try);
+			$taskResponse = $this->jsonRequest($pollLink);
+
+			if (!isset($taskResponse['wTaskStatus']['status'])) {
+				throw new RestApiException('Task optimizeSliHash could not be checked');
 			}
-			$pollLink = $result['uri'];
 
-			$try = 0;
-			do {
-				sleep(10 * $try);
-				$taskResponse = $this->jsonRequest($pollLink);
+			$try++;
+		} while (in_array($taskResponse['wTaskStatus']['status'], array('PREPARED', 'RUNNING')));
 
-				if (!isset($taskResponse['wTaskStatus']['status'])) {
-					throw new RestApiException('Task optimizeSliHash could not be checked');
-				}
-
-				$try++;
-			} while (in_array($taskResponse['wTaskStatus']['status'], array('PREPARED', 'RUNNING')));
-
-			if ($taskResponse['wTaskStatus']['status'] == 'ERROR') {
-				$messages = isset($taskResponse['wTaskStatus']['messages']) ? $taskResponse['wTaskStatus']['messages'] : null;
-				throw new RestApiException('SLI hash optimization failed. See logs for details', $messages);
-			}
+		if ($taskResponse['wTaskStatus']['status'] == 'ERROR') {
+			$messages = isset($taskResponse['wTaskStatus']['messages']) ? $taskResponse['wTaskStatus']['messages'] : null;
+			throw new RestApiException('SLI hash optimization failed. See logs for details', $messages);
 		}
 	}
 
