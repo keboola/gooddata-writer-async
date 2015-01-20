@@ -30,18 +30,6 @@ class OptimizeSliHash extends AbstractJob
 	public function run($job, $params, RestApi $restApi)
 	{
 		try {
-			$manifests = array();
-			$dataSetsToOptimize = array();
-			foreach ($this->configuration->getDataSets() as $dataSet) if ($dataSet['export'] && $dataSet['isExported']) {
-				$definition = $this->configuration->getDataSetDefinition($dataSet['id']);
-				$manifests[] = Model::getDataLoadManifest($definition, false, $this->configuration->noDateFacts);
-				$dataSetsToOptimize[] = Model::getDatasetId($definition['name']);
-			}
-			foreach ($this->configuration->getDateDimensions() as $dimension) if ($dimension['includeTime'] && $dimension['isExported']) {
-				$manifests[] = json_decode(Model::getTimeDimensionDataLoadManifest($this->scriptsPath, $dimension['name']), true);
-				$dataSetsToOptimize[] = Model::getTimeDimensionId($dimension['name']);
-			}
-
 			// Ensure that all other jobs are finished
 			$this->sharedStorage->saveJob($job['id'], array('status' => SharedStorage::JOB_STATUS_WAITING));
 			$i = 0;
@@ -60,22 +48,7 @@ class OptimizeSliHash extends AbstractJob
 
 			$bucketAttributes = $this->configuration->bucketAttributes();
 			$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-
-			// Check if we have all manifests
-			$missing = array();
-			foreach ($restApi->getDataSets($bucketAttributes['gd']['pid']) as $ds) {
-				if (substr($ds['id'], -3) != '.dt') {
-					if (!in_array($ds['id'], $dataSetsToOptimize)) {
-						$missing[] = $ds['title'];
-					}
-				}
-			}
-			if (count($missing)) {
-				sort($missing);
-				throw new WrongConfigurationException($this->translator->trans('configuration.data_sets_not_found %1', array('%1' => implode(', ', $missing))));
-			}
-
-			$restApi->optimizeSliHash($bucketAttributes['gd']['pid'], $manifests);
+			$restApi->optimizeSliHash($bucketAttributes['gd']['pid']);
 
 			$this->sharedStorage->setWriterStatus($job['projectId'], $job['writerId'], SharedStorage::WRITER_STATUS_READY);
 
