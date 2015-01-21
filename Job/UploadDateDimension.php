@@ -23,7 +23,7 @@ class UploadDateDimension extends AbstractJob
 
 	public function prepare($params)
 	{
-		$this->checkParams($params, array('writerId', 'tableId', 'name'));
+		$this->checkParams($params, array('writerId', 'name'));
 		$this->checkWriterExistence($params['writerId']);
 		$this->configuration->checkBucketAttributes();
 
