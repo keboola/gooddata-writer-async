@@ -198,7 +198,7 @@ class Configuration extends StorageApiConfiguration
 			return $attributes;
 		} catch (ClientException $e) {
 			if ($e->getCode() == 404) {
-				return false;
+				throw new WrongConfigurationException('Configuration bucket for \'' . $this->bucketId . '\' is missing');
 			} else {
 				throw $e;
 			}
