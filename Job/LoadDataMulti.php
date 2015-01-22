@@ -25,7 +25,6 @@ class LoadDataMulti extends AbstractJob
 	{
 		$this->checkParams($params, array('writerId', 'tables'));
 		$this->checkWriterExistence($params['writerId']);
-		$this->configuration->checkBucketAttributes();
 		$result = array(
 			'tables' => $params['tables']
 		);
@@ -50,7 +49,6 @@ class LoadDataMulti extends AbstractJob
 		}
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->configuration->checkBucketAttributes($bucketAttributes);
 
 		$stopWatch = new Stopwatch();
 

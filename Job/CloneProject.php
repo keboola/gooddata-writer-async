@@ -16,7 +16,8 @@ class CloneProject extends AbstractJob
 	{
 		$this->checkParams($params, array('writerId'));
 		$this->checkWriterExistence($params['writerId']);
-		$this->configuration->checkBucketAttributes();
+
+		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->configuration->checkProjectsTable();
 
 		if (empty($params['accessToken'])) {
@@ -26,7 +27,6 @@ class CloneProject extends AbstractJob
 			$params['name'] = sprintf(Model::PROJECT_NAME_TEMPLATE, $this->gdProjectNamePrefix, $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
 		}
 
-		$bucketAttributes = $this->configuration->bucketAttributes();
 		return array(
 			'accessToken' => $params['accessToken'],
 			'name' => $params['name'],
@@ -46,7 +46,6 @@ class CloneProject extends AbstractJob
 		$this->checkParams($params, array('accessToken', 'name', 'pidSource'));
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->configuration->checkBucketAttributes($bucketAttributes);
 
 		// Check access to source project
 		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -56,7 +55,7 @@ class CloneProject extends AbstractJob
 		// Get user uri if not set
 		if (empty($bucketAttributes['gd']['uid'])) {
 			$userId = $restApi->userId($bucketAttributes['gd']['username'], $this->getDomainUser()->domain);
-			$this->configuration->updateWriter('gd.uid', $userId);
+			$this->configuration->updateBucketAttribute('gd.uid', $userId);
 			$bucketAttributes['gd']['uid'] = $userId;
 		}
 		$projectPid = $restApi->createProject($params['name'], $params['accessToken'], json_encode(array(

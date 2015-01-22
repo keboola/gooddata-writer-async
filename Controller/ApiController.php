@@ -26,7 +26,6 @@ use Syrup\ComponentBundle\Exception\SyrupComponentException;
 use Keboola\GoodDataWriter\GoodData\RestApi,
 	Keboola\GoodDataWriter\GoodData\SSO,
 	Keboola\GoodDataWriter\Model\Graph,
-	Keboola\GoodDataWriter\Service\S3Client,
 	Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\GoodDataWriter\GoodData\RestApiException,
@@ -197,7 +196,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				throw new WrongParametersException($this->translator->trans('parameters.writer_attr %1', array('%1' => implode(', ', $reservedAttrs))));
 			}
 			if (is_array($value)) $value = json_encode($value);
-			$this->getConfiguration()->updateWriter($key, $value);
+			$this->getConfiguration()->updateBucketAttribute($key, $value);
 		}
 		return $this->createApiResponse();
 	}
@@ -244,37 +243,19 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 */
 	public function getWritersAction($writerId=null)
 	{
-		if ($writerId)
+		if ($writerId) {
 			$this->writerId = $writerId;
+		}
 
 		if ($this->writerId) {
 			$this->checkWriterExistence();
-
-			$configuration = $this->getConfiguration()->formatWriterAttributes($this->getConfiguration()->bucketAttributes());
-			try {
-				$writerData = $this->getSharedStorage()->getWriter($this->projectId, $this->writerId);
-				unset($writerData['feats']);
-			} catch (SharedStorageException $e) {
-				$writerData = array('status' => SharedStorage::WRITER_STATUS_READY, 'createdTime' => '');
-			}
 			return $this->createApiResponse(array(
-				'writer' => array_merge($configuration, $writerData)
+				'writer' => $this->getConfiguration()->getWriterToApi()
 			));
 		} else {
 			$configuration = new Configuration($this->storageApi, $this->getSharedStorage());
-			$result = array();
-			foreach ($configuration->getWriters() as $writer) {
-				try {
-					$writerData = $this->getSharedStorage()->getWriter($this->projectId, $writer['id']);
-					unset($writerData['feats']);
-				} catch (SharedStorageException $e) {
-					$writerData = array('status' => SharedStorage::WRITER_STATUS_READY, 'createdTime' => '');
-				}
-				$result[] = array_merge($writer, $writerData);
-			}
-
 			return $this->createApiResponse(array(
-				'writers' => $result
+				'writers' => $configuration->getWritersToApi()
 			));
 		}
 	}
@@ -905,7 +886,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		// Init parameters
 		$this->checkParams(array('writerId', 'tableId'));
 		$this->checkWriterExistence();
-		$this->getConfiguration()->checkBucketAttributes();
+
+		$bucketAttributes = $this->getConfiguration()->bucketAttributes();
 
 		$batchId = $this->getJobFactory()->createBatchId();
 		$definition = $this->getConfiguration()->getDataSetDefinition($this->params['tableId']);
@@ -947,7 +929,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				return $this->createMaintenanceResponse();
 			}
 
-			$bucketAttributes = $this->getConfiguration()->bucketAttributes();
 			$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			if (!empty($bucketAttributes['gd']['apiUrl'])) {
 				$restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
@@ -1008,7 +989,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	{
 		$this->checkParams(array('writerId'));
 		$this->checkWriterExistence();
-		$this->getConfiguration()->checkBucketAttributes();
+
+		$bucketAttributes = $this->getConfiguration()->bucketAttributes();
 		$projectsToUse = $this->getProjectsToUse();
 
 		$this->getConfiguration()->getDateDimensions();
@@ -1055,7 +1037,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			if (!$restApi->ping()) {
 				return $this->createMaintenanceResponse();
 			}
-			$bucketAttributes = $this->getConfiguration()->bucketAttributes();
 			$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 			if (!empty($bucketAttributes['gd']['apiUrl'])) {
 				$restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
@@ -1458,20 +1439,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->getSharedStorage()->cancelJobs($this->projectId, $this->writerId);
 		return $this->createApiResponse();
 	}
-
-	/**
-	 * Migrate old configuration
-	 * @TODO REMOVE SOON
-	 *
-	 * @Route("/migrate-configuration")
-	 * @Method({"POST"})
-	 */
-	public function postMigrateConfigurationAction()
-	{
-		$this->checkParams(array('writerId'));
-		$this->getConfiguration()->migrateConfiguration();
-	}
-
 
 
 

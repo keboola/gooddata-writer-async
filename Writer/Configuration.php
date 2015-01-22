@@ -104,6 +104,7 @@ class Configuration extends StorageApiConfiguration
 		$this->sharedStorage = $sharedStorage;
 
 		$logData = $this->storageApiClient->getLogData();
+		$this->projectId = $logData['owner']['id'];
 		if (!empty($logData['owner']['features'])) {
 			if (in_array('gdwr-academy', $logData['owner']['features'])) {
 				$this->gdDomain = 'keboola-academy';
@@ -137,68 +138,10 @@ class Configuration extends StorageApiConfiguration
 	 * @section Writer and it's bucket
 	 ********************/
 
-
 	/**
-	 * Find configuration bucket for writerId
+	 * Create configuration bucket
 	 */
-	public function findConfigurationBucket($writerId)
-	{
-		foreach ($this->sapi_listBuckets() as $bucket) {
-			if (isset($bucket['attributes']) && is_array($bucket['attributes'])) {
-				$bucketAttributes = $this->parseAttributes($bucket['attributes']);
-
-				if (isset($bucketAttributes['writer']) && $bucketAttributes['writer'] == self::WRITER_NAME && isset($bucketAttributes['writerId']) && $bucketAttributes['writerId'] == $writerId) {
-					return $bucket['id'];
-				}
-			}
-		}
-		return false;
-	}
-
-
-	/**
-	 *
-	 */
-	public function getWriters()
-	{
-		$writers = array();
-		foreach ($this->sapi_listBuckets() as $bucket) {
-			if (isset($bucket['attributes']) && is_array($bucket['attributes'])) {
-				$bucketAttributes = $this->parseAttributes($bucket['attributes']);
-
-				if (isset($bucketAttributes['writer']) && $bucketAttributes['writer'] == self::WRITER_NAME && isset($bucketAttributes['writerId'])) {
-					$writers[] = $this->formatWriterAttributes($bucketAttributes);
-				}
-			}
-		}
-		return $writers;
-	}
-
-	public function formatWriterAttributes($attributes)
-	{
-		if (!$attributes)
-			return array();
-
-		try {
-			$this->checkBucketAttributes($attributes);
-		} catch (WrongConfigurationException $e) {
-			$attributes['status'] = SharedStorage::WRITER_STATUS_ERROR;
-			$attributes['info'] = $e->getMessage();
-		}
-
-		if (!isset($attributes['writer']))
-			$attributes['writer'] = self::WRITER_NAME;
-		if (!isset($attributes['id']))
-			$attributes['id'] = $attributes['writerId'];
-
-		return $attributes;
-	}
-
-
-	/**
-	 * Create configuration bucket for writer
-	 */
-	public function createWriter($writerId)
+	public function createBucket($writerId)
 	{
 		$this->storageApiClient->createBucket('wr-gooddata-' . $writerId, 'sys', 'GoodData Writer Configuration');
 		$this->storageApiClient->setBucketAttribute('sys.c-wr-gooddata-' . $writerId, 'writer', self::WRITER_NAME);
@@ -206,36 +149,66 @@ class Configuration extends StorageApiConfiguration
 		$this->bucketId = 'sys.c-wr-gooddata-' . $writerId;
 	}
 
-
-	/**
-	 * Check if writer's bucket have all required attributes
-	 */
-	public function checkBucketAttributes($attributes=null)
+	private static function parseBucketAttributes($attributes)
 	{
-		if (!$attributes)
-			$attributes = $this->bucketAttributes();
+		$result = array();
+		foreach ($attributes as $attr) {
+			$attrArray = explode('.', $attr['name']);
+			if (count($attrArray) > 1) {
+				if (!isset($result[$attrArray[0]])) {
+					$result[$attrArray[0]] = array();
+				}
+				$result[$attrArray[0]][$attrArray[1]] = $attr['value'];
+			} else {
+				$result[$attr['name']] = $attr['value'];
+			}
+		}
 
 		$error = false;
-		if (empty($attributes['gd'])) {
+		if (empty($result['gd'])) {
 			$error = 'The writer is missing GoodData project configuration. You cannot perform any GoodData operations. See the docs please.';
-		} elseif(empty($attributes['gd']['pid'])) {
+		} elseif(empty($result['gd']['pid'])) {
 			$error = 'The writer is missing gd.pid configuration attribute. You cannot perform any GoodData operations.';
-		} elseif(empty($attributes['gd']['username'])) {
+		} elseif(empty($result['gd']['username'])) {
 			$error = 'The writer is missing gd.username configuration attribute. You cannot perform any GoodData operations.';
-		} elseif(empty($attributes['gd']['password'])) {
+		} elseif(empty($result['gd']['password'])) {
 			$error = 'The writer is missing gd.password configuration attribute. You cannot perform any GoodData operations.';
 		}
 
 		if ($error) {
-			throw new WrongConfigurationException($error);
+			$result['status'] = SharedStorage::WRITER_STATUS_ERROR;
+			$result['info'] = $error;
 		}
+
+		if (!isset($result['id']))
+			$result['id'] = $result['writerId'];
+		return $result;
 	}
 
+	public function bucketAttributes($checkError=true)
+	{
+		try {
+			$bucket = $this->storageApiClient->getBucket($this->bucketId);
+			$attributes = self::parseBucketAttributes($bucket['attributes']);
+			if ($checkError) {
+				if (!empty($attributes['error'])) {
+					throw new WrongConfigurationException($attributes['error']);
+				}
+			}
+			return $attributes;
+		} catch (ClientException $e) {
+			if ($e->getCode() == 404) {
+				return false;
+			} else {
+				throw $e;
+			}
+		}
+	}
 
 	/**
 	 * Update writer's configuration
 	 */
-	public function updateWriter($key, $value=null, $protected=null)
+	public function updateBucketAttribute($key, $value=null, $protected=null)
 	{
 		if ($value !== null)
 			$this->storageApiClient->setBucketAttribute($this->bucketId, $key, $value, $protected);
@@ -244,16 +217,48 @@ class Configuration extends StorageApiConfiguration
 		$this->cache['bucketInfo.' . $this->bucketId][$key] = $value; //@TODO
 	}
 
-
 	/**
 	 * Delete writer configuration from SAPI
 	 */
-	public function deleteWriter()
+	public function deleteBucket()
 	{
 		foreach ($this->sapi_listTables($this->bucketId) as $table) {
 			$this->storageApiClient->dropTable($table['id']);
 		}
 		$this->storageApiClient->dropBucket($this->bucketId);
+	}
+
+	public function getWriterToApi()
+	{
+		$attributes = $this->bucketAttributes(false);
+		try {
+			$sharedData = $this->sharedStorage->getWriter($this->projectId, $this->writerId);
+			unset($sharedData['feats']);
+		} catch (SharedStorageException $e) {
+			throw new WrongParametersException('Parameter \'writerId\' does not correspond with any configured writer');
+		}
+		return array_merge($sharedData, $attributes);
+	}
+
+
+	public function getWritersToApi()
+	{
+		$buckets = array();
+		foreach ($this->sapi_listBuckets() as $bucket) {
+			$buckets[$bucket['id']] = $bucket;
+		}
+
+		$result = array();
+		foreach ($this->sharedStorage->getActiveWriters($this->projectId) as $writerData) {
+			unset($writerData['feats']);
+			if (isset($buckets[$writerData['bucket']])) {
+				$bucket = $buckets[$writerData['bucket']];
+				$attributes = self::parseBucketAttributes($bucket['attributes']);
+				$result[] = array_merge($writerData, $attributes);
+			}
+
+		}
+		return $result;
 	}
 
 
@@ -1449,76 +1454,4 @@ class Configuration extends StorageApiConfiguration
 		return $tableId;
 	}
 
-
-
-	/**
-	 * Migrate from old configuration if applicable
-	 */
-	public function migrateConfiguration()
-	{
-		if ($this->storageApiClient->tableExists(self::DATA_SETS_TABLE_NAME)) {
-			return;
-		}
-
-		$this->createConfigTable(self::DATA_SETS_TABLE_NAME);
-
-		foreach ($this->sapi_listTables($this->bucketId) as $table) {
-			if ($table['name'] == 'dateDimensions') {
-				if (!$this->sapi_tableExists($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME)) {
-					$this->createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
-					$data = array();
-					foreach ($this->fetchTableRows($table['id']) as $row) {
-						$data[] = array('name' => $row['name'], 'includeTime' => $row['includeTime']);
-					}
-					$this->updateConfigTable(self::DATE_DIMENSIONS_TABLE_NAME, $data, false);
-					//@TODO $this->storageApiClient->dropTable($table['id']);
-				}
-			}
-			if (!in_array($table['name'], array_keys($this->tables)) && $table['name'] != 'dateDimensions') {
-				$configTable = $this->getSapiTable($table['id']);
-				$dataSetRow = array(
-					'id' => null,
-					'name' => null,
-					'export' => null,
-					'isExported' => null,
-					'lastChangeDate' => null,
-					'incrementalLoad' => null,
-					'ignoreFilter' => null,
-					'definition' => null
-				);
-				if (count($configTable['attributes'])) foreach ($configTable['attributes'] as $attribute) {
-					if ($attribute['name'] == 'tableId') {
-						$dataSetRow['id'] = $attribute['value'];
-					}
-					if ($attribute['name'] == 'gdName') {
-						$dataSetRow['name'] = $attribute['value'];
-					}
-					if ($attribute['name'] == 'export') {
-						$dataSetRow['export'] = empty($attribute['value']) ? 0 : 1;
-					}
-					if ($attribute['name'] == 'lastExportDate') {
-						$dataSetRow['isExported'] = empty($attribute['value']) ? 0 : 1;
-					}
-					if ($attribute['name'] == 'lastChangeDate') {
-						$dataSetRow['lastChangeDate'] = $attribute['value'];
-					}
-					if ($attribute['name'] == 'incrementalLoad') {
-						$dataSetRow['incrementalLoad'] = (int)$attribute['value'];
-					}
-					if ($attribute['name'] == 'ignoreFilter') {
-						$dataSetRow['ignoreFilter'] = empty($attribute['value']) ? 0 : 1;
-					}
-				}
-				$columns = array();
-				foreach ($this->fetchTableRows($table['id']) as $colDef) {
-					$colName = $colDef['name'];
-					unset($colDef['name']);
-					$columns[$colName] = $this->cleanColumnDefinition($colDef);
-				}
-				$dataSetRow['definition'] = json_encode($columns);
-				$this->updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $dataSetRow);
-				//@TODO $this->storageApiClient->dropTable($table['id']);
-			}
-		}
-	}
 }

@@ -22,7 +22,6 @@ class RemoveUserFromProject extends AbstractJob
 		if (!$this->configuration->isProjectUser($params['email'], $params['pid'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.email_not_configured'));
 		}
-		$this->configuration->checkBucketAttributes();
 		$this->configuration->checkProjectsTable();
 		$this->configuration->checkProjectUsersTable();
 

@@ -21,7 +21,6 @@ class CreateUser extends AbstractJob
 		if (strlen($params['password']) < 7) {
 			throw new WrongParametersException($this->translator->trans('parameters.password_length'));
 		}
-		$this->configuration->checkBucketAttributes();
 		$this->configuration->checkUsersTable();
 
 		return array(

@@ -122,6 +122,7 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
 
 		$this->storageApiClient = new StorageApiClient(array('token' => STORAGE_API_TOKEN));
 		$this->configuration = new Configuration($this->storageApiClient, $this->sharedStorage);
+		$this->configuration->projectId = rand(1, 128);
 
 
 
@@ -191,6 +192,23 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
 				$this->storageApiClient->dropBucket($bucket['id']);
 			}
 		}
+	}
+
+	protected function prepareJobInfo($writerId, $command, $params)
+	{
+		return array(
+			'id' => rand(1, 128),
+			'batchId' => rand(1, 128),
+			'runId' => rand(1, 128),
+			'projectId' => rand(1, 128),
+			'writerId' => $writerId,
+			'token' => STORAGE_API_TOKEN,
+			'tokenId' => rand(1, 128),
+			'tokenDesc' => uniqid(),
+			'createdTime' => date('c'),
+			'command' => $command,
+			'parameters' => $params
+		);
 	}
 
 }

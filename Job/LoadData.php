@@ -27,7 +27,6 @@ class LoadData extends AbstractJob
 			throw new JobProcessException($this->translator->trans('parameters.tables_not_array'));
 		}
 		$this->checkWriterExistence($params['writerId']);
-		$this->configuration->checkBucketAttributes();
 		$result = array(
 			'tables' => $params['tables']
 		);
@@ -53,7 +52,6 @@ class LoadData extends AbstractJob
 		}
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->configuration->checkBucketAttributes($bucketAttributes);
 		$this->configuration->updateDataSetsFromSapi();
 
 		$stopWatch = new Stopwatch();

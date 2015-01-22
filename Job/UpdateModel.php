@@ -9,7 +9,6 @@ namespace Keboola\GoodDataWriter\Job;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException,
 	Keboola\GoodDataWriter\GoodData\RestApiException;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
-use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Symfony\Component\Stopwatch\Stopwatch;
 
@@ -20,7 +19,6 @@ class UpdateModel extends AbstractJob
 	{
 		$this->checkParams($params, array('writerId', 'tableId'));
 		$this->checkWriterExistence($params['writerId']);
-		$this->configuration->checkBucketAttributes();
 
 		return array(
 			'tableId' => $params['tableId']
@@ -43,7 +41,6 @@ class UpdateModel extends AbstractJob
 		}
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->configuration->checkBucketAttributes($bucketAttributes);
 		$this->configuration->updateDataSetsFromSapi();
 
 		$stopWatch = new Stopwatch();

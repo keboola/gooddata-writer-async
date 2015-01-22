@@ -73,7 +73,7 @@ class DeleteWriter extends AbstractJob
 			}
 		}
 
-		$this->configuration->deleteWriter();
+		$this->configuration->deleteBucket();
 
 		return array();
 	}
