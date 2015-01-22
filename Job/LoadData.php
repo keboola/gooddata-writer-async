@@ -22,9 +22,19 @@ class LoadData extends AbstractJob
 
 	public function prepare($params)
 	{
-		$this->checkParams($params, array('writerId', 'tables'));
-		if (!is_array($params['tables'])) {
-			throw new JobProcessException($this->translator->trans('parameters.tables_not_array'));
+		$this->checkParams($params, array('writerId'));
+
+		if (isset($params['tables'])) {
+			if (!is_array($params['tables'])) {
+				throw new JobProcessException($this->translator->trans('parameters.tables_not_array'));
+			}
+		} else {
+			$params['tables'] = array();
+			foreach ($this->configuration->getDataSets() as $dataSet) {
+				if (!empty($dataSet['export'])) {
+					$params['tables'][] = $dataSet['id'];
+				}
+			}
 		}
 		$this->checkWriterExistence($params['writerId']);
 		$result = array(
