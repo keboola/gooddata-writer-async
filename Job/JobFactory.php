@@ -118,10 +118,12 @@ class JobFactory
 		$jobId = $this->storageApiClient->generateId();
 		$tokenData = $this->storageApiClient->getLogData();
 		$jobData = array(
+			'projectId' => $this->configuration->projectId,
+			'writerId' => $this->configuration->writerId,
 			'command' => $jobName,
 			'batchId' => $batchId? $batchId : $jobId,
 			'parameters' => $params,
-			'runId' => $this->storageApiClient->getRunId(),
+			'runId' => $this->storageApiClient->getRunId() ?: $jobId,
 			'token' => $this->storageApiClient->token,
 			'tokenId' => $tokenData['id'],
 			'tokenDesc' => $tokenData['description']
@@ -139,7 +141,7 @@ class JobFactory
 			$this->translator->trans($this->translator->trans('log.job.created')), array(
 				'projectId' => $this->configuration->projectId,
 				'writerId' => $this->configuration->writerId,
-				'runId' => $this->storageApiClient->getRunId(),
+				'runId' => $this->storageApiClient->getRunId() ?: $jobId,
 				'command' => $jobName,
 				'params' => $params
 			));

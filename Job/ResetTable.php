@@ -31,7 +31,6 @@ class ResetTable extends AbstractJob
 		$this->checkParams($params, array('tableId'));
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->configuration->checkBucketAttributes($bucketAttributes);
 
 		$tableDefinition = $this->configuration->getDataSet($params['tableId']);
 		$dataSetName = !empty($tableDefinition['name']) ? $tableDefinition['name'] : $tableDefinition['id'];

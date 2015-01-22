@@ -36,6 +36,7 @@ setupConst('DB_PORT', 3306);
 setupConst('DB_USER', 'user');
 setupConst('ENCRYPTION_KEY', md5(uniqid()));
 setupConst('GD_ACCESS_TOKEN', '');
+setupConst('GD_DOMAIN_UID', 'f6bd467fe6be86df131d3b285a35c805');
 setupConst('GD_DOMAIN_NAME', 'keboola-devel');
 setupConst('GD_DOMAIN_USER', 'gooddata-devel@keboola.com');
 setupConst('GD_DOMAIN_PASSWORD', '');
@@ -57,4 +58,4 @@ $stmt->execute();
 $stmt->closeCursor();
 
 $encryptor = new Encryptor(ENCRYPTION_KEY);
-$db->insert('domains', array('name' => GD_DOMAIN_NAME, 'username' => GD_DOMAIN_USER, 'password' => $encryptor->encrypt(GD_DOMAIN_PASSWORD), 'uid' => uniqid()));
+$db->insert('domains', array('name' => GD_DOMAIN_NAME, 'username' => GD_DOMAIN_USER, 'password' => $encryptor->encrypt(GD_DOMAIN_PASSWORD), 'uid' => GD_DOMAIN_UID));

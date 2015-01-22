@@ -83,7 +83,7 @@ class ProjectsTest extends AbstractControllerTest
 
 
 		// Prepare configuration
-		$this->configuration->updateWriter('filterColumn', 'pid');
+		$this->configuration->updateBucketAttribute('filterColumn', 'pid');
 		$this->configuration->updateDataSetsFromSapi();
 
 		$this->configuration->updateColumnsDefinition($this->dataBucketId . '.' . $filteredTableName, array(

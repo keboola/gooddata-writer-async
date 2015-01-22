@@ -10,6 +10,7 @@ use Guzzle\Http\Exception\CurlException;
 use Keboola\GoodDataWriter\Exception\JobProcessException,
 	Keboola\GoodDataWriter\GoodData\RestApiException,
 	Keboola\StorageApi\ClientException as StorageApiClientException;
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\CsvHandlerNetworkException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Job\JobFactory;
@@ -149,9 +150,13 @@ class JobExecutor
 				$this->restApi->setJobId($jobData['id']);
 				$this->restApi->setRunId($jobData['runId']);
 				$this->restApi->setEventLogger($this->eventLogger);
-				$bucketAttributes = $configuration->bucketAttributes();
-				if (!empty($bucketAttributes['gd']['apiUrl'])) {
-					$this->restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+				try {
+					$bucketAttributes = $configuration->bucketAttributes();
+					if (!empty($bucketAttributes['gd']['apiUrl'])) {
+						$this->restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+					}
+				} catch (WrongConfigurationException $e) {
+					// Ignore
 				}
 
 				$jobFactory = new JobFactory($this->gdConfig, $this->sharedStorage, $configuration, $this->storageApiClient,

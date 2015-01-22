@@ -25,13 +25,13 @@ class AddUserToProject extends AbstractJob
 		if (!$this->configuration->getProject($params['pid'])) {
 			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
 		}
-		$this->configuration->checkBucketAttributes();
+
+		$bucketAttributes = $this->configuration->bucketAttributes();
 		$this->configuration->checkProjectsTable();
 		$this->configuration->checkUsersTable();
 		$this->configuration->checkProjectUsersTable();
 
 		if (empty($params['pid'])) {
-			$bucketAttributes = $this->configuration->bucketAttributes();
 			$params['pid'] = $bucketAttributes['gd']['pid'];
 		}
 		return array(
@@ -53,7 +53,6 @@ class AddUserToProject extends AbstractJob
 
 		if (empty($params['pid'])) {
 			$bucketAttributes = $this->configuration->bucketAttributes();
-			$this->configuration->checkBucketAttributes($bucketAttributes);
 			$params['pid'] = $bucketAttributes['gd']['pid'];
 		}
 

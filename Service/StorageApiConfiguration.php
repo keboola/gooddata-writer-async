@@ -158,7 +158,7 @@ abstract class StorageApiConfiguration
 		if (!isset($this->tables[$tableName]) || $this->storageApiClient->tableExists($tableId))
 			return false;
 
-		$this->createTable(
+		return $this->createTable(
 			$tableId,
 			$this->tables[$tableName]['primaryKey'],
 			$this->tables[$tableName]['columns'],
@@ -173,7 +173,7 @@ abstract class StorageApiConfiguration
 	{
 		if (!isset($this->tables[$tableName])) return false;
 
-		$this->saveTable($this->bucketId . '.' . $tableName,
+		return $this->saveTable($this->bucketId . '.' . $tableName,
 			$this->tables[$tableName]['primaryKey'], $this->tables[$tableName]['columns'], array(), false, false,
 			$this->tables[$tableName]['indices']
 		);
@@ -271,40 +271,6 @@ abstract class StorageApiConfiguration
 
 		return $table;
 	}
-
-
-	public function bucketAttributes()
-	{
-		$bucketData = null;
-		foreach ($this->sapi_listBuckets() as $bucket) {
-			if ($this->bucketId == $bucket['id']) {
-				$bucketData = $bucket;
-			}
-		}
-		if (!$bucketData) {
-			return false;
-		}
-
-		return $this->parseAttributes($bucketData['attributes']);
-	}
-
-	protected function parseAttributes($attributes)
-	{
-		$result = array();
-		foreach ($attributes as $attr) {
-			$attrArray = explode('.', $attr['name']);
-			if (count($attrArray) > 1) {
-				if (!isset($result[$attrArray[0]])) {
-					$result[$attrArray[0]] = array();
-				}
-				$result[$attrArray[0]][$attrArray[1]] = $attr['value'];
-			} else {
-				$result[$attr['name']] = $attr['value'];
-			}
-		}
-		return $result;
-	}
-
 
 
 	/********************

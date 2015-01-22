@@ -25,7 +25,6 @@ class UploadDateDimension extends AbstractJob
 	{
 		$this->checkParams($params, array('writerId', 'name'));
 		$this->checkWriterExistence($params['writerId']);
-		$this->configuration->checkBucketAttributes();
 
 		$dateDimensions = $this->configuration->getDateDimensions();
 		if (!in_array($params['name'], array_keys($dateDimensions))) {
@@ -53,7 +52,6 @@ class UploadDateDimension extends AbstractJob
 		$stopWatch = new Stopwatch();
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->configuration->checkBucketAttributes($bucketAttributes);
 
 		$dateDimensions = $this->configuration->getDateDimensions();
 		if (!in_array($params['name'], array_keys($dateDimensions))) {

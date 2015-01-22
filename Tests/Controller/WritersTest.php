@@ -19,14 +19,12 @@ class WritersTest extends AbstractControllerTest
 		 * Create writer
 		 */
 		// Check writer configuration
-		$validConfiguration = true;
-		$bucketAttributes = $this->configuration->bucketAttributes();
+		$bucketAttributes = false;
 		try {
-			$this->configuration->checkBucketAttributes();
+			$bucketAttributes = $this->configuration->bucketAttributes();
 		} catch (WrongConfigurationException $e) {
-			$validConfiguration = false;
+			$this->fail("Writer configuration is not valid.");
 		}
-		$this->assertTrue($validConfiguration, "Writer configuration is not valid.");
 
 		// Check project existence in GD
 		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -99,7 +97,7 @@ class WritersTest extends AbstractControllerTest
 		$responseJson = $this->getWriterApi('/writers');
 
 		$this->assertArrayHasKey('writers', $responseJson, "Response for writer call '/writers' should contain 'writers' key.");
-		$this->assertCount(2, $responseJson['writers'], "Response for writer call '/writers' should contain two writers.");
+		$this->assertGreaterThanOrEqual(2, $responseJson['writers'], "Response for writer call '/writers' should contain two writers.");
 		$this->assertArrayHasKey('id', $responseJson['writers'][0], "Response for writer call '/writers' should contain 'writers..id' key.");
 		$this->assertArrayHasKey('bucket', $responseJson['writers'][0], "Response for writer call '/writers' should contain 'writers..bucket' key.");
 		$this->assertEquals($this->writerId, $responseJson['writers'][0]['id'], "Response for writer call '/writers' should contain id of created writer.");
@@ -184,7 +182,7 @@ class WritersTest extends AbstractControllerTest
 		 */
 		$this->processJob('/writers?writerId=' . $this->writerId, array(), 'DELETE');
 		// Check non-existence of configuration
-		$this->assertFalse($this->configuration->findConfigurationBucket($this->writerId), "Writer configuration should not exist anymore.");
+		$this->assertFalse($this->storageApi->bucketExists($this->bucketId), "Writer configuration should not exist anymore.");
 	}
 
 }

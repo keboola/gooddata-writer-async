@@ -71,7 +71,7 @@ class CreateWriter extends AbstractJob
 			$result['users'] = is_array($params['users']) ? $params['users'] : explode(',', $params['users']);
 		}
 
-		$this->configuration->createWriter($params['writerId']);
+		$this->configuration->createBucket($params['writerId']);
 		$this->sharedStorage->setWriterStatus($projectId, $params['writerId'], SharedStorage::WRITER_STATUS_PREPARING);
 
 		return $result;
@@ -132,7 +132,7 @@ class CreateWriter extends AbstractJob
 					}
 				}
 
-				$this->configuration->updateWriter('waitingForInvitation', '1');
+				$this->configuration->updateBucketAttribute('waitingForInvitation', '1');
 				$this->sharedStorage->setWriterStatus($job['projectId'], $job['writerId'], SharedStorage::WRITER_STATUS_MAINTENANCE);
 
 				$waitJobData = $this->factory->createJob('waitForInvitation', array('try' => 1), null, SharedStorage::SERVICE_QUEUE);
@@ -149,13 +149,13 @@ class CreateWriter extends AbstractJob
 
 
 			// Save data to configuration bucket
-			$this->configuration->updateWriter('gd.pid', $projectPid);
-			$this->configuration->updateWriter('gd.username', $username);
-			$this->configuration->updateWriter('gd.password', $password, true);
-			$this->configuration->updateWriter('gd.uid', $userId);
+			$this->configuration->updateBucketAttribute('gd.pid', $projectPid);
+			$this->configuration->updateBucketAttribute('gd.username', $username);
+			$this->configuration->updateBucketAttribute('gd.password', $password, true);
+			$this->configuration->updateBucketAttribute('gd.uid', $userId);
 
 			if (!empty($params['description'])) {
-				$this->configuration->updateWriter('description', $params['description']);
+				$this->configuration->updateBucketAttribute('description', $params['description']);
 			}
 
 

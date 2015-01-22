@@ -16,7 +16,7 @@
 	</php>
 	<testsuites>
 		<testsuite name="part-1">
-			<directory suffix="Test.php">Tests/unit</directory>
+			<directory suffix="Test.php">Tests/Unit</directory>
 			<file>Tests/Controller/DatasetsTest.php</file>
             <file>Tests/Controller/ReportsTest.php</file>
 		</testsuite>

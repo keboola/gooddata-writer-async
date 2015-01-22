@@ -84,7 +84,7 @@ class ResetProject extends AbstractJob
 			$this->configuration->resetProjectsTable();
 		}
 
-		$this->configuration->updateWriter('gd.pid', $newPid);
+		$this->configuration->updateBucketAttribute('gd.pid', $newPid);
 
 		foreach ($this->configuration->getDataSets() as $dataSet) {
 			$this->configuration->updateDataSetDefinition($dataSet['id'], array(

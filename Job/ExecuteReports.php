@@ -17,7 +17,6 @@ class ExecuteReports extends AbstractJob
 	{
 		$this->checkParams($params, array('writerId', 'pid'));
 		$this->checkWriterExistence($params['writerId']);
-		$this->configuration->checkBucketAttributes();
 		$this->configuration->checkProjectsTable();
 
 		$project = $this->configuration->getProject($params['pid']);
@@ -58,7 +57,6 @@ class ExecuteReports extends AbstractJob
 			throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
 		}
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->configuration->checkBucketAttributes($bucketAttributes);
 		$this->configuration->checkProjectsTable();
 
 		// reports uri validation

@@ -38,7 +38,6 @@ class ExportReport extends AbstractJob
 		$this->checkParams($params, array('report', 'table'));
 
 		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->configuration->checkBucketAttributes($bucketAttributes);
 		$this->configuration->checkProjectsTable();
 
 		if (!preg_match('/^([^\.]+)\.([^\.]+)\.([^\.]+)$/', $params['table'])) {

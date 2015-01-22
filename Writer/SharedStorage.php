@@ -85,35 +85,49 @@ class SharedStorage
 		));
 	}
 
+	public static function formatWriterData($data)
+	{
+		$result = array(
+			'status' => $data['status'],
+			'created' => array(
+				'time' => $data['created_time'],
+				'tokenId' => (int)$data['token_id'],
+				'tokenDescription' => $data['token_desc']
+			),
+			'bucket' => $data['bucket'],
+			'feats' => array(
+				'date_facts' => (bool)$data['date_facts']
+			)
+		);
+
+		if ($data['status'] == self::WRITER_STATUS_PREPARING) {
+			$result['info'] = 'GoodData project is being prepared. You cannot perform any GoodData operations yet.';
+		} elseif ($data['status'] == self::WRITER_STATUS_MAINTENANCE) {
+			$result['info'] = 'Writer is undergoing maintenance. Jobs execution will be postponed.';
+		} elseif ($data['status'] == self::WRITER_STATUS_DELETED) {
+			$result['info'] = 'Writer is scheduled for removal. You cannot perform any operations any more.';
+		} elseif (!empty($data['info'])) {
+			$result['info'] = $data['info'];
+		}
+
+		return $result;
+	}
+
 	public function getWriter($projectId, $writerId)
 	{
 		$result = $this->db->fetchAssoc('SELECT * FROM writers WHERE project_id=? AND writer_id=?', array($projectId, $writerId));
 		if (!$result) throw new SharedStorageException('Writer ' . $writerId . ' does not exist in Shared Config');
 
-		$return = array(
-			'status' => $result['status'],
-			'created' => array(
-				'time' => $result['created_time'],
-				'tokenId' => (int)$result['token_id'],
-				'tokenDescription' => $result['token_desc']
-			),
-			'bucket' => $result['bucket'],
-			'feats' => array(
-				'date_facts' => (bool)$result['date_facts']
-			)
-		);
+		return self::formatWriterData($result);
+	}
 
-		if ($result['status'] == self::WRITER_STATUS_PREPARING) {
-			$return['info'] = 'GoodData project is being prepared. You cannot perform any GoodData operations yet.';
-		} elseif ($result['status'] == self::WRITER_STATUS_MAINTENANCE) {
-			$return['info'] = 'Writer is undergoing maintenance. Jobs execution will be postponed.';
-		} elseif ($result['status'] == self::WRITER_STATUS_DELETED) {
-			$return['info'] = 'Writer is scheduled for removal. You cannot perform any operations any more.';
-		} elseif (!empty($result['info'])) {
-			$return['info'] = $result['info'];
+	public function getActiveWriters($projectId)
+	{
+		$result = array();
+		foreach ($this->db->fetchAll('SELECT * FROM writers WHERE project_id=? AND deleted_time IS NULL', array($projectId)) as $writer) {
+			$result[] = self::formatWriterData($writer);
 		}
-
-		return $return;
+		return $result;
 	}
 
 	public function writerExists($projectId, $writerId)
