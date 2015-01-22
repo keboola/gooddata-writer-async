@@ -155,9 +155,13 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 			if (!$restApi->ping()) {
 				return $this->createMaintenanceResponse();
 			}
-			$bucketAttributes = $this->getConfiguration()->bucketAttributes();
-			if (!empty($bucketAttributes['gd']['apiUrl'])) {
-				$restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+			try {
+				$bucketAttributes = $this->getConfiguration()->bucketAttributes();
+				if (!empty($bucketAttributes['gd']['apiUrl'])) {
+					$restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+				}
+			} catch (WrongConfigurationException $e) {
+				// ignore non-existing config bucket
 			}
 			$params = $command->prepare($this->params, $restApi);
 		} catch (RestApiException $e) {
