@@ -993,7 +993,7 @@ class Configuration extends StorageApiConfiguration
 	public function resetProjectsTable()
 	{
 		$this->resetConfigTable(self::PROJECTS_TABLE_NAME);
-		$this->cache = array();
+		$this->clearCache();
 	}
 
 
@@ -1134,13 +1134,12 @@ class Configuration extends StorageApiConfiguration
 	/**
 	 * Save project user to configuration
 	 */
-	public function saveProjectUser($pid, $email, $role)
+	public function saveProjectUser($pid, $email, $role, $invite = false)
 	{
 		// cleanup previous
-		$this->removeProjectUserAdd($pid, $email);
-		$this->removeProjectUserInvite($pid, $email);
+		$this->deleteProjectUser($pid, $email);
 
-		$action = 'add';
+		$action = $invite? 'invite' : 'add';
 		$data = array(
 			'id' => sha1($pid . strtolower($email) . $action . date('c')),
 			'pid' => $pid,
@@ -1154,43 +1153,14 @@ class Configuration extends StorageApiConfiguration
 	/**
 	 *
 	 */
-	public function saveProjectInvite($pid, $email, $role)
-	{
-		// cleanup previous
-		$this->removeProjectUserAdd($pid, $email);
-		$this->removeProjectUserInvite($pid, $email);
-
-		$action = 'invite';
-		$data = array(
-			'id' => sha1($pid . strtolower($email) . $action . date('c')),
-			'pid' => $pid,
-			'email' => strtolower($email),
-			'role' => $role,
-			'action' => $action
-		);
-		$table = new StorageApiTable($this->storageApiClient, $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, null, 'id');
-		$table->setHeader(array_keys($data));
-		$table->setFromArray(array($data));
-		$table->setPartial(true);
-		$table->setIncremental(true);
-		if (!$this->storageApiClient->tableExists($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME)) {
-			$table->addIndex('pid');
-			$table->addIndex('email');
-		}
-		$table->save();
-	}
-
-	/**
-	 *
-	 */
-	public function removeProjectUserAdd($pid, $email)
+	public function deleteProjectUser($pid, $email)
 	{
 		$filter = array();
 		foreach ($this->getProjectUsers() as $projectUser) {
 			if (isset($projectUser['main']))
-				continue;
+				throw new WrongConfigurationException('Main user cannot be removed from main project');
 
-			if ($projectUser['pid'] == $pid && strtolower($projectUser['email']) == strtolower($email) && $projectUser['action'] == 'add')
+			if ($projectUser['pid'] == $pid && strtolower($projectUser['email']) == strtolower($email))
 				$filter[] = $projectUser['id'];
 		}
 
@@ -1204,32 +1174,7 @@ class Configuration extends StorageApiConfiguration
 				'whereValues' => $filter,
 			)
 		);
-	}
-
-	/**
-	 *
-	 */
-	public function removeProjectUserInvite($pid, $email)
-	{
-		$filter = array();
-		foreach ($this->getProjectUsers() as $projectUser) {
-			if (isset($projectUser['main']))
-				continue;
-
-			if ($projectUser['pid'] == $pid && strtolower($projectUser['email']) == strtolower($email) && $projectUser['action'] == 'invite')
-				$filter[] = $projectUser['id'];
-		}
-
-		if (!$filter)
-			return;
-
-		$this->storageApiClient->deleteTableRows(
-			$this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME,
-			array(
-				'whereColumn' => 'id',
-				'whereValues' => $filter,
-			)
-		);
+		$this->clearCache();
 	}
 
 
@@ -1346,6 +1291,7 @@ class Configuration extends StorageApiConfiguration
 
 	/**
 	 * Check if filter uri is in filters_projects table
+	 * @deprecated Backwards compatibility
 	 */
 	public function checkFilterUri($uri)
 	{
@@ -1390,27 +1336,9 @@ class Configuration extends StorageApiConfiguration
 	}
 
 	/**
-	 * Update URI of the filter
-	 */
-	public function updateFilters($name, $attribute, $element, $operator, $uri)
-	{
-		$data = $this->getFilters();
-		$element = is_array($element)? json_encode($element) : $element;
-
-		foreach ($data as $k => $v) {
-			if ($v['name'] == $name) {
-				$data[$k] = array($name, $attribute, $element, $operator, $uri);
-				break;
-			}
-		}
-
-		$this->updateConfigTable(self::FILTERS_TABLE_NAME, $data, false);
-	}
-
-	/**
 	 *
 	 */
-	public function saveFiltersToUser(array $filters, $email)
+	public function saveFiltersUsers(array $filters, $email)
 	{
 		$this->deleteTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'email', $email);
 		if (count($filters)) {
@@ -1431,11 +1359,13 @@ class Configuration extends StorageApiConfiguration
 		$this->deleteTableRows($this->bucketId . '.' . self::FILTERS_TABLE_NAME, 'name', $name);
 		$this->deleteTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'filter', $name);
 		$this->deleteTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'filter', $name);
+		$this->clearCache();
 	}
 
 	public function deleteFilterFromProject($uri)
 	{
 		$this->deleteTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri);
+		$this->clearCache();
 	}
 
 	public function getTableIdFromAttribute($attr)
