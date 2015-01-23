@@ -143,7 +143,7 @@ class UploadDateDimension extends AbstractJob
 
 		$result = array();
 		if (empty($error)) {
-			$this->configuration->setDateDimensionIsExported($params['name']);
+			$this->configuration->setDateDimensionIsExported($params['name'], true);
 		} else {
 			$result['error'] = $error;
 		}
