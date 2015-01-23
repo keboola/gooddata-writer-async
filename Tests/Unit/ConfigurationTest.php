@@ -50,6 +50,11 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
 			}
 		}
 
+		$this->prepareData();
+	}
+
+	private function prepareData()
+	{
 		// Create test config
 		$dataBucketName = uniqid();
 		$this->dataBucketId = $this->storageApiClient->createBucket($dataBucketName, 'out', 'Writer Test');
@@ -70,6 +75,30 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
 			array('p3', 'Product 3', '112', '2012-10-28 23:07:06', 'c1')
 		));
 		$table->save();
+	}
+
+	private function prepareDataSetsConfiguration()
+	{
+		$writerId = uniqid();
+		$this->configuration->setWriterId($writerId);
+		$this->configuration->createBucket($writerId);
+		$this->configuration->saveDateDimension('ProductDate', true);
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.categories', 'name', 'Categories');
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.categories', 'export', '1');
+		$this->configuration->updateColumnsDefinition($this->dataBucketId . '.categories', array(
+			array('name' => 'id', 'gdName' => 'Id', 'type' => 'CONNECTION_POINT'),
+			array('name' => 'name', 'gdName' => 'Name', 'type' => 'ATTRIBUTE')
+		));
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.products', 'name', 'Products');
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.products', 'export', '1');
+		$this->configuration->updateColumnsDefinition($this->dataBucketId . '.products', array(
+			array('name' => 'id', 'gdName' => 'Id', 'type' => 'CONNECTION_POINT'),
+			array('name' => 'name', 'gdName' => 'Name', 'type' => 'ATTRIBUTE'),
+			array('name' => 'price', 'gdName' => 'Price', 'type' => 'FACT'),
+			array('name' => 'date', 'gdName' => '', 'type' => 'DATE', 'format' => 'yyyy-MM-dd HH:mm:ss', 'dateDimension' => 'ProductDate'),
+			array('name' => 'category', 'gdName' => '', 'type' => 'REFERENCE', 'schemaReference' => $this->dataBucketId . '.categories')
+		));
+		$this->configuration->clearCache();
 	}
 
 	public function testWriterConfiguration()
@@ -549,6 +578,205 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
 		$this->assertCount(0, $data);
 	}
 
-	
+	public function testDataSetsConfiguration()
+	{
+		$this->prepareDataSetsConfiguration();
 
-}
+		// getDataSet()
+		$tableId = $this->dataBucketId . '.products';
+		$data = $this->configuration->getDataSet($tableId);
+		$this->assertArrayHasKey('id', $data);
+		$this->assertArrayHasKey('lastChangeDate', $data);
+		$this->assertArrayHasKey('columns', $data);
+		$this->assertEquals($tableId, $data['id']);
+		$this->assertTrue(is_array($data['columns']));
+		$this->assertCount(5, $data['columns']);
+		$this->assertArrayHasKey('id', $data['columns']);
+		$this->assertArrayHasKey('type', $data['columns']['id']);
+		$this->assertArrayHasKey('gdName', $data['columns']['id']);
+		$this->assertEquals('CONNECTION_POINT', $data['columns']['id']['type']);
+		$this->assertArrayHasKey('name', $data['columns']);
+		$this->assertArrayHasKey('type', $data['columns']['name']);
+		$this->assertArrayHasKey('gdName', $data['columns']['name']);
+		$this->assertEquals('Name', $data['columns']['name']['gdName']);
+		$this->assertEquals('ATTRIBUTE', $data['columns']['name']['type']);
+		$this->assertArrayHasKey('price', $data['columns']);
+		$this->assertArrayHasKey('type', $data['columns']['price']);
+		$this->assertArrayHasKey('gdName', $data['columns']['price']);
+		$this->assertEquals('FACT', $data['columns']['price']['type']);
+		$this->assertArrayHasKey('date', $data['columns']);
+		$this->assertArrayHasKey('type', $data['columns']['date']);
+		$this->assertArrayHasKey('gdName', $data['columns']['date']);
+		$this->assertArrayHasKey('format', $data['columns']['date']);
+		$this->assertArrayHasKey('dateDimension', $data['columns']['date']);
+		$this->assertEquals('DATE', $data['columns']['date']['type']);
+		$this->assertEquals('yyyy-MM-dd HH:mm:ss', $data['columns']['date']['format']);
+		$this->assertEquals('ProductDate', $data['columns']['date']['dateDimension']);
+		$this->assertArrayHasKey('category', $data['columns']);
+		$this->assertArrayHasKey('type', $data['columns']['category']);
+		$this->assertArrayHasKey('gdName', $data['columns']['category']);
+		$this->assertEquals('REFERENCE', $data['columns']['category']['type']);
+		$this->assertEquals($this->dataBucketId . '.categories', $data['columns']['category']['schemaReference']);
+
+		// updateDataSetDefinition()
+		$this->assertArrayHasKey('export', $data);
+		$this->assertEquals(1, $data['export']);
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.products', 'export', 0);
+		$data = $this->configuration->getDataSet($tableId);
+		$this->assertEquals(0, $data['export']);
+
+		// getDataSetDefinition()
+		$data = $this->configuration->getDataSetDefinition($tableId);
+		$this->assertArrayHasKey('name', $data);
+		$this->assertEquals('Products', $data['name']);
+		$this->assertArrayHasKey('columns', $data);
+		$this->assertTrue(is_array($data['columns']));
+		$this->assertCount(5, $data['columns']);
+		foreach ($data['columns'] as $column) {
+			$this->assertArrayHasKey('name', $column);
+			$this->assertArrayHasKey('title', $column);
+			$this->assertArrayHasKey('type', $column);
+			if ($column['type'] == 'DATE') {
+				$this->assertArrayHasKey('format', $column);
+				$this->assertArrayHasKey('includeTime', $column);
+				$this->assertArrayHasKey('schemaReference', $column);
+			}
+			if ($column['type'] == 'REFERENCE') {
+				$this->assertArrayHasKey('reference', $column);
+				$this->assertArrayHasKey('schemaReference', $column);
+				$this->assertArrayHasKey('schemaReferenceId', $column);
+			}
+		}
+
+		// getDataSetForApi()
+		$data = $this->configuration->getDataSetForApi($tableId);
+		$this->assertArrayHasKey('id', $data);
+		$this->assertArrayHasKey('name', $data);
+		$this->assertArrayHasKey('export', $data);
+		$this->assertArrayHasKey('isExported', $data);
+		$this->assertArrayHasKey('lastChangeDate', $data);
+		$this->assertArrayHasKey('incrementalLoad', $data);
+		$this->assertArrayHasKey('ignoreFilter', $data);
+		$this->assertArrayHasKey('columns', $data);
+		$this->assertEquals('Products', $data['name']);
+		$this->assertEquals(false, $data['export']);
+		$this->assertEquals(false, $data['isExported']);
+		$this->assertEquals(false, $data['incrementalLoad']);
+		$this->assertEquals(false, $data['ignoreFilter']);
+		$this->assertTrue(is_array($data['columns']));
+		$this->assertCount(5, $data['columns']);
+
+		// getDataSets()
+		$data = $this->configuration->getDataSets();
+		$this->assertCount(2, $data);
+		$this->assertArrayHasKey('id', $data[0]);
+		$this->assertArrayHasKey('bucket', $data[0]);
+		$this->assertArrayHasKey('name', $data[0]);
+		$this->assertArrayHasKey('export', $data[0]);
+		$this->assertArrayHasKey('isExported', $data[0]);
+		$this->assertArrayHasKey('lastChangeDate', $data[0]);
+		$this->assertArrayHasKey('incrementalLoad', $data[0]);
+		$this->assertArrayHasKey('ignoreFilter', $data[0]);
+		$this->assertEquals($this->dataBucketId, $data[0]['bucket']);
+
+		// getDataSetsWithConnectionPoint()
+		$data = $this->configuration->getDataSetsWithConnectionPoint();
+		$this->assertCount(2, $data);
+		$this->assertArrayHasKey($this->dataBucketId . '.categories', $data);
+		$this->assertArrayHasKey($this->dataBucketId . '.products', $data);
+
+		// getSortedDataSets()
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.products', 'export', 1);
+		$dataSets = array_keys($this->configuration->getSortedDataSets());
+		$this->assertCount(2, $dataSets, "Configuration should return all two configured datasets");
+		$this->assertEquals($this->dataBucketId . '.categories', $dataSets[0], 'Categories should be first');
+		$this->assertEquals($this->dataBucketId . '.products', $dataSets[1], 'Categories should be second');
+		$this->configuration->updateDataSetDefinition($this->dataBucketId . '.products', 'export', 0);
+		$dataSetsToExport = array_keys($this->configuration->getSortedDataSets());
+		$this->assertCount(1, $dataSetsToExport, "Configuration should return one configured dataset");
+
+		// updateDataSetsFromSapi()
+		$tableId = $this->dataBucketId . '.' . uniqid();
+		$table = new StorageApiTable($this->storageApiClient, $tableId, null, 'id');
+		$table->setHeader(array('id', 'name'));
+		$table->save();
+		$this->configuration->updateDataSetFromSapi($tableId);
+		$data = $this->configuration->getDataSets();
+		$this->assertCount(3, $data);
+
+		// updateDataSetFromSapi()
+		$tableId = $this->dataBucketId . '.' . uniqid();
+		$table = new StorageApiTable($this->storageApiClient, $tableId, null, 'id');
+		$table->setHeader(array('id', 'name'));
+		$table->save();
+		$data = $this->configuration->getDataSets();
+		$this->assertCount(3, $data);
+		$this->configuration->updateDataSetFromSapi($tableId);
+		$data = $this->configuration->getDataSets();
+		$this->assertCount(4, $data);
+
+		// updateColumnsDefinition()
+		$tableId = $this->dataBucketId . '.products';
+		$data = $this->configuration->getDataSet($tableId);
+		$this->assertArrayHasKey('price', $data['columns']);
+		$this->assertEquals('FACT', $data['columns']['price']['type']);
+		$this->configuration->updateColumnsDefinition($tableId, 'price', array('type' => 'ATTRIBUTE'));
+		$data = $this->configuration->getDataSet($tableId);
+		$this->assertArrayHasKey('price', $data['columns']);
+		$this->assertEquals('ATTRIBUTE', $data['columns']['price']['type']);
+	}
+
+	public function testDateDimensionsConfiguration()
+	{
+		$this->prepareDataSetsConfiguration();
+
+		// getDateDimensions()
+		$data = $this->configuration->getDateDimensions();
+		$this->assertCount(1, $data);
+		$this->assertArrayHasKey('ProductDate', $data);
+		$this->assertArrayHasKey('name', $data['ProductDate']);
+		$this->assertArrayHasKey('includeTime', $data['ProductDate']);
+		$this->assertArrayHasKey('template', $data['ProductDate']);
+		$this->assertArrayHasKey('isExported', $data['ProductDate']);
+		$this->assertTrue($data['ProductDate']['includeTime']);
+
+		// saveDateDimension()
+		$dimension = uniqid();
+		$this->configuration->saveDateDimension($dimension, false);
+		$data = $this->configuration->getDateDimensions();
+		$this->assertCount(2, $data);
+		$this->assertArrayHasKey($dimension, $data);
+
+		// getDateDimensionsWithUsage()
+		$data = $this->configuration->getDateDimensionsWithUsage();
+		$this->assertArrayHasKey($dimension, $data);
+		$this->assertArrayNotHasKey('usedIn', $data[$dimension]);
+		$this->assertArrayHasKey('ProductDate', $data);
+		$this->assertArrayHasKey('usedIn', $data['ProductDate']);
+		$this->assertEquals(array($this->dataBucketId . '.products'), $data['ProductDate']['usedIn']);
+
+		// getDimensionsOfDataSet()
+		$data = $this->configuration->getDimensionsOfDataSet($this->dataBucketId . '.categories');
+		$this->assertCount(0, $data);
+		$data = $this->configuration->getDimensionsOfDataSet($this->dataBucketId . '.products');
+		$this->assertCount(1, $data);
+
+		// deleteDateDimension()
+		$data = $this->configuration->getDateDimensions();
+		$this->assertCount(2, $data);
+		$this->configuration->deleteDateDimension($dimension);
+		$data = $this->configuration->getDateDimensions();
+		$this->assertCount(1, $data);
+
+		// setDateDimensionIsExported()
+		$data = $this->configuration->getDateDimensions();
+		$this->assertFalse($data['ProductDate']['isExported']);
+		$this->configuration->setDateDimensionIsExported('ProductDate', true);
+		$data = $this->configuration->getDateDimensions();
+		$this->assertTrue($data['ProductDate']['isExported']);
+		$this->configuration->setDateDimensionIsExported('ProductDate', false);
+		$data = $this->configuration->getDateDimensions();
+		$this->assertFalse($data['ProductDate']['isExported']);
+	}
+
+	}

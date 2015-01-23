@@ -92,7 +92,7 @@ class ResetProject extends AbstractJob
 			));
 		}
 		foreach ($this->configuration->getDateDimensions() as $dimension) {
-			$this->configuration->setDateDimensionIsNotExported($dimension['name']);
+			$this->configuration->setDateDimensionIsExported($dimension['name'], false);
 		}
 
 		return array(

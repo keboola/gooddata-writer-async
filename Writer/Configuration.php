@@ -634,7 +634,9 @@ class Configuration extends StorageApiConfiguration
 		$table = $this->getSapiTable($tableId);
 		$dataSet = $this->getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
 		if (!$dataSet) {
-			$dataSet = array('id' => $tableId, 'definition' => array());
+			$dataSet = array_fill_keys($this->tables[self::DATA_SETS_TABLE_NAME]['columns'], null);
+			$dataSet['id'] = $tableId;
+			$dataSet['definition'] = array();
 			$anythingChanged = true;
 		}
 		if ($dataSet['definition']) {
@@ -786,27 +788,25 @@ class Configuration extends StorageApiConfiguration
 	/**
 	 * Return data sets sorted according to their references
 	 */
-	public function getSortedDataSets($include=array(), $exclude=array())
+	public function getSortedDataSets()
 	{
-		if ($include && $exclude) {
-			throw new WrongParametersException("Parameters 'include' and 'exclude' cannot be used both at once");
-		}
-
 		$dataSets = array();
 		// Include data set if not excluded and is included or if we do not want included only then look to export flag
-		foreach ($this->getDataSets() as $dataSet) if (!in_array($dataSet['id'], $exclude) && (in_array($dataSet['id'], $include) || (!$include && !empty($dataSet['export'])))) {
-			try {
-				$definition = $this->getDataSetDefinition($dataSet['id']);
-			} catch (WrongConfigurationException $e) {
-				throw new WrongConfigurationException(sprintf('Wrong configuration of table \'%s\': %s', $dataSet['id'], $e->getMessage()));
-			}
+		foreach ($this->getDataSets() as $dataSet) {
+			if (!empty($dataSet['export'])) {
+				try {
+					$definition = $this->getDataSetDefinition($dataSet['id']);
+				} catch (WrongConfigurationException $e) {
+					throw new WrongConfigurationException(sprintf('Wrong configuration of table \'%s\': %s', $dataSet['id'], $e->getMessage()));
+				}
 
-			$dataSets[$dataSet['id']] = array(
-				'tableId' => $dataSet['id'],
-				'title' => $definition['name'],
-				'definition' => $definition,
-				'lastChangeDate' => $dataSet['lastChangeDate']
-			);
+				$dataSets[$dataSet['id']] = array(
+					'tableId' => $dataSet['id'],
+					'title' => $definition['name'],
+					'definition' => $definition,
+					'lastChangeDate' => $dataSet['lastChangeDate']
+				);
+			}
 		}
 
 		// Sort tables for GD export according to their references
@@ -916,24 +916,15 @@ class Configuration extends StorageApiConfiguration
 		$this->updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
 	}
 
-	public function setDateDimensionIsExported($name)
+	public function setDateDimensionIsExported($name, $isExported = true)
 	{
 		$data = array(
 			'name' => $name,
-			'isExported' => 1
+			'isExported' => $isExported? 1 : 0
 		);
 		$this->updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
+		$this->clearCache();
 	}
-
-	public function setDateDimensionIsNotExported($name)
-	{
-		$data = array(
-			'name' => $name,
-			'isExported' => null
-		);
-		$this->updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
-	}
-
 
 	/**
 	 * Delete date dimension
@@ -941,6 +932,7 @@ class Configuration extends StorageApiConfiguration
 	public function deleteDateDimension($name)
 	{
 		$this->deleteTableRows($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME, 'name', $name);
+		$this->clearCache();
 	}
 
 
@@ -1136,9 +1128,6 @@ class Configuration extends StorageApiConfiguration
 	 */
 	public function saveProjectUser($pid, $email, $role, $invite = false)
 	{
-		// cleanup previous
-		$this->deleteProjectUser($pid, $email);
-
 		$action = $invite? 'invite' : 'add';
 		$data = array(
 			'id' => sha1($pid . strtolower($email) . $action . date('c')),
