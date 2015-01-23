@@ -101,11 +101,11 @@ class AddUserToProject extends AbstractJob
 		if ($userId) {
 			$restApi->addUserToProject($userId, $params['pid'], RestApi::$userRoles[$params['role']]);
 
-			$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role']);
+			$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role'], false);
 		} else {
 			$restApi->inviteUserToProject($params['email'], $params['pid'], RestApi::$userRoles[$params['role']]);
 
-			$this->configuration->saveProjectInvite($params['pid'], $params['email'], $params['role']);
+			$this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role'], true);
 		}
 
 		$result = array();

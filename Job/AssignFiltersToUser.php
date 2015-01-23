@@ -94,7 +94,7 @@ class AssignFiltersToUser extends AbstractJob
 		foreach ($pidUris as $pid => $uris) {
 			$restApi->assignFiltersToUser($uris, $user['uid'], $pid);
 		}
-		$this->configuration->saveFiltersToUser($params['filters'], $params['email']);
+		$this->configuration->saveFiltersUsers($params['filters'], $params['email']);
 
 		return array();
 	}

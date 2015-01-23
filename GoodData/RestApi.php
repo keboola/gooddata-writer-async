@@ -622,7 +622,6 @@ class RestApi
 	 * @param $userId
 	 * @param $pid
 	 * @throws RestApiException
-	 * @internal param string $role
 	 */
 	public function removeUserFromProject($userId, $pid)
 	{

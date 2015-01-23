@@ -73,8 +73,7 @@ class RemoveUserFromProject extends AbstractJob
 		// cancel possible invitations
 		$restApi->cancelInviteUserToProject($params['email'], $params['pid']);
 
-		$this->configuration->removeProjectUserInvite($params['pid'], $params['email']);
-		$this->configuration->removeProjectUserAdd($params['pid'], $params['email']);
+		$this->configuration->deleteProjectUser($params['pid'], $params['email']);
 
 		return array();
 	}
