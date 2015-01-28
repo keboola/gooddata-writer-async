@@ -48,11 +48,6 @@ class SyncFilters extends AbstractJob
 			$this->configuration->deleteFilterFromProject($fp['uri']);
 		}
 		foreach ($this->configuration->getFilters() as $f) if (in_array($f['name'], $filtersToCreate)) {
-			$value = json_decode($f['value'], true);
-			if (!is_array($value)) {
-				$value = $f['value'];
-			}
-
 			$tableId = $this->configuration->getTableIdFromAttribute($f['attribute']);
 			$tableDefinition = $this->configuration->getDataSet($tableId);
 			$tableName = empty($tableDefinition['name'])? $tableId : $tableDefinition['name'];
@@ -74,7 +69,8 @@ class SyncFilters extends AbstractJob
 				$toAttrId = Model::getAttributeId($toTableName, $toAttrName);
 			}
 
-			$filterUris[$f['name']] = $restApi->createFilter($f['name'], $attrId, $f['operator'], $value, $params['pid'], $overAttrId, $toAttrId);
+			$filterUris[$f['name']] = $restApi->createFilter($f['name'], $attrId, $f['operator'], $f['value'],
+                $params['pid'], $overAttrId, $toAttrId);
 			$this->configuration->saveFiltersProjects($filterUris[$f['name']], $f['name'], $params['pid']);
 		}
 
