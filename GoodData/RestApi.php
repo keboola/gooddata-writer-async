@@ -1004,13 +1004,15 @@ class RestApi
 	{
 		$dataSetId = Model::getId($dataSetName);
 		$model = $this->getProjectModel($pid);
-		if (isset($model['projectModel']['datasets'])) foreach ($model['projectModel']['datasets'] as $i => $dataSet) {
-			if ($dataSet['dataset']['title'] == $dataSetName) {
-				unset($model['projectModel']['datasets'][$i]);
-				break;
-			}
-		}
-		$model['projectModel']['datasets'] = array_values($model['projectModel']['datasets']);
+		if (isset($model['projectModel']['datasets'])) {
+            foreach ($model['projectModel']['datasets'] as $i => $dataSet) {
+                if ($dataSet['dataset']['title'] == $dataSetName) {
+                    unset($model['projectModel']['datasets'][$i]);
+                    break;
+                }
+            }
+            $model['projectModel']['datasets'] = array_values($model['projectModel']['datasets']);
+        }
 
 		$update = $this->generateUpdateProjectMaql($pid, $model);
 
