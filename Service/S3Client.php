@@ -17,10 +17,7 @@ class S3Client
 	 * @var Client
 	 */
 	protected $client;
-	/**
-	 * @var string
-	 */
-	protected $bucket;
+
 
 	public function __construct($config)
 	{
@@ -55,7 +52,7 @@ class S3Client
 	 * @throws \Exception
 	 * @return string
 	 */
-	public function uploadFile($filePath, $contentType='text/plain', $destinationName=null)
+	public function uploadFile($filePath, $contentType = 'text/plain', $destinationName = null, $publicLink = false)
 	{
 		$name = $destinationName ? $destinationName : basename($filePath);
 		$fp = fopen($filePath, 'r');
@@ -63,7 +60,7 @@ class S3Client
 			throw new \Exception('File not found');
 		}
 
-		$result = $this->uploadString($name, $fp, $contentType);
+		$result = $this->uploadString($name, $fp, $contentType, $publicLink);
 		if (is_resource($fp)) {
 			fclose($fp);
 		}
@@ -77,7 +74,7 @@ class S3Client
 	 * @param string $contentType Content Type
 	 * @return string
 	 */
-	public function uploadString($name, $content, $contentType='text/plain')
+	public function uploadString($name, $content, $contentType = 'text/plain', $publicLink = false)
 	{
 		$s3FileName = 'kb-gooddata-writer/' . date('Y/m/d/') . $name;
 		$this->client->getConfig()->set('curl.options', array('body_as_string' => true));
@@ -88,7 +85,7 @@ class S3Client
 			'ACL'    => CannedAcl::AUTHENTICATED_READ,
 			'ContentType'   => $contentType
 		));
-		return $s3FileName;
+		return $publicLink ? $this->getPublicLink($s3FileName) : $s3FileName;
 	}
 
 	/**
@@ -97,5 +94,17 @@ class S3Client
 	{
 		return 'https://connection.keboola.com/admin/utils/logs?file=' . $object;
 	}
+
+    /**
+     * @param $object
+     * @param int $expires Two days by default
+     * @return string
+     */
+    public function getPublicLink($object, $expires = 172800)
+    {
+        $url = $this->config['s3-upload-path'].'/'.$object;
+        $firstDashPosition = strpos($url, '/');
+        return $this->client->getObjectUrl(substr($url, 0, $firstDashPosition), substr($url, $firstDashPosition+1), '+' . $expires . ' seconds');
+    }
 
 }

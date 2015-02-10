@@ -1564,7 +1564,6 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				$this->temp,
 				$this->logger,
 				$this->container->get('gooddata_writer.s3Client'),
-				$this->container->get('syrup.monolog.s3_uploader'),
 				$this->container->get('gooddata_writer.jobs_queue')
 			);
 		}

@@ -8,6 +8,7 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\Model;
+use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\GoodDataWriter\Writer\Configuration,
 	Keboola\GoodDataWriter\Writer\SharedStorage,
 	Keboola\GoodDataWriter\GoodData\RestApi,
@@ -15,7 +16,6 @@ use Keboola\GoodDataWriter\Writer\Configuration,
 use Monolog\Logger;
 use Symfony\Component\Translation\TranslatorInterface;
 use Syrup\ComponentBundle\Filesystem\Temp;
-use Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader;
 
 abstract class AbstractJob
 {
@@ -32,9 +32,9 @@ abstract class AbstractJob
 	 */
 	protected $sharedStorage;
 	/**
-	 * @var SyrupS3Uploader
+	 * @var S3Client
 	 */
-	protected $s3Uploader;
+	protected $s3Client;
 	/**
 	 * @var Temp
 	 */
@@ -141,9 +141,9 @@ abstract class AbstractJob
 		$this->translator = $translator;
 	}
 
-	public function setS3Uploader(SyrupS3Uploader $s3Uploader)
+	public function setS3Client(S3Client $s3Client)
 	{
-		$this->s3Uploader = $s3Uploader;
+		$this->s3Client = $s3Client;
 	}
 
 	public function setScriptsPath($scriptsPath)

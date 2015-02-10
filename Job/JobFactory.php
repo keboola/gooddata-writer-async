@@ -17,7 +17,6 @@ use Keboola\StorageApi\Client;
 use Keboola\Temp\Temp;
 use Monolog\Logger;
 use Symfony\Bundle\FrameworkBundle\Translation\Translator;
-use Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader;
 
 class JobFactory
 {
@@ -56,15 +55,11 @@ class JobFactory
 	 */
 	private $s3Client;
 	/**
-	 * @var SyrupS3Uploader
-	 */
-	private $s3Uploader;
-	/**
 	 * @var Queue
 	 */
 	private $queue;
 
-	public function __construct($gdConfig, $sharedStorage, $configuration, $storageApiClient, $scriptsPath, $eventLogger, $translator, $temp, $logger, $s3Client, $s3Uploader, $queue)
+	public function __construct($gdConfig, $sharedStorage, $configuration, $storageApiClient, $scriptsPath, $eventLogger, $translator, $temp, $logger, $s3Client, $queue)
 	{
 		$this->gdConfig = $gdConfig;
 		$this->sharedStorage = $sharedStorage;
@@ -76,7 +71,6 @@ class JobFactory
 		$this->temp = $temp;
 		$this->logger = $logger;
 		$this->s3Client = $s3Client;
-		$this->s3Uploader = $s3Uploader;
 		$this->queue = $queue;
 	}
 
@@ -97,7 +91,7 @@ class JobFactory
 		$command->setTranslator($this->translator);
 		$command->setTemp($this->temp); //For csv handler
 		$command->setLogger($this->logger); //For csv handler
-		$command->setS3Uploader($this->s3Uploader);
+		$command->setS3Client($this->s3Client);
 
 		$command->setFactory($this);
 
