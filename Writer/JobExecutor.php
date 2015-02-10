@@ -161,7 +161,7 @@ class JobExecutor
 
 				$jobFactory = new JobFactory($this->gdConfig, $this->sharedStorage, $configuration, $this->storageApiClient,
 					$this->scriptsPath, $this->eventLogger, $this->translator, $this->temp, $this->logger, $this->s3Client,
-					$this->s3Uploader, $this->queue);
+                    $this->queue);
 				$job = $jobFactory->getJobClass($jobData['command']);
 
 				$error = null;
