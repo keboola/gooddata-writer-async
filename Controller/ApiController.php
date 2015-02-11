@@ -11,6 +11,7 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Job\JobFactory;
 use Keboola\GoodDataWriter\Service\EventLogger;
+use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\GoodDataWriter\Writer\SharedStorageException;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Method;
@@ -72,6 +73,10 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 	 * @var JobFactory
 	 */
 	private $jobFactory;
+    /**
+     * @var S3Client
+     */
+    private $s3Client;
 
 	/**
 	 * Common things to do for each request
@@ -103,6 +108,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 
 
 		$this->eventLogger = new EventLogger($this->storageApi, $this->container->get('syrup.monolog.s3_uploader'));
+        $this->s3Client = $this->container->get('gooddata_writer.s3Client');
 
 		$this->stopWatch = new Stopwatch();
 		$this->stopWatch->start(self::STOPWATCH_NAME_REQUEST);
@@ -433,7 +439,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				if (!$job) {
 					throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
 				}
-				$jobInfo = SharedStorage::jobToApiResponse($job);
+				$jobInfo = SharedStorage::jobToApiResponse($job, $this->s3Client);
 				if (isset($jobInfo['status']) && SharedStorage::isJobFinished($jobInfo['status'])) {
 					$jobFinished = true;
 				}
@@ -464,7 +470,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				if (!$job) {
 					throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
 				}
-				$jobInfo = SharedStorage::jobToApiResponse($job);
+				$jobInfo = SharedStorage::jobToApiResponse($job, $this->s3Client);
 				if (isset($jobInfo['status']) && SharedStorage::isJobFinished($jobInfo['status'])) {
 					$jobFinished = true;
 				}
@@ -1385,7 +1391,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				if ((empty($command) || $command == $job['command']) && (empty($tokenId) || $tokenId == $job['tokenId'])
 					&& (empty($status) || $status == $job['status'])) {
 					if (empty($tableId) || (!empty($job['parameters']['tableId']) && $job['parameters']['tableId'] == $tableId)) {
-						$result[] = SharedStorage::jobToApiResponse($job);
+						$result[] = SharedStorage::jobToApiResponse($job, $this->s3Client);
 					}
 				}
 			}
@@ -1402,7 +1408,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 				throw new WrongParametersException($this->translator->trans('parameters.job'));
 			}
 
-			$job = SharedStorage::jobToApiResponse($job);
+			$job = SharedStorage::jobToApiResponse($job, $this->s3Client);
 
 			$this->logApiCall();
 			return $this->createJsonResponse($job);
@@ -1430,19 +1436,30 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		return $this->createJsonResponse($batch);
 	}
 
-	/**
-	 * Cancel waiting jobs
-	 *
-	 * @Route("/cancel-jobs")
-	 * @Method({"POST"})
-	 */
-	public function postCancelJobsAction()
-	{
-		$this->checkParams(array('writerId'));
+    /**
+     * Cancel waiting jobs
+     *
+     * @Route("/cancel-jobs")
+     * @Method({"POST"})
+     */
+    public function postCancelJobsAction()
+    {
+        $this->checkParams(array('writerId'));
 
-		$this->getSharedStorage()->cancelJobs($this->projectId, $this->writerId);
-		return $this->createApiResponse();
-	}
+        $this->getSharedStorage()->cancelJobs($this->projectId, $this->writerId);
+        return $this->createApiResponse();
+    }
+
+    /**
+     * Run method is not supported
+     *
+     * @Route("/run")
+     * @Method({"POST"})
+     */
+    public function runAction(Request $request)
+    {
+        return $this->createApiResponse([], 405);
+    }
 
 
 

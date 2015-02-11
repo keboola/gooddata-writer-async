@@ -9,6 +9,7 @@ namespace Keboola\GoodDataWriter\Writer;
 use Doctrine\DBAL\Connection;
 use Keboola\GoodDataWriter\GoodData\User;
 use Keboola\GoodDataWriter\Service\Lock;
+use Keboola\GoodDataWriter\Service\S3Client;
 use Syrup\ComponentBundle\Encryption\Encryptor;
 
 
@@ -329,7 +330,7 @@ class SharedStorage
 	/**
 	 *
 	 */
-	public static function jobToApiResponse(array $job)
+	public static function jobToApiResponse(array $job, S3Client $s3Client = null)
 	{
 		if (isset($job['parameters']['accessToken'])) {
 			$job['parameters']['accessToken'] = '***';
@@ -344,19 +345,23 @@ class SharedStorage
 		}
 
 		// Find private links and make them accessible
-		foreach ($logs as &$log) {
-			if (is_array($log)) foreach ($log as &$v) {
-				$url = parse_url($v);
-				if (empty($url['host'])) {
-					$v = 'https://connection.keboola.com/admin/utils/logs?file=' . $v;
-				}
-			} else {
-				$url = parse_url($log);
-				if (empty($url['host'])) {
-					$log = 'https://connection.keboola.com/admin/utils/logs?file=' . $log;
-				}
-			}
-		}
+        if ($s3Client) {
+            foreach ($logs as &$log) {
+                if (is_array($log)) {
+                    foreach ($log as &$v) {
+                        $url = parse_url($v);
+                        if (empty($url['host'])) {
+                            $v = $s3Client->getPublicLink($v);
+                        }
+                    }
+                } else {
+                    $url = parse_url($log);
+                    if (empty($url['host'])) {
+                        $log = $s3Client->getPublicLink($log);
+                    }
+                }
+            }
+        }
 
 		$result = array(
 			'id' => (int) $job['id'],
@@ -387,7 +392,7 @@ class SharedStorage
 	/**
 	 *
 	 */
-	public static function batchToApiResponse($batchId, array $jobs)
+	public static function batchToApiResponse($batchId, array $jobs, S3Client $s3Client = null)
 	{
 		$data = array(
 			'batchId' => (int)$batchId,
@@ -406,7 +411,7 @@ class SharedStorage
 		$errorJobs = 0;
 		$successJobs = 0;
 		foreach ($jobs as $job) {
-			$job = self::jobToApiResponse($job);
+			$job = self::jobToApiResponse($job, $s3Client);
 
 			if (!$data['projectId']) {
 				$data['projectId'] = $job['projectId'];
