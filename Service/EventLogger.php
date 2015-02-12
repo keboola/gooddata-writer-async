@@ -8,9 +8,8 @@
 
 namespace Keboola\GoodDataWriter\Service;
 
-use Keboola\StorageApi\Client as StorageApiClient,
-	Keboola\StorageApi\Event as StorageApiEvent;
-use Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader;
+use Keboola\StorageApi\Client as StorageApiClient;
+use Keboola\StorageApi\Event as StorageApiEvent;
 
 class EventLogger
 {
@@ -19,14 +18,14 @@ class EventLogger
 	 */
 	private $storageApiClient;
 	/**
-	 * @var SyrupS3Uploader
+	 * @var S3Client
 	 */
-	private $uploader;
+	private $s3Client;
 
-	public function __construct(StorageApiClient $storageApiClient, SyrupS3Uploader $uploader)
+	public function __construct(StorageApiClient $storageApiClient, S3Client $s3Client)
 	{
 		$this->storageApiClient = $storageApiClient;
-		$this->uploader = $uploader;
+		$this->s3Client = $s3Client;
 	}
 
 	public function log($jobId, $runId, $message, $params=array(), $duration=null)
@@ -44,7 +43,7 @@ class EventLogger
 			$jsonParams = json_encode($params, JSON_PRETTY_PRINT);
 			if (strlen($jsonParams) > 1000) {
 				$s3file = $jobId . '/' . time() . '-' . uniqid() . '.json';
-				$params = array('details' => $this->uploader->uploadString($s3file , $jsonParams));
+				$params = array('details' => $this->s3Client->uploadString($s3file , $jsonParams, 'text/json', true));
 			}
 			$event->setParams($params);
 		}

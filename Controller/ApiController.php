@@ -107,8 +107,8 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
 		$this->writerId = empty($this->params['writerId'])? null : $this->params['writerId'];
 
 
-		$this->eventLogger = new EventLogger($this->storageApi, $this->container->get('syrup.monolog.s3_uploader'));
         $this->s3Client = $this->container->get('gooddata_writer.s3Client');
+		$this->eventLogger = new EventLogger($this->storageApi, $this->s3Client);
 
 		$this->stopWatch = new Stopwatch();
 		$this->stopWatch->start(self::STOPWATCH_NAME_REQUEST);
