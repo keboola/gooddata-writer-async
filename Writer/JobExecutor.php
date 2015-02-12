@@ -127,7 +127,7 @@ class JobExecutor
 				'userAgent' => $this->userAgent
 			));
 			$this->storageApiClient->setRunId($jobData['runId']);
-			$this->eventLogger = new EventLogger($this->storageApiClient, $this->s3Uploader);
+			$this->eventLogger = new EventLogger($this->storageApiClient, $this->s3Client);
 
 			try {
 				$configuration = new Configuration($this->storageApiClient, $this->sharedStorage);

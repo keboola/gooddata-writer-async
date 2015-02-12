@@ -129,7 +129,7 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
 
 		//@TODO připravit konfiguraci
 
-		$eventLogger = new EventLogger($this->storageApiClient, $this->s3uploader);
+		$eventLogger = new EventLogger($this->storageApiClient, $this->s3client);
 		$this->jobFactory = new JobFactory($this->gdConfig, $this->sharedStorage, $this->configuration,
 			$this->storageApiClient, $this->scriptsPath, $eventLogger, $this->translator, $this->temp, $this->logger,
 			$this->s3client, $this->queue);
