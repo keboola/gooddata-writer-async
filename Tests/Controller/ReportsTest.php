@@ -7,15 +7,14 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 
 class ReportsTest extends AbstractControllerTest
 {
-	private $attribute1Title = 'Id (Categories)';
-	private $attribute2Title = 'Name (Categories)';
+    private $attribute1Title = 'Id (Categories)';
+    private $attribute2Title = 'Name (Categories)';
 
-	private $reportDefinition = '{
+    private $reportDefinition = '{
    "reportDefinition" : {
       "content" : {
          "grid" : {
@@ -65,7 +64,7 @@ class ReportsTest extends AbstractControllerTest
    }
 }';
 
-	private $report = '{
+    private $report = '{
    "report" : {
       "content" : {
          "domains" : [],
@@ -89,61 +88,60 @@ class ReportsTest extends AbstractControllerTest
    }
 }';
 
-	public function testReports()
-	{
-		$user = $this->createUser();
+    public function testReports()
+    {
+        $user = $this->createUser();
 
-		// Check of GoodData
-		$bucketAttributes = $this->configuration->bucketAttributes();
-		$this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+        // Check of GoodData
+        $bucketAttributes = $this->configuration->bucketAttributes();
+        $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
-		// Upload data
-		$this->prepareData();
-		$this->processJob('/upload-project');
+        // Upload data
+        $this->prepareData();
+        $this->processJob('/upload-project');
 
-		$pid = $bucketAttributes['gd']['pid'];
+        $pid = $bucketAttributes['gd']['pid'];
 
-		// Create Report Definition
-		$attribute1 = $this->getAttributeByTitle($pid, $this->attribute1Title);
-		$attribute2 = $this->getAttributeByTitle($pid, $this->attribute2Title);
+        // Create Report Definition
+        $attribute1 = $this->getAttributeByTitle($pid, $this->attribute1Title);
+        $attribute2 = $this->getAttributeByTitle($pid, $this->attribute2Title);
 
-		$this->reportDefinition = str_replace("%attribute1%", $attribute1['attribute']['content']['displayForms'][0]['meta']['uri'], $this->reportDefinition);
-		$this->reportDefinition = str_replace("%attribute2%", $attribute2['attribute']['content']['displayForms'][0]['meta']['uri'], $this->reportDefinition);
+        $this->reportDefinition = str_replace("%attribute1%", $attribute1['attribute']['content']['displayForms'][0]['meta']['uri'], $this->reportDefinition);
+        $this->reportDefinition = str_replace("%attribute2%", $attribute2['attribute']['content']['displayForms'][0]['meta']['uri'], $this->reportDefinition);
 
-		// Post report definition to GD project
-		$batchId = $this->processJob('/proxy', array(
-			'writerId'  => $this->writerId,
-			'query'     => '/gdc/md/' . $pid . '/obj',
-			'payload'   => json_decode($this->reportDefinition, true)
-		), 'POST');
-		$jobStatus = $this->getWriterApi('/batch?batchId=' .$batchId . '&writerId=' . $this->writerId);
+        // Post report definition to GD project
+        $batchId = $this->processJob('/proxy', array(
+            'writerId'  => $this->writerId,
+            'query'     => '/gdc/md/' . $pid . '/obj',
+            'payload'   => json_decode($this->reportDefinition, true)
+        ), 'POST');
+        $jobStatus = $this->getWriterApi('/batch?batchId=' .$batchId . '&writerId=' . $this->writerId);
 
-		$this->assertEquals(SharedStorage::JOB_STATUS_SUCCESS, $jobStatus['jobs'][0]['status'], "Error posting report definition to project");
-		$reportDefinitionUri = $jobStatus['jobs'][0]['result']['response']['uri'];
+        $this->assertEquals(SharedStorage::JOB_STATUS_SUCCESS, $jobStatus['jobs'][0]['status'], "Error posting report definition to project");
+        $reportDefinitionUri = $jobStatus['jobs'][0]['result']['response']['uri'];
 
-		// Post report
-		$this->report = str_replace("%reportDefinition%", $reportDefinitionUri, $this->report);
+        // Post report
+        $this->report = str_replace("%reportDefinition%", $reportDefinitionUri, $this->report);
 
-		$batchId = $this->processJob('/proxy', array(
-			'writerId'  => $this->writerId,
-			'query'     => '/gdc/md/' . $pid . '/obj',
-			'payload'   => json_decode($this->report, true)
-		), 'POST');
-		$jobStatus = $this->getWriterApi('/batch?batchId=' .$batchId . '&writerId=' . $this->writerId);
+        $batchId = $this->processJob('/proxy', array(
+            'writerId'  => $this->writerId,
+            'query'     => '/gdc/md/' . $pid . '/obj',
+            'payload'   => json_decode($this->report, true)
+        ), 'POST');
+        $jobStatus = $this->getWriterApi('/batch?batchId=' .$batchId . '&writerId=' . $this->writerId);
 
-		$reportUri = $jobStatus['jobs'][0]['result']['response']['uri'];
+        $reportUri = $jobStatus['jobs'][0]['result']['response']['uri'];
 
-		$tableId = $this->configuration->bucketId . '.' . 'reportExport';
+        $tableId = $this->configuration->bucketId . '.' . 'reportExport';
 
-		$batchId = $this->processJob('/export-report', array(
-			'writerId'  => $this->writerId,
-			'pid'       => $pid,
-			'report'    => $reportUri,
-			'table'     => $tableId
-		), 'POST');
-		$jobStatus = $this->getWriterApi('/batch?batchId=' .$batchId . '&writerId=' . $this->writerId);
+        $batchId = $this->processJob('/export-report', array(
+            'writerId'  => $this->writerId,
+            'pid'       => $pid,
+            'report'    => $reportUri,
+            'table'     => $tableId
+        ), 'POST');
+        $jobStatus = $this->getWriterApi('/batch?batchId=' .$batchId . '&writerId=' . $this->writerId);
 
-		$this->assertEquals('success', $jobStatus['status'], "Error exporting report.");
-	}
-
-} 
+        $this->assertEquals('success', $jobStatus['status'], "Error exporting report.");
+    }
+}

@@ -6,21 +6,21 @@ ini_set('memory_limit', '256M');
 set_error_handler('exceptions_error_handler');
 function exceptions_error_handler($severity, $message, $filename, $lineno)
 {
-	if (error_reporting() == 0) {
-		return;
-	}
-	if (error_reporting() & $severity) {
-		throw new ErrorException($message, 0, $severity, $filename, $lineno);
-	}
+    if (error_reporting() == 0) {
+        return;
+    }
+    if (error_reporting() & $severity) {
+        throw new ErrorException($message, 0, $severity, $filename, $lineno);
+    }
 }
 
 if (file_exists(__DIR__ . '/config/config.php')) {
-	require_once __DIR__ . '/config/config.php';
+    require_once __DIR__ . '/config/config.php';
 }
 
-function setupConst($name, $default=null)
+function setupConst($name, $default = null)
 {
-	defined($name) || define($name, getenv($name)? getenv($name) : $default);
+    defined($name) || define($name, getenv($name)? getenv($name) : $default);
 }
 
 setupConst('STORAGE_API_URL', 'https://connection.keboola.com');
@@ -45,12 +45,12 @@ setupConst('GD_SSO_PROVIDER', 'dev.keboola.com');
 require_once __DIR__ . '/../vendor/autoload.php';
 
 $db = \Doctrine\DBAL\DriverManager::getConnection(array(
-	'driver' => 'pdo_mysql',
-	'host' => DB_HOST,
-	'dbname' => DB_NAME,
-	'user' => DB_USER,
-	'password' => DB_PASSWORD,
-	'port' => DB_PORT
+    'driver' => 'pdo_mysql',
+    'host' => DB_HOST,
+    'dbname' => DB_NAME,
+    'user' => DB_USER,
+    'password' => DB_PASSWORD,
+    'port' => DB_PORT
 ));
 
 $stmt = $db->prepare(file_get_contents(__DIR__ . '/../db.sql'));

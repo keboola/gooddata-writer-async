@@ -12,23 +12,22 @@ class ExecuteJobCommand extends ContainerAwareCommand
 {
 
 
-	protected function configure()
-	{
-		$this
-			->setName('gooddata-writer:execute-job')
-			->setDescription('Execute selected job')
-			->setDefinition(array(
-				new InputArgument('jobId', InputArgument::REQUIRED, 'Job id'),
-				new InputOption('force', 'f', InputOption::VALUE_NONE, 'Force run the job even if it is already finished')
-			))
-		;
-	}
+    protected function configure()
+    {
+        $this
+            ->setName('gooddata-writer:execute-job')
+            ->setDescription('Execute selected job')
+            ->setDefinition(array(
+                new InputArgument('jobId', InputArgument::REQUIRED, 'Job id'),
+                new InputOption('force', 'f', InputOption::VALUE_NONE, 'Force run the job even if it is already finished')
+            ))
+        ;
+    }
 
-	protected function execute(InputInterface $input, OutputInterface $output)
-	{
-		/** @var JobExecutor $executor */
-		$executor = $this->getContainer()->get('gooddata_writer.job_executor');
-		$executor->run($input->getArgument('jobId'), $input->getOption('force'));
-	}
-
+    protected function execute(InputInterface $input, OutputInterface $output)
+    {
+        /** @var JobExecutor $executor */
+        $executor = $this->getContainer()->get('gooddata_writer.job_executor');
+        $executor->run($input->getArgument('jobId'), $input->getOption('force'));
+    }
 }

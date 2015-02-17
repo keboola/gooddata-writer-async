@@ -17,32 +17,31 @@ use Doctrine\DBAL\Connection;
 class Lock
 {
 
-	/**
-	 * @var Connection
-	 */
-	private $db;
-	private $lockName;
+    /**
+     * @var Connection
+     */
+    private $db;
+    private $lockName;
 
 
-	public function __construct(Connection $db, $lockName='')
-	{
-		$this->db = $db;
-		$this->lockName = $db->getDatabase() . '.' . $lockName;
-	}
+    public function __construct(Connection $db, $lockName = '')
+    {
+        $this->db = $db;
+        $this->lockName = $db->getDatabase() . '.' . $lockName;
+    }
 
-	public function lock($timeout=0)
-	{
-		return (bool)$this->db->fetchColumn('SELECT GET_LOCK(?, ?);', array($this->lockName, $timeout));
-	}
+    public function lock($timeout = 0)
+    {
+        return (bool)$this->db->fetchColumn('SELECT GET_LOCK(?, ?);', array($this->lockName, $timeout));
+    }
 
-	public function isFree()
-	{
-		return (bool)$this->db->fetchColumn('SELECT IS_FREE_LOCK(?);', array($this->lockName));
-	}
+    public function isFree()
+    {
+        return (bool)$this->db->fetchColumn('SELECT IS_FREE_LOCK(?);', array($this->lockName));
+    }
 
-	public function unlock()
-	{
-		return (bool)$this->db->executeQuery('DO RELEASE_LOCK(?);', array($this->lockName));
-	}
-
+    public function unlock()
+    {
+        return (bool)$this->db->executeQuery('DO RELEASE_LOCK(?);', array($this->lockName));
+    }
 }
