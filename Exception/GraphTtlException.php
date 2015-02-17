@@ -6,5 +6,4 @@ use Syrup\ComponentBundle\Exception\UserException;
 
 class GraphTtlException extends UserException
 {
-
 }

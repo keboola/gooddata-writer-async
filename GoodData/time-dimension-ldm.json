@@ -1,134 +1,134 @@
 {
-	"dataset":{
-		"identifier":"dataset.time.%NAME%",
-		"title":"Time (%TITLE%)",
-		"anchor":{
-			"attribute":{
-				"identifier":"attr.time.second.of.day.%NAME%",
-				"title":"Time (%TITLE%)",
-				"folder":"Time dimension (%TITLE%)",
-				"labels":[
-					{
-						"label":{
-							"identifier":"label.time.%NAME%",
-							"title":"Time (hh:mm:ss)",
-							"type":"GDC.text",
-							"dataType":"VARCHAR(128)"
-						}
-					},
-					{
-						"label":{
-							"identifier":"label.time.twelve.%NAME%",
-							"title":"Time (HH:mm:ss)",
-							"type":"GDC.text",
-							"dataType":"VARCHAR(128)"
-						}
-					},
-					{
-						"label":{
-							"identifier":"label.time.second.of.day.%NAME%",
-							"title":"Second of Day",
-							"type":"GDC.text",
-							"dataType":"VARCHAR(128)"
-						}
-					}
-				]
-			}
-		},
-		"attributes":[
-			{
-				"attribute":{
-					"identifier":"attr.time.second.%NAME%",
-					"title":"Second (%TITLE%)",
-					"folder":"Time dimension (%TITLE%)",
-					"labels":[
-						{
-							"label":{
-								"identifier":"label.time.second.%NAME%",
-								"title":"Second",
-								"type":"GDC.text",
-								"dataType":"VARCHAR(128)"
-							}
-						}
-					]
-				}
-			},
-			{
-				"attribute":{
-					"identifier":"attr.time.minute.of.day.%NAME%",
-					"title":"Minute of Day (%TITLE%)",
-					"folder":"Time dimension (%TITLE%)",
-					"labels":[
-						{
-							"label":{
-								"identifier":"label.time.minute.of.day.%NAME%",
-								"title":"Minute of Day",
-								"type":"GDC.text",
-								"dataType":"VARCHAR(128)"
-							}
-						}
-					]
-				}
-			},
-			{
-				"attribute":{
-					"identifier":"attr.time.minute.%NAME%",
-					"title":"Minute (%TITLE%)",
-					"folder":"Time dimension (%TITLE%)",
-					"labels":[
-						{
-							"label":{
-								"identifier":"label.time.minute.%NAME%",
-								"title":"Minute",
-								"type":"GDC.text",
-								"dataType":"VARCHAR(128)"
-							}
-						}
-					]
-				}
-			},
-			{
-				"attribute":{
-					"identifier":"attr.time.hour.of.day.%NAME%",
-					"title":"Hour (%TITLE%)",
-					"folder":"Time dimension (%TITLE%)",
-					"labels":[
-						{
-							"label":{
-								"identifier":"label.time.hour.of.day.%NAME%",
-								"title":"Hour (0-23)",
-								"type":"GDC.text",
-								"dataType":"VARCHAR(128)"
-							}
-						},
-						{
-							"label":{
-								"identifier":"label.time.hour.of.day.twelve.%NAME%",
-								"title":"Hour (1-12)",
-								"type":"GDC.text",
-								"dataType":"VARCHAR(128)"
-							}
-						}
-					]
-				}
-			},
-			{
-				"attribute":{
-					"identifier":"attr.time.ampm.%NAME%",
-					"title":"AM\/PM (%TITLE%)",
-					"folder":"Time dimension (%TITLE%)",
-					"labels":[
-						{
-							"label":{
-								"identifier":"label.time.ampm.%NAME%",
-								"title":"AM\/PM",
-								"type":"GDC.text",
-								"dataType":"VARCHAR(128)"
-							}
-						}
-					]
-				}
-			}
-		]
-	}
+    "dataset":{
+        "identifier":"dataset.time.%NAME%",
+        "title":"Time (%TITLE%)",
+        "anchor":{
+            "attribute":{
+                "identifier":"attr.time.second.of.day.%NAME%",
+                "title":"Time (%TITLE%)",
+                "folder":"Time dimension (%TITLE%)",
+                "labels":[
+                    {
+                        "label":{
+                            "identifier":"label.time.%NAME%",
+                            "title":"Time (hh:mm:ss)",
+                            "type":"GDC.text",
+                            "dataType":"VARCHAR(128)"
+                        }
+                    },
+                    {
+                        "label":{
+                            "identifier":"label.time.twelve.%NAME%",
+                            "title":"Time (HH:mm:ss)",
+                            "type":"GDC.text",
+                            "dataType":"VARCHAR(128)"
+                        }
+                    },
+                    {
+                        "label":{
+                            "identifier":"label.time.second.of.day.%NAME%",
+                            "title":"Second of Day",
+                            "type":"GDC.text",
+                            "dataType":"VARCHAR(128)"
+                        }
+                    }
+                ]
+            }
+        },
+        "attributes":[
+            {
+                "attribute":{
+                    "identifier":"attr.time.second.%NAME%",
+                    "title":"Second (%TITLE%)",
+                    "folder":"Time dimension (%TITLE%)",
+                    "labels":[
+                        {
+                            "label":{
+                                "identifier":"label.time.second.%NAME%",
+                                "title":"Second",
+                                "type":"GDC.text",
+                                "dataType":"VARCHAR(128)"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "attribute":{
+                    "identifier":"attr.time.minute.of.day.%NAME%",
+                    "title":"Minute of Day (%TITLE%)",
+                    "folder":"Time dimension (%TITLE%)",
+                    "labels":[
+                        {
+                            "label":{
+                                "identifier":"label.time.minute.of.day.%NAME%",
+                                "title":"Minute of Day",
+                                "type":"GDC.text",
+                                "dataType":"VARCHAR(128)"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "attribute":{
+                    "identifier":"attr.time.minute.%NAME%",
+                    "title":"Minute (%TITLE%)",
+                    "folder":"Time dimension (%TITLE%)",
+                    "labels":[
+                        {
+                            "label":{
+                                "identifier":"label.time.minute.%NAME%",
+                                "title":"Minute",
+                                "type":"GDC.text",
+                                "dataType":"VARCHAR(128)"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "attribute":{
+                    "identifier":"attr.time.hour.of.day.%NAME%",
+                    "title":"Hour (%TITLE%)",
+                    "folder":"Time dimension (%TITLE%)",
+                    "labels":[
+                        {
+                            "label":{
+                                "identifier":"label.time.hour.of.day.%NAME%",
+                                "title":"Hour (0-23)",
+                                "type":"GDC.text",
+                                "dataType":"VARCHAR(128)"
+                            }
+                        },
+                        {
+                            "label":{
+                                "identifier":"label.time.hour.of.day.twelve.%NAME%",
+                                "title":"Hour (1-12)",
+                                "type":"GDC.text",
+                                "dataType":"VARCHAR(128)"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "attribute":{
+                    "identifier":"attr.time.ampm.%NAME%",
+                    "title":"AM\/PM (%TITLE%)",
+                    "folder":"Time dimension (%TITLE%)",
+                    "labels":[
+                        {
+                            "label":{
+                                "identifier":"label.time.ampm.%NAME%",
+                                "title":"AM\/PM",
+                                "type":"GDC.text",
+                                "dataType":"VARCHAR(128)"
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
 }

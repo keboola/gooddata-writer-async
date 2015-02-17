@@ -11,33 +11,33 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\GoodData\RestApi;
 
-class ProxyCall  extends AbstractJob
+class ProxyCall extends AbstractJob
 {
 
-	public function prepare($params)
-	{
-		$this->checkParams($params, array('writerId', 'query', 'payload'));
-		$this->checkWriterExistence($params['writerId']);
-		return array(
-			'query' => $params['query'],
-			'payload' => $params['payload']
-		);
-	}
+    public function prepare($params)
+    {
+        $this->checkParams($params, array('writerId', 'query', 'payload'));
+        $this->checkWriterExistence($params['writerId']);
+        return array(
+            'query' => $params['query'],
+            'payload' => $params['payload']
+        );
+    }
 
-	/**
-	 * required: query, payload
-	 * optional: pid
-	 */
-	function run($job, $params, RestApi $restApi)
-	{
-		$this->checkParams($params, array('query', 'payload'));
+    /**
+     * required: query, payload
+     * optional: pid
+     */
+    public function run($job, $params, RestApi $restApi)
+    {
+        $this->checkParams($params, array('query', 'payload'));
 
-		$bucketAttributes = $this->configuration->bucketAttributes();
-		$restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-		$response = $restApi->post($params['query'], $params['payload']);
+        $bucketAttributes = $this->configuration->bucketAttributes();
+        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+        $response = $restApi->post($params['query'], $params['payload']);
 
-		return array(
-			'response' => $response
-		);
-	}
+        return array(
+            'response' => $response
+        );
+    }
 }

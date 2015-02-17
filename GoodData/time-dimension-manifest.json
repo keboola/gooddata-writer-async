@@ -1,77 +1,77 @@
 {
-	"dataSetSLIManifest" : {
-		"parts" : [
-			{
-				"columnName" : "second_of_day",
-				"populates" : [
-					"label.time.second.of.day.%NAME%"
-				],
-				"mode" : "FULL",
-				"referenceKey" : 1
-			},
-			{
-				"columnName" : "second",
-				"populates" : [
-					"label.time.second.%NAME%"
-				],
-				"mode" : "FULL",
-				"referenceKey" : 1
-			},
-			{
-				"columnName" : "minute_of_day",
-				"populates" : [
-					"label.time.minute.of.day.%NAME%"
-				],
-				"mode" : "FULL",
-				"referenceKey" : 1
-			},
-			{
-				"columnName" : "minute",
-				"populates" : [
-					"label.time.minute.%NAME%"
-				],
-				"mode" : "FULL",
-				"referenceKey" : 1
-			},
-			{
-				"columnName" : "hour",
-				"populates" : [
-					"label.time.hour.of.day.%NAME%"
-				],
-				"mode" : "FULL",
-				"referenceKey" : 1
-			},
-			{
-				"columnName" : "hour12",
-				"populates" : [
-					"label.time.hour.of.day.twelve.%NAME%"
-				],
-				"mode" : "FULL"
-			},
-			{
-				"columnName" : "am_pm",
-				"populates" : [
-					"label.time.ampm.%NAME%"
-				],
-				"mode" : "FULL",
-				"referenceKey" : 1
-			},
-			{
-				"columnName" : "time",
-				"populates" : [
-					"label.time.%NAME%"
-				],
-				"mode" : "FULL"
-			},
-			{
-				"columnName" : "time12",
-				"populates" : [
-					"label.time.twelve.%NAME%"
-				],
-				"mode" : "FULL"
-			}
-		],
-		"file" : "%NAME%.csv",
-		"dataSet" : "dataset.time.%NAME%"
-	}
+    "dataSetSLIManifest" : {
+        "parts" : [
+            {
+                "columnName" : "second_of_day",
+                "populates" : [
+                    "label.time.second.of.day.%NAME%"
+                ],
+                "mode" : "FULL",
+                "referenceKey" : 1
+            },
+            {
+                "columnName" : "second",
+                "populates" : [
+                    "label.time.second.%NAME%"
+                ],
+                "mode" : "FULL",
+                "referenceKey" : 1
+            },
+            {
+                "columnName" : "minute_of_day",
+                "populates" : [
+                    "label.time.minute.of.day.%NAME%"
+                ],
+                "mode" : "FULL",
+                "referenceKey" : 1
+            },
+            {
+                "columnName" : "minute",
+                "populates" : [
+                    "label.time.minute.%NAME%"
+                ],
+                "mode" : "FULL",
+                "referenceKey" : 1
+            },
+            {
+                "columnName" : "hour",
+                "populates" : [
+                    "label.time.hour.of.day.%NAME%"
+                ],
+                "mode" : "FULL",
+                "referenceKey" : 1
+            },
+            {
+                "columnName" : "hour12",
+                "populates" : [
+                    "label.time.hour.of.day.twelve.%NAME%"
+                ],
+                "mode" : "FULL"
+            },
+            {
+                "columnName" : "am_pm",
+                "populates" : [
+                    "label.time.ampm.%NAME%"
+                ],
+                "mode" : "FULL",
+                "referenceKey" : 1
+            },
+            {
+                "columnName" : "time",
+                "populates" : [
+                    "label.time.%NAME%"
+                ],
+                "mode" : "FULL"
+            },
+            {
+                "columnName" : "time12",
+                "populates" : [
+                    "label.time.twelve.%NAME%"
+                ],
+                "mode" : "FULL"
+            }
+        ],
+        "file" : "%NAME%.csv",
+        "dataSet" : "dataset.time.%NAME%"
+    }
 }

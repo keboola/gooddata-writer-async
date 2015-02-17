@@ -8,11 +8,10 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
-
 class User
 {
-	public $domain;
-	public $username;
-	public $password;
-	public $uid;
-} 
+    public $domain;
+    public $username;
+    public $password;
+    public $uid;
+}

@@ -14,16 +14,16 @@ use Monolog\Logger;
 
 class RestApiLoggerConfigurator
 {
-	private $sysLogHandler;
+    private $sysLogHandler;
 
-	public function __construct(SyslogHandler $sysLogHandler, RestAPILogFormatter $logFormatter)
-	{
-		$this->sysLogHandler = $sysLogHandler;
-		$this->sysLogHandler->setFormatter($logFormatter);
-	}
+    public function __construct(SyslogHandler $sysLogHandler, RestAPILogFormatter $logFormatter)
+    {
+        $this->sysLogHandler = $sysLogHandler;
+        $this->sysLogHandler->setFormatter($logFormatter);
+    }
 
-	public function configure(Logger $logger)
-	{
-		$logger->pushHandler($this->sysLogHandler);
-	}
-} 
+    public function configure(Logger $logger)
+    {
+        $logger->pushHandler($this->sysLogHandler);
+    }
+}
