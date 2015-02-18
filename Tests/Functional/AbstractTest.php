@@ -18,8 +18,8 @@ use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\StorageApi\Client as StorageApiClient;
 use Monolog\Handler\NullHandler;
 use Symfony\Component\Translation\Translator;
-use Syrup\ComponentBundle\Encryption\Encryptor;
-use Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader;
+use Keboola\Syrup\Encryption\Encryptor;
+use Keboola\Syrup\Aws\S3\Uploader;
 
 class AbstractTest extends \PHPUnit_Framework_TestCase
 {
@@ -33,7 +33,7 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
      */
     protected $logger;
     /**
-     * @var \Syrup\ComponentBundle\Filesystem\Temp
+     * @var \Keboola\Temp\Temp
      */
     protected $temp;
     /**
@@ -49,7 +49,7 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
      */
     protected $s3client;
     /**
-     * @var SyrupS3Uploader
+     * @var Uploader
      */
     protected $s3uploader;
 
@@ -114,10 +114,10 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
         $this->logger = new \Monolog\Logger($appName);
         $this->logger->pushHandler(new NullHandler());
         $this->restApi = new RestApi($appName, $this->logger);
-        $this->temp = new \Syrup\ComponentBundle\Filesystem\Temp($appName);
+        $this->temp = new \Keboola\Temp\Temp($appName);
         $this->queue = new Queue($awsConfig);
         $this->translator = new Translator('en');
-        $this->s3uploader = new SyrupS3Uploader($s3Config);
+        $this->s3uploader = new Uploader($s3Config);
         $this->s3client = new S3Client($s3Config);
 
         $this->storageApiClient = new StorageApiClient(array('token' => STORAGE_API_TOKEN));

@@ -16,7 +16,7 @@ use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Exception\WebDavException;
 use Symfony\Component\Stopwatch\Stopwatch;
-use Syrup\ComponentBundle\Exception\UserException;
+use Keboola\Syrup\Exception\UserException;
 
 class LoadDataMulti extends AbstractJob
 {

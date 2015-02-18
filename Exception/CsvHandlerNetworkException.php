@@ -6,7 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Exception;
 
-use Syrup\ComponentBundle\Exception\UserException;
+use Keboola\Syrup\Exception\UserException;
 
 class CsvHandlerNetworkException extends UserException
 {

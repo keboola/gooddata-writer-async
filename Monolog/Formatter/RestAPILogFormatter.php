@@ -9,16 +9,16 @@
 namespace Keboola\GoodDataWriter\Monolog\Formatter;
 
 use Monolog\Formatter\JsonFormatter;
-use Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader;
+use Keboola\Syrup\Aws\S3\Uploader;
 
 class RestAPILogFormatter extends JsonFormatter
 {
     /**
-     * @var SyrupS3Uploader
+     * @var Uploader
      */
     private $uploader;
 
-    public function __construct(SyrupS3Uploader $uploader)
+    public function __construct(Uploader $uploader)
     {
         $this->uploader = $uploader;
     }

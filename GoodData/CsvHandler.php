@@ -11,7 +11,7 @@ use Keboola\GoodDataWriter\Exception\CsvHandlerNetworkException;
 use Keboola\StorageApi\Client;
 use Monolog\Logger;
 use Symfony\Component\Process\Process;
-use Syrup\ComponentBundle\Filesystem\Temp;
+use Keboola\Temp\Temp;
 use Keboola\StorageApi\TableExporter;
 
 class CsvHandler

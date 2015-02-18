@@ -10,7 +10,7 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\StorageApi\Client;
-use Syrup\ComponentBundle\Encryption\Encryptor;
+use Keboola\Syrup\Encryption\Encryptor;
 use Keboola\StorageApi\Table as StorageApiTable;
 
 class ConfigurationTest extends \PHPUnit_Framework_TestCase

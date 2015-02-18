@@ -21,7 +21,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\Stopwatch\Stopwatch;
 
-use Syrup\ComponentBundle\Exception\SyrupComponentException;
+use Keboola\Syrup\Exception\SyrupComponentException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\SSO;
 use Keboola\GoodDataWriter\Model\Graph;
@@ -32,7 +32,7 @@ use Keboola\GoodDataWriter\Exception\GraphTtlException;
 use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
 
-class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
+class ApiController extends \Keboola\Syrup\Controller\ApiController
 {
     const STOPWATCH_NAME_REQUEST = 'requestTimer';
 
@@ -106,7 +106,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
         $this->writerId = empty($this->params['writerId'])? null : $this->params['writerId'];
 
 
-        $this->s3Client = $this->container->get('gooddata_writer.s3Client');
+        $this->s3Client = $this->container->get('gooddata_writer.s3_client');
         $this->eventLogger = new EventLogger($this->storageApi, $this->s3Client);
 
         $this->stopWatch = new Stopwatch();
@@ -1658,7 +1658,7 @@ class ApiController extends \Syrup\ComponentBundle\Controller\ApiController
                 $this->translator,
                 $this->temp,
                 $this->logger,
-                $this->container->get('gooddata_writer.s3Client'),
+                $this->container->get('gooddata_writer.s3_client'),
                 $this->container->get('gooddata_writer.jobs_queue')
             );
         }

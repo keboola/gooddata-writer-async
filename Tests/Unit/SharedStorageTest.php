@@ -9,7 +9,7 @@ namespace Keboola\GoodDataWriter\Tests\Unit;
 
 use Doctrine\DBAL\Connection;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
-use Syrup\ComponentBundle\Encryption\Encryptor;
+use Keboola\Syrup\Encryption\Encryptor;
 
 class SharedStorageTest extends \PHPUnit_Framework_TestCase
 {

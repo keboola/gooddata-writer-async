@@ -23,9 +23,9 @@ use Keboola\StorageApi\Event as StorageApiEvent;
 use Keboola\StorageApi\Exception as StorageApiException;
 use Monolog\Logger;
 use Symfony\Component\Translation\TranslatorInterface;
-use Syrup\ComponentBundle\Exception\UserException;
-use Syrup\ComponentBundle\Filesystem\Temp;
-use Syrup\ComponentBundle\Monolog\Uploader\SyrupS3Uploader;
+use Keboola\Syrup\Exception\UserException;
+use Keboola\Temp\Temp;
+use Keboola\Syrup\Aws\S3\Uploader;
 
 class JobExecutor
 {
@@ -63,7 +63,7 @@ class JobExecutor
      */
     protected $eventLogger;
     /**
-     * @var SyrupS3Uploader
+     * @var Uploader
      */
     protected $s3Uploader;
     protected $scriptsPath;
@@ -84,7 +84,7 @@ class JobExecutor
         Temp $temp,
         Queue $queue,
         TranslatorInterface $translator,
-        SyrupS3Uploader $s3Uploader,
+        Uploader $s3Uploader,
         S3Client $s3Client
     ) {
         $this->gdConfig = $gdConfig;

@@ -8,8 +8,8 @@
 namespace Keboola\GoodDataWriter\GoodData;
 
 use Symfony\Component\Process\Process;
-use Syrup\ComponentBundle\Exception\SyrupComponentException;
-use Syrup\ComponentBundle\Filesystem\Temp;
+use Keboola\Syrup\Exception\SyrupComponentException;
+use Keboola\Temp\Temp;
 
 class SSO
 {
