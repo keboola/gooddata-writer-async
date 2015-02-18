@@ -8,7 +8,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Keboola\GoodDataWriter\GoodData\Model;
-use Syrup\ComponentBundle\Filesystem\Temp;
+use Keboola\Temp\Temp;
 
 class ToolCommand extends ContainerAwareCommand
 {

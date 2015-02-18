@@ -11,7 +11,7 @@ use Keboola\GoodDataWriter\Exception\SharedStorageException;
 use Keboola\GoodDataWriter\GoodData\User;
 use Keboola\GoodDataWriter\Service\Lock;
 use Keboola\GoodDataWriter\Service\S3Client;
-use Syrup\ComponentBundle\Encryption\Encryptor;
+use Keboola\Syrup\Encryption\Encryptor;
 
 class SharedStorage
 {

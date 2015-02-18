@@ -15,7 +15,7 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\StorageApi\Client as StorageApiClient;
 use Monolog\Logger;
 use Symfony\Component\Translation\TranslatorInterface;
-use Syrup\ComponentBundle\Filesystem\Temp;
+use Keboola\Temp\Temp;
 
 abstract class AbstractJob
 {

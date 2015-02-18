@@ -1,5 +1,5 @@
 <?php
-use Syrup\ComponentBundle\Encryption\Encryptor;
+use Keboola\Syrup\Encryption\Encryptor;
 
 ini_set('memory_limit', '256M');
 
