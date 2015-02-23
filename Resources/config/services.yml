@@ -42,11 +42,7 @@ services:
       - @gooddata_writer.rest_api
       - @logger
       - @syrup.temp
-      - @gooddata_writer.jobs_queue
+      - @syrup.queue_factory
       - @translator
       - @syrup.s3_uploader
       - @gooddata_writer.s3_client
-
-  gooddata_writer.jobs_queue:
-    class: Keboola\GoodDataWriter\Service\Queue
-    arguments: [%gdwr_aws%]

@@ -28,7 +28,6 @@ setupConst('STORAGE_API_TOKEN', 'your_token');
 setupConst('AWS_ACCESS_KEY', '');
 setupConst('AWS_SECRET_KEY', '');
 setupConst('AWS_REGION', 'us-east-1');
-setupConst('AWS_QUEUE_URL', '');
 setupConst('DB_HOST', '127.0.0.1');
 setupConst('DB_NAME', 'gooddata_writer');
 setupConst('DB_PASSWORD', '');
@@ -44,18 +43,19 @@ setupConst('GD_SSO_PROVIDER', 'dev.keboola.com');
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-$db = \Doctrine\DBAL\DriverManager::getConnection(array(
+$db = \Doctrine\DBAL\DriverManager::getConnection([
     'driver' => 'pdo_mysql',
     'host' => DB_HOST,
     'dbname' => DB_NAME,
     'user' => DB_USER,
     'password' => DB_PASSWORD,
     'port' => DB_PORT
-));
+]);
 
 $stmt = $db->prepare(file_get_contents(__DIR__ . '/../db.sql'));
 $stmt->execute();
 $stmt->closeCursor();
 
 $encryptor = new Encryptor(ENCRYPTION_KEY);
-$db->insert('domains', array('name' => GD_DOMAIN_NAME, 'username' => GD_DOMAIN_USER, 'password' => $encryptor->encrypt(GD_DOMAIN_PASSWORD), 'uid' => GD_DOMAIN_UID));
+$db->insert('domains', ['name' => GD_DOMAIN_NAME, 'username' => GD_DOMAIN_USER, 'password' => $encryptor->encrypt(GD_DOMAIN_PASSWORD), 'uid' => GD_DOMAIN_UID]);
+$db->close();

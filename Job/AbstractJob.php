@@ -72,12 +72,9 @@ abstract class AbstractJob
     protected $gdUsernameDomain;
 
 
-    public function __construct(Configuration $configuration, $gdConfig, SharedStorage $sharedStorage, StorageApiClient $storageApiClient)
+    public function __construct($gdConfig, Configuration $configuration)
     {
         $this->configuration = $configuration;
-        $this->sharedStorage = $sharedStorage;
-        $this->storageApiClient = $storageApiClient;
-
         if (!isset($gdConfig['access_token'])) {
             throw new \Exception("Key 'access_token' is missing from gd config");
         }
@@ -119,40 +116,60 @@ abstract class AbstractJob
         return $this->domainUser;
     }
 
+    public function setSharedStorage(SharedStorage $sharedStorage)
+    {
+        $this->sharedStorage = $sharedStorage;
+        return $this;
+    }
+
+    public function setStorageApiClient(StorageApiClient $storageApiClient)
+    {
+        $this->storageApiClient = $storageApiClient;
+        return $this;
+    }
+
+
     public function setFactory($factory)
     {
         $this->factory = $factory;
+        return $this;
     }
 
 
     public function setTemp($temp)
     {
         $this->temp = $temp;
+        return $this;
     }
 
     public function setEventLogger($logger)
     {
         $this->eventLogger = $logger;
+        return $this;
     }
 
     public function setLogger($logger)
     {
         $this->logger = $logger;
+        return $this;
     }
 
     public function setTranslator(TranslatorInterface $translator)
     {
         $this->translator = $translator;
+        return $this;
     }
 
     public function setS3Client(S3Client $s3Client)
     {
         $this->s3Client = $s3Client;
+        return $this;
     }
 
     public function setScriptsPath($scriptsPath)
     {
         $this->scriptsPath = $scriptsPath;
+        return $this;
     }
 
     public function getLogs()

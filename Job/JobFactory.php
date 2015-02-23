@@ -9,18 +9,20 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Service\EventLogger;
-use Keboola\GoodDataWriter\Service\Queue;
+use Keboola\Syrup\Service\Queue\QueueService;
 use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\StorageApi\Client;
 use Keboola\Temp\Temp;
 use Monolog\Logger;
-use Symfony\Bundle\FrameworkBundle\Translation\Translator;
+use Symfony\Component\Translation\TranslatorInterface;
 
 class JobFactory
 {
     private $gdConfig;
+    private $scriptsPath;
+
     /**
      * @var SharedStorage
      */
@@ -33,13 +35,12 @@ class JobFactory
      * @var Client
      */
     private $storageApiClient;
-    private $scriptsPath;
     /**
      * @var EventLogger
      */
     private $eventLogger;
     /**
-     * @var Translator
+     * @var TranslatorInterface
      */
     private $translator;
     /**
@@ -55,63 +56,111 @@ class JobFactory
      */
     private $s3Client;
     /**
-     * @var Queue
+     * @var QueueService
      */
     private $queue;
 
-    public function __construct($gdConfig, $sharedStorage, $configuration, $storageApiClient, $scriptsPath, $eventLogger, $translator, $temp, $logger, $s3Client, $queue)
+    public function __construct($gdConfig, $scriptsPath)
     {
         $this->gdConfig = $gdConfig;
-        $this->sharedStorage = $sharedStorage;
-        $this->configuration = $configuration;
-        $this->storageApiClient = $storageApiClient;
         $this->scriptsPath = $scriptsPath;
-        $this->eventLogger = $eventLogger;
-        $this->translator = $translator;
-        $this->temp = $temp;
-        $this->logger = $logger;
-        $this->s3Client = $s3Client;
-        $this->queue = $queue;
     }
+
+    public function setSharedStorage(SharedStorage $sharedStorage)
+    {
+        $this->sharedStorage = $sharedStorage;
+        return $this;
+    }
+
+    public function setConfiguration(Configuration $configuration)
+    {
+        $this->configuration = $configuration;
+        return $this;
+    }
+
+    public function setStorageApiClient(Client $storageApiClient)
+    {
+        $this->storageApiClient = $storageApiClient;
+        return $this;
+    }
+
+    public function setEventLogger(EventLogger $eventLogger)
+    {
+        $this->eventLogger = $eventLogger;
+        return $this;
+    }
+
+    public function setTranslator(TranslatorInterface $translator)
+    {
+        $this->translator = $translator;
+        return $this;
+    }
+
+    public function setTemp(Temp $temp)
+    {
+        $this->temp = $temp;
+        return $this;
+    }
+
+    public function setLogger(Logger $logger)
+    {
+        $this->logger = $logger;
+        return $this;
+    }
+
+    public function setS3Client(S3Client $s3Client)
+    {
+        $this->s3Client = $s3Client;
+        return $this;
+    }
+
+    public function setQueue(QueueService $queue)
+    {
+        $this->queue = $queue;
+        return $this;
+    }
+
 
     public function getJobClass($jobName)
     {
         $commandName = ucfirst($jobName);
         $commandClass = 'Keboola\GoodDataWriter\Job\\' . $commandName;
         if (!class_exists($commandClass)) {
-            throw new JobProcessException($this->translator->trans('job_executor.command_not_found %1', array('%1' => $commandName)));
+            throw new JobProcessException($this->translator->trans('job_executor.command_not_found %1', ['%1' => $commandName]));
         }
 
         /**
          * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
          */
-        $command = new $commandClass($this->configuration, $this->gdConfig, $this->sharedStorage, $this->storageApiClient);
-        $command->setScriptsPath($this->scriptsPath);
-        $command->setEventLogger($this->eventLogger);
-        $command->setTranslator($this->translator);
-        $command->setTemp($this->temp); //For csv handler
-        $command->setLogger($this->logger); //For csv handler
-        $command->setS3Client($this->s3Client);
-
-        $command->setFactory($this);
+        $command = new $commandClass($this->gdConfig, $this->configuration);
+        $command
+            ->setSharedStorage($this->sharedStorage)
+            ->setStorageApiClient($this->storageApiClient)
+            ->setScriptsPath($this->scriptsPath)
+            ->setEventLogger($this->eventLogger)
+            ->setTranslator($this->translator)
+            ->setTemp($this->temp) //For csv handler
+            ->setLogger($this->logger) //For csv handler
+            ->setS3Client($this->s3Client)
+            ->setFactory($this);
 
         return $command;
     }
 
     public function enqueueJob($batchId, $delay = 0)
     {
-        $this->queue->enqueue(array(
+        $this->queue->enqueue([
             'projectId' => $this->configuration->projectId,
             'writerId' => $this->configuration->writerId,
             'batchId' => $batchId
-        ), $delay);
+        ], $delay);
     }
 
     public function createJob($jobName, $params, $batchId = null, $queue = SharedStorage::PRIMARY_QUEUE, $others = [])
     {
         $jobId = $this->storageApiClient->generateId();
         $tokenData = $this->storageApiClient->getLogData();
-        $jobData = array(
+        $jobData = [
             'projectId' => $this->configuration->projectId,
             'writerId' => $this->configuration->writerId,
             'command' => $jobName,
@@ -121,7 +170,7 @@ class JobFactory
             'token' => $this->storageApiClient->token,
             'tokenId' => $tokenData['id'],
             'tokenDesc' => $tokenData['description']
-        );
+        ];
         if (count($others)) {
             $jobData = array_merge($jobData, $others);
         }
@@ -137,13 +186,13 @@ class JobFactory
             $jobData['id'],
             $this->storageApiClient->getRunId(),
             $this->translator->trans($this->translator->trans('log.job.created')),
-            array(
+            [
                 'projectId' => $this->configuration->projectId,
                 'writerId' => $this->configuration->writerId,
                 'runId' => $this->storageApiClient->getRunId() ?: $jobId,
                 'command' => $jobName,
                 'params' => $params
-            )
+            ]
         );
 
         return $jobData;
@@ -152,7 +201,7 @@ class JobFactory
     public function saveDefinition($jobId, $definition)
     {
         $definitionUrl = $this->s3Client->uploadString(sprintf('%s/definition.json', $jobId), json_encode($definition));
-        $this->sharedStorage->saveJob($jobId, array('definition' => $definitionUrl));
+        $this->sharedStorage->saveJob($jobId, ['definition' => $definitionUrl]);
     }
 
     public function getDefinition($definitionFile)

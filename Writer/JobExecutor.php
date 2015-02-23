@@ -11,12 +11,12 @@ use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Exception\QueueUnavailableException;
 use Keboola\GoodDataWriter\Exception\CsvHandlerNetworkException;
 use Keboola\GoodDataWriter\Exception\RestApiException;
+use Keboola\Syrup\Service\Queue\QueueFactory;
 use Keboola\StorageApi\ClientException as StorageApiClientException;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Job\JobFactory;
 use Keboola\GoodDataWriter\Service\EventLogger;
-use Keboola\GoodDataWriter\Service\Queue;
 use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\StorageApi\Event as StorageApiEvent;
@@ -51,9 +51,9 @@ class JobExecutor
      */
     protected $storageApiClient;
     /**
-     * @var \Keboola\GoodDataWriter\Service\Queue
+     * @var QueueFactory
      */
-    protected $queue;
+    protected $queueFactory;
     /**
      * @var \Symfony\Component\Translation\TranslatorInterface
      */
@@ -82,7 +82,7 @@ class JobExecutor
         RestApi $restApi,
         Logger $logger,
         Temp $temp,
-        Queue $queue,
+        QueueFactory $queueFactory,
         TranslatorInterface $translator,
         Uploader $s3Uploader,
         S3Client $s3Client
@@ -92,7 +92,7 @@ class JobExecutor
         $this->restApi = $restApi;
         $this->logger = $logger;
         $this->temp = $temp;
-        $this->queue = $queue;
+        $this->queueFactory = $queueFactory;
         $this->translator = $translator;
         $this->s3Uploader = $s3Uploader;
         $this->s3Client = $s3Client;
@@ -162,19 +162,17 @@ class JobExecutor
                     // Ignore
                 }
 
-                $jobFactory = new JobFactory(
-                    $this->gdConfig,
-                    $this->sharedStorage,
-                    $configuration,
-                    $this->storageApiClient,
-                    $this->scriptsPath,
-                    $this->eventLogger,
-                    $this->translator,
-                    $this->temp,
-                    $this->logger,
-                    $this->s3Client,
-                    $this->queue
-                );
+                $jobFactory = new JobFactory($this->gdConfig, $this->scriptsPath);
+                $jobFactory
+                    ->setSharedStorage($this->sharedStorage)
+                    ->setConfiguration($configuration)
+                    ->setStorageApiClient($this->storageApiClient)
+                    ->setEventLogger($this->eventLogger)
+                    ->setTranslator($this->translator)
+                    ->setTemp($this->temp)
+                    ->setLogger($this->logger)
+                    ->setS3Client($this->s3Client)
+                    ->setQueue($this->queueFactory->get());
                 $job = $jobFactory->getJobClass($jobData['command']);
 
                 $error = null;

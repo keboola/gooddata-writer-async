@@ -16,6 +16,7 @@ use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\StorageApi\Client as StorageApiClient;
+use Keboola\Syrup\Service\Queue\QueueFactory;
 use Monolog\Handler\NullHandler;
 use Symfony\Component\Translation\Translator;
 use Keboola\Syrup\Encryption\Encryptor;
@@ -81,46 +82,46 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
         $appName = 'gooddata-writer';
         $this->scriptsPath = __DIR__ . '/../GoodData';
         $this->userAgent = 'gooddata-writer (testing)';
-        $this->gdConfig = array(
+        $this->gdConfig = [
             'access_token' => GD_ACCESS_TOKEN,
             'domain' => GD_DOMAIN_NAME,
             'sso_provider' => GD_SSO_PROVIDER
-        );
-        $awsConfig = array(
+        ];
+        $awsConfig = [
             'access_key' => AWS_ACCESS_KEY,
             'secret_key' => AWS_SECRET_KEY,
-            'region' => AWS_REGION,
-            'queue_url' => AWS_QUEUE_URL
-        );
-        $s3Config = array(
+            'region' => AWS_REGION
+        ];
+        $s3Config = [
             'aws-access-key' => '',
             'aws-secret-key' => '',
             's3-upload-path' => '',
             'bitly-login' => '',
             'bitly-api-key' => ''
-        );
+        ];
 
         $encryptor = new Encryptor(ENCRYPTION_KEY);
 
-        $db = \Doctrine\DBAL\DriverManager::getConnection(array(
+        $db = \Doctrine\DBAL\DriverManager::getConnection([
             'driver' => 'pdo_mysql',
             'host' => DB_HOST,
             'dbname' => DB_NAME,
             'user' => DB_USER,
             'password' => DB_PASSWORD,
-        ));
+        ]);
+        $queueFactory = new QueueFactory($db, ['db_table' => DB_NAME]);
 
         $this->sharedStorage = new SharedStorage($db, $encryptor);
         $this->logger = new \Monolog\Logger($appName);
         $this->logger->pushHandler(new NullHandler());
         $this->restApi = new RestApi($appName, $this->logger);
         $this->temp = new \Keboola\Temp\Temp($appName);
-        $this->queue = new Queue($awsConfig);
+        $this->queue = $queueFactory->get();
         $this->translator = new Translator('en');
         $this->s3uploader = new Uploader($s3Config);
         $this->s3client = new S3Client($s3Config);
 
-        $this->storageApiClient = new StorageApiClient(array('token' => STORAGE_API_TOKEN));
+        $this->storageApiClient = new StorageApiClient(['token' => STORAGE_API_TOKEN]);
         $this->configuration = new Configuration($this->storageApiClient, $this->sharedStorage);
         $this->configuration->projectId = rand(1, 128);
 
@@ -130,19 +131,17 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
         //@TODO připravit konfiguraci
 
         $eventLogger = new EventLogger($this->storageApiClient, $this->s3client);
-        $this->jobFactory = new JobFactory(
-            $this->gdConfig,
-            $this->sharedStorage,
-            $this->configuration,
-            $this->storageApiClient,
-            $this->scriptsPath,
-            $eventLogger,
-            $this->translator,
-            $this->temp,
-            $this->logger,
-            $this->s3client,
-            $this->queue
-        );
+        $this->jobFactory = new JobFactory($this->gdConfig, $this->scriptsPath);
+        $this->jobFactory
+            ->setSharedStorage($this->sharedStorage)
+            ->setConfiguration($this->configuration)
+            ->setStorageApiClient($this->storageApiClient)
+            ->setEventLogger($eventLogger)
+            ->setTranslator($this->translator)
+            ->setTemp($this->temp)
+            ->setLogger($this->logger)
+            ->setS3Client($this->s3client)
+            ->setQueue($this->queue);
 
 
         // Cleanup
@@ -212,7 +211,7 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
 
     protected function prepareJobInfo($writerId, $command, $params)
     {
-        return array(
+        return [
             'id' => rand(1, 128),
             'batchId' => rand(1, 128),
             'runId' => rand(1, 128),
@@ -224,6 +223,6 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
             'createdTime' => date('c'),
             'command' => $command,
             'parameters' => $params
-        );
+        ];
     }
 }

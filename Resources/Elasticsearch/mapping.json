@@ -1,8 +1,13 @@
-    "params": {
-        "dynamic": "strict",
-        "properties": {
-            "writerId": {
-                "type": "string"
-            }
-        }
-    },
+"tasks": {
+    "properties": {
+        "id": {"type": "long"},
+        "name": {"type": "string"},
+        "params": {"type": "object"}
+    }
+},
+"params": {
+    "dynamic": "strict",
+    "properties": {
+        "writerId": {"type": "string"}
+    }
+},

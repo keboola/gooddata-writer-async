@@ -1650,17 +1650,18 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         if (!$this->jobFactory) {
             $this->jobFactory = new JobFactory(
                 $this->container->getParameter('gdwr_gd'),
-                $this->getSharedStorage(),
-                $this->getConfiguration(),
-                $this->storageApi,
-                $this->container->getParameter('gdwr_scripts_path'),
-                $this->eventLogger,
-                $this->translator,
-                $this->temp,
-                $this->logger,
-                $this->container->get('gooddata_writer.s3_client'),
-                $this->container->get('gooddata_writer.jobs_queue')
+                $this->container->getParameter('gdwr_scripts_path')
             );
+            $this->jobFactory
+                ->setSharedStorage($this->getSharedStorage())
+                ->setConfiguration($this->getConfiguration())
+                ->setStorageApiClient($this->storageApi)
+                ->setEventLogger($this->eventLogger)
+                ->setTranslator($this->translator)
+                ->setTemp($this->temp)
+                ->setLogger($this->logger)
+                ->setS3Client($this->container->get('gooddata_writer.s3_client'))
+                ->setQueue($this->container->get('syrup.queue_factory')->get());
         }
         return $this->jobFactory;
     }
