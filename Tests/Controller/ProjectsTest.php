@@ -7,7 +7,7 @@
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\GoodData\Model;
-use Keboola\GoodDataWriter\Writer\SharedStorage;
+use Keboola\GoodDataWriter\Writer\JobStorage;
 use Keboola\StorageApi\Table as StorageApiTable;
 use Keboola\GoodDataWriter\GoodData\WebDav;
 
@@ -127,7 +127,7 @@ class ProjectsTest extends AbstractControllerTest
         $batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.' . $filteredTableName, 'pid' => $clonedPid));
         $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
         $this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
-        $this->assertEquals(SharedStorage::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
+        $this->assertEquals(JobStorage::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
 
         $bucketAttributes = $this->configuration->bucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -156,7 +156,7 @@ class ProjectsTest extends AbstractControllerTest
         $batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.' . $notFilteredTableName));
         $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
         $this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
-        $this->assertEquals(SharedStorage::JOB_STATUS_ERROR, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
+        $this->assertEquals(JobStorage::JOB_STATUS_ERROR, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
 
         // Now add the attribute and try if it succeeds
         $this->configuration->updateDataSetDefinition($this->dataBucketId . '.' . $notFilteredTableName, 'ignoreFilter', 1);
@@ -164,14 +164,14 @@ class ProjectsTest extends AbstractControllerTest
         $batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.' . $notFilteredTableName));
         $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
         $this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
-        $this->assertEquals(SharedStorage::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
+        $this->assertEquals(JobStorage::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
 
 
         // Upload and test filtered tables
         $batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.' . $filteredTableName));
         $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
         $this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
-        $this->assertEquals(SharedStorage::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
+        $this->assertEquals(JobStorage::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
 
         $bucketAttributes = $this->configuration->bucketAttributes();
         $webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);

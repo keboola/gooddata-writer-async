@@ -8,7 +8,7 @@ namespace Keboola\GoodDataWriter\Tests\Controller;
 use Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\WebDav;
-use Keboola\GoodDataWriter\Writer\SharedStorage;
+use Keboola\GoodDataWriter\Writer\JobStorage;
 use Keboola\StorageApi\Table as StorageApiTable;
 
 class DatasetsTest extends AbstractControllerTest
@@ -412,7 +412,7 @@ class DatasetsTest extends AbstractControllerTest
         $batchId = $this->processJob('/upload-table', array('tableId' => $tableId));
         $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
         $this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
-        $this->assertEquals(SharedStorage::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
+        $this->assertEquals(JobStorage::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
 
 
         /**
@@ -468,7 +468,7 @@ class DatasetsTest extends AbstractControllerTest
         $jobId = $this->processJob('/upload-date-dimension', array('tableId' => $tableId, 'name' => $dimensionName));
         $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $jobId);
         $this->assertArrayHasKey('status', $response, "Response for writer call '/batch?batchId=' should contain key 'job.status'.");
-        $this->assertEquals(SharedStorage::JOB_STATUS_SUCCESS, $response['status'], "Result of request /upload-date-dimension should be 'success'.");
+        $this->assertEquals(JobStorage::JOB_STATUS_SUCCESS, $response['status'], "Result of request /upload-date-dimension should be 'success'.");
 
         $data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
         $this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");

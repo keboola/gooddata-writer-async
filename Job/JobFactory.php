@@ -9,7 +9,8 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Service\EventLogger;
-use Keboola\Syrup\Service\Queue\QueueService;
+use Keboola\GoodDataWriter\Service\Queue;
+use Keboola\GoodDataWriter\Writer\JobStorage;
 use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
@@ -27,6 +28,10 @@ class JobFactory
      * @var SharedStorage
      */
     private $sharedStorage;
+    /**
+     * @var JobStorage
+     */
+    private $jobStorage;
     /**
      * @var Configuration
      */
@@ -56,7 +61,7 @@ class JobFactory
      */
     private $s3Client;
     /**
-     * @var QueueService
+     * @var Queue
      */
     private $queue;
 
@@ -69,6 +74,12 @@ class JobFactory
     public function setSharedStorage(SharedStorage $sharedStorage)
     {
         $this->sharedStorage = $sharedStorage;
+        return $this;
+    }
+
+    public function setJobStorage(JobStorage $jobStorage)
+    {
+        $this->jobStorage = $jobStorage;
         return $this;
     }
 
@@ -114,7 +125,7 @@ class JobFactory
         return $this;
     }
 
-    public function setQueue(QueueService $queue)
+    public function setQueue(Queue $queue)
     {
         $this->queue = $queue;
         return $this;
@@ -132,10 +143,9 @@ class JobFactory
         /**
          * @var \Keboola\GoodDataWriter\Job\AbstractJob $command
          */
-        $command = new $commandClass($this->gdConfig, $this->configuration);
+        $command = new $commandClass($this->gdConfig, $this->configuration, $this->sharedStorage, $this->storageApiClient);
         $command
-            ->setSharedStorage($this->sharedStorage)
-            ->setStorageApiClient($this->storageApiClient)
+            ->setJobStorage($this->jobStorage)
             ->setScriptsPath($this->scriptsPath)
             ->setEventLogger($this->eventLogger)
             ->setTranslator($this->translator)
@@ -156,7 +166,7 @@ class JobFactory
         ], $delay);
     }
 
-    public function createJob($jobName, $params, $batchId = null, $queue = SharedStorage::PRIMARY_QUEUE, $others = [])
+    public function createJob($jobName, $params, $batchId = null, $queue = JobStorage::PRIMARY_QUEUE, $others = [])
     {
         $jobId = $this->storageApiClient->generateId();
         $tokenData = $this->storageApiClient->getLogData();
@@ -175,7 +185,7 @@ class JobFactory
             $jobData = array_merge($jobData, $others);
         }
 
-        $jobData = $this->sharedStorage->createJob($jobId, $this->configuration->projectId, $this->configuration->writerId, $jobData, $queue);
+        $jobData = $this->jobStorage->createJob($jobId, $this->configuration->projectId, $this->configuration->writerId, $jobData, $queue);
 
         array_walk($params, function(&$val, $key) {
             if ($key == 'password') {
@@ -201,7 +211,7 @@ class JobFactory
     public function saveDefinition($jobId, $definition)
     {
         $definitionUrl = $this->s3Client->uploadString(sprintf('%s/definition.json', $jobId), json_encode($definition));
-        $this->sharedStorage->saveJob($jobId, ['definition' => $definitionUrl]);
+        $this->jobStorage->saveJob($jobId, ['definition' => $definitionUrl]);
     }
 
     public function getDefinition($definitionFile)

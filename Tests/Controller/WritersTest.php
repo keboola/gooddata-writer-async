@@ -8,7 +8,7 @@ namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Writer\Configuration;
-use Keboola\GoodDataWriter\Writer\SharedStorage;
+use Keboola\GoodDataWriter\Writer\JobStorage;
 
 class WritersTest extends AbstractControllerTest
 {
@@ -63,11 +63,11 @@ class WritersTest extends AbstractControllerTest
         $description = uniqId();
 
         // Create new writer and new configuration
-        $this->processJob('/writers', array(
+        $this->processJob('/writers', [
             'writerId' => $writerId,
             'users' => $user1 . ',' . $user2,
             'description' => $description
-        ));
+        ]);
         $this->configuration = new Configuration($this->storageApi, $this->sharedStorage);
         $this->configuration->setWriterId($writerId);
 
@@ -123,12 +123,12 @@ class WritersTest extends AbstractControllerTest
          */
         $existingPid = $bucketAttributes['gd']['pid'];
         $existingProjectWriterId = self::WRITER_ID_PREFIX . 'exist_' . uniqid();
-        $this->processJob('/writers', array(
+        $this->processJob('/writers', [
             'writerId' => $existingProjectWriterId,
             'username' => $bucketAttributes['gd']['username'],
             'password' => $bucketAttributes['gd']['password'],
             'pid' => $existingPid
-        ));
+        ]);
         $responseJson = $this->getWriterApi('/writers?writerId=' . $existingProjectWriterId);
         $this->assertArrayHasKey('writer', $responseJson, "Response for writer call '/writers?writerId=' should contain 'writer' key.");
         $this->assertArrayHasKey('gd', $responseJson['writer'], "Response for writer call '/writers?writerId=' should contain 'writer.gd' key.");
@@ -144,13 +144,13 @@ class WritersTest extends AbstractControllerTest
             $jobsFinished = true;
             $jobs = $this->getWriterApi('/jobs?writerId=' . $existingProjectWriterId);
             foreach ($jobs['jobs'] as $job) {
-                if (!SharedStorage::isJobFinished($job['status'])) {
-                    $this->commandTester->execute(array(
+                if (!JobStorage::isJobFinished($job['status'])) {
+                    $this->commandTester->execute([
                         'command' => 'gooddata-writer:execute-batch',
                         'batchId' => $job['batchId']
-                    ));
+                    ]);
                     $jobInfo = $this->getWriterApi('/jobs?writerId=' . $existingProjectWriterId . '&jobId=' . $job['id']);
-                    if ($jobInfo['status'] != SharedStorage::JOB_STATUS_SUCCESS) {
+                    if ($jobInfo['status'] != JobStorage::JOB_STATUS_SUCCESS) {
                         $jobsFinished = false;
                     }
                 }
@@ -169,9 +169,9 @@ class WritersTest extends AbstractControllerTest
         /**
          * Set configuration
          */
-        $this->postWriterApi('/writers/' . $writerId, array(
+        $this->postWriterApi('/writers/' . $writerId, [
             'attribute' => 1
-        ));
+        ]);
         $writerInfo = $this->getWriterApi('/writers/' . $writerId);
         $this->assertArrayHasKey('writer', $writerInfo, "Writer should have set attribute 'writer'");
         $this->assertArrayHasKey('attribute', $writerInfo['writer'], "Writer should have set attribute 'writer.attribute'");
@@ -181,7 +181,7 @@ class WritersTest extends AbstractControllerTest
         /**
          * Delete writer
          */
-        $this->processJob('/writers?writerId=' . $this->writerId, array(), 'DELETE');
+        $this->processJob('/writers?writerId=' . $this->writerId, [], 'DELETE');
         // Check non-existence of configuration
         $this->assertFalse($this->storageApi->bucketExists($this->bucketId), "Writer configuration should not exist anymore.");
     }

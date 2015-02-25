@@ -6,9 +6,8 @@
 
 namespace Keboola\GoodDataWriter\Job;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Writer\JobStorage;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 
 class OptimizeSliHash extends AbstractJob
@@ -16,7 +15,7 @@ class OptimizeSliHash extends AbstractJob
 
     public function prepare($params)
     {
-        $this->checkParams($params, array('writerId'));
+        $this->checkParams($params, ['writerId']);
         $this->checkWriterExistence($params['writerId']);
         $this->sharedStorage->setWriterStatus($this->configuration->projectId, $params['writerId'], SharedStorage::WRITER_STATUS_MAINTENANCE);
         return [];
@@ -31,20 +30,20 @@ class OptimizeSliHash extends AbstractJob
     {
         try {
             // Ensure that all other jobs are finished
-            $this->sharedStorage->saveJob($job['id'], array('status' => SharedStorage::JOB_STATUS_WAITING));
+            $this->jobStorage->saveJob($job['id'], ['status' => JobStorage::JOB_STATUS_WAITING]);
             $i = 0;
             do {
                 sleep($i * 60);
                 $wait = false;
-                foreach ($this->sharedStorage->fetchJobs($this->configuration->projectId, $this->configuration->writerId, 2) as $job) {
+                foreach ($this->jobStorage->fetchJobs($this->configuration->projectId, $this->configuration->writerId, 2) as $job) {
                     $queueIdArray = explode('.', $job['queueId']);
-                    if ($job['status'] == SharedStorage::JOB_STATUS_PROCESSING && (isset($queueIdArray[2]) && $queueIdArray[2] != SharedStorage::SERVICE_QUEUE)) {
+                    if ($job['status'] == JobStorage::JOB_STATUS_PROCESSING && (isset($queueIdArray[2]) && $queueIdArray[2] != JobStorage::SERVICE_QUEUE)) {
                         $wait = true;
                     }
                 }
                 $i++;
             } while ($wait);
-            $this->sharedStorage->saveJob($job['id'], array('status' => SharedStorage::JOB_STATUS_PROCESSING));
+            $this->jobStorage->saveJob($job['id'], ['status' => JobStorage::JOB_STATUS_PROCESSING]);
 
             $bucketAttributes = $this->configuration->bucketAttributes();
             $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);

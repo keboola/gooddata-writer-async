@@ -2,6 +2,7 @@
 namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\GoodDataWriter\Writer\JobExecutor;
+use Keboola\GoodDataWriter\Writer\JobStorage;
 use Keboola\GoodDataWriter\Writer\QueueUnavailableException;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
@@ -19,10 +20,10 @@ class ExecuteBatchCommand extends ContainerAwareCommand
         $this
             ->setName('gooddata-writer:execute-batch')
             ->setDescription('Execute selected batch from queue')
-            ->setDefinition(array(
+            ->setDefinition([
                 new InputArgument('batchId', InputArgument::REQUIRED, 'Batch id'),
                 new InputOption('force', 'f', InputOption::VALUE_NONE, 'Force run the batch even if it is already finished')
-            ))
+            ])
         ;
     }
 
@@ -32,15 +33,17 @@ class ExecuteBatchCommand extends ContainerAwareCommand
         $executor = $this->getContainer()->get('gooddata_writer.job_executor');
         /** @var SharedStorage $sharedStorage */
         $sharedStorage = $this->getContainer()->get('gooddata_writer.shared_storage');
+        /** @var JobStorage $jobStorage */
+        $jobStorage = $this->getContainer()->get('gooddata_writer.job_storage');
 
-        $jobs = $sharedStorage->fetchBatch($input->getArgument('batchId'));
+        $jobs = $jobStorage->fetchBatch($input->getArgument('batchId'));
         if (!count($jobs)) {
             throw new \Exception(sprintf("Batch '%d' not found in Shared Storage", $input->getArgument('batchId')));
         }
-        $batch = SharedStorage::batchToApiResponse($input->getArgument('batchId'), $jobs);
+        $batch = JobStorage::batchToApiResponse($input->getArgument('batchId'), $jobs);
 
         // Batch already executed?
-        if (!$input->getOption('force') && $batch['status'] != SharedStorage::JOB_STATUS_WAITING) {
+        if (!$input->getOption('force') && $batch['status'] != JobStorage::JOB_STATUS_WAITING) {
             return;
         }
 

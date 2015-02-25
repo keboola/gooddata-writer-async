@@ -1,13 +1,12 @@
-"tasks": {
-    "properties": {
-        "id": {"type": "long"},
-        "name": {"type": "string"},
-        "params": {"type": "object"}
+{
+    "params": {
+        "dynamic": "strict",
+        "properties": {
+            "writerId": {"type": "string"},
+            "tasks": {
+                "type": "object",
+                "enabled": "false"
+            }
+        }
     }
-},
-"params": {
-    "dynamic": "strict",
-    "properties": {
-        "writerId": {"type": "string"}
-    }
-},
+}

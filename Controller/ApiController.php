@@ -11,6 +11,7 @@ use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Job\JobFactory;
 use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Service\S3Client;
+use Keboola\GoodDataWriter\Writer\JobStorage;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Method;
 
@@ -44,6 +45,10 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      * @var SharedStorage
      */
     public $sharedStorage;
+    /**
+     * @var JobStorage
+     */
+    public $jobStorage;
 
     /**
      * @var \Symfony\Component\Translation\Translator
@@ -88,18 +93,18 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
         // Get params
         $this->method = $request->getMethod();
-        $this->params = in_array($this->method, array('POST', 'PUT'))? $this->getPostJson($request) : $request->query->all();
+        $this->params = in_array($this->method, ['POST', 'PUT'])? $this->getPostJson($request) : $request->query->all();
         array_walk_recursive($this->params, function(&$param) {
             $param = trim($param);
         });
 
-        if (isset($this->params['queue']) && !in_array($this->params['queue'], array(SharedStorage::PRIMARY_QUEUE, SharedStorage::SECONDARY_QUEUE))) {
+        if (isset($this->params['queue']) && !in_array($this->params['queue'], [JobStorage::PRIMARY_QUEUE, JobStorage::SECONDARY_QUEUE])) {
             throw new WrongParametersException($this->translator->trans(
                 'parameters.queue %1',
-                array('%1' => SharedStorage::PRIMARY_QUEUE . ', ' . SharedStorage::SECONDARY_QUEUE)
+                ['%1' => JobStorage::PRIMARY_QUEUE . ', ' . JobStorage::SECONDARY_QUEUE]
             ));
         }
-        $this->paramQueue = isset($this->params['queue'])? $this->params['queue'] : SharedStorage::PRIMARY_QUEUE;
+        $this->paramQueue = isset($this->params['queue'])? $this->params['queue'] : JobStorage::PRIMARY_QUEUE;
 
         $tokenInfo = $this->storageApi->getLogData();
         $this->projectId = $tokenInfo['owner']['id'];
@@ -128,7 +133,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $batchId = $this->getJobFactory()->createBatchId();
         $params = $command->prepare($this->params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, SharedStorage::SERVICE_QUEUE);
+        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, JobStorage::SERVICE_QUEUE);
 
         $this->getJobFactory()->enqueueJob($batchId);
         return $this->createPollResponse($batchId, $this->writerId, $job['id']);
@@ -144,7 +149,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
     public function postWritersAction()
     {
         if (!$this->writerId) {
-            throw new WrongConfigurationException($this->translator->trans('parameters.required %1', array('%1' => 'writerId')));
+            throw new WrongConfigurationException($this->translator->trans('parameters.required %1', ['%1' => 'writerId']));
         }
         if ($this->getSharedStorage()->writerExists($this->projectId, $this->writerId)) {
             throw new WrongParametersException($this->translator->trans('parameters.writerId.exists'));
@@ -175,16 +180,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             throw $e;
         }
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, SharedStorage::SERVICE_QUEUE);
+        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, JobStorage::SERVICE_QUEUE);
 
         if (!empty($params['users'])) {
             foreach ($params['users'] as $user) {
                 $this->getJobFactory()->createJob(
                     'addUserToProject',
-                    array('email' => $user, 'role' => 'admin'),
+                    ['email' => $user, 'role' => 'admin'],
                     $batchId,
-                    SharedStorage::SERVICE_QUEUE,
-                    array('dataset' => $user)
+                    JobStorage::SERVICE_QUEUE,
+                    ['dataset' => $user]
                 );
             }
         }
@@ -206,11 +211,11 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $this->checkWriterExistence();
 
         // Update writer configuration
-        $reservedAttrs = array('id', 'bucket', 'status', 'info', 'created');
+        $reservedAttrs = ['id', 'bucket', 'status', 'info', 'created'];
         foreach ($this->params as $key => $value) {
             if ($key != 'writerId') {
                 if (in_array($key, $reservedAttrs)) {
-                    throw new WrongParametersException($this->translator->trans('parameters.writer_attr %1', array('%1' => implode(', ', $reservedAttrs))));
+                    throw new WrongParametersException($this->translator->trans('parameters.writer_attr %1', ['%1' => implode(', ', $reservedAttrs)]));
                 }
                 if (is_array($value)) {
                     $value = json_encode($value);
@@ -235,7 +240,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $batchId = $this->getJobFactory()->createBatchId();
         $params = $command->prepare($this->params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, SharedStorage::SERVICE_QUEUE);
+        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, JobStorage::SERVICE_QUEUE);
         $this->getJobFactory()->enqueueJob($batchId);
         return $this->createPollResponse($batchId, $this->writerId, $job['id']);
     }
@@ -269,14 +274,14 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
         if ($this->writerId) {
             $this->checkWriterExistence();
-            return $this->createApiResponse(array(
+            return $this->createApiResponse([
                 'writer' => $this->getConfiguration()->getWriterToApi()
-            ));
+            ]);
         } else {
             $configuration = new Configuration($this->storageApi, $this->getSharedStorage());
-            return $this->createApiResponse(array(
+            return $this->createApiResponse([
                 'writers' => $configuration->getWritersToApi()
-            ));
+            ]);
         }
     }
 
@@ -309,12 +314,12 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function getProjectsAction()
     {
-        $this->checkParams(array('writerId'));
+        $this->checkParams(['writerId']);
         $this->checkWriterExistence();
 
-        return $this->createApiResponse(array(
+        return $this->createApiResponse([
             'projects' => $this->getConfiguration()->getProjects()
-        ));
+        ]);
     }
 
 
@@ -332,7 +337,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $batchId = $this->getJobFactory()->createBatchId();
         $params = $command->prepare($this->params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue, array('dataset' => $params['email']));
+        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue, ['dataset' => $params['email']]);
         $this->getJobFactory()->enqueueJob($batchId);
         return $this->createPollResponse($batchId, $this->writerId, $job['id']);
     }
@@ -351,7 +356,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $batchId = $this->getJobFactory()->createBatchId();
         $params = $command->prepare($this->params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue, array('dataset' => $params['email']));
+        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue, ['dataset' => $params['email']]);
         $this->getJobFactory()->enqueueJob($batchId);
         return $this->createPollResponse($batchId, $this->writerId, $job['id']);
     }
@@ -364,12 +369,12 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function getProjectUsersAction()
     {
-        $this->checkParams(array('writerId', 'pid'));
+        $this->checkParams(['writerId', 'pid']);
         $this->checkWriterExistence();
 
-        return $this->createApiResponse(array(
+        return $this->createApiResponse([
             'users' => $this->getConfiguration()->getProjectUsers($this->params['pid'])
-        ));
+        ]);
     }
 
 
@@ -387,7 +392,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $batchId = $this->getJobFactory()->createBatchId();
         $params = $command->prepare($this->params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue, array('dataset' => $params['email']));
+        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue, ['dataset' => $params['email']]);
         $this->getJobFactory()->enqueueJob($batchId);
         return $this->createPollResponse($batchId, $this->writerId, $job['id']);
     }
@@ -400,18 +405,18 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function getUsersAction()
     {
-        $this->checkParams(array('writerId'));
+        $this->checkParams(['writerId']);
         $this->checkWriterExistence();
 
         if (isset($this->params['userEmail'])) {
             $user = $this->getConfiguration()->getUser($this->params['userEmail']);
-            return $this->createApiResponse(array(
+            return $this->createApiResponse([
                 'user' => $user ? $user : null
-            ));
+            ]);
         } else {
-            return $this->createApiResponse(array(
+            return $this->createApiResponse([
                 'users' => $this->getConfiguration()->getUsers()
-            ));
+            ]);
         }
     }
 
@@ -432,7 +437,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         }
 
         // Init parameters
-        $this->checkParams(array('writerId', 'email', 'pid'));
+        $this->checkParams(['writerId', 'email', 'pid']);
         $this->checkWriterExistence();
 
         if (!$this->getSharedStorage()->projectBelongsToWriter($this->projectId, $this->writerId, $this->params['pid'])) {
@@ -445,12 +450,12 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             $jobFinished = false;
             $i = 1;
             do {
-                $job = $this->getSharedStorage()->fetchJob($jsonResult['job'], $this->projectId, $this->writerId);
+                $job = $this->getJobStorage()->fetchJob($jsonResult['job'], $this->projectId, $this->writerId);
                 if (!$job) {
                     throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
                 }
-                $jobInfo = SharedStorage::jobToApiResponse($job, $this->s3Client);
-                if (isset($jobInfo['status']) && SharedStorage::isJobFinished($jobInfo['status'])) {
+                $jobInfo = JobStorage::jobToApiResponse($job, $this->s3Client);
+                if (isset($jobInfo['status']) && JobStorage::isJobFinished($jobInfo['status'])) {
                     $jobFinished = true;
                 }
                 if (!$jobFinished) {
@@ -459,16 +464,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                 $i++;
             } while (!$jobFinished);
 
-            if ($jobInfo['status'] == SharedStorage::JOB_STATUS_SUCCESS) {
+            if ($jobInfo['status'] == JobStorage::JOB_STATUS_SUCCESS) {
                 if (!empty($jobInfo['result']['alreadyExists'])) {
                     throw new JobProcessException($this->translator->trans('result.cancelled'));
                 }
                 // Do nothing
-            } elseif ($jobInfo['status'] == SharedStorage::JOB_STATUS_CANCELLED) {
+            } elseif ($jobInfo['status'] == JobStorage::JOB_STATUS_CANCELLED) {
                 throw new JobProcessException($this->translator->trans('result.cancelled'));
             } else {
                 $e = new JobProcessException(!empty($jobInfo['result']['error'])? $jobInfo['result']['error'] : $this->translator->trans('result.unknown'));
-                $e->setData(array('result' => $jobInfo['result'], 'logs' => $jobInfo['logs']));
+                $e->setData(['result' => $jobInfo['result'], 'logs' => $jobInfo['logs']]);
                 throw $e;
             }
 
@@ -478,12 +483,12 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             $jobFinished = false;
             $i = 1;
             do {
-                $job = $this->getSharedStorage()->fetchJob($jsonResult['job'], $this->projectId, $this->writerId);
+                $job = $this->getJobStorage()->fetchJob($jsonResult['job'], $this->projectId, $this->writerId);
                 if (!$job) {
                     throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
                 }
-                $jobInfo = SharedStorage::jobToApiResponse($job, $this->s3Client);
-                if (isset($jobInfo['status']) && SharedStorage::isJobFinished($jobInfo['status'])) {
+                $jobInfo = JobStorage::jobToApiResponse($job, $this->s3Client);
+                if (isset($jobInfo['status']) && JobStorage::isJobFinished($jobInfo['status'])) {
                     $jobFinished = true;
                 }
                 if (!$jobFinished) {
@@ -492,13 +497,13 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                 $i++;
             } while (!$jobFinished);
 
-            if ($jobInfo['status'] == SharedStorage::JOB_STATUS_SUCCESS) {
+            if ($jobInfo['status'] == JobStorage::JOB_STATUS_SUCCESS) {
                 // Do nothing
-            } elseif ($jobInfo['status'] == SharedStorage::JOB_STATUS_CANCELLED) {
+            } elseif ($jobInfo['status'] == JobStorage::JOB_STATUS_CANCELLED) {
                 throw new JobProcessException($this->translator->trans('result.cancelled'));
             } else {
                 $e = new JobProcessException(!empty($jobInfo['result']['error'])? $jobInfo['result']['error'] : $this->translator->trans('result.unknown'));
-                $e->setData(array('result' => $jobInfo['result'], 'logs' => $jobInfo['logs']));
+                $e->setData(['result' => $jobInfo['result'], 'logs' => $jobInfo['logs']]);
                 throw $e;
             }
         }
@@ -522,13 +527,13 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
         if (null == $ssoLink) {
             $e = new SyrupComponentException(500, $this->translator->trans('error.sso_unknown'));
-            $e->setData(array('params' => $this->params));
+            $e->setData(['params' => $this->params]);
             throw $e;
         }
 
-        return $this->createApiResponse(array(
+        return $this->createApiResponse([
             'ssoLink' => $ssoLink
-        ));
+        ]);
     }
 
 
@@ -560,7 +565,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function getProxyAction()
     {
-        $this->checkParams(array('writerId', 'query'));
+        $this->checkParams(['writerId', 'query']);
         $this->checkWriterExistence();
 
         // query validation
@@ -568,10 +573,10 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             // clean url - remove domain
             $query = Url::factory(urldecode($this->params['query']));
 
-            $url = Url::buildUrl(array(
+            $url = Url::buildUrl([
                 'path' => $query->getPath(),
                 'query' => $query->getQuery(),
-            ));
+            ]);
         } catch (InvalidArgumentException $e) {
             throw new WrongParametersException($this->translator->trans('parameters.query'));
         }
@@ -591,9 +596,9 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         try {
             $return = $restApi->get($url);
 
-            return $this->createApiResponse(array(
+            return $this->createApiResponse([
                 'response' => $return
-            ));
+            ]);
         } catch (RestApiException $e) {
             throw new WrongParametersException($e->getMessage(), $e);
         }
@@ -648,7 +653,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function getFiltersAction()
     {
-        $this->checkParams(array('writerId'));
+        $this->checkParams(['writerId']);
         $this->checkWriterExistence();
 
         if (isset($this->params['userEmail'])) {
@@ -664,9 +669,9 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             $filters = $this->getConfiguration()->getFilters();
         }
 
-        return $this->createApiResponse(array(
+        return $this->createApiResponse([
             'filters' => $filters
-        ));
+        ]);
     }
 
     /**
@@ -678,7 +683,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function getFiltersProjectsAction()
     {
-        $this->checkParams(array('writerId'));
+        $this->checkParams(['writerId']);
         $this->checkWriterExistence();
 
         if (isset($this->params['pid'])) {
@@ -689,9 +694,9 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             $filters = $this->getConfiguration()->getFiltersProjects();
         }
 
-        return $this->createApiResponse(array(
+        return $this->createApiResponse([
             'filters' => $filters
-        ));
+        ]);
     }
 
 
@@ -704,7 +709,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function getFiltersUsersAction()
     {
-        $this->checkParams(array('writerId'));
+        $this->checkParams(['writerId']);
         $this->checkWriterExistence();
 
         if (isset($this->params['email'])) {
@@ -715,9 +720,9 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             $filters = $this->getConfiguration()->getFiltersUsers();
         }
 
-        return $this->createApiResponse(array(
+        return $this->createApiResponse([
             'filters' => $filters
-        ));
+        ]);
     }
 
 
@@ -756,9 +761,9 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $params = $command->prepare($this->params);
 
         $job = false;
-        $projects = empty($params['pid'])? $this->getProjectsToUse() : array($params['pid']);
+        $projects = empty($params['pid'])? $this->getProjectsToUse() : [$params['pid']];
         foreach ($projects as $pid) {
-            $job = $this->getJobFactory()->createJob($jobName, array('pid' => $pid), $batchId, $this->paramQueue);
+            $job = $this->getJobFactory()->createJob($jobName, ['pid' => $pid], $batchId, $this->paramQueue);
         }
         $this->getJobFactory()->enqueueJob($batchId);
         return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
@@ -773,7 +778,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function getLdmAction()
     {
-        $this->checkParams(array('writerId'));
+        $this->checkParams(['writerId']);
         $this->checkWriterExistence();
 
         //@TODO return $this->getConfiguration()->getLDM();
@@ -796,8 +801,8 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
         $job = false;
         foreach ($this->getProjectsToUse() as $pid) {
-            $pars = array('pid' => $pid, 'name' => $params['name'], 'includeTime' => $params['includeTime']);
-            $job = $this->getJobFactory()->createJob($jobName, $pars, $batchId, $this->paramQueue, array('dataset' => $pars['name']));
+            $pars = ['pid' => $pid, 'name' => $params['name'], 'includeTime' => $params['includeTime']];
+            $job = $this->getJobFactory()->createJob($jobName, $pars, $batchId, $this->paramQueue, ['dataset' => $pars['name']]);
         }
 
         $this->getJobFactory()->enqueueJob($batchId);
@@ -824,10 +829,10 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             $datasetName = !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'];
             $job = $this->getJobFactory()->createJob(
                 $jobName,
-                array('pid' => $pid, 'tableId' => $params['tableId']),
+                ['pid' => $pid, 'tableId' => $params['tableId']],
                 $batchId,
                 $this->paramQueue,
-                array('dataset' => $datasetName)
+                ['dataset' => $datasetName]
             );
             $this->getJobFactory()->saveDefinition($job['id'], $definition);
         }
@@ -854,12 +859,12 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             $definition = $this->getConfiguration()->getDataSetDefinition($tableId);
             $tableConfiguration = $this->getConfiguration()->getDataSet($tableId);
             foreach ($this->getProjectsToUse() as $pid) {
-                $loadParams = array('pid' => $pid, 'tableId' => $tableId);
+                $loadParams = ['pid' => $pid, 'tableId' => $tableId];
                 if (isset($params['incrementalLoad'])) {
                     $loadParams['incrementalLoad'] = $params['incrementalLoad'];
                 }
                 $datasetName = !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'];
-                $job = $this->getJobFactory()->createJob($jobName, $loadParams, $batchId, $this->paramQueue, array('dataset' => $datasetName));
+                $job = $this->getJobFactory()->createJob($jobName, $loadParams, $batchId, $this->paramQueue, ['dataset' => $datasetName]);
                 $this->getJobFactory()->saveDefinition($job['id'], $definition);
             }
         }
@@ -885,13 +890,13 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         foreach ($this->getProjectsToUse() as $pid) {
             $definition = [];
             foreach ($params['tables'] as $tableId) {
-                $definition[$tableId] = array(
+                $definition[$tableId] = [
                     'columns' => $this->getConfiguration()->getDataSetDefinition($tableId),
                     'dataset' => $this->getConfiguration()->getDataSet($tableId)
-                );
+                ];
             }
 
-            $loadParams = array('pid' => $pid, 'tables' => $params['tables']);
+            $loadParams = ['pid' => $pid, 'tables' => $params['tables']];
             if (isset($params['incrementalLoad'])) {
                 $loadParams['incrementalLoad'] = $params['incrementalLoad'];
             }
@@ -913,7 +918,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
     public function postUploadTableAction()
     {
         // Init parameters
-        $this->checkParams(array('writerId', 'tableId'));
+        $this->checkParams(['writerId', 'tableId']);
         $this->checkWriterExistence();
 
         $bucketAttributes = $this->getConfiguration()->bucketAttributes();
@@ -935,24 +940,24 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
                     $dimension = $column['schemaReference'];
                     if (!isset($dateDimensions[$dimension])) {
-                        throw new WrongParametersException($this->translator->trans('configuration.dimension_not_found %d %c', array('%d' => $dimension, '%c' => $column['name'])));
+                        throw new WrongParametersException($this->translator->trans('configuration.dimension_not_found %d %c', ['%d' => $dimension, '%c' => $column['name']]));
                     }
 
                     if (!$dateDimensions[$dimension]['isExported'] && !in_array($dimension, $dateDimensionsToLoad)) {
                         $dateDimensionsToLoad[] = $dimension;
 
                         foreach ($projectsToUse as $pid) {
-                            $params = array(
+                            $params = [
                                 'pid' => $pid,
                                 'name' => $dimension,
                                 'includeTime' => $dateDimensions[$dimension]['includeTime']
-                            );
+                            ];
                             $this->getJobFactory()->createJob(
                                 'uploadDateDimension',
                                 $params,
                                 $batchId,
                                 $this->paramQueue,
-                                array('dataset' => $dimension)
+                                ['dataset' => $dimension]
                             );
                         }
                     }
@@ -986,10 +991,10 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                 $doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
 
                 if (!$dataSetExists || $doUpdate) {
-                    $params = array(
+                    $params = [
                         'pid' => $pid,
                         'tableId' => $this->params['tableId']
-                    );
+                    ];
                     $jobData = $this->getJobFactory()->createJob(
                         'updateModel',
                         $params,
@@ -1000,10 +1005,10 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                     $this->getJobFactory()->saveDefinition($jobData['id'], $definition);
                 }
 
-                $params = array(
+                $params = [
                     'pid' => $pid,
                     'tableId' => $this->params['tableId']
-                );
+                ];
                 if (isset($this->params['incrementalLoad'])) {
                     $params['incrementalLoad'] = $this->params['incrementalLoad'];
                 }
@@ -1034,7 +1039,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postUploadProjectAction()
     {
-        $this->checkParams(array('writerId'));
+        $this->checkParams(['writerId']);
         $this->checkWriterExistence();
 
         $bucketAttributes = $this->getConfiguration()->bucketAttributes();
@@ -1069,11 +1074,11 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                             $dateDimensionsToLoad[] = $dimension;
 
                             foreach ($projectsToUse as $pid) {
-                                $params = array(
+                                $params = [
                                     'pid' => $pid,
                                     'name' => $dimension,
                                     'includeTime' => $dateDimensions[$dimension]['includeTime']
-                                );
+                                ];
                                 $this->getJobFactory()->createJob(
                                     'uploadDateDimension',
                                     $params,
@@ -1115,10 +1120,10 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                     $doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
 
                     if (!$dataSetExists || $doUpdate) {
-                        $params = array(
+                        $params = [
                             'pid' => $pid,
                             'tableId' => $dataSet['tableId']
-                        );
+                        ];
                         $jobData = $this->getJobFactory()->createJob(
                             'updateModel',
                             $params,
@@ -1129,10 +1134,10 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                         $this->getJobFactory()->saveDefinition($jobData['id'], $dataSet['definition']);
                     }
 
-                    $params = array(
+                    $params = [
                         'pid' => $pid,
                         'tableId' => $dataSet['tableId']
-                    );
+                    ];
                     if (isset($this->params['incrementalLoad'])) {
                         $params['incrementalLoad'] = $this->params['incrementalLoad'];
                     }
@@ -1155,7 +1160,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         // Execute reports
         $job = null;
         foreach ($projectsToUse as $pid) {
-            $job = $this->getJobFactory()->createJob('executeReports', array('pid' => $pid), $batchId, $this->paramQueue);
+            $job = $this->getJobFactory()->createJob('executeReports', ['pid' => $pid], $batchId, $this->paramQueue);
         }
 
         $this->getJobFactory()->enqueueJob($batchId);
@@ -1250,7 +1255,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function getModelAction()
     {
-        $this->checkParams(array('writerId'));
+        $this->checkParams(['writerId']);
         $this->checkWriterExistence();
 
         $model = new Graph();
@@ -1290,22 +1295,22 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function getTablesAction()
     {
-        $this->checkParams(array('writerId'));
+        $this->checkParams(['writerId']);
         $this->checkWriterExistence();
 
         if (isset($this->params['tableId'])) {
             // Table detail
-            return $this->createApiResponse(array(
+            return $this->createApiResponse([
                 'table' => $this->getConfiguration()->getDataSetForApi($this->params['tableId'])
-            ));
+            ]);
         } elseif (isset($this->params['connection'])) {
-            return $this->createApiResponse(array(
+            return $this->createApiResponse([
                 'tables' => $this->getConfiguration()->getDataSetsWithConnectionPoint()
-            ));
+            ]);
         } else {
-            return $this->createApiResponse(array(
+            return $this->createApiResponse([
                 'tables' => $this->getConfiguration()->getDataSets()
-            ));
+            ]);
         }
     }
 
@@ -1317,7 +1322,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postTablesAction()
     {
-        $this->checkParams(array('writerId', 'tableId'));
+        $this->checkParams(['writerId', 'tableId']);
         $this->checkWriterExistence();
         if (!in_array($this->params['tableId'], $this->getConfiguration()->getOutputSapiTables())) {
             throw new WrongParametersException($this->translator->trans('parameters.tableId'));
@@ -1354,7 +1359,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postResetExportAction()
     {
-        $this->checkParams(array('writerId'));
+        $this->checkParams(['writerId']);
         $this->checkWriterExistence();
 
         foreach ($this->getConfiguration()->getDataSets() as $dataSet) {
@@ -1374,12 +1379,12 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function getDateDimensionsAction()
     {
-        $this->checkParams(array('writerId'));
+        $this->checkParams(['writerId']);
         $this->checkWriterExistence();
 
-        return $this->createApiResponse(array(
+        return $this->createApiResponse([
             'dimensions' => (object) $this->getConfiguration()->getDateDimensions(isset($this->params['usage']))
-        ));
+        ]);
     }
 
 
@@ -1391,7 +1396,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function deleteDateDimensionsAction()
     {
-        $this->checkParams(array('writerId', 'name'));
+        $this->checkParams(['writerId', 'name']);
         $this->checkWriterExistence();
 
         $dimensions = $this->getConfiguration()->getDateDimensions();
@@ -1414,7 +1419,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postDateDimensionsAction()
     {
-        $this->checkParams(array('writerId', 'name'));
+        $this->checkParams(['writerId', 'name']);
         $this->checkWriterExistence();
 
         $this->params['name'] = trim($this->params['name']);
@@ -1443,7 +1448,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function getJobsAction()
     {
-        $this->checkParams(array('writerId'));
+        $this->checkParams(['writerId']);
         $this->checkWriterExistence();
 
         if (empty($this->params['jobId'])) {
@@ -1452,31 +1457,31 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             $command = empty($this->params['command']) ? null : $this->params['command'];
             $tokenId = empty($this->params['tokenId']) ? null : $this->params['tokenId'];
             $status = empty($this->params['status']) ? null : $this->params['status'];
-            $jobs = $this->getSharedStorage()->fetchJobs($this->projectId, $this->writerId, $days, $tableId);
+            $jobs = $this->getJobStorage()->fetchJobs($this->projectId, $this->writerId, $days, $tableId);
 
             $result = [];
             foreach ($jobs as $job) {
                 if ((empty($command) || $command == $job['command']) && (empty($tokenId) || $tokenId == $job['tokenId'])
                     && (empty($status) || $status == $job['status'])) {
                     if (empty($tableId) || (!empty($job['parameters']['tableId']) && $job['parameters']['tableId'] == $tableId)) {
-                        $result[] = SharedStorage::jobToApiResponse($job, $this->s3Client);
+                        $result[] = JobStorage::jobToApiResponse($job, $this->s3Client);
                     }
                 }
             }
 
-            return $this->createApiResponse(array(
+            return $this->createApiResponse([
                 'jobs' => $result
-            ));
+            ]);
         } else {
             if (is_array($this->params['jobId'])) {
                 throw new WrongParametersException($this->translator->trans('parameters.jobId_number'));
             }
-            $job = $this->getSharedStorage()->fetchJob($this->params['jobId'], $this->projectId, $this->writerId);
+            $job = $this->getJobStorage()->fetchJob($this->params['jobId'], $this->projectId, $this->writerId);
             if (!$job) {
                 throw new WrongParametersException($this->translator->trans('parameters.job'));
             }
 
-            $job = SharedStorage::jobToApiResponse($job, $this->s3Client);
+            $job = JobStorage::jobToApiResponse($job, $this->s3Client);
 
             $this->logApiCall();
             return $this->createJsonResponse($job);
@@ -1491,14 +1496,14 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function getBatchAction()
     {
-        $this->checkParams(array('writerId', 'batchId'));
+        $this->checkParams(['writerId', 'batchId']);
         $this->checkWriterExistence();
 
-        $jobs = $this->getSharedStorage()->fetchBatch($this->params['batchId']);
+        $jobs = $this->getJobStorage()->fetchBatch($this->params['batchId']);
         if (!count($jobs)) {
             throw new WrongParametersException(sprintf("Batch '%d' not found", $this->params['batchId']));
         }
-        $batch = SharedStorage::batchToApiResponse($this->params['batchId'], $jobs);
+        $batch = JobStorage::batchToApiResponse($this->params['batchId'], $jobs);
 
         $this->logApiCall();
         return $this->createJsonResponse($batch);
@@ -1512,9 +1517,9 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postCancelJobsAction()
     {
-        $this->checkParams(array('writerId'));
+        $this->checkParams(['writerId']);
 
-        $this->getSharedStorage()->cancelJobs($this->projectId, $this->writerId);
+        $this->getJobStorage()->cancelJobs($this->projectId, $this->writerId);
         return $this->createApiResponse();
     }
 
@@ -1541,9 +1546,9 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         if (!$statusMessage) {
             $statusMessage = ($statusCode >= 300)? 'error' : 'ok';
         }
-        $responseBody = array(
+        $responseBody = [
             'status' => $statusMessage
-        );
+        ];
 
         if ($this->stopWatch->isStarted(self::STOPWATCH_NAME_REQUEST)) {
             $event = $this->stopWatch->stop(self::STOPWATCH_NAME_REQUEST);
@@ -1561,9 +1566,9 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
     public function createMaintenanceResponse()
     {
-        return $this->createApiResponse(array(
+        return $this->createApiResponse([
             'error' => 'There is undergoing maintenance on GoodData backend, please try again later.'
-        ), 503, 'maintenance');
+        ], 503, 'maintenance');
     }
 
     private function createPollResponse($batchId, $writerId, $jobId = null, $responseCode = 202)
@@ -1571,7 +1576,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         /** @var \Symfony\Component\Routing\RequestContext $context */
         $context = $this->container->get('router')->getContext();
 
-        $result = array(
+        $result = [
             'batch' => (int)$batchId,
             'url' => sprintf(
                 'https://%s%s/gooddata-writer/batch?writerId=%s&batchId=%s',
@@ -1580,7 +1585,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                 $writerId,
                 $batchId
             )
-        );
+        ];
         if ($jobId) {
             $result['job'] = (int)$jobId;
         }
@@ -1607,11 +1612,19 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         return $this->sharedStorage;
     }
 
+    private function getJobStorage()
+    {
+        if (!$this->jobStorage) {
+            $this->jobStorage = $this->container->get('gooddata_writer.job_storage');
+        }
+        return $this->jobStorage;
+    }
+
     private function checkParams($required)
     {
         foreach ($required as $k) {
             if (empty($this->params[$k])) {
-                throw new WrongParametersException($this->translator->trans('parameters.required %1', array('%1' => $k)));
+                throw new WrongParametersException($this->translator->trans('parameters.required %1', ['%1' => $k]));
             }
         }
     }
@@ -1632,7 +1645,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         foreach ($this->getConfiguration()->getProjects() as $project) {
             if ($project['active']) {
                 if (in_array($project['pid'], $projects)) {
-                    throw new WrongConfigurationException($this->translator->trans('configuration.project.duplicated %1', array('%1' => $project['pid'])));
+                    throw new WrongConfigurationException($this->translator->trans('configuration.project.duplicated %1', ['%1' => $project['pid']]));
                 }
                 if (!isset($this->params['pid']) || $project['pid'] == $this->params['pid']) {
                     $projects[] = $project['pid'];
@@ -1654,6 +1667,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             );
             $this->jobFactory
                 ->setSharedStorage($this->getSharedStorage())
+                ->setJobStorage($this->getJobStorage())
                 ->setConfiguration($this->getConfiguration())
                 ->setStorageApiClient($this->storageApi)
                 ->setEventLogger($this->eventLogger)
@@ -1661,7 +1675,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                 ->setTemp($this->temp)
                 ->setLogger($this->logger)
                 ->setS3Client($this->container->get('gooddata_writer.s3_client'))
-                ->setQueue($this->container->get('syrup.queue_factory')->get());
+                ->setQueue($this->container->get('gooddata_writer.jobs_queue'));
         }
         return $this->jobFactory;
     }

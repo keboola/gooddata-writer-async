@@ -7,7 +7,7 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Writer\SharedStorage;
+use Keboola\GoodDataWriter\Writer\JobStorage;
 
 class ReportsTest extends AbstractControllerTest
 {
@@ -117,7 +117,7 @@ class ReportsTest extends AbstractControllerTest
         ), 'POST');
         $jobStatus = $this->getWriterApi('/batch?batchId=' .$batchId . '&writerId=' . $this->writerId);
 
-        $this->assertEquals(SharedStorage::JOB_STATUS_SUCCESS, $jobStatus['jobs'][0]['status'], "Error posting report definition to project");
+        $this->assertEquals(JobStorage::JOB_STATUS_SUCCESS, $jobStatus['jobs'][0]['status'], "Error posting report definition to project");
         $reportDefinitionUri = $jobStatus['jobs'][0]['result']['response']['uri'];
 
         // Post report

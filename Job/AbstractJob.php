@@ -10,6 +10,7 @@ use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\GoodDataWriter\Writer\Configuration;
+use Keboola\GoodDataWriter\Writer\JobStorage;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\StorageApi\Client as StorageApiClient;
@@ -31,6 +32,10 @@ abstract class AbstractJob
      * @var SharedStorage
      */
     protected $sharedStorage;
+    /**
+     * @var JobStorage
+     */
+    protected $jobStorage;
     /**
      * @var S3Client
      */
@@ -72,9 +77,12 @@ abstract class AbstractJob
     protected $gdUsernameDomain;
 
 
-    public function __construct($gdConfig, Configuration $configuration)
+    public function __construct($gdConfig, Configuration $configuration, SharedStorage $sharedStorage, StorageApiClient $storageApiClient)
     {
         $this->configuration = $configuration;
+        $this->sharedStorage = $sharedStorage;
+        $this->storageApiClient = $storageApiClient;
+
         if (!isset($gdConfig['access_token'])) {
             throw new \Exception("Key 'access_token' is missing from gd config");
         }
@@ -116,25 +124,17 @@ abstract class AbstractJob
         return $this->domainUser;
     }
 
-    public function setSharedStorage(SharedStorage $sharedStorage)
-    {
-        $this->sharedStorage = $sharedStorage;
-        return $this;
-    }
-
-    public function setStorageApiClient(StorageApiClient $storageApiClient)
-    {
-        $this->storageApiClient = $storageApiClient;
-        return $this;
-    }
-
-
     public function setFactory($factory)
     {
         $this->factory = $factory;
         return $this;
     }
 
+    public function setJobStorage($jobStorage)
+    {
+        $this->jobStorage = $jobStorage;
+        return $this;
+    }
 
     public function setTemp($temp)
     {
@@ -191,7 +191,7 @@ abstract class AbstractJob
     {
         foreach ($required as $k) {
             if (empty($params[$k])) {
-                throw new WrongConfigurationException($this->translator->trans('parameters.required %1', array('%1' => $k)));
+                throw new WrongConfigurationException($this->translator->trans('parameters.required %1', ['%1' => $k]));
             }
         }
     }

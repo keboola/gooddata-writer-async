@@ -6,7 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Writer\SharedStorage;
+use Keboola\GoodDataWriter\Writer\JobStorage;
 
 class ProxyTest extends AbstractControllerTest
 {
@@ -54,6 +54,6 @@ class ProxyTest extends AbstractControllerTest
         ), 'POST');
 
         $jobStatus = $this->getWriterApi('/batch?batchId=' .$batchId . '&writerId=' . $this->writerId);
-        $this->assertEquals(SharedStorage::JOB_STATUS_SUCCESS, $jobStatus['status']);
+        $this->assertEquals(JobStorage::JOB_STATUS_SUCCESS, $jobStatus['status']);
     }
 }

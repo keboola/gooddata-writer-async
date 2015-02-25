@@ -12,6 +12,7 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Exception\UserAlreadyExistsException;
 use Keboola\GoodDataWriter\Exception\JobProcessException;
+use Keboola\GoodDataWriter\Writer\JobStorage;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 
 class CreateWriter extends AbstractJob
@@ -22,7 +23,7 @@ class CreateWriter extends AbstractJob
         $tokenInfo = $this->storageApiClient->getLogData();
         $projectId = $tokenInfo['owner']['id'];
 
-        $this->checkParams($params, array('writerId'));
+        $this->checkParams($params, ['writerId']);
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $params['writerId'])) {
             throw new WrongParametersException($this->translator->trans('parameters.writerId.format'));
         }
@@ -105,7 +106,7 @@ class CreateWriter extends AbstractJob
                     throw new JobProcessException($this->translator->trans('parameters.gd.user_not_admin'));
                 }
             } else {
-                $this->checkParams($params, array('accessToken', 'projectName'));
+                $this->checkParams($params, ['accessToken', 'projectName']);
             }
 
             // Create writer's GD user
@@ -135,15 +136,15 @@ class CreateWriter extends AbstractJob
                 $this->configuration->updateBucketAttribute('waitingForInvitation', '1');
                 $this->sharedStorage->setWriterStatus($job['projectId'], $job['writerId'], SharedStorage::WRITER_STATUS_MAINTENANCE);
 
-                $waitJobData = $this->factory->createJob('waitForInvitation', array('try' => 1), null, SharedStorage::SERVICE_QUEUE);
+                $waitJobData = $this->factory->createJob('waitForInvitation', ['try' => 1], null, JobStorage::SERVICE_QUEUE);
                 $this->factory->enqueueJob($waitJobData['batchId'], 30);
 
             } else {
-                $projectPid = $restApi->createProject($params['projectName'], $params['accessToken'], json_encode(array(
+                $projectPid = $restApi->createProject($params['projectName'], $params['accessToken'], json_encode([
                     'projectId' => $this->configuration->projectId,
                     'writerId' => $this->configuration->writerId,
                     'main' => true
-                )));
+                ]));
                 $restApi->addUserToProject($userId, $projectPid, RestApi::USER_ROLE_ADMIN);
             }
 
@@ -164,15 +165,15 @@ class CreateWriter extends AbstractJob
             $this->sharedStorage->setWriterStatus($job['projectId'], $job['writerId'], SharedStorage::WRITER_STATUS_READY);
 
 
-            return array(
+            return [
                 'uid' => $userId,
                 'pid' => $projectPid
-            );
+            ];
         } catch (\Exception $e) {
-            $this->sharedStorage->updateWriter($job['projectId'], $job['writerId'], array(
+            $this->sharedStorage->updateWriter($job['projectId'], $job['writerId'], [
                 'status' => SharedStorage::WRITER_STATUS_ERROR,
                 'failure' => $e->getMessage()
-            ));
+            ]);
             throw $e;
         }
     }

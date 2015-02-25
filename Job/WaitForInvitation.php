@@ -8,6 +8,7 @@ namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Writer\JobStorage;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 
 class WaitForInvitation extends AbstractJob
@@ -24,7 +25,7 @@ class WaitForInvitation extends AbstractJob
      */
     public function run($job, $params, RestApi $restApi)
     {
-        $this->checkParams($params, array('try'));
+        $this->checkParams($params, ['try']);
         $bucketAttributes = $this->configuration->bucketAttributes();
 
         $restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
@@ -38,13 +39,13 @@ class WaitForInvitation extends AbstractJob
                 throw new WrongConfigurationException($this->translator->trans('wait_for_invitation.lasts_too_long'));
             }
 
-            $waitJobData = $this->factory->createJob('waitForInvitation', array('try' => $params['try'] + 1), null, SharedStorage::SERVICE_QUEUE);
+            $waitJobData = $this->factory->createJob('waitForInvitation', ['try' => $params['try'] + 1], null, JobStorage::SERVICE_QUEUE);
             $this->factory->enqueueJob($waitJobData['batchId'], $params['try'] * 60);
 
-            return array(
-                'status' => SharedStorage::JOB_STATUS_ERROR,
+            return [
+                'status' => JobStorage::JOB_STATUS_ERROR,
                 'error' => $this->translator->trans('wait_for_invitation.not_yet_ready')
-            );
+            ];
 
         }
 

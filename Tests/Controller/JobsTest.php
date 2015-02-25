@@ -6,7 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Writer\SharedStorage;
+use Keboola\GoodDataWriter\Writer\JobStorage;
 
 class JobsTest extends AbstractControllerTest
 {
@@ -104,7 +104,7 @@ class JobsTest extends AbstractControllerTest
             $responseJson = $this->getWriterApi(sprintf('/jobs?writerId=%s&jobId=%d', $this->writerId, $job['id']));
 
             $this->assertArrayHasKey('status', $responseJson, "Response for writer call '/jobs' should contain 'status' key.");
-            $this->assertEquals(SharedStorage::JOB_STATUS_CANCELLED, $responseJson['status'], "Response for writer call '/jobs' should have key 'status' with value 'cancelled'.");
+            $this->assertEquals(JobStorage::JOB_STATUS_CANCELLED, $responseJson['status'], "Response for writer call '/jobs' should have key 'status' with value 'cancelled'.");
         }
     }
 }
