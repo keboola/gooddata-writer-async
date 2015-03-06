@@ -331,6 +331,7 @@ abstract class AbstractControllerTest extends WebTestCase
         } else {
             $this->assertTrue(false, sprintf("Response for writer call '%s' should contain 'batch' key.", $url));
         }
+        return false;
     }
 
     protected function createUser($ssoProvider = null)

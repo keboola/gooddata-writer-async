@@ -6,31 +6,33 @@
 
 namespace Keboola\GoodDataWriter\Controller;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\GoodData\Model;
-use Keboola\GoodDataWriter\Job\JobFactory;
-use Keboola\GoodDataWriter\Service\EventLogger;
-use Keboola\GoodDataWriter\Service\S3Client;
-use Keboola\GoodDataWriter\Writer\JobStorage;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\Method;
-
 use Guzzle\Http\Url;
 use Guzzle\Common\Exception\InvalidArgumentException;
+use Keboola\GoodDataWriter\Task\Factory;
+use Keboola\GoodDataWriter\Writer\Job;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\Stopwatch\Stopwatch;
-
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Method;
 use Keboola\Syrup\Exception\SyrupComponentException;
+use Keboola\Temp\Temp;
+
+use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\SSO;
 use Keboola\GoodDataWriter\Model\Graph;
+use Keboola\GoodDataWriter\Service\EventLogger;
+use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
+use Keboola\GoodDataWriter\Writer\JobFactory;
+
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Exception\GraphTtlException;
 use Keboola\GoodDataWriter\Exception\JobProcessException;
+use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
 
 class ApiController extends \Keboola\Syrup\Controller\ApiController
@@ -45,10 +47,6 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      * @var SharedStorage
      */
     public $sharedStorage;
-    /**
-     * @var JobStorage
-     */
-    public $jobStorage;
 
     /**
      * @var \Symfony\Component\Translation\Translator
@@ -93,22 +91,22 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
         // Get params
         $this->method = $request->getMethod();
-        $this->params = in_array($this->method, ['POST', 'PUT'])? $this->getPostJson($request) : $request->query->all();
-        array_walk_recursive($this->params, function(&$param) {
+        $this->params = in_array($this->method, ['POST', 'PUT']) ? $this->getPostJson($request) : $request->query->all();
+        array_walk_recursive($this->params, function (&$param) {
             $param = trim($param);
         });
 
-        if (isset($this->params['queue']) && !in_array($this->params['queue'], [JobStorage::PRIMARY_QUEUE, JobStorage::SECONDARY_QUEUE])) {
+        if (isset($this->params['queue']) && !in_array($this->params['queue'], [Job::PRIMARY_QUEUE, Job::SECONDARY_QUEUE])) {
             throw new WrongParametersException($this->translator->trans(
                 'parameters.queue %1',
-                ['%1' => JobStorage::PRIMARY_QUEUE . ', ' . JobStorage::SECONDARY_QUEUE]
+                ['%1' => Job::PRIMARY_QUEUE . ', ' . Job::SECONDARY_QUEUE]
             ));
         }
-        $this->paramQueue = isset($this->params['queue'])? $this->params['queue'] : JobStorage::PRIMARY_QUEUE;
+        $this->paramQueue = isset($this->params['queue']) ? $this->params['queue'] : Job::PRIMARY_QUEUE;
 
         $tokenInfo = $this->storageApi->getLogData();
         $this->projectId = $tokenInfo['owner']['id'];
-        $this->writerId = empty($this->params['writerId'])? null : $this->params['writerId'];
+        $this->writerId = empty($this->params['writerId']) ? null : $this->params['writerId'];
 
 
         $this->s3Client = $this->container->get('gooddata_writer.s3_client');
@@ -117,6 +115,12 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $this->stopWatch = new Stopwatch();
         $this->stopWatch->start(self::STOPWATCH_NAME_REQUEST);
     }
+
+    private function getJob($queue = null)
+    {
+        return $this->getJobFactory()->create($queue ?: $this->paramQueue);
+    }
+
 
     /**
      * Optimize SLI Hash
@@ -127,16 +131,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postOptimizeSliHashAction()
     {
-        $jobName = 'optimizeSliHash';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'optimizeSliHash';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob(Job::SERVICE_QUEUE);
+        $job->addTask($taskName, $params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, JobStorage::SERVICE_QUEUE);
-
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
 
@@ -155,10 +159,11 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             throw new WrongParametersException($this->translator->trans('parameters.writerId.exists'));
         }
 
-        $jobName = 'createWriter';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $job = $this->getJob(Job::SERVICE_QUEUE);
 
-        $batchId = $this->getJobFactory()->createBatchId();
+        $taskName = 'createWriter';
+        $task = $this->getTaskClass($taskName);
+
         try {
             /** @var RestApi $restApi */
             $restApi = $this->container->get('gooddata_writer.rest_api');
@@ -173,29 +178,24 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             } catch (WrongConfigurationException $e) {
                 // ignore non-existing config bucket
             }
-            $params = $command->prepare($this->params, $restApi);
+            $params = $task->prepare($this->params, $restApi);
         } catch (RestApiException $e) {
             $e = new JobProcessException($e->getMessage(), $e);
             $e->setData($e->getData());
             throw $e;
         }
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, JobStorage::SERVICE_QUEUE);
+        $job->addTask($taskName, $params);
 
         if (!empty($params['users'])) {
             foreach ($params['users'] as $user) {
-                $this->getJobFactory()->createJob(
-                    'addUserToProject',
-                    ['email' => $user, 'role' => 'admin'],
-                    $batchId,
-                    JobStorage::SERVICE_QUEUE,
-                    ['dataset' => $user]
-                );
+                $job->addTask('addUserToProject', ['email' => $user, 'role' => 'admin']);
             }
         }
 
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -234,15 +234,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function deleteWritersAction()
     {
-        $jobName = 'deleteWriter';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'deleteWriter';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob(Job::SERVICE_QUEUE);
+        $job->addTask($taskName, $params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, JobStorage::SERVICE_QUEUE);
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -295,15 +296,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postProjectsAction()
     {
-        $jobName = 'cloneProject';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'cloneProject';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
+        $job->addTask($taskName, $params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -331,15 +333,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postProjectUsersAction()
     {
-        $jobName = 'addUserToProject';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'addUserToProject';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
+        $job->addTask($taskName, $params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue, ['dataset' => $params['email']]);
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -350,15 +353,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function deleteProjectUsersAction()
     {
-        $jobName = 'removeUserFromProject';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'removeUserFromProject';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
+        $job->addTask($taskName, $params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue, ['dataset' => $params['email']]);
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -386,15 +390,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postUsersAction()
     {
-        $jobName = 'createUser';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'createUser';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
+        $job->addTask($taskName, $params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue, ['dataset' => $params['email']]);
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -464,12 +469,12 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                 $i++;
             } while (!$jobFinished);
 
-            if ($jobInfo['status'] == JobStorage::JOB_STATUS_SUCCESS) {
+            if ($jobInfo['status'] == Job::STATUS_SUCCESS) {
                 if (!empty($jobInfo['result']['alreadyExists'])) {
                     throw new JobProcessException($this->translator->trans('result.cancelled'));
                 }
                 // Do nothing
-            } elseif ($jobInfo['status'] == JobStorage::JOB_STATUS_CANCELLED) {
+            } elseif ($jobInfo['status'] == Job::STATUS_CANCELLED) {
                 throw new JobProcessException($this->translator->trans('result.cancelled'));
             } else {
                 $e = new JobProcessException(!empty($jobInfo['result']['error'])? $jobInfo['result']['error'] : $this->translator->trans('result.unknown'));
@@ -497,9 +502,9 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                 $i++;
             } while (!$jobFinished);
 
-            if ($jobInfo['status'] == JobStorage::JOB_STATUS_SUCCESS) {
+            if ($jobInfo['status'] == Job::STATUS_SUCCESS) {
                 // Do nothing
-            } elseif ($jobInfo['status'] == JobStorage::JOB_STATUS_CANCELLED) {
+            } elseif ($jobInfo['status'] == Job::STATUS_CANCELLED) {
                 throw new JobProcessException($this->translator->trans('result.cancelled'));
             } else {
                 $e = new JobProcessException(!empty($jobInfo['result']['error'])? $jobInfo['result']['error'] : $this->translator->trans('result.unknown'));
@@ -523,7 +528,9 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
         $ssoProvider = isset($gdConfig['sso_provider'])? $gdConfig['sso_provider'] : Model::SSO_PROVIDER;
         $passphrase = $this->container->getParameter('gdwr_key_passphrase');
-        $ssoLink = SSO::url($domainUser->username, $ssoProvider, $passphrase, $this->container->get('syrup.temp'), $targetUrl, $this->params['email'], $validity);
+        /** @var Temp $temp */
+        $temp = $this->container->get('syrup.temp');
+        $ssoLink = SSO::url($domainUser->username, $ssoProvider, $passphrase, $temp, $targetUrl, $this->params['email'], $validity);
 
         if (null == $ssoLink) {
             $e = new SyrupComponentException(500, $this->translator->trans('error.sso_unknown'));
@@ -546,15 +553,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postProxyAction()
     {
-        $jobName = 'proxyCall';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'proxyCall';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
+        $job->addTask($taskName, $params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -614,15 +622,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postFiltersAction()
     {
-        $jobName = 'createFilter';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'createFilter';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
+        $job->addTask($taskName, $params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -633,15 +642,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function deleteFiltersAction()
     {
-        $jobName = 'deleteFilter';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'deleteFilter';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
+        $job->addTask($taskName, $params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -735,15 +745,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postFilterUsersAction()
     {
-        $jobName = 'assignFiltersToUser';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'assignFiltersToUser';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
+        $job->addTask($taskName, $params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -754,19 +765,20 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postSyncFiltersAction()
     {
-        $jobName = 'syncFilters';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'syncFilters';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
 
-        $job = false;
-        $projects = empty($params['pid'])? $this->getProjectsToUse() : [$params['pid']];
+        $projects = empty($params['pid']) ? $this->getProjectsToUse() : [$params['pid']];
         foreach ($projects as $pid) {
-            $job = $this->getJobFactory()->createJob($jobName, ['pid' => $pid], $batchId, $this->paramQueue);
+            $job->addTask($taskName, ['pid' => $pid]);
         }
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
+
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
 
@@ -793,20 +805,19 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postUploadDateDimensionAction()
     {
-        $jobName = 'UploadDateDimension';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'UploadDateDimension';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
 
-        $job = false;
         foreach ($this->getProjectsToUse() as $pid) {
-            $pars = ['pid' => $pid, 'name' => $params['name'], 'includeTime' => $params['includeTime']];
-            $job = $this->getJobFactory()->createJob($jobName, $pars, $batchId, $this->paramQueue, ['dataset' => $pars['name']]);
+            $job->addTask($taskName, ['pid' => $pid, 'name' => $params['name'], 'includeTime' => $params['includeTime']]);
         }
 
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -816,29 +827,21 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postUpdateModel()
     {
-        $jobName = 'updateModel';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'updateModel';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
 
-        $job = false;
         $definition = $this->getConfiguration()->getDataSetDefinition($params['tableId']);
-        $tableConfiguration = $this->getConfiguration()->getDataSet($params['tableId']);
         foreach ($this->getProjectsToUse() as $pid) {
-            $datasetName = !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'];
-            $job = $this->getJobFactory()->createJob(
-                $jobName,
-                ['pid' => $pid, 'tableId' => $params['tableId']],
-                $batchId,
-                $this->paramQueue,
-                ['dataset' => $datasetName]
-            );
-            $this->getJobFactory()->saveDefinition($job['id'], $definition);
+            $job->addTask($taskName, ['pid' => $pid, 'tableId' => $params['tableId']], $definition);
         }
+        $job->uploadDefinitions($this->s3Client);
 
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -848,29 +851,27 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postLoadData()
     {
-        $jobName = 'loadData';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'loadData';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
 
-        $job = false;
         foreach ($params['tables'] as $tableId) {
             $definition = $this->getConfiguration()->getDataSetDefinition($tableId);
-            $tableConfiguration = $this->getConfiguration()->getDataSet($tableId);
             foreach ($this->getProjectsToUse() as $pid) {
                 $loadParams = ['pid' => $pid, 'tableId' => $tableId];
                 if (isset($params['incrementalLoad'])) {
                     $loadParams['incrementalLoad'] = $params['incrementalLoad'];
                 }
-                $datasetName = !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'];
-                $job = $this->getJobFactory()->createJob($jobName, $loadParams, $batchId, $this->paramQueue, ['dataset' => $datasetName]);
-                $this->getJobFactory()->saveDefinition($job['id'], $definition);
+                $job->addTask($taskName, $loadParams, $definition);
             }
         }
+        $job->uploadDefinitions($this->s3Client);
 
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -880,13 +881,12 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postLoadDataMulti()
     {
-        $jobName = 'loadDataMulti';
-        $command = $this->getJobFactory()->getJobClass($jobName);
+        $taskName = 'loadDataMulti';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
 
-        $job = false;
-        $batchId = $this->getJobFactory()->createBatchId();
         foreach ($this->getProjectsToUse() as $pid) {
             $definition = [];
             foreach ($params['tables'] as $tableId) {
@@ -900,12 +900,13 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             if (isset($params['incrementalLoad'])) {
                 $loadParams['incrementalLoad'] = $params['incrementalLoad'];
             }
-            $job = $this->getJobFactory()->createJob($jobName, $loadParams, $batchId, $this->paramQueue);
-            $this->getJobFactory()->saveDefinition($job['id'], $definition);
+            $job->addTask($taskName, $loadParams, $definition);
         }
+        $job->uploadDefinitions($this->s3Client);
 
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
 
@@ -923,10 +924,10 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
         $bucketAttributes = $this->getConfiguration()->bucketAttributes();
 
-        $batchId = $this->getJobFactory()->createBatchId();
         $definition = $this->getConfiguration()->getDataSetDefinition($this->params['tableId']);
         $projectsToUse = $this->getProjectsToUse();
 
+        $job = $this->getJob();
 
         // Create date dimensions
         $dateDimensionsToLoad = [];
@@ -952,13 +953,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                                 'name' => $dimension,
                                 'includeTime' => $dateDimensions[$dimension]['includeTime']
                             ];
-                            $this->getJobFactory()->createJob(
-                                'uploadDateDimension',
-                                $params,
-                                $batchId,
-                                $this->paramQueue,
-                                ['dataset' => $dimension]
-                            );
+                            $job->addTask('uploadDateDimension', $params);
                         }
                     }
                 }
@@ -995,14 +990,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                         'pid' => $pid,
                         'tableId' => $this->params['tableId']
                     ];
-                    $jobData = $this->getJobFactory()->createJob(
-                        'updateModel',
-                        $params,
-                        $batchId,
-                        $this->paramQueue,
-                        ['dataset' => $dataSetName]
-                    );
-                    $this->getJobFactory()->saveDefinition($jobData['id'], $definition);
+                    $job->addTask('updateModel', $params, $definition);
                 }
 
                 $params = [
@@ -1012,23 +1000,18 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                 if (isset($this->params['incrementalLoad'])) {
                     $params['incrementalLoad'] = $this->params['incrementalLoad'];
                 }
-                $jobData = $this->getJobFactory()->createJob(
-                    'loadData',
-                    $params,
-                    $batchId,
-                    $this->paramQueue,
-                    ['dataset' => $dataSetName]
-                );
-                $this->getJobFactory()->saveDefinition($jobData['id'], $definition);
+                $job->addTask('loadData', $params, $definition);
             }
         } catch (RestApiException $e) {
             $e = new JobProcessException($e->getMessage(), $e);
             $e->setData($e->getData());
             throw $e;
         }
+        $job->uploadDefinitions($this->s3Client);
 
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $jobData? $jobData['id'] : null);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -1046,9 +1029,10 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $projectsToUse = $this->getProjectsToUse();
 
         $this->getConfiguration()->getDateDimensions();
-        $batchId = $this->getJobFactory()->createBatchId();
 
         $sortedDataSets = $this->getConfiguration()->getSortedDataSets();
+
+        $job = $this->getJob();
 
 
         // Create date dimensions
@@ -1079,13 +1063,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                                     'name' => $dimension,
                                     'includeTime' => $dateDimensions[$dimension]['includeTime']
                                 ];
-                                $this->getJobFactory()->createJob(
-                                    'uploadDateDimension',
-                                    $params,
-                                    $batchId,
-                                    $this->paramQueue,
-                                    ['dataset' => $dimension]
-                                );
+                                $job->addTask('uploadDateDimension', $params);
                             }
                         }
                     }
@@ -1124,14 +1102,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                             'pid' => $pid,
                             'tableId' => $dataSet['tableId']
                         ];
-                        $jobData = $this->getJobFactory()->createJob(
-                            'updateModel',
-                            $params,
-                            $batchId,
-                            $this->paramQueue,
-                            ['dataset' => $dataSet['title']]
-                        );
-                        $this->getJobFactory()->saveDefinition($jobData['id'], $dataSet['definition']);
+                        $job->addTask('updateModel', $params, $dataSet['definition']);
                     }
 
                     $params = [
@@ -1141,14 +1112,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                     if (isset($this->params['incrementalLoad'])) {
                         $params['incrementalLoad'] = $this->params['incrementalLoad'];
                     }
-                    $jobData = $this->getJobFactory()->createJob(
-                        'loadData',
-                        $params,
-                        $batchId,
-                        $this->paramQueue,
-                        ['dataset' => $dataSet['title']]
-                    );
-                    $this->getJobFactory()->saveDefinition($jobData['id'], $dataSet['definition']);
+                    $job->addTask('loadData', $params, $dataSet['definition']);
                 }
             }
         } catch (RestApiException $e) {
@@ -1158,13 +1122,14 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         }
 
         // Execute reports
-        $job = null;
         foreach ($projectsToUse as $pid) {
-            $job = $this->getJobFactory()->createJob('executeReports', ['pid' => $pid], $batchId, $this->paramQueue);
+            $job->addTask('executeReports', ['pid' => $pid]);
         }
+        $job->uploadDefinitions($this->s3Client);
 
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job? $job['id'] : null);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -1175,15 +1140,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postResetTableAction()
     {
-        $jobName = 'resetTable';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'resetTable';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
+        $job->addTask($taskName, $params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
 
@@ -1195,15 +1161,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postResetProjectAction()
     {
-        $jobName = 'resetProject';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'resetProject';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
+        $job->addTask($taskName, $params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
     /**
@@ -1214,15 +1181,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postExecuteReportsAction()
     {
-        $jobName = 'executeReports';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'executeReports';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
+        $job->addTask($taskName, $params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
 
@@ -1234,15 +1202,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function postExportReportAction()
     {
-        $jobName = 'exportReport';
-        $command = $this->getJobFactory()->getJobClass($jobName, $this->params);
+        $taskName = 'exportReport';
+        $task = $this->getTaskClass($taskName);
+        $params = $task->prepare($this->params);
 
-        $batchId = $this->getJobFactory()->createBatchId();
-        $params = $command->prepare($this->params);
+        $job = $this->getJob();
+        $job->addTask($taskName, $params);
 
-        $job = $this->getJobFactory()->createJob($jobName, $params, $batchId, $this->paramQueue);
-        $this->getJobFactory()->enqueueJob($batchId);
-        return $this->createPollResponse($batchId, $this->writerId, $job['id']);
+        $jobId = $this->getJobFactory()->save($job);
+        $this->getJobFactory()->enqueue($jobId);
+        return $this->createPollResponse($jobId);
     }
 
 
@@ -1434,95 +1403,6 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
     }
 
 
-
-    /***********************
-     * @section Jobs
-     */
-
-    /**
-     * Get Jobs
-     * Allow filtering by days, command and tableId
-     *
-     * @Route("/jobs")
-     * @Method({"GET"})
-     */
-    public function getJobsAction()
-    {
-        $this->checkParams(['writerId']);
-        $this->checkWriterExistence();
-
-        if (empty($this->params['jobId'])) {
-            $days = isset($this->params['days']) ? $this->params['days'] : 3;
-            $tableId = empty($this->params['tableId']) ? null : $this->params['tableId'];
-            $command = empty($this->params['command']) ? null : $this->params['command'];
-            $tokenId = empty($this->params['tokenId']) ? null : $this->params['tokenId'];
-            $status = empty($this->params['status']) ? null : $this->params['status'];
-            $jobs = $this->getJobStorage()->fetchJobs($this->projectId, $this->writerId, $days, $tableId);
-
-            $result = [];
-            foreach ($jobs as $job) {
-                if ((empty($command) || $command == $job['command']) && (empty($tokenId) || $tokenId == $job['tokenId'])
-                    && (empty($status) || $status == $job['status'])) {
-                    if (empty($tableId) || (!empty($job['parameters']['tableId']) && $job['parameters']['tableId'] == $tableId)) {
-                        $result[] = JobStorage::jobToApiResponse($job, $this->s3Client);
-                    }
-                }
-            }
-
-            return $this->createApiResponse([
-                'jobs' => $result
-            ]);
-        } else {
-            if (is_array($this->params['jobId'])) {
-                throw new WrongParametersException($this->translator->trans('parameters.jobId_number'));
-            }
-            $job = $this->getJobStorage()->fetchJob($this->params['jobId'], $this->projectId, $this->writerId);
-            if (!$job) {
-                throw new WrongParametersException($this->translator->trans('parameters.job'));
-            }
-
-            $job = JobStorage::jobToApiResponse($job, $this->s3Client);
-
-            $this->logApiCall();
-            return $this->createJsonResponse($job);
-        }
-    }
-
-    /**
-     * Get Batch
-     *
-     * @Route("/batch")
-     * @Method({"GET"})
-     */
-    public function getBatchAction()
-    {
-        $this->checkParams(['writerId', 'batchId']);
-        $this->checkWriterExistence();
-
-        $jobs = $this->getJobStorage()->fetchBatch($this->params['batchId']);
-        if (!count($jobs)) {
-            throw new WrongParametersException(sprintf("Batch '%d' not found", $this->params['batchId']));
-        }
-        $batch = JobStorage::batchToApiResponse($this->params['batchId'], $jobs);
-
-        $this->logApiCall();
-        return $this->createJsonResponse($batch);
-    }
-
-    /**
-     * Cancel waiting jobs
-     *
-     * @Route("/cancel-jobs")
-     * @Method({"POST"})
-     */
-    public function postCancelJobsAction()
-    {
-        $this->checkParams(['writerId']);
-
-        $this->getJobStorage()->cancelJobs($this->projectId, $this->writerId);
-        return $this->createApiResponse();
-    }
-
     /**
      * Run method is not supported
      *
@@ -1541,55 +1421,15 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      * @section Helpers
      */
 
-    private function createApiResponse($response = [], $statusCode = 200, $statusMessage = null)
+    private function getTaskClass($taskName)
     {
-        if (!$statusMessage) {
-            $statusMessage = ($statusCode >= 300)? 'error' : 'ok';
-        }
-        $responseBody = [
-            'status' => $statusMessage
-        ];
-
-        if ($this->stopWatch->isStarted(self::STOPWATCH_NAME_REQUEST)) {
-            $event = $this->stopWatch->stop(self::STOPWATCH_NAME_REQUEST);
-            $responseBody['duration']  = $event->getDuration();
-        }
-
-        $this->logApiCall(isset($responseBody['duration'])? $responseBody['duration'] : null);
-
-        if (null != $response) {
-            $responseBody = array_merge($response, $responseBody);
-        }
-
-        return $this->createJsonResponse($responseBody, $statusCode);
-    }
-
-    public function createMaintenanceResponse()
-    {
-        return $this->createApiResponse([
-            'error' => 'There is undergoing maintenance on GoodData backend, please try again later.'
-        ], 503, 'maintenance');
-    }
-
-    private function createPollResponse($batchId, $writerId, $jobId = null, $responseCode = 202)
-    {
-        /** @var \Symfony\Component\Routing\RequestContext $context */
-        $context = $this->container->get('router')->getContext();
-
-        $result = [
-            'batch' => (int)$batchId,
-            'url' => sprintf(
-                'https://%s%s/gooddata-writer/batch?writerId=%s&batchId=%s',
-                $context->getHost(),
-                $context->getBaseUrl(),
-                $writerId,
-                $batchId
-            )
-        ];
-        if ($jobId) {
-            $result['job'] = (int)$jobId;
-        }
-        return $this->createApiResponse($result, $responseCode);
+        /** @var Factory $taskFactory */
+        $taskFactory = $this->container->get('gooddata_writer.task_factory');
+        $taskFactory
+            ->setStorageApiClient($this->storageApi)
+            ->setConfiguration($this->getConfiguration())
+            ->setEventLogger($this->eventLogger);
+        return $taskFactory->create($taskName);
     }
 
     private function getConfiguration()
@@ -1612,12 +1452,51 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         return $this->sharedStorage;
     }
 
-    private function getJobStorage()
+    private function getJobFactory()
     {
-        if (!$this->jobStorage) {
-            $this->jobStorage = $this->container->get('gooddata_writer.job_storage');
+        if (!$this->jobFactory) {
+            $this->jobFactory = $this->container->get('gooddata_writer.job_factory');
+            $this->jobFactory->setConfiguration($this->configuration);
+            $this->jobFactory->setStorageApiClient($this->storageApi);
         }
-        return $this->jobStorage;
+        return $this->jobFactory;
+    }
+
+
+    private function createApiResponse($response = [], $statusCode = 200, $statusMessage = null)
+    {
+        if (!$statusMessage) {
+            $statusMessage = ($statusCode >= 300)? 'error' : 'ok';
+        }
+        $responseBody = [
+            'status' => $statusMessage
+        ];
+
+        if ($this->stopWatch->isStarted(self::STOPWATCH_NAME_REQUEST)) {
+            $event = $this->stopWatch->stop(self::STOPWATCH_NAME_REQUEST);
+            $responseBody['duration']  = $event->getDuration();
+        }
+
+        if (null != $response) {
+            $responseBody = array_merge($response, $responseBody);
+        }
+
+        return $this->createJsonResponse($responseBody, $statusCode);
+    }
+
+    public function createMaintenanceResponse()
+    {
+        return $this->createApiResponse([
+            'error' => 'There is undergoing maintenance on GoodData backend, please try again later.'
+        ], 503, 'maintenance');
+    }
+
+    private function createPollResponse($jobId)
+    {
+        return $this->createJsonResponse([
+            'id' => $jobId,
+            'url' => $this->getJobUrl($jobId)
+        ], 202);
     }
 
     private function checkParams($required)
@@ -1635,7 +1514,6 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             throw new WrongParametersException($this->translator->trans('parameters.writerId.not_found'));
         }
     }
-
 
 
     protected function getProjectsToUse()
@@ -1656,53 +1534,5 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             throw new WrongConfigurationException($this->translator->trans('parameters.pid_not_configured'));
         }
         return $projects;
-    }
-
-    protected function getJobFactory()
-    {
-        if (!$this->jobFactory) {
-            $this->jobFactory = new JobFactory(
-                $this->container->getParameter('gdwr_gd'),
-                $this->container->getParameter('gdwr_scripts_path')
-            );
-            $this->jobFactory
-                ->setSharedStorage($this->getSharedStorage())
-                ->setJobStorage($this->getJobStorage())
-                ->setConfiguration($this->getConfiguration())
-                ->setStorageApiClient($this->storageApi)
-                ->setEventLogger($this->eventLogger)
-                ->setTranslator($this->translator)
-                ->setTemp($this->temp)
-                ->setLogger($this->logger)
-                ->setS3Client($this->container->get('gooddata_writer.s3_client'))
-                ->setQueue($this->container->get('gooddata_writer.jobs_queue'));
-        }
-        return $this->jobFactory;
-    }
-
-
-    public function logApiCall($duration = null)
-    {
-        $params = [];
-        if (is_array($this->params)) {
-            foreach ($this->params as $k => $p) {
-                $params[$k] = ($k == 'password')? '***' : $p;
-            }
-        }
-        /** @var \Symfony\Bundle\FrameworkBundle\Routing\Router $router */
-        $router = $this->get('router');
-        if ($this->eventLogger) {
-            try {
-                @$this->eventLogger->log(
-                    $this->writerId,
-                    $this->storageApi->getRunId(),
-                    'Called API ' . $router->getContext()->getMethod() . ' ' . $router->getContext()->getPathInfo(),
-                    $params,
-                    $duration
-                );
-            } catch (\Exception $e) {
-                // Ignore
-            }
-        }
     }
 }

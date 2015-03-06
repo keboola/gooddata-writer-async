@@ -4,17 +4,17 @@
  * @date 2013-04-12
  */
 
-namespace Keboola\GoodDataWriter\Job;
+namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\GoodData\Model;
-use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Writer\Job;
 
-class CloneProject extends AbstractJob
+class CloneProject extends AbstractTask
 {
 
     public function prepare($params)
     {
-        $this->checkParams($params, array('writerId'));
+        $this->checkParams($params, ['writerId']);
         $this->checkWriterExistence($params['writerId']);
 
         $bucketAttributes = $this->configuration->bucketAttributes();
@@ -27,13 +27,13 @@ class CloneProject extends AbstractJob
             $params['name'] = sprintf(Model::PROJECT_NAME_TEMPLATE, $this->gdProjectNamePrefix, $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
         }
 
-        return array(
+        return [
             'accessToken' => $params['accessToken'],
             'name' => $params['name'],
             'includeData' => empty($params['includeData']) ? 0 : 1,
             'includeUsers' => empty($params['includeUsers']) ? 0 : 1,
             'pidSource' => $bucketAttributes['gd']['pid']
-        );
+        ];
     }
 
 
@@ -41,41 +41,43 @@ class CloneProject extends AbstractJob
      * required: accessToken, name, pidSource
      * optional: includeData, includeUsers
      */
-    public function run($job, $params, RestApi $restApi)
+    public function run(Job $job, $taskId, array $params = [], $definitionFile = null)
     {
-        $this->checkParams($params, array('accessToken', 'name', 'pidSource'));
+        $this->initRestApi($job);
+
+        $this->checkParams($params, ['accessToken', 'name', 'pidSource']);
 
         $bucketAttributes = $this->configuration->bucketAttributes();
 
         // Check access to source project
-        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-        $restApi->getProject($bucketAttributes['gd']['pid']);
+        $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+        $this->restApi->getProject($bucketAttributes['gd']['pid']);
 
-        $restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
+        $this->restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
         // Get user uri if not set
         if (empty($bucketAttributes['gd']['uid'])) {
-            $userId = $restApi->userId($bucketAttributes['gd']['username'], $this->getDomainUser()->domain);
+            $userId = $this->restApi->userId($bucketAttributes['gd']['username'], $this->getDomainUser()->domain);
             $this->configuration->updateBucketAttribute('gd.uid', $userId);
             $bucketAttributes['gd']['uid'] = $userId;
         }
-        $projectPid = $restApi->createProject($params['name'], $params['accessToken'], json_encode(array(
+        $projectPid = $this->restApi->createProject($params['name'], $params['accessToken'], json_encode([
             'projectId' => $this->configuration->projectId,
             'writerId' => $this->configuration->writerId,
             'main' => false
-        )));
-        $restApi->cloneProject(
+        ]));
+        $this->restApi->cloneProject(
             $bucketAttributes['gd']['pid'],
             $projectPid,
             empty($params['includeData']) ? 0 : 1,
             empty($params['includeUsers']) ? 0 : 1
         );
-        $restApi->addUserToProject($bucketAttributes['gd']['uid'], $projectPid);
+        $this->restApi->addUserToProject($bucketAttributes['gd']['uid'], $projectPid);
 
         $this->configuration->saveProject($projectPid);
-        $this->sharedStorage->saveProject($job['projectId'], $job['writerId'], $projectPid);
+        $this->sharedStorage->saveProject($this->configuration->projectId, $this->configuration->writerId, $projectPid);
 
-        return array(
+        return [
             'pid' => $projectPid
-        );
+        ];
     }
 }

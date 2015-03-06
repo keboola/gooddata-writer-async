@@ -6,29 +6,29 @@
  * @created: 30.4.13
  */
 
-namespace Keboola\GoodDataWriter\Job;
+namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
-use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Exception\RestApiException;
+use Keboola\GoodDataWriter\Writer\Job;
 
-class DeleteFilter extends AbstractJob
+class DeleteFilter extends AbstractTask
 {
 
     public function prepare($params)
     {
-        $this->checkParams($params, array('writerId'));
+        $this->checkParams($params, ['writerId']);
         $this->checkWriterExistence($params['writerId']);
 
         if (isset($params['name'])) {
             if (!$this->configuration->getFilter($params['name'])) {
-                throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $params['name'])));
+                throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $params['name']]));
             }
         } else {
             //@TODO backwards compatibility, REMOVE SOON
-            $this->checkParams($params, array('uri'));
+            $this->checkParams($params, ['uri']);
             if (!$this->configuration->checkFilterUri($params['uri'])) {
-                throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $params['uri'])));
+                throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $params['uri']]));
             }
         }
 
@@ -45,8 +45,9 @@ class DeleteFilter extends AbstractJob
      * required: uri|name
      * optional:
      */
-    public function run($job, $params, RestApi $restApi)
+    public function run(Job $job, $taskId, array $params = [], $definitionFile = null)
     {
+        $this->initRestApi($job);
         $uris = [];
         if (isset($params['name'])) {
             // Delete filter in all projects
@@ -55,19 +56,19 @@ class DeleteFilter extends AbstractJob
             }
         } else {
             // Delete filter only from particular project
-            $this->checkParams($params, array('uri'));
+            $this->checkParams($params, ['uri']);
             if (!$this->configuration->checkFilterUri($params['uri'])) {
-                throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $params['uri'])));
+                throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $params['uri']]));
             }
             $uris[] = $params['uri'];
         }
 
         $bucketAttributes = $this->configuration->bucketAttributes();
-        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+        $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
         foreach ($uris as $uri) {
             try {
-                $restApi->deleteFilter($uri);
+                $this->restApi->deleteFilter($uri);
             } catch (RestApiException $e) {
                 $message = json_decode($e->getMessage(), true);
                 if (!isset($message['error']['errorClass']) || $message['error']['errorClass'] != 'GDC::Exception::NotFound') {

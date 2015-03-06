@@ -4,13 +4,13 @@
  * @date 2013-04-24
  */
 
-namespace Keboola\GoodDataWriter\Job;
+namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
-use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Writer\Job;
 
-class AssignFiltersToUser extends AbstractJob
+class AssignFiltersToUser extends AbstractTask
 {
 
     public function prepare($params)
@@ -26,7 +26,7 @@ class AssignFiltersToUser extends AbstractJob
             throw new WrongParametersException($this->translator->trans('parameters.filters.email_is_array'));
         }
 
-        $this->checkParams($params, array('writerId', 'email'));
+        $this->checkParams($params, ['writerId', 'email']);
         if (!isset($params['filters'])) {
             throw new WrongParametersException($this->translator->trans('parameters.filters.required'));
         }
@@ -38,7 +38,7 @@ class AssignFiltersToUser extends AbstractJob
             foreach ($params['filters'] as $f) {
                 if (!in_array($f, $configuredFilters)) {
                     $filters = is_array($f)? implode(', ', $f) : $f;
-                    throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $filters)));
+                    throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $filters]));
                 }
             }
         } else {
@@ -46,19 +46,21 @@ class AssignFiltersToUser extends AbstractJob
         }
         $this->checkWriterExistence($params['writerId']);
 
-        return array(
+        return [
             'filters' => $params['filters'],
             'email' => $params['email']
-        );
+        ];
     }
 
     /**
      * required: email, filters
      * optional:
      */
-    public function run($job, $params, RestApi $restApi)
+    public function run(Job $job, $taskId, array $params = [], $definitionFile = null)
     {
-        $this->checkParams($params, array('email'));
+        $this->initRestApi($job);
+
+        $this->checkParams($params, ['email']);
         $params['email'] = strtolower($params['email']);
 
         if (!is_array($params['filters'])) {
@@ -78,21 +80,21 @@ class AssignFiltersToUser extends AbstractJob
         $pidUris = [];
         foreach ($params['filters'] as $name) {
             if (!in_array($name, $configuredFilters)) {
-                throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', array('%1' => $name)));
+                throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $name]));
             }
             foreach ($this->configuration->getFiltersProjectsByFilter($name) as $fp) {
                 if (!$fp['uri']) {
-                    throw new WrongConfigurationException($this->translator->trans('configuration.filter.missing_uri %1', array('%1' => $name)));
+                    throw new WrongConfigurationException($this->translator->trans('configuration.filter.missing_uri %1', ['%1' => $name]));
                 }
                 $pidUris[$fp['pid']][] = $fp['uri'];
             }
         }
 
         $bucketAttributes = $this->configuration->bucketAttributes();
-        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+        $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
         foreach ($pidUris as $pid => $uris) {
-            $restApi->assignFiltersToUser($uris, $user['uid'], $pid);
+            $this->restApi->assignFiltersToUser($uris, $user['uid'], $pid);
         }
         $this->configuration->saveFiltersUsers($params['filters'], $params['email']);
 

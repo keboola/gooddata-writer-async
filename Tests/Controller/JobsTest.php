@@ -101,7 +101,7 @@ class JobsTest extends AbstractControllerTest
 
         // Check status of the jobs
         foreach ($jobs as $job) {
-            $responseJson = $this->getWriterApi(sprintf('/jobs?writerId=%s&jobId=%d', $this->writerId, $job['id']));
+            $responseJson = $this->getWriterApi(sprintf('/jobs?writerId=%s&jobId=%d', $this->writerId, $job->getId()));
 
             $this->assertArrayHasKey('status', $responseJson, "Response for writer call '/jobs' should contain 'status' key.");
             $this->assertEquals(JobStorage::JOB_STATUS_CANCELLED, $responseJson['status'], "Response for writer call '/jobs' should have key 'status' with value 'cancelled'.");

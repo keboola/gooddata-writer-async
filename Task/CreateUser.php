@@ -4,47 +4,48 @@
  * @date 2013-04-12
  */
 
-namespace Keboola\GoodDataWriter\Job;
+namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
-use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Exception\UserAlreadyExistsException;
+use Keboola\GoodDataWriter\Writer\Job;
 
-class CreateUser extends AbstractJob
+class CreateUser extends AbstractTask
 {
 
     public function prepare($params)
     {
-        $this->checkParams($params, array('writerId', 'firstName', 'lastName', 'email', 'password'));
+        $this->checkParams($params, ['writerId', 'firstName', 'lastName', 'email', 'password']);
         $this->checkWriterExistence($params['writerId']);
         if (strlen($params['password']) < 7) {
             throw new WrongParametersException($this->translator->trans('parameters.password_length'));
         }
         $this->configuration->checkUsersTable();
 
-        return array(
+        return [
             'firstName' => $params['firstName'],
             'lastName' => $params['lastName'],
             'email' => $params['email'],
             'password' => $params['password'],
             'ssoProvider' => empty($params['ssoProvider'])? null : $params['ssoProvider']
-        );
+        ];
     }
 
     /**
      * required: email, password, firstName, lastName
      * optional: ssoProvider
      */
-    public function run($job, $params, RestApi $restApi)
+    public function run(Job $job, $taskId, array $params = [], $definitionFile = null)
     {
-        $this->checkParams($params, array('email', 'password', 'firstName', 'lastName'));
+        $this->initRestApi($job);
+        $this->checkParams($params, ['email', 'password', 'firstName', 'lastName']);
         $params['email'] = strtolower($params['email']);
 
-        $restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
+        $this->restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
         $alreadyExists = false;
         try {
-            $userId = $restApi->createUser(
+            $userId = $this->restApi->createUser(
                 $this->getDomainUser()->domain,
                 $params['email'],
                 $params['password'],
@@ -62,12 +63,12 @@ class CreateUser extends AbstractJob
 
         $this->configuration->saveUser($params['email'], $userId);
         if (!$alreadyExists) {
-            $this->sharedStorage->saveUser($job['projectId'], $job['writerId'], $userId, $params['email']);
+            $this->sharedStorage->saveUser($this->configuration->projectId, $this->configuration->writerId, $userId, $params['email']);
         }
 
-        return array(
+        return [
             'uid' => $userId,
             'alreadyExists' => $alreadyExists
-        );
+        ];
     }
 }

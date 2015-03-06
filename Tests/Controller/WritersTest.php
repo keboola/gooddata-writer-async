@@ -149,7 +149,7 @@ class WritersTest extends AbstractControllerTest
                         'command' => 'gooddata-writer:execute-batch',
                         'batchId' => $job['batchId']
                     ]);
-                    $jobInfo = $this->getWriterApi('/jobs?writerId=' . $existingProjectWriterId . '&jobId=' . $job['id']);
+                    $jobInfo = $this->getWriterApi('/jobs?writerId=' . $existingProjectWriterId . '&jobId=' . $job->getId());
                     if ($jobInfo['status'] != JobStorage::JOB_STATUS_SUCCESS) {
                         $jobsFinished = false;
                     }

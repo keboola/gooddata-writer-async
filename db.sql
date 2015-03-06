@@ -7,33 +7,6 @@ CREATE TABLE `domains` (
   PRIMARY KEY (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS `jobs`;
-CREATE TABLE `jobs` (
-  `id` int(11) unsigned NOT NULL,
-  `batchId` int(11) DEFAULT NULL,
-  `projectId` smallint(6) unsigned NOT NULL,
-  `writerId` varchar(255) NOT NULL DEFAULT '',
-  `token` varchar(255) NOT NULL DEFAULT '',
-  `tokenId` smallint(6) unsigned NOT NULL,
-  `tokenDesc` varchar(255) NOT NULL DEFAULT '',
-  `createdTime` datetime NOT NULL,
-  `startTime` datetime DEFAULT NULL,
-  `endTime` datetime DEFAULT NULL,
-  `command` varchar(30) NOT NULL DEFAULT '',
-  `dataset` varchar(255) DEFAULT '',
-  `parameters` text,
-  `result` text,
-  `status` varchar(15) NOT NULL DEFAULT '',
-  `debug` text,
-  `logs` text,
-  `definition` text,
-  `queueId` varchar(128) DEFAULT NULL,
-  `runId` int(11) unsigned NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `batchId` (`batchId`),
-  KEY `projectId` (`projectId`,`writerId`,`createdTime`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
 DROP TABLE IF EXISTS `project_invitations`;
 CREATE TABLE `project_invitations` (
   `pid` char(32) NOT NULL,

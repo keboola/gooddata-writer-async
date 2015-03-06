@@ -9,8 +9,6 @@ parameters:
     gdwr_aws:
         access_key:
         secret_key:
-        region: us-east-1
-        queue_url:
     gdwr_gd:
         access_token:
         domain: keboola
@@ -39,4 +37,4 @@ parameters:
 
     components:
         gooddata-writer:
-            bundle: Keboola\GoodDataWriter\KeboolaGoodDataWriterBundle
+            bundle: Keboola\GoodDataWriter\KeboolaGoodDataWriter

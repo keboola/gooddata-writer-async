@@ -4,13 +4,13 @@
  * @date 2013-04-22
  */
 
-namespace Keboola\GoodDataWriter\Job;
+namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\Model;
-use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Writer\Job;
 
-class CreateFilter extends AbstractJob
+class CreateFilter extends AbstractTask
 {
 
     public function prepare($params)
@@ -20,7 +20,7 @@ class CreateFilter extends AbstractJob
             $params['value'] = $params['element'];
             unset($params['element']);
         }
-        $this->checkParams($params, array('writerId', 'name', 'attribute', 'value', 'pid'));
+        $this->checkParams($params, ['writerId', 'name', 'attribute', 'value', 'pid']);
         $this->checkWriterExistence($params['writerId']);
         if (!isset($params['operator'])) {
             $params['operator'] = '=';
@@ -30,13 +30,13 @@ class CreateFilter extends AbstractJob
             throw new WrongParametersException($this->translator->trans('parameters.filters.already_exists'));
         }
 
-        $result = array(
+        $result = [
             'name' => $params['name'],
             'attribute' => $params['attribute'],
             'value' => $params['value'],
             'pid' => $params['pid'],
             'operator' => $params['operator']
-        );
+        ];
 
         $this->configuration->getTableIdFromAttribute($params['attribute']);
         if ((isset($params['over']) && !isset($params['to'])) || (!isset($params['over']) && isset($params['to']))) {
@@ -56,9 +56,10 @@ class CreateFilter extends AbstractJob
      * required: name, attribute, operator, value ,pid
      * optional: over, to
      */
-    public function run($job, $params, RestApi $restApi)
+    public function run(Job $job, $taskId, array $params = [], $definitionFile = null)
     {
-        $this->checkParams($params, array('name', 'attribute', 'operator', 'value', 'pid'));
+        $this->initRestApi($job);
+        $this->checkParams($params, ['name', 'attribute', 'operator', 'value', 'pid']);
 
         $filter = $this->configuration->getFilter($params['name']);
         if ($filter) {
@@ -95,9 +96,9 @@ class CreateFilter extends AbstractJob
         }
 
         $bucketAttributes = $this->configuration->bucketAttributes();
-        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+        $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
-        $filterUri = $restApi->createFilter($params['name'], $attrId, $params['operator'], $params['value'], $params['pid'], $overAttrId, $toAttrId);
+        $filterUri = $this->restApi->createFilter($params['name'], $attrId, $params['operator'], $params['value'], $params['pid'], $overAttrId, $toAttrId);
 
         $this->configuration->saveFilter(
             $params['name'],
@@ -109,8 +110,8 @@ class CreateFilter extends AbstractJob
         );
         $this->configuration->saveFiltersProjects($filterUri, $params['name'], $params['pid']);
 
-        return array(
+        return [
             'uri' => $filterUri
-        );
+        ];
     }
 }

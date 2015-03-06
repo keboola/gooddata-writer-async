@@ -4,13 +4,15 @@
  * @date 2013-04-11
  */
 
-namespace Keboola\GoodDataWriter\Job;
+namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\Model;
+use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\GoodDataWriter\Writer\Configuration;
-use Keboola\GoodDataWriter\Writer\JobStorage;
+use Keboola\GoodDataWriter\Writer\Job;
+use Keboola\GoodDataWriter\Writer\JobFactory;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\StorageApi\Client as StorageApiClient;
@@ -18,12 +20,16 @@ use Monolog\Logger;
 use Symfony\Component\Translation\TranslatorInterface;
 use Keboola\Temp\Temp;
 
-abstract class AbstractJob
+abstract class AbstractTask
 {
     /**
      * @var JobFactory
      */
-    protected $factory;
+    protected $jobFactory;
+    /**
+     * @var Factory
+     */
+    protected $taskFactory;
     /**
      * @var Configuration
      */
@@ -32,11 +38,7 @@ abstract class AbstractJob
      * @var SharedStorage
      */
     protected $sharedStorage;
-    /**
-     * @var JobStorage
-     */
-    protected $jobStorage;
-    /**
+   /**
      * @var S3Client
      */
     protected $s3Client;
@@ -77,11 +79,17 @@ abstract class AbstractJob
     protected $gdUsernameDomain;
 
 
-    public function __construct($gdConfig, Configuration $configuration, SharedStorage $sharedStorage, StorageApiClient $storageApiClient)
-    {
+    public function __construct(
+        $gdConfig,
+        Configuration $configuration,
+        SharedStorage $sharedStorage,
+        StorageApiClient $storageApiClient,
+        RestApi $restApi
+    ) {
         $this->configuration = $configuration;
         $this->sharedStorage = $sharedStorage;
         $this->storageApiClient = $storageApiClient;
+        $this->restApi = $restApi;
 
         if (!isset($gdConfig['access_token'])) {
             throw new \Exception("Key 'access_token' is missing from gd config");
@@ -98,10 +106,35 @@ abstract class AbstractJob
         $this->logs = [];
     }
 
+    protected function initRestApi(Job $job)
+    {
+        $this->restApi->setJobId($job->getId());
+        $this->restApi->setRunId($job->getRunId());
+
+        try {
+            $bucketAttributes = $this->configuration->bucketAttributes();
+            if (!empty($bucketAttributes['gd']['apiUrl'])) {
+                $this->restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+            }
+        } catch (WrongConfigurationException $e) {
+            // Ignore
+        }
+    }
+
 
     abstract public function prepare($params);
-    abstract public function run($job, $params, RestApi $restApi);
+    abstract public function run(Job $job, $taskId, array $params = [], $definitionFile = null);
 
+
+    protected function getDefinition($definitionFile)
+    {
+        $definition = $this->s3Client->downloadFile($definitionFile);
+        $definition = json_decode($definition, true);
+        if (!$definition) {
+            throw new \Exception('Download from S3 failed: ' . $definitionFile);
+        }
+        return $definition;
+    }
 
     protected function getTmpDir($jobId)
     {
@@ -124,31 +157,31 @@ abstract class AbstractJob
         return $this->domainUser;
     }
 
-    public function setFactory($factory)
+    public function setJobFactory(JobFactory $factory)
     {
-        $this->factory = $factory;
+        $this->jobFactory = $factory;
         return $this;
     }
 
-    public function setJobStorage($jobStorage)
+    public function setTaskFactory(Factory $factory)
     {
-        $this->jobStorage = $jobStorage;
+        $this->taskFactory = $factory;
         return $this;
     }
 
-    public function setTemp($temp)
+    public function setTemp(Temp $temp)
     {
         $this->temp = $temp;
         return $this;
     }
 
-    public function setEventLogger($logger)
+    public function setEventLogger(EventLogger $logger)
     {
         $this->eventLogger = $logger;
         return $this;
     }
 
-    public function setLogger($logger)
+    public function setLogger(Logger $logger)
     {
         $this->logger = $logger;
         return $this;

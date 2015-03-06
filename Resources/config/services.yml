@@ -28,30 +28,35 @@ services:
         class: Keboola\GoodDataWriter\Writer\SharedStorage
         arguments: [@doctrine.dbal.default_connection, @syrup.encryptor]
 
-    gooddata_writer.job_storage:
-        class: Keboola\GoodDataWriter\Writer\JobStorage
-        arguments: [@doctrine.dbal.default_connection]
-
     gooddata_writer.invitations_handler:
         class: Keboola\GoodDataWriter\GoodData\InvitationsHandler
         arguments: [%gdwr_scripts_path%, %gdwr_invitations%, @gooddata_writer.shared_storage]
 
-    gooddata_writer.jobs_queue:
-        class: Keboola\GoodDataWriter\Service\Queue
-        arguments: [%gdwr_aws%]
-
     gooddata_writer.job_executor:
         class: Keboola\GoodDataWriter\Writer\JobExecutor
         arguments:
-            - %gdwr_scripts_path%
-            - %user_agent%
-            - %gdwr_gd%
+            - @gooddata_writer.task_factory
             - @gooddata_writer.shared_storage
-            - @gooddata_writer.job_storage
-            - @gooddata_writer.rest_api
-            - @logger
-            - @syrup.temp
-            - @gooddata_writer.jobs_queue
-            - @translator
-            - @syrup.s3_uploader
             - @gooddata_writer.s3_client
+            - @syrup.temp
+            - @syrup.elasticsearch.current_component_job_mapper
+
+    gooddata_writer.job_factory:
+        class: Keboola\GoodDataWriter\Writer\JobFactory
+        arguments:
+            - @syrup.queue_factory
+            - @syrup.elasticsearch.current_component_job_mapper
+            - @syrup.job_factory
+
+    gooddata_writer.task_factory:
+        class: Keboola\GoodDataWriter\Task\Factory
+        arguments:
+            - %gdwr_gd%
+            - %gdwr_scripts_path%
+            - @gooddata_writer.shared_storage
+            - @gooddata_writer.rest_api
+            - @gooddata_writer.job_factory
+            - @gooddata_writer.s3_client
+            - @syrup.temp
+            - @translator
+            - @logger

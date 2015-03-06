@@ -9,7 +9,6 @@ namespace Keboola\GoodDataWriter\Writer;
 use Doctrine\DBAL\Connection;
 use Keboola\GoodDataWriter\Exception\SharedStorageException;
 use Keboola\GoodDataWriter\GoodData\User;
-use Keboola\GoodDataWriter\Service\Lock;
 use Keboola\Syrup\Encryption\Encryptor;
 
 class SharedStorage
@@ -42,11 +41,6 @@ class SharedStorage
     {
         $this->db = $db;
         $this->encryptor = $encryptor;
-    }
-
-    public function getLock($name)
-    {
-        return new Lock($this->db, $name);
     }
 
     public function createWriter($projectId, $writerId, $bucket, $tokenId, $tokenDescription)

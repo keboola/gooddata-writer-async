@@ -4,31 +4,32 @@
  * @date 2013-05-07
  */
 
-namespace Keboola\GoodDataWriter\Job;
+namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Exception\RestApiException;
+use Keboola\GoodDataWriter\Writer\Job;
 
-class ResetTable extends AbstractJob
+class ResetTable extends AbstractTask
 {
 
     public function prepare($params)
     {
-        $this->checkParams($params, array('writerId', 'tableId'));
+        $this->checkParams($params, ['writerId', 'tableId']);
         $this->checkWriterExistence($params['writerId']);
 
-        return array(
+        return [
             'tableId' => $params['tableId']
-        );
+        ];
     }
 
     /**
      * required: tableId
      * optional:
      */
-    public function run($job, $params, RestApi $restApi)
+    public function run(Job $job, $taskId, array $params = [], $definitionFile = null)
     {
-        $this->checkParams($params, array('tableId'));
+        $this->initRestApi($job);
+        $this->checkParams($params, ['tableId']);
 
         $bucketAttributes = $this->configuration->bucketAttributes();
 
@@ -39,12 +40,12 @@ class ResetTable extends AbstractJob
 
         $result = [];
         try {
-            $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+            $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
             $updateOperations = [];
             foreach ($projects as $project) {
                 if ($project['active']) {
-                    $result = $restApi->dropDataSet($project['pid'], $dataSetName);
+                    $result = $this->restApi->dropDataSet($project['pid'], $dataSetName);
                     if ($result) {
                         $updateOperations[$project['pid']] = $result;
                     }
@@ -58,7 +59,6 @@ class ResetTable extends AbstractJob
         } catch (\Exception $e) {
             $error = $e->getMessage();
 
-            $restApiLogPath = null;
             if ($e instanceof RestApiException) {
                 $error = $e->getDetails();
             }

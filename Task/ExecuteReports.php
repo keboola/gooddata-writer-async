@@ -4,18 +4,18 @@
  * @date 2013-04-12
  */
 
-namespace Keboola\GoodDataWriter\Job;
+namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Exception\RestApiException;
-use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Writer\Job;
 
-class ExecuteReports extends AbstractJob
+class ExecuteReports extends AbstractTask
 {
 
     public function prepare($params)
     {
-        $this->checkParams($params, array('writerId', 'pid'));
+        $this->checkParams($params, ['writerId', 'pid']);
         $this->checkWriterExistence($params['writerId']);
         $this->configuration->checkProjectsTable();
 
@@ -45,19 +45,20 @@ class ExecuteReports extends AbstractJob
             }
         }
 
-        return array(
+        return [
             'pid' => $params['pid'],
             'reports' => $reports
-        );
+        ];
     }
 
     /**
      * required: pid
      * optional: reports
      */
-    public function run($job, $params, RestApi $restApi)
+    public function run(Job $job, $taskId, array $params = [], $definitionFile = null)
     {
-        $this->checkParams($params, array('pid'));
+        $this->initRestApi($job);
+        $this->checkParams($params, ['pid']);
         $project = $this->configuration->getProject($params['pid']);
         if (!$project) {
             throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
@@ -77,18 +78,18 @@ class ExecuteReports extends AbstractJob
             }
         }
 
-        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+        $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
         if (!empty($params['reports'])) {
             // specified reports
             foreach ($params['reports'] as $reportUri) {
-                $restApi->executeReport($reportUri);
+                $this->restApi->executeReport($reportUri);
             }
         } else {
             // all reports
-            $reports = $restApi->get(sprintf('/gdc/md/%s/query/reports', $params['pid']));
+            $reports = $this->restApi->get(sprintf('/gdc/md/%s/query/reports', $params['pid']));
             if (isset($reports['query']['entries'])) {
                 foreach ($reports['query']['entries'] as $report) {
-                    $restApi->executeReport($report['link']);
+                    $this->restApi->executeReport($report['link']);
                 }
             } else {
                 throw new RestApiException($this->translator->trans('rest_api.reports_list_bad_response'));

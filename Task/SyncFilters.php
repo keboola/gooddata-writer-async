@@ -6,38 +6,39 @@
  * @created: 3.5.13
  */
 
-namespace Keboola\GoodDataWriter\Job;
+namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\GoodData\Model;
-use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Writer\Job;
 
-class SyncFilters extends AbstractJob
+class SyncFilters extends AbstractTask
 {
 
     public function prepare($params)
     {
-        $this->checkParams($params, array('writerId'));
+        $this->checkParams($params, ['writerId']);
         $this->checkWriterExistence($params['writerId']);
 
-        return array(
+        return [
             'pid' => empty($params['pid'])? null : $params['pid']
-        );
+        ];
     }
 
     /**
      * required:
      * optional: pid
      */
-    public function run($job, $params, RestApi $restApi)
+    public function run(Job $job, $taskId, array $params = [], $definitionFile = null)
     {
+        $this->initRestApi($job);
         $this->configuration->checkFiltersTable();
         $bucketAttributes = $this->configuration->bucketAttributes();
-        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+        $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
         // Delete all filters from project
-        $gdFilters = $restApi->getFilters($params['pid']);
+        $gdFilters = $this->restApi->getFilters($params['pid']);
         foreach ($gdFilters as $gdf) {
-            $restApi->deleteFilter($gdf['link']);
+            $this->restApi->deleteFilter($gdf['link']);
         }
 
         // Create filters
@@ -70,7 +71,7 @@ class SyncFilters extends AbstractJob
                     $toAttrId = Model::getAttributeId($toTableName, $toAttrName);
                 }
 
-                $filterUris[$f['name']] = $restApi->createFilter(
+                $filterUris[$f['name']] = $this->restApi->createFilter(
                     $f['name'],
                     $attrId,
                     $f['operator'],
@@ -102,7 +103,7 @@ class SyncFilters extends AbstractJob
             }
 
             if (count($filters)) {
-                $restApi->assignFiltersToUser($filters, $user['uid'], $params['pid']);
+                $this->restApi->assignFiltersToUser($filters, $user['uid'], $params['pid']);
             }
 
         }

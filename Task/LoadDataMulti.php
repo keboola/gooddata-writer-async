@@ -4,7 +4,7 @@
  * @date 2013-04-17
  */
 
-namespace Keboola\GoodDataWriter\Job;
+namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
@@ -13,17 +13,17 @@ use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\CsvHandler;
 use Keboola\GoodDataWriter\GoodData\WebDav;
 use Keboola\GoodDataWriter\GoodData\Model;
-use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Exception\WebDavException;
+use Keboola\GoodDataWriter\Writer\Job;
 use Symfony\Component\Stopwatch\Stopwatch;
 use Keboola\Syrup\Exception\UserException;
 
-class LoadDataMulti extends AbstractJob
+class LoadDataMulti extends AbstractTask
 {
 
     public function prepare($params)
     {
-        $this->checkParams($params, array('writerId'));
+        $this->checkParams($params, ['writerId']);
 
         if (isset($params['tables'])) {
             if (!is_array($params['tables'])) {
@@ -38,9 +38,9 @@ class LoadDataMulti extends AbstractJob
             }
         }
         $this->checkWriterExistence($params['writerId']);
-        $result = array(
+        $result = [
             'tables' => $params['tables']
-        );
+        ];
         if (isset($params['incrementalLoad'])) {
             $result['incrementalLoad'] = $params['incrementalLoad'];
         }
@@ -50,14 +50,15 @@ class LoadDataMulti extends AbstractJob
     /**
      * required: pid, tables
      */
-    public function run($job, $params, RestApi $restApi)
+    public function run(Job $job, $taskId, array $params = [], $definitionFile = null)
     {
-        $this->checkParams($params, array('pid', 'tables'));
+        $this->initRestApi($job);
+        $this->checkParams($params, ['pid', 'tables']);
         $project = $this->configuration->getProject($params['pid']);
         if (!$project) {
             throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
         }
-        if (empty($job['definition'])) {
+        if (!$definitionFile) {
             throw new WrongConfigurationException($this->translator->trans('job_executor.data_set_definition_missing'));
         }
 
@@ -65,15 +66,15 @@ class LoadDataMulti extends AbstractJob
 
         $stopWatch = new Stopwatch();
 
-        $definition = $this->factory->getDefinition($job['definition']);
+        $definition = $this->getDefinition($definitionFile);
 
         // Init
-        $tmpFolderName = basename($this->getTmpDir($job['id']));
+        $tmpFolderName = basename($this->getTmpDir($job->getId()));
         $csvHandler = new CsvHandler($this->temp, $this->scriptsPath, $this->storageApiClient, $this->logger);
-        $csvHandler->setJobId($job['id']);
-        $csvHandler->setRunId($job['runId']);
+        $csvHandler->setJobId($job->getId());
+        $csvHandler->setRunId($job->getRunId());
 
-        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+        $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 
         // Get manifest
@@ -86,15 +87,15 @@ class LoadDataMulti extends AbstractJob
             $def['filterColumn'] = ($def['filterColumn'] && empty($project['main'])) ? $def['filterColumn'] : false;
             $manifest[] = Model::getDataLoadManifest($def['columns'], $def['incrementalLoad'], $this->configuration->noDateFacts);
         }
-        $manifest = array('dataSetSLIManifestList' => $manifest);
+        $manifest = ['dataSetSLIManifestList' => $manifest];
 
 
-        file_put_contents($this->getTmpDir($job['id']) . '/upload_info.json', json_encode($manifest));
-        $this->logs['Manifest'] = $this->s3Client->uploadFile($this->getTmpDir($job['id']) . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json', true);
+        file_put_contents($this->getTmpDir($job->getId()) . '/upload_info.json', json_encode($manifest));
+        $this->logs['Manifest'] = $this->s3Client->uploadFile($this->getTmpDir($job->getId()) . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json', true);
         $e = $stopWatch->stop($stopWatchId);
-        $this->logEvent('Manifest file for csv prepared', $job['id'], $job['runId'], array(
+        $this->logEvent('Manifest file for csv prepared', $job->getId(), $job->getRunId(), [
             'manifest' => $this->logs['Manifest']
-        ), $e->getDuration());
+        ], $e->getDuration());
 
         try {
             // Upload to WebDav
@@ -124,24 +125,24 @@ class LoadDataMulti extends AbstractJob
                     throw new UserException(sprintf("Error during upload of dataset '%s': %s", $datasetName, $e->getMessage()), $e);
                 }
                 if (!$webDav->fileExists(sprintf('%s/%s.csv', $tmpFolderName, $datasetName))) {
-                    throw new JobProcessException($this->translator->trans('error.csv_not_uploaded %1', array('%1' => $webDavFileUrl)));
+                    throw new JobProcessException($this->translator->trans('error.csv_not_uploaded %1', ['%1' => $webDavFileUrl]));
                 }
 
                 $e = $stopWatch->stop($stopWatchId);
-                $this->logEvent('Csv file ' . $datasetName . '.csv transferred to WebDav', $job['id'], $job['runId'], array(
+                $this->logEvent('Csv file ' . $datasetName . '.csv transferred to WebDav', $job->getId(), $job->getRunId(), [
                     'url' => $webDavFileUrl
-                ), $e->getDuration());
+                ], $e->getDuration());
             }
 
 
             $stopWatchId = 'upload_manifest';
             $stopWatch->start($stopWatchId);
 
-            $webDav->upload($this->getTmpDir($job['id']) . '/upload_info.json', $tmpFolderName);
+            $webDav->upload($this->getTmpDir($job->getId()) . '/upload_info.json', $tmpFolderName);
             $e = $stopWatch->stop($stopWatchId);
-            $this->logEvent('Manifest file for csv transferred to WebDav', $job['id'], $job['runId'], array(
+            $this->logEvent('Manifest file for csv transferred to WebDav', $job->getId(), $job->getRunId(), [
                 'url' => $webDav->getUrl() . '/' . $tmpFolderName . '/upload_info.json'
-            ), $e->getDuration());
+            ], $e->getDuration());
 
 
             // Run ETL task of dataSets
@@ -149,14 +150,14 @@ class LoadDataMulti extends AbstractJob
             $stopWatch->start($stopWatchId);
 
             try {
-                $restApi->loadData($params['pid'], $tmpFolderName);
+                $this->restApi->loadData($params['pid'], $tmpFolderName);
             } catch (RestApiException $e) {
-                $debugFile = $this->getTmpDir($job['id']) . '/etl.log';
+                $debugFile = $this->getTmpDir($job->getId()) . '/etl.log';
                 $logSaved = $webDav->saveLogs($tmpFolderName, $debugFile);
                 if ($logSaved) {
                     if (filesize($debugFile) > 1024 * 1024) {
                         $this->logs['ETL task error'] = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/etl.log', $tmpFolderName), true);
-                        $e->setDetails(array($this->logs['ETL task error']));
+                        $e->setDetails([$this->logs['ETL task error']]);
                     } else {
                         $e->setDetails(file_get_contents($debugFile));
                     }
@@ -165,7 +166,7 @@ class LoadDataMulti extends AbstractJob
                 throw $e;
             }
             $e = $stopWatch->stop($stopWatchId);
-            $this->logEvent('ETL task finished', $job['id'], $job['runId'], [], $e->getDuration());
+            $this->logEvent('ETL task finished', $job->getId(), $job->getRunId(), [], $e->getDuration());
         } catch (\Exception $e) {
             $error = $e->getMessage();
 
@@ -174,9 +175,9 @@ class LoadDataMulti extends AbstractJob
             }
 
             $sw = $stopWatch->isStarted($stopWatchId)? $stopWatch->stop($stopWatchId) : null;
-            $this->logEvent('ETL task failed', $job['id'], $job['runId'], array(
+            $this->logEvent('ETL task failed', $job->getId(), $job->getRunId(), [
                 'error' => $error
-            ), $sw? $sw->getDuration() : 0);
+            ], $sw? $sw->getDuration() : 0);
 
             if (!($e instanceof RestApiException) && !($e instanceof WebDavException)) {
                 throw $e;
@@ -199,10 +200,10 @@ class LoadDataMulti extends AbstractJob
             $filterColumn = $bucketAttributes['filterColumn'];
             $tableInfo = $this->configuration->getSapiTable($tableId);
             if (!in_array($filterColumn, $tableInfo['columns'])) {
-                throw new WrongConfigurationException($this->translator->trans('configuration.upload.filter_missing', array('%1' => $filterColumn)));
+                throw new WrongConfigurationException($this->translator->trans('configuration.upload.filter_missing', ['%1' => $filterColumn]));
             }
             if (!in_array($filterColumn, $tableInfo['indexedColumns'])) {
-                throw new WrongConfigurationException($this->translator->trans('configuration.upload.filter_index_missing', array('%1' => $filterColumn)));
+                throw new WrongConfigurationException($this->translator->trans('configuration.upload.filter_index_missing', ['%1' => $filterColumn]));
             }
         }
         return $filterColumn;

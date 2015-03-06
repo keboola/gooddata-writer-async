@@ -41,6 +41,7 @@ class Graph
 
     /**
      * @param $url
+     * @return $this
      */
     public function setTableUrl($url)
     {

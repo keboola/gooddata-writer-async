@@ -181,9 +181,9 @@ class ProjectsTest extends AbstractControllerTest
         $checkFilteredProjectLoad = false;
         foreach ($response['jobs'] as $job) {
             if ($job['command'] == 'loadData') {
-                $csv = $webDav->get(sprintf('%s/%s.csv', $job['id'], Model::getId($job['dataset'])));
+                $csv = $webDav->get(sprintf('%s/%s.csv', $job->getId(), Model::getId($job['dataset'])));
                 if (!$csv) {
-                    $this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/%s.csv' should exist.", $job['id'], Model::getId($job['dataset'])));
+                    $this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/%s.csv' should exist.", $job->getId(), Model::getId($job['dataset'])));
                 }
                 $rowsNumber = 0;
                 foreach (explode("\n", $csv) as $row) {

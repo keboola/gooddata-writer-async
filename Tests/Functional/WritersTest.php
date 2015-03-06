@@ -8,7 +8,7 @@
 namespace Keboola\GoodDataWriter\Tests\Functional;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\Job\CreateWriter;
+use Keboola\GoodDataWriter\Task\CreateWriter;
 
 class WritersTest extends AbstractTest
 {
@@ -16,10 +16,10 @@ class WritersTest extends AbstractTest
     public function testCreateWriter()
     {
         /** @var CreateWriter $job */
-        $job = $this->jobFactory->getJobClass('createWriter');
+        $job = $this->jobFactory->getTaskClass('createWriter');
 
         $writerId = uniqid();
-        $inputParams = array('writerId' => $writerId);
+        $inputParams = ['writerId' => $writerId];
         $preparedParams = $job->prepare($inputParams, $this->restApi);
 
         $this->assertArrayHasKey('accessToken', $preparedParams);
@@ -75,16 +75,16 @@ class WritersTest extends AbstractTest
         $description = uniqId();
 
         /** @var CreateWriter $job */
-        $job = $this->jobFactory->getJobClass('createWriter');
+        $job = $this->jobFactory->getTaskClass('createWriter');
 
-        $inputParams = array('writerId' => $writerId, 'users' => $user1 . ',' . $user2, 'description' => $description);
+        $inputParams = ['writerId' => $writerId, 'users' => $user1 . ',' . $user2, 'description' => $description];
         $preparedParams = $job->prepare($inputParams, $this->restApi);
 
         $this->assertArrayHasKey('accessToken', $preparedParams);
         $this->assertArrayHasKey('projectName', $preparedParams);
         $this->assertArrayHasKey('description', $preparedParams);
         $this->assertArrayHasKey('users', $preparedParams);
-        $this->assertEquals(array($user1, $user2), $preparedParams['users']);
+        $this->assertEquals([$user1, $user2], $preparedParams['users']);
 
         $jobInfo = $this->prepareJobInfo($writerId, 'createWriter', $preparedParams);
         $result = $job->run($jobInfo, $preparedParams, $this->restApi);
@@ -102,7 +102,7 @@ class WritersTest extends AbstractTest
         $this->configuration->writerId = $writerId;
 
         /** @var CreateWriter $job */
-        $job = $this->jobFactory->getJobClass('createWriter');
+        $job = $this->jobFactory->getTaskClass('createWriter');
 
         // Prepare existing project and user
         $this->restApi->login(GD_DOMAIN_USER, GD_DOMAIN_PASSWORD);
@@ -110,7 +110,7 @@ class WritersTest extends AbstractTest
         $existingUid = $this->restApi->createUser(GD_DOMAIN_NAME, $existingUserName, $uniqId, 'Test', $uniqId, GD_SSO_PROVIDER);
         $this->restApi->addUserToProject($existingUid, $existingPid);
 
-        $inputParams = array('writerId' => $writerId, 'username' => $existingUserName, 'password' => $uniqId, 'pid' => $existingPid);
+        $inputParams = ['writerId' => $writerId, 'username' => $existingUserName, 'password' => $uniqId, 'pid' => $existingPid];
         $preparedParams = $job->prepare($inputParams, $this->restApi);
 
         $this->assertArrayHasKey('username', $preparedParams);

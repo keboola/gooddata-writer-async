@@ -4,23 +4,24 @@
  * @date 2013-04-12
  */
 
-namespace Keboola\GoodDataWriter\Job;
+namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Writer\Job;
 
-class AddUserToProject extends AbstractJob
+class AddUserToProject extends AbstractTask
 {
 
     public function prepare($params)
     {
-        $this->checkParams($params, array('writerId', 'pid', 'email', 'role'));
+        $this->checkParams($params, ['writerId', 'pid', 'email', 'role']);
         $this->checkWriterExistence($params['writerId']);
 
         $allowedRoles = array_keys(RestApi::$userRoles);
         if (!in_array($params['role'], $allowedRoles)) {
-            throw new WrongParametersException($this->translator->trans('parameters.role %1', array('%1' => implode(', ', $allowedRoles))));
+            throw new WrongParametersException($this->translator->trans('parameters.role %1', ['%1' => implode(', ', $allowedRoles)]));
         }
         if (!$this->configuration->getProject($params['pid'])) {
             throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
@@ -34,21 +35,23 @@ class AddUserToProject extends AbstractJob
         if (empty($params['pid'])) {
             $params['pid'] = $bucketAttributes['gd']['pid'];
         }
-        return array(
+        return [
             'email' => $params['email'],
             'pid' => $params['pid'],
             'role' => $params['role'],
             'createUser' => isset($params['createUser']) ? 1 : null
-        );
+        ];
     }
 
     /**
      * required: pid, email, role
      * optional: createUser
      */
-    public function run($job, $params, RestApi $restApi)
+    public function run(Job $job, $taskId, array $params = [], $definitionFile = null)
     {
-        $this->checkParams($params, array('email', 'role'));
+        $this->initRestApi($job);
+
+        $this->checkParams($params, ['email', 'role']);
         $params['email'] = strtolower($params['email']);
 
         if (empty($params['pid'])) {
@@ -58,10 +61,10 @@ class AddUserToProject extends AbstractJob
 
         $allowedRoles = array_keys(RestApi::$userRoles);
         if (!in_array($params['role'], $allowedRoles)) {
-            throw new WrongConfigurationException($this->translator->trans('role %1', array('%1' => implode(', ', $allowedRoles))));
+            throw new WrongConfigurationException($this->translator->trans('parameters.role %1', ['%1' => implode(', ', $allowedRoles)]));
         }
 
-        $restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
+        $this->restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
 
         $userId = null;
 
@@ -72,7 +75,7 @@ class AddUserToProject extends AbstractJob
             // user created by writer
             $userId = $user['uid'];
         } else {
-            $userId = $restApi->userId($params['email'], $this->getDomainUser()->domain);
+            $userId = $this->restApi->userId($params['email'], $this->getDomainUser()->domain);
             if ($userId) {
                 // user in domain
                 $this->configuration->saveUser($params['email'], $userId);
@@ -82,35 +85,35 @@ class AddUserToProject extends AbstractJob
         if (!$userId) {
             if (!empty($params['createUser'])) {
                 // try create new user in domain
-                $childJob = $this->factory->getJobClass('createUser');
-
-                $childParams = array(
+                $childTask = $this->taskFactory->create('createUser');
+                $result = $childTask->run($job, $taskId+1, [
                     'email' => $params['email'],
                     'firstName' => 'KBC',
                     'lastName' => $params['email'],
                     'password' => md5(uniqid() . str_repeat($params['email'], 2)),
-                );
-
-                $result = $childJob->run($job, $childParams, $restApi);
+                ]);
                 if (!empty($result['uid'])) {
                     $userId = $result['uid'];
                 }
+                //@TODO save task to job
             }
         }
 
         if ($userId) {
-            $restApi->addUserToProject($userId, $params['pid'], RestApi::$userRoles[$params['role']]);
+            $this->restApi->addUserToProject($userId, $params['pid'], RestApi::$userRoles[$params['role']]);
 
             $this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role'], false);
         } else {
-            $restApi->inviteUserToProject($params['email'], $params['pid'], RestApi::$userRoles[$params['role']]);
+            $this->restApi->inviteUserToProject($params['email'], $params['pid'], RestApi::$userRoles[$params['role']]);
 
             $this->configuration->saveProjectUser($params['pid'], $params['email'], $params['role'], true);
         }
 
         $result = [];
         if ($userId) {
-            $result['flags'] = array('invitation' => $this->translator->trans('result.flag.invitation'));
+            $result['flags'] = ['invitation' => $this->translator->trans('result.flag.invitation')];
         }
+
+        return $result;
     }
 }

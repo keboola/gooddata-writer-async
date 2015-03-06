@@ -4,12 +4,12 @@
  * @date 2013-07-12
  */
 
-namespace Keboola\GoodDataWriter\Job;
+namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
-use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\GoodDataWriter\Writer\Job;
 
-class RemoveUserFromProject extends AbstractJob
+class RemoveUserFromProject extends AbstractTask
 {
 
     public function prepare($params)
@@ -35,12 +35,13 @@ class RemoveUserFromProject extends AbstractJob
      * required: pid, email
      * optional:
      */
-    public function run($job, $params, RestApi $restApi)
+    public function run(Job $job, $taskId, array $params = [], $definitionFile = null)
     {
+        $this->initRestApi($job);
         $this->checkParams($params, ['pid', 'email']);
         $params['email'] = strtolower($params['email']);
 
-        $restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
+        $this->restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
 
         if (!$this->configuration->isProjectUser($params['email'], $params['pid'])) {
             throw new WrongParametersException($this->translator->trans('parameters.email_not_configured_in_project'));
@@ -54,7 +55,7 @@ class RemoveUserFromProject extends AbstractJob
 
         // find user in domain
         if (!$userId) {
-            $userId = $restApi->userId($params['email'], $this->getDomainUser()->domain);
+            $userId = $this->restApi->userId($params['email'], $this->getDomainUser()->domain);
 
             if ($userId) {
                 $this->configuration->saveUser($params['email'], $userId);
@@ -64,15 +65,15 @@ class RemoveUserFromProject extends AbstractJob
 
         // find user in project (maybe invited)
         if (!$userId) {
-            $userId = $restApi->userIdByProject($params['email'], $params['pid']);
+            $userId = $this->restApi->userIdByProject($params['email'], $params['pid']);
         }
 
         if ($userId) {
-            $restApi->removeUserFromProject($userId, $params['pid']);
+            $this->restApi->removeUserFromProject($userId, $params['pid']);
         }
 
         // cancel possible invitations
-        $restApi->cancelInviteUserToProject($params['email'], $params['pid']);
+        $this->restApi->cancelInviteUserToProject($params['email'], $params['pid']);
 
         $this->configuration->deleteProjectUser($params['pid'], $params['email']);
 

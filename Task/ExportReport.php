@@ -4,28 +4,28 @@
  * @date 2013-04-12
  */
 
-namespace Keboola\GoodDataWriter\Job;
+namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\Csv\CsvFile;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
-use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Aws\Common\Client as AwsClient;
+use Keboola\GoodDataWriter\Writer\Job;
 use Keboola\StorageApi\Table;
 
-class ExportReport extends AbstractJob
+class ExportReport extends AbstractTask
 {
 
     public function prepare($params)
     {
-        $this->checkParams($params, array('writerId', 'pid', 'report', 'table'));
+        $this->checkParams($params, ['writerId', 'pid', 'report', 'table']);
         $this->checkWriterExistence($params['writerId']);
 
-        return array(
+        return [
             'pid' => $params['pid'],
             'report' => $params['report'],
             'table' => $params['table']
-        );
+        ];
     }
 
     /**
@@ -33,38 +33,39 @@ class ExportReport extends AbstractJob
      * required: report, table
      * optional:
      */
-    public function run($job, $params, RestApi $restApi)
+    public function run(Job $job, $taskId, array $params = [], $definitionFile = null)
     {
-        $this->checkParams($params, array('report', 'table'));
+        $this->initRestApi($job);
+        $this->checkParams($params, ['report', 'table']);
 
         $bucketAttributes = $this->configuration->bucketAttributes();
         $this->configuration->checkProjectsTable();
 
         if (!preg_match('/^([^\.]+)\.([^\.]+)\.([^\.]+)$/', $params['table'])) {
-            throw new WrongParametersException($this->translator->trans('parameters.report.table_not_valid %1', array('%1' => $params['table'])));
+            throw new WrongParametersException($this->translator->trans('parameters.report.table_not_valid %1', ['%1' => $params['table']]));
         }
 
-        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+        $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
-        $report = $restApi->get($params['report']);
+        $report = $this->restApi->get($params['report']);
 
         if (!isset($report['report']['content']['definitions'][0])) {
-            throw new RestApiException($this->translator->trans('parameters.report.no_definitions %1', array('%1' => $params['report'])));
+            throw new RestApiException($this->translator->trans('parameters.report.no_definitions %1', ['%1' => $params['report']]));
         }
         $reportDefinitions = $report['report']['content']['definitions'];
         $reportDefinitionUri = array_pop($reportDefinitions);
 
-        $response = $restApi->executeReportRaw($bucketAttributes['gd']['pid'], $reportDefinitionUri);
+        $response = $this->restApi->executeReportRaw($bucketAttributes['gd']['pid'], $reportDefinitionUri);
         $csvUri = $response['uri'];
 
         /** @TODO Streamed import to SAPI
-        $stream = $restApi->getStream($csvUri);
+        $stream = $this->restApi->getStream($csvUri);
         $this->uploadToS3($stream->getStream());
          */
 
-        $filename = $this->getTmpDir($job['id']) . '/' . uniqid("report-export", true) .'.csv';
+        $filename = $this->getTmpDir($job->getId()) . '/' . uniqid("report-export", true) .'.csv';
 
-        if (false !== $restApi->getToFile($csvUri, $filename)) {
+        if (false !== $this->restApi->getToFile($csvUri, $filename)) {
             $this->uploadToSapi($filename, $params['table']);
         } else {
             $this->logger->warn("Report export timed out");

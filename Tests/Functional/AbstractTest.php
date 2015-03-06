@@ -9,9 +9,8 @@ namespace Keboola\GoodDataWriter\Tests\Functional;
 
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Exception\RestApiException;
-use Keboola\GoodDataWriter\Job\JobFactory;
+use Keboola\GoodDataWriter\Writer\JobFactory;
 use Keboola\GoodDataWriter\Service\EventLogger;
-use Keboola\GoodDataWriter\Service\Queue;
 use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
@@ -37,10 +36,6 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
      * @var \Keboola\Temp\Temp
      */
     protected $temp;
-    /**
-     * @var Queue
-     */
-    protected $queue;
     /**
      * @var Translator
      */
@@ -87,11 +82,6 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
             'domain' => GD_DOMAIN_NAME,
             'sso_provider' => GD_SSO_PROVIDER
         ];
-        $awsConfig = [
-            'access_key' => AWS_ACCESS_KEY,
-            'secret_key' => AWS_SECRET_KEY,
-            'region' => AWS_REGION
-        ];
         $s3Config = [
             'aws-access-key' => '',
             'aws-secret-key' => '',
@@ -109,14 +99,12 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
             'user' => DB_USER,
             'password' => DB_PASSWORD,
         ]);
-        $queueFactory = new QueueFactory($db, ['db_table' => DB_NAME]);
 
         $this->sharedStorage = new SharedStorage($db, $encryptor);
         $this->logger = new \Monolog\Logger($appName);
         $this->logger->pushHandler(new NullHandler());
         $this->restApi = new RestApi($appName, $this->logger);
         $this->temp = new \Keboola\Temp\Temp($appName);
-        $this->queue = $queueFactory->get();
         $this->translator = new Translator('en');
         $this->s3uploader = new Uploader($s3Config);
         $this->s3client = new S3Client($s3Config);
@@ -125,7 +113,7 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
         $this->configuration = new Configuration($this->storageApiClient, $this->sharedStorage);
         $this->configuration->projectId = rand(1, 128);
 
-
+        $queueFactory = new QueueFactory($db, ['db_table' => 'queues'], SYRUP_APP_NAME);
 
 
         //@TODO připravit konfiguraci
@@ -141,7 +129,7 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
             ->setTemp($this->temp)
             ->setLogger($this->logger)
             ->setS3Client($this->s3client)
-            ->setQueue($this->queue);
+            ->setQueue($queueFactory);
 
 
         // Cleanup

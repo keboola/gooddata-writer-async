@@ -6,8 +6,10 @@
 
 namespace Keboola\GoodDataWriter\Command;
 
+use Doctrine\DBAL\Connection;
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
+use Keboola\Syrup\Service\Db\Lock;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -30,7 +32,11 @@ class CleanGoodDataCommand extends ContainerAwareCommand
         /** @var SharedStorage $sharedStorage */
         $sharedStorage = $this->getContainer()->get('gooddata_writer.shared_storage');
 
-        $lock = $sharedStorage->getLock('CleanGoodDataCommand');
+        /** @var Connection $conn */
+        $conn = $this->getContainer()->get('doctrine.dbal.lock_connection');
+        $conn->exec('SET wait_timeout = 31536000;');
+        $lock = new Lock($conn, 'CleanGoodDataCommand');
+
         if (!$lock->lock()) {
             return;
         }
@@ -49,10 +55,10 @@ class CleanGoodDataCommand extends ContainerAwareCommand
                 $restApi->dropProject($project['pid']);
                 $output->writeln(sprintf('Project %s deleted', $project['pid']));
             } catch (RestApiException $e) {
-                $log->info('Could not delete project', array(
+                $log->info('Could not delete project', [
                     'project' => $project,
                     'exception' => $e->getDetails()
-                ));
+                ]);
             }
             $pids[] = $project['pid'];
         }
@@ -67,10 +73,10 @@ class CleanGoodDataCommand extends ContainerAwareCommand
                 $restApi->dropUser($user['uid']);
                 $output->writeln(sprintf('User %s deleted', $user['uid']));
             } catch (RestApiException $e) {
-                $log->info('Could not delete user', array(
+                $log->info('Could not delete user', [
                     'user' => $user,
                     'exception' => $e->getDetails()
-                ));
+                ]);
             }
             $uids[] = $user['uid'];
         }
