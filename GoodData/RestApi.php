@@ -1769,7 +1769,7 @@ class RestApi
         $header = $response->getHeader('Set-cookie');
         if ($header instanceof Header) {
             $cookies = $header->toArray();
-            $cookie = array_filter($cookies, function($cookie) use ($name) {
+            $cookie = array_filter($cookies, function ($cookie) use ($name) {
                 return strpos($cookie, $name) === 0;
             });
             $cookie = reset($cookie);
