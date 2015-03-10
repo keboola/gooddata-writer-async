@@ -9,7 +9,7 @@ namespace Keboola\GoodDataWriter\Task;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
-use Keboola\GoodDataWriter\Writer\Job;
+use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Symfony\Component\Stopwatch\Stopwatch;
 
 class UpdateModel extends AbstractTask

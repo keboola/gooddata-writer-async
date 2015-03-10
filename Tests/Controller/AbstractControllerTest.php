@@ -64,11 +64,6 @@ abstract class AbstractControllerTest extends WebTestCase
         $this->httpClient = static::createClient();
         $container = $this->httpClient->getContainer();
 
-        /** To make annotations work here */
-        AnnotationRegistry::registerAutoloadNamespaces([
-            'Sensio\\Bundle\\FrameworkExtraBundle' => '../../vendor/sensio/framework-extra-bundle/'
-        ]);
-
         $uniqueIndex = uniqid();
         $this->writerId = self::WRITER_ID_PREFIX . $uniqueIndex;
         $this->bucketName = 'wr-gooddata-' . self::WRITER_ID_PREFIX . $uniqueIndex;

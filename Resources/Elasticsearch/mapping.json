@@ -8,5 +8,10 @@
                 "enabled": "false"
             }
         }
+    },
+    "logs": {
+        "dynamic": "strict",
+        "type": "object",
+        "enabled": false
     }
 }

@@ -28,12 +28,16 @@ services:
         class: Keboola\GoodDataWriter\Writer\SharedStorage
         arguments: [@doctrine.dbal.default_connection, @syrup.encryptor]
 
+    gooddata_writer.elasticsearch.search:
+        class: Keboola\GoodDataWriter\Elasticsearch\Search
+        arguments: [@syrup.elasticsearch.client, %elasticsearch.index_prefix%, %app_name%]
+
     gooddata_writer.invitations_handler:
         class: Keboola\GoodDataWriter\GoodData\InvitationsHandler
         arguments: [%gdwr_scripts_path%, %gdwr_invitations%, @gooddata_writer.shared_storage]
 
     gooddata_writer.job_executor:
-        class: Keboola\GoodDataWriter\Writer\JobExecutor
+        class: Keboola\GoodDataWriter\Job\Executor
         arguments:
             - @gooddata_writer.task_factory
             - @gooddata_writer.shared_storage
@@ -42,11 +46,12 @@ services:
             - @syrup.elasticsearch.current_component_job_mapper
 
     gooddata_writer.job_factory:
-        class: Keboola\GoodDataWriter\Writer\JobFactory
+        class: Keboola\GoodDataWriter\Job\Metadata\JobFactory
         arguments:
             - @syrup.queue_factory
             - @syrup.elasticsearch.current_component_job_mapper
             - @syrup.job_factory
+            - @gooddata_writer.elasticsearch.search
 
     gooddata_writer.task_factory:
         class: Keboola\GoodDataWriter\Task\Factory

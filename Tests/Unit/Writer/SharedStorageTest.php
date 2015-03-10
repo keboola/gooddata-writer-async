@@ -5,7 +5,7 @@
  * @author Jakub Matejka <jakub@keboola.com>
  */
 
-namespace Keboola\GoodDataWriter\Tests\Unit;
+namespace Keboola\GoodDataWriter\Tests\Unit\Writer;
 
 use Doctrine\DBAL\Connection;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
@@ -26,13 +26,16 @@ class SharedStorageTest extends \PHPUnit_Framework_TestCase
     {
         $this->db = \Doctrine\DBAL\DriverManager::getConnection([
             'driver' => 'pdo_mysql',
-            'host' => DB_HOST,
-            'dbname' => DB_NAME,
-            'user' => DB_USER,
-            'password' => DB_PASSWORD,
+            'host' => GW_DB_HOST,
+            'dbname' => GW_DB_NAME,
+            'user' => GW_DB_USER,
+            'password' => GW_DB_PASSWORD,
         ]);
+        $this->db->executeQuery('TRUNCATE TABLE projects');
+        $this->db->executeQuery('TRUNCATE TABLE writers');
+        $this->db->executeQuery('TRUNCATE TABLE users');
 
-        $this->sharedStorage = new SharedStorage($this->db, new Encryptor(ENCRYPTION_KEY));
+        $this->sharedStorage = new SharedStorage($this->db, new Encryptor(GW_ENCRYPTION_KEY));
     }
 
     public function testWriters()

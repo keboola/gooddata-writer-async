@@ -11,8 +11,7 @@ use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Exception\UserAlreadyExistsException;
-use Keboola\GoodDataWriter\Exception\JobProcessException;
-use Keboola\GoodDataWriter\Writer\Job;
+use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 
 class CreateWriter extends AbstractTask
@@ -51,18 +50,7 @@ class CreateWriter extends AbstractTask
             $result['username'] = $params['username'];
             $result['password'] = $params['password'];
 
-
-            try {
-                $this->restApi->login($params['username'], $params['password']);
-            } catch (\Exception $e) {
-                throw new WrongParametersException($this->translator->trans('parameters.gd.credentials'));
-            }
-            if (!$this->restApi->hasAccessToProject($params['pid'])) {
-                throw new WrongParametersException($this->translator->trans('parameters.gd.project_inaccessible'));
-            }
-            if (!in_array('admin', $this->restApi->getUserRolesInProject($params['username'], $params['pid']))) {
-                throw new WrongParametersException($this->translator->trans('parameters.gd.user_not_admin'));
-            }
+            $this->checkExistingProject($params);
         } else {
             $result['accessToken'] = !empty($params['accessToken'])? $params['accessToken'] : $this->gdAccessToken;
             $result['projectName'] = sprintf(Model::PROJECT_NAME_TEMPLATE, $this->gdProjectNamePrefix, $tokenInfo['owner']['name'], $params['writerId']);
@@ -95,17 +83,7 @@ class CreateWriter extends AbstractTask
 
             // Check setup for existing project
             if ($existingProject) {
-                try {
-                    $this->restApi->login($params['username'], $params['password']);
-                } catch (\Exception $e) {
-                    throw new JobProcessException($this->translator->trans('parameters.gd.credentials'));
-                }
-                if (!$this->restApi->hasAccessToProject($params['pid'])) {
-                    throw new JobProcessException($this->translator->trans('parameters.gd.project_inaccessible'));
-                }
-                if (!in_array('admin', $this->restApi->getUserRolesInProject($params['username'], $params['pid']))) {
-                    throw new JobProcessException($this->translator->trans('parameters.gd.user_not_admin'));
-                }
+                $this->checkExistingProject($params);
             } else {
                 $this->checkParams($params, ['accessToken', 'projectName']);
             }
@@ -177,6 +155,21 @@ class CreateWriter extends AbstractTask
                 'failure' => $e->getMessage()
             ]);
             throw $e;
+        }
+    }
+
+    private function checkExistingProject($params)
+    {
+        try {
+            $this->restApi->login($params['username'], $params['password']);
+        } catch (\Exception $e) {
+            throw new WrongParametersException($this->translator->trans('parameters.gd.credentials'));
+        }
+        if (!$this->restApi->hasAccessToProject($params['pid'])) {
+            throw new WrongParametersException($this->translator->trans('parameters.gd.project_inaccessible'));
+        }
+        if (!in_array('admin', $this->restApi->getUserRolesInProject($params['username'], $params['pid']))) {
+            throw new WrongParametersException($this->translator->trans('parameters.gd.user_not_admin'));
         }
     }
 }

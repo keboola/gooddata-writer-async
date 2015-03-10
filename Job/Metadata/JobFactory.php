@@ -5,8 +5,10 @@
  * @author Jakub Matejka <jakub@keboola.com>
  */
 
-namespace Keboola\GoodDataWriter\Writer;
+namespace Keboola\GoodDataWriter\Job\Metadata;
 
+use Keboola\GoodDataWriter\Elasticsearch\Search;
+use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\StorageApi\Client;
 use Keboola\Syrup\Elasticsearch\JobMapper;
 use Keboola\Syrup\Service\Queue\QueueFactory;
@@ -31,17 +33,25 @@ class JobFactory
      * @var SyrupJobFactory
      */
     private $syrupJobFactory;
+    /** @var Search */
+    protected $jobSearch;
 
-    public function __construct(QueueFactory $queueFactory, JobMapper $jobMapper, SyrupJobFactory $jobFactory)
-    {
+    public function __construct(
+        QueueFactory $queueFactory,
+        JobMapper $jobMapper,
+        SyrupJobFactory $jobFactory,
+        Search $jobSearch
+    ) {
         $this->queue = $queueFactory->get();
         $this->jobMapper = $jobMapper;
         $this->syrupJobFactory = $jobFactory;
+        $this->jobSearch = $jobSearch;
     }
 
     public function setStorageApiClient(Client $client)
     {
         $this->syrupJobFactory->setStorageApiClient($client);
+        return $this;
     }
 
     public function setConfiguration(Configuration $configuration)
@@ -77,5 +87,28 @@ class JobFactory
     public function enqueue($jobId, $delay = 0)
     {
         return $this->queue->enqueue($jobId, [], $delay);
+    }
+
+    public function getJobSearch()
+    {
+        return $this->jobSearch;
+    }
+
+    public function cancelWaitingJobs()
+    {
+        $jobs = $this->getJobSearch()->getJobs([
+            'projectId' => $this->configuration->projectId,
+            'status' => Job::STATUS_WAITING,
+            'query' => 'params.writerId:"'.$this->configuration->writerId.'"'
+        ]);
+        foreach ($jobs as $jobData) {
+            $index = $jobData['_index'];
+            $type = $jobData['_type'];
+            unset($jobData['_index']);
+            unset($jobData['_type']);
+            $job = new Job($jobData, $index, $type);
+            $job->setStatus(Job::STATUS_CANCELLED);
+            $this->update($job);
+        }
     }
 }

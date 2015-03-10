@@ -7,7 +7,7 @@
 namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\Writer\Job;
+use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 
 class WaitForInvitation extends AbstractTask

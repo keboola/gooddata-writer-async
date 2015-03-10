@@ -10,10 +10,11 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\GoodDataWriter\Writer\Configuration;
-use Keboola\GoodDataWriter\Writer\Job;
-use Keboola\GoodDataWriter\Writer\JobFactory;
+use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\GoodDataWriter\Job\Metadata\JobFactory;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\StorageApi\Client;
+use Keboola\GoodDataWriter\Elasticsearch\Search;
 use Keboola\Syrup\Exception\UserException;
 use Keboola\Temp\Temp;
 use Monolog\Logger;
@@ -35,7 +36,7 @@ class Factory
     private $s3Client;
     /** @var RestApi */
     private $restApi;
-    /** @var JobFactory */
+    /** @var \Keboola\GoodDataWriter\Job\Metadata\JobFactory */
     private $jobFactory;
     /** @var EventLogger */
     private $eventLogger;
@@ -43,7 +44,7 @@ class Factory
     private $configuration;
     /** @var Client */
     private $storageApiClient;
-    /** @var Job */
+    /** @var \Keboola\GoodDataWriter\Job\Metadata\Job */
     private $job;
 
     public function __construct(

@@ -5,28 +5,71 @@
  * @author Jakub Matejka <jakub@keboola.com>
  */
 
-namespace Keboola\GoodDataWriter\Tests\Functional;
+namespace Keboola\GoodDataWriter\Tests\Unit\Task;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Task\CreateWriter;
 
-class WritersTest extends AbstractTest
+class CreateWriterTest extends AbstractTaskTest
 {
+
+    public function testCreateWriterPreparation()
+    {
+        /** @var CreateWriter $task */
+        $task = $this->taskFactory->create('createWriter');
+
+        // Writer name should not contain dots and dashes
+        try {
+            $task->prepare(['writerId' => 'dfs-dsf.fds'], $this->restApi);
+            $this->fail();
+        } catch (WrongParametersException $e) {
+        }
+
+        // Writer name should not be longer then fifty chars
+        try {
+            $task->prepare(['writerId' => 'dfsdsffdsdfsdsffdsdfsdsffdsdfsdsffdsdfsdsffdsdfsdsffds'], $this->restApi);
+            $this->fail();
+        } catch (WrongParametersException $e) {
+        }
+
+        $params = $task->prepare(['writerId' => $this->configuration->writerId, 'users' => 'u1,u2,u3']);
+        $this->assertArrayHasKey('accessToken', $params);
+        $this->assertArrayHasKey('projectName', $params);
+        $this->assertArrayHasKey('users', $params);
+        $this->assertCount(3, $params['users']);
+    }
+
+    public function testCreateWriterPreparationWithExistingProject()
+    {
+        /** @var CreateWriter $task */
+        $task = $this->taskFactory->create('createWriter');
+
+        // Test existing project and user
+        $uniqId = uniqId();
+        $existingUserName = $uniqId . '@test.keboola.com';
+        $existingPassword = $uniqId;
+        $this->restApi->login(GW_GD_DOMAIN_USER, GW_GD_DOMAIN_PASSWORD);
+        $existingPid = $this->restApi->createProject('[Test]', $this->gdConfig['access_token']);
+        $existingUid = $this->restApi->createUser(GW_GD_DOMAIN_NAME, $existingUserName, $existingPassword, 'Test', $uniqId, GW_GD_SSO_PROVIDER);
+        $this->restApi->addUserToProject($existingUid, $existingPid);
+
+        $task->prepare(['writerId' => $this->configuration->writerId, 'username' => $existingUserName, 'pid' => $existingPid, 'password' => $existingPassword]);
+    }
 
     public function testCreateWriter()
     {
-        /** @var CreateWriter $job */
-        $job = $this->jobFactory->getTaskClass('createWriter');
+        $job = $this->createJob();
+        /** @var CreateWriter $task */
+        $task = $this->taskFactory->create('createWriter');
 
-        $writerId = uniqid();
-        $inputParams = ['writerId' => $writerId];
-        $preparedParams = $job->prepare($inputParams, $this->restApi);
+        $inputParams = ['writerId' => $this->configuration->writerId];
+        $preparedParams = $task->prepare($inputParams, $this->restApi);
 
         $this->assertArrayHasKey('accessToken', $preparedParams);
         $this->assertArrayHasKey('projectName', $preparedParams);
 
-        $jobInfo = $this->prepareJobInfo($writerId, 'createWriter', $preparedParams);
-        $result = $job->run($jobInfo, $preparedParams, $this->restApi);
+        $result = $task->run($job, 0, $preparedParams);
 
         $this->assertArrayHasKey('uid', $result);
         $this->assertArrayHasKey('pid', $result);
@@ -68,17 +111,17 @@ class WritersTest extends AbstractTest
 
     public function testCreateWriterWithInvitation()
     {
+        $job = $this->createJob();
+        /** @var CreateWriter $task */
+        $task = $this->taskFactory->create('createWriter');
+
         $uniqId = uniqId();
-        $writerId = 'invit_' . $uniqId;
         $user1 = 'user1' . $uniqId . '@test.keboola.com';
         $user2 = 'user2' . $uniqId . '@test.keboola.com';
         $description = uniqId();
 
-        /** @var CreateWriter $job */
-        $job = $this->jobFactory->getTaskClass('createWriter');
-
-        $inputParams = ['writerId' => $writerId, 'users' => $user1 . ',' . $user2, 'description' => $description];
-        $preparedParams = $job->prepare($inputParams, $this->restApi);
+        $inputParams = ['writerId' => $this->configuration->writerId, 'users' => $user1 . ',' . $user2, 'description' => $description];
+        $preparedParams = $task->prepare($inputParams, $this->restApi);
 
         $this->assertArrayHasKey('accessToken', $preparedParams);
         $this->assertArrayHasKey('projectName', $preparedParams);
@@ -86,8 +129,7 @@ class WritersTest extends AbstractTest
         $this->assertArrayHasKey('users', $preparedParams);
         $this->assertEquals([$user1, $user2], $preparedParams['users']);
 
-        $jobInfo = $this->prepareJobInfo($writerId, 'createWriter', $preparedParams);
-        $result = $job->run($jobInfo, $preparedParams, $this->restApi);
+        $result = $task->run($job, 0, $preparedParams);
 
         $this->assertArrayHasKey('uid', $result);
         $this->assertArrayHasKey('pid', $result);
@@ -95,30 +137,27 @@ class WritersTest extends AbstractTest
 
     public function testCreateWriterWithExistingProject()
     {
+        $job = $this->createJob();
+        /** @var CreateWriter $task */
+        $task = $this->taskFactory->create('createWriter');
+
         $uniqId = uniqId();
-        $writerId = 'existing_' . $uniqId;
         $existingUserName = 'user1' . $uniqId . '@test.keboola.com';
 
-        $this->configuration->writerId = $writerId;
-
-        /** @var CreateWriter $job */
-        $job = $this->jobFactory->getTaskClass('createWriter');
-
         // Prepare existing project and user
-        $this->restApi->login(GD_DOMAIN_USER, GD_DOMAIN_PASSWORD);
+        $this->restApi->login(GW_GD_DOMAIN_USER, GW_GD_DOMAIN_PASSWORD);
         $existingPid = $this->restApi->createProject('[Test]', $this->gdConfig['access_token']);
-        $existingUid = $this->restApi->createUser(GD_DOMAIN_NAME, $existingUserName, $uniqId, 'Test', $uniqId, GD_SSO_PROVIDER);
+        $existingUid = $this->restApi->createUser(GW_GD_DOMAIN_NAME, $existingUserName, $uniqId, 'Test', $uniqId, GW_GD_SSO_PROVIDER);
         $this->restApi->addUserToProject($existingUid, $existingPid);
 
-        $inputParams = ['writerId' => $writerId, 'username' => $existingUserName, 'password' => $uniqId, 'pid' => $existingPid];
-        $preparedParams = $job->prepare($inputParams, $this->restApi);
+        $inputParams = ['writerId' => $this->configuration->writerId, 'username' => $existingUserName, 'password' => $uniqId, 'pid' => $existingPid];
+        $preparedParams = $task->prepare($inputParams, $this->restApi);
 
         $this->assertArrayHasKey('username', $preparedParams);
         $this->assertArrayHasKey('password', $preparedParams);
         $this->assertArrayHasKey('pid', $preparedParams);
 
-        $jobInfo = $this->prepareJobInfo($writerId, 'createWriter', $preparedParams);
-        $result = $job->run($jobInfo, $preparedParams, $this->restApi);
+        $result = $task->run($job, 0, $preparedParams);
 
         $this->assertArrayHasKey('uid', $result);
         $this->assertArrayHasKey('pid', $result);

@@ -95,8 +95,8 @@ class UsersTest extends AbstractControllerTest
         $this->restApi->login($this->domainUser->username, $this->domainUser->password);
 
         $otherUser = null;
-        if (defined('WRITER_TEST_OTHER_DOMAIN_USER')) {
-            $otherUser = WRITER_TEST_OTHER_DOMAIN_USER;
+        if (defined('GW_OTHER_DOMAIN_USER')) {
+            $otherUser = GW_OTHER_DOMAIN_USER;
         }
 
         $this->assertNotEmpty($otherUser, "User from other domain should be configured in tests config file.");

@@ -6,7 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Writer\Job;
+use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 
 class OptimizeSliHash extends AbstractTask
@@ -36,9 +36,20 @@ class OptimizeSliHash extends AbstractTask
             do {
                 sleep($i * 60);
                 $wait = false;
-                foreach ($this->jobStorage->fetchJobs($this->configuration->projectId, $this->configuration->writerId, 2) as $job) {
-                    $queueIdArray = explode('.', $job['queueId']);
-                    if ($job['status'] == Job::STATUS_PROCESSING && (isset($queueIdArray[2]) && $queueIdArray[2] != Job::SERVICE_QUEUE)) {
+                $jobs = $this->jobFactory->getJobSearch()->getJobs([
+                    'projectId' => $this->configuration->projectId,
+                    //'status' => Job::STATUS_PROCESSING,
+                    'query' => sprintf(
+                        'params.writerId:"%s" AND -lockName:"%s.%s.%s"',
+                        $this->configuration->writerId,
+                        $this->configuration->projectId,
+                        $this->configuration->writerId,
+                        Job::PRIMARY_QUEUE
+                    )
+                ]);
+                foreach ($jobs as $jobData) {
+                    $queueIdArray = explode('.', $jobData['lockName']);
+                    if ($jobData['status'] == Job::STATUS_PROCESSING && (isset($queueIdArray[2]) && $queueIdArray[2] != Job::SERVICE_QUEUE)) {
                         $wait = true;
                     }
                 }

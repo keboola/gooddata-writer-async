@@ -5,7 +5,7 @@
  * @author Jakub Matejka <jakub@keboola.com>
  */
 
-namespace Keboola\GoodDataWriter\Writer;
+namespace Keboola\GoodDataWriter\Job\Metadata;
 
 use Keboola\GoodDataWriter\Service\S3Client;
 
@@ -39,5 +39,10 @@ class Job extends \Keboola\Syrup\Job\Metadata\Job
                 );
             }
         }
+    }
+
+    public static function isJobFinished($status)
+    {
+        return !in_array($status, [self::STATUS_WAITING, self::STATUS_PROCESSING]);
     }
 }

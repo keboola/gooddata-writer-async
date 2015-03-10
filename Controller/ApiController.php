@@ -8,8 +8,9 @@ namespace Keboola\GoodDataWriter\Controller;
 
 use Guzzle\Http\Url;
 use Guzzle\Common\Exception\InvalidArgumentException;
+use Keboola\GoodDataWriter\Elasticsearch\Search;
 use Keboola\GoodDataWriter\Task\Factory;
-use Keboola\GoodDataWriter\Writer\Job;
+use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -27,7 +28,6 @@ use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
-use Keboola\GoodDataWriter\Writer\JobFactory;
 
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Exception\GraphTtlException;
@@ -70,7 +70,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
     private $paramQueue;
 
     /**
-     * @var JobFactory
+     * @var \Keboola\GoodDataWriter\Job\Metadata\JobFactory
      */
     private $jobFactory;
     /**
@@ -454,13 +454,14 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             $jsonResult = json_decode($result->getContent(), true);
             $jobFinished = false;
             $i = 1;
+            /** @var Search $jobSearch */
+            $jobSearch = $this->container->get('gooddata_writer.elasticsearch.search');
             do {
-                $job = $this->getJobStorage()->fetchJob($jsonResult['job'], $this->projectId, $this->writerId);
-                if (!$job) {
+                $jobData = $jobSearch->getJob($jsonResult['job']);
+                if (!$jobData) {
                     throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
                 }
-                $jobInfo = JobStorage::jobToApiResponse($job, $this->s3Client);
-                if (isset($jobInfo['status']) && JobStorage::isJobFinished($jobInfo['status'])) {
+                if (isset($jobData['status']) && Job::isJobFinished($jobData['status'])) {
                     $jobFinished = true;
                 }
                 if (!$jobFinished) {
@@ -469,16 +470,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                 $i++;
             } while (!$jobFinished);
 
-            if ($jobInfo['status'] == Job::STATUS_SUCCESS) {
-                if (!empty($jobInfo['result']['alreadyExists'])) {
+            if ($jobData['status'] == Job::STATUS_SUCCESS) {
+                if (!empty($jobData['result']['alreadyExists'])) {
                     throw new JobProcessException($this->translator->trans('result.cancelled'));
                 }
                 // Do nothing
-            } elseif ($jobInfo['status'] == Job::STATUS_CANCELLED) {
+            } elseif ($jobData['status'] == Job::STATUS_CANCELLED) {
                 throw new JobProcessException($this->translator->trans('result.cancelled'));
             } else {
-                $e = new JobProcessException(!empty($jobInfo['result']['error'])? $jobInfo['result']['error'] : $this->translator->trans('result.unknown'));
-                $e->setData(['result' => $jobInfo['result'], 'logs' => $jobInfo['logs']]);
+                $e = new JobProcessException(!empty($jobData['result']['error'])? $jobData['result']['error'] : $this->translator->trans('result.unknown'));
+                $e->setData(['result' => $jobData['result'], 'logs' => $jobData['logs']]);
                 throw $e;
             }
 
@@ -488,12 +489,11 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             $jobFinished = false;
             $i = 1;
             do {
-                $job = $this->getJobStorage()->fetchJob($jsonResult['job'], $this->projectId, $this->writerId);
-                if (!$job) {
+                $jobData = $jobSearch->getJob($jsonResult['job']);
+                if (!$jobData) {
                     throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
                 }
-                $jobInfo = JobStorage::jobToApiResponse($job, $this->s3Client);
-                if (isset($jobInfo['status']) && JobStorage::isJobFinished($jobInfo['status'])) {
+                if (isset($jobData['status']) && Job::isJobFinished($jobData['status'])) {
                     $jobFinished = true;
                 }
                 if (!$jobFinished) {
@@ -502,13 +502,13 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                 $i++;
             } while (!$jobFinished);
 
-            if ($jobInfo['status'] == Job::STATUS_SUCCESS) {
+            if ($jobData['status'] == Job::STATUS_SUCCESS) {
                 // Do nothing
-            } elseif ($jobInfo['status'] == Job::STATUS_CANCELLED) {
+            } elseif ($jobData['status'] == Job::STATUS_CANCELLED) {
                 throw new JobProcessException($this->translator->trans('result.cancelled'));
             } else {
-                $e = new JobProcessException(!empty($jobInfo['result']['error'])? $jobInfo['result']['error'] : $this->translator->trans('result.unknown'));
-                $e->setData(['result' => $jobInfo['result'], 'logs' => $jobInfo['logs']]);
+                $e = new JobProcessException(!empty($jobData['result']['error'])? $jobData['result']['error'] : $this->translator->trans('result.unknown'));
+                $e->setData(['result' => $jobData['result'], 'logs' => $jobData['logs']]);
                 throw $e;
             }
         }

@@ -4,9 +4,12 @@
  * @date 2013-04-02
  */
 
-namespace Keboola\GoodDataWriter\Writer;
+namespace Keboola\GoodDataWriter\Job;
 
+use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\GoodDataWriter\Task\Factory;
+use Keboola\GoodDataWriter\Writer\Configuration;
+use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\Syrup\Elasticsearch\JobMapper;
 use Keboola\Syrup\Exception\MaintenanceException;
 use Keboola\Temp\Temp;
@@ -15,7 +18,7 @@ use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Service\S3Client;
 
-class JobExecutor extends \Keboola\Syrup\Job\Executor
+class Executor extends \Keboola\Syrup\Job\Executor
 {
     /**
      * @var Factory
@@ -58,7 +61,7 @@ class JobExecutor extends \Keboola\Syrup\Job\Executor
 
     public function execute(\Keboola\Syrup\Job\Metadata\Job $job)
     {
-        $job = new Job($job->getData());
+        $job = new Job($job->getData(), $job->getIndex(), $job->getType());
         $jobParams = $job->getParams();
         $this->temp->initRunFolder();
 

@@ -8,7 +8,7 @@ namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Exception\RestApiException;
-use Keboola\GoodDataWriter\Writer\Job;
+use Keboola\GoodDataWriter\Job\Metadata\Job;
 
 class DeleteWriter extends AbstractTask
 {
@@ -18,8 +18,7 @@ class DeleteWriter extends AbstractTask
         $this->checkParams($params, ['writerId']);
         $this->checkWriterExistence($params['writerId']);
 
-        //@TODO cancel jobs
-        //$this->jobStorage->cancelJobs($this->configuration->projectId, $this->configuration->writerId);
+        $this->jobFactory->cancelWaitingJobs();
         $this->sharedStorage->deleteWriter($this->configuration->projectId, $this->configuration->writerId);
 
         return [];

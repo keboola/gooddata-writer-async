@@ -9,7 +9,7 @@ namespace Keboola\GoodDataWriter\Task;
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
-use Keboola\GoodDataWriter\Writer\Job;
+use Keboola\GoodDataWriter\Job\Metadata\Job;
 
 class AddUserToProject extends AbstractTask
 {
@@ -86,16 +86,20 @@ class AddUserToProject extends AbstractTask
             if (!empty($params['createUser'])) {
                 // try create new user in domain
                 $childTask = $this->taskFactory->create('createUser');
-                $result = $childTask->run($job, $taskId+1, [
+                $childParams = [
                     'email' => $params['email'],
                     'firstName' => 'KBC',
                     'lastName' => $params['email'],
                     'password' => md5(uniqid() . str_repeat($params['email'], 2)),
-                ]);
+                ];
+                $result = $childTask->run($job, $taskId+1, $childParams);
                 if (!empty($result['uid'])) {
                     $userId = $result['uid'];
                 }
-                //@TODO save task to job
+
+                // add task to job metadata
+                $job->addTask('createUser', $childParams);
+                $this->jobFactory->update($job);
             }
         }
 

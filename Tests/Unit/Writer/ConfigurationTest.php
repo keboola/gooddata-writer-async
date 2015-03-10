@@ -4,7 +4,7 @@
  * @copyright 2015 Keboola
  * @author Jakub Matejka <jakub@keboola.com>
  */
-namespace Keboola\GoodDataWriter\Tests\Unit;
+namespace Keboola\GoodDataWriter\Tests\Unit\Writer;
 
 use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Writer\Configuration;
@@ -30,14 +30,14 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
     {
         $db = \Doctrine\DBAL\DriverManager::getConnection([
             'driver' => 'pdo_mysql',
-            'host' => DB_HOST,
-            'dbname' => DB_NAME,
-            'user' => DB_USER,
-            'password' => DB_PASSWORD,
+            'host' => GW_DB_HOST,
+            'dbname' => GW_DB_NAME,
+            'user' => GW_DB_USER,
+            'password' => GW_DB_PASSWORD,
         ]);
-        $sharedStorage = new SharedStorage($db, new Encryptor(ENCRYPTION_KEY));
+        $sharedStorage = new SharedStorage($db, new Encryptor(GW_ENCRYPTION_KEY));
 
-        $this->storageApiClient = new Client(['token' => STORAGE_API_TOKEN, 'url' => STORAGE_API_URL]);
+        $this->storageApiClient = new Client(['token' => GW_STORAGE_API_TOKEN]);
         $this->configuration = new Configuration($this->storageApiClient, $sharedStorage);
 
         // Cleanup

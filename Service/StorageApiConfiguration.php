@@ -54,10 +54,10 @@ abstract class StorageApiConfiguration
     {
         $exportOptions = [];
         if ($whereColumn) {
-            $exportOptions = array_merge($exportOptions, array(
+            $exportOptions = array_merge($exportOptions, [
                 'whereColumn' => $whereColumn,
-                'whereValues' => !is_array($whereValue) ? array($whereValue) : $whereValue
-            ));
+                'whereValues' => !is_array($whereValue) ? [$whereValue] : $whereValue
+            ]);
         }
         if (count($options)) {
             $exportOptions = array_merge($exportOptions, $options);
@@ -74,15 +74,15 @@ abstract class StorageApiConfiguration
      */
     protected function deleteTableRows($tableId, $whereColumn, $whereValues)
     {
-        $options = array(
+        $options = [
             'whereColumn' => $whereColumn,
-            'whereValues' => is_array($whereValues)? $whereValues : array($whereValues)
-        );
+            'whereValues' => is_array($whereValues) ? $whereValues : [$whereValues]
+        ];
         try {
             $this->storageApiClient->deleteTableRows($tableId, $options);
         } catch (ClientException $e) {
             // Ignore if table does not exist
-            if (!in_array($e->getCode(), array(400, 404))) {
+            if (!in_array($e->getCode(), [400, 404])) {
                 if ($e->getCode() == 403) {
                     throw new WrongConfigurationException('Your token does not have access to table ' . $tableId);
                 }
@@ -96,7 +96,7 @@ abstract class StorageApiConfiguration
      */
     protected function updateTableRow($tableId, $primaryKey, $data, $indices = [])
     {
-        return $this->updateTable($tableId, $primaryKey, array_keys($data), array($data), $indices);
+        return $this->updateTable($tableId, $primaryKey, array_keys($data), [$data], $indices);
     }
 
     /**
@@ -107,7 +107,7 @@ abstract class StorageApiConfiguration
         try {
             $this->saveTable($tableId, $primaryKey, $headers, [], false, false, $indices);
         } catch (ClientException $e) {
-            if (!in_array($e->getCode(), array(400, 404))) {
+            if (!in_array($e->getCode(), [400, 404])) {
                 throw $e;
             }
         }
@@ -124,8 +124,15 @@ abstract class StorageApiConfiguration
     /**
      * Save SAPI table
      */
-    protected function saveTable($tableId, $primaryKey, $headers, $data = [], $incremental = true, $partial = true, $indices = [])
-    {
+    protected function saveTable(
+        $tableId,
+        $primaryKey,
+        $headers,
+        $data = [],
+        $incremental = true,
+        $partial = true,
+        $indices = []
+    ) {
         try {
             $table = new StorageApiTable($this->storageApiClient, $tableId, null, $primaryKey);
             $table->setHeader($headers);
@@ -201,7 +208,7 @@ abstract class StorageApiConfiguration
         $result = $this->saveTable(
             $this->bucketId . '.' . $tableName,
             $this->tables[$tableName]['primaryKey'],
-            (count($firstRow) == count($this->tables[$tableName]['columns']))? $this->tables[$tableName]['columns'] : array_keys($firstRow),
+            (count($firstRow) == count($this->tables[$tableName]['columns'])) ? $this->tables[$tableName]['columns'] : array_keys($firstRow),
             $data,
             $incremental,
             true,
@@ -241,7 +248,13 @@ abstract class StorageApiConfiguration
             return false;
         }
 
-        $result = $this->fetchTableRows($this->bucketId . '.' . $tableName, $this->tables[$tableName]['primaryKey'], $id, [], $cache);
+        $result = $this->fetchTableRows(
+            $this->bucketId . '.' . $tableName,
+            $this->tables[$tableName]['primaryKey'],
+            $id,
+            [],
+            $cache
+        );
         return count($result) ? current($result) : false;
     }
 
@@ -330,7 +343,7 @@ abstract class StorageApiConfiguration
     {
         $cacheKey = 'listTables.' . $bucketId;
         if (!isset($this->cache[$cacheKey])) {
-            $this->cache[$cacheKey] = $this->storageApiClient->listTables($bucketId, array('include' => ''));
+            $this->cache[$cacheKey] = $this->storageApiClient->listTables($bucketId, ['include' => '']);
         }
         return $this->cache[$cacheKey];
     }
@@ -370,7 +383,7 @@ abstract class StorageApiConfiguration
             if (isset($keyOptions['whereValues']) && count($keyOptions['whereValues'])) {
                 $keyOptions['whereValues'] = implode('.', $keyOptions['whereValues']);
             }
-            $cacheKey .=  '.' . implode(':', array_keys($keyOptions)) . '.' . implode(':', array_values($keyOptions));
+            $cacheKey .= '.' . implode(':', array_keys($keyOptions)) . '.' . implode(':', array_values($keyOptions));
         }
         if (!isset($this->cache[$cacheKey]) || !$cache) {
             try {

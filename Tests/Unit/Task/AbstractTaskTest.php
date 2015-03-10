@@ -5,23 +5,29 @@
  * @author Jakub Matejka <jakub@keboola.com>
  */
 
-namespace Keboola\GoodDataWriter\Tests\Functional;
+namespace Keboola\GoodDataWriter\Tests\Unit\Task;
 
+use Elasticsearch\Client;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Exception\RestApiException;
-use Keboola\GoodDataWriter\Writer\JobFactory;
+use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\GoodDataWriter\Job\Metadata\JobFactory;
 use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Service\S3Client;
+use Keboola\GoodDataWriter\Task\Factory;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\StorageApi\Client as StorageApiClient;
+use Keboola\Syrup\Elasticsearch\ComponentIndex;
+use Keboola\Syrup\Elasticsearch\JobMapper;
+use Keboola\Syrup\Elasticsearch\Search;
 use Keboola\Syrup\Service\Queue\QueueFactory;
 use Monolog\Handler\NullHandler;
 use Symfony\Component\Translation\Translator;
 use Keboola\Syrup\Encryption\Encryptor;
 use Keboola\Syrup\Aws\S3\Uploader;
 
-class AbstractTest extends \PHPUnit_Framework_TestCase
+abstract class AbstractTaskTest extends \PHPUnit_Framework_TestCase
 {
 
     /**
@@ -69,6 +75,10 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
      * @var JobFactory
      */
     protected $jobFactory;
+    /**
+     * @var Factory
+     */
+    protected $taskFactory;
 
     public function setUp()
     {
@@ -78,26 +88,24 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
         $this->scriptsPath = __DIR__ . '/../GoodData';
         $this->userAgent = 'gooddata-writer (testing)';
         $this->gdConfig = [
-            'access_token' => GD_ACCESS_TOKEN,
-            'domain' => GD_DOMAIN_NAME,
-            'sso_provider' => GD_SSO_PROVIDER
+            'access_token' => GW_GD_ACCESS_TOKEN,
+            'domain' => GW_GD_DOMAIN_NAME,
+            'sso_provider' => GW_GD_SSO_PROVIDER
         ];
         $s3Config = [
-            'aws-access-key' => '',
-            'aws-secret-key' => '',
-            's3-upload-path' => '',
-            'bitly-login' => '',
-            'bitly-api-key' => ''
+            'aws-access-key' => GW_AWS_ACCESS_KEY,
+            'aws-secret-key' => GW_AWS_SECRET_KEY,
+            's3-upload-path' => GW_AWS_S3_BUCKET
         ];
 
-        $encryptor = new Encryptor(ENCRYPTION_KEY);
+        $encryptor = new Encryptor(GW_ENCRYPTION_KEY);
 
         $db = \Doctrine\DBAL\DriverManager::getConnection([
             'driver' => 'pdo_mysql',
-            'host' => DB_HOST,
-            'dbname' => DB_NAME,
-            'user' => DB_USER,
-            'password' => DB_PASSWORD,
+            'host' => GW_DB_HOST,
+            'dbname' => GW_DB_NAME,
+            'user' => GW_DB_USER,
+            'password' => GW_DB_PASSWORD,
         ]);
 
         $this->sharedStorage = new SharedStorage($db, $encryptor);
@@ -109,28 +117,44 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
         $this->s3uploader = new Uploader($s3Config);
         $this->s3client = new S3Client($s3Config);
 
-        $this->storageApiClient = new StorageApiClient(['token' => STORAGE_API_TOKEN]);
+        $this->storageApiClient = new StorageApiClient(['token' => GW_STORAGE_API_TOKEN]);
         $this->configuration = new Configuration($this->storageApiClient, $this->sharedStorage);
         $this->configuration->projectId = rand(1, 128);
+        $this->configuration->writerId = uniqid();
 
-        $queueFactory = new QueueFactory($db, ['db_table' => 'queues'], SYRUP_APP_NAME);
+        $queueFactory = new QueueFactory($db, ['db_table' => 'queues'], GW_APP_NAME);
+        $elasticsearchClient = new Client(['hosts' => [GW_ELASTICSEARCH_HOST]]);
+        $jobMapper = new JobMapper(
+            $elasticsearchClient,
+            new ComponentIndex(GW_APP_NAME, 'devel', $elasticsearchClient)
+        );
+        $syrupJobFactory = new \Keboola\Syrup\Job\Metadata\JobFactory(GW_APP_NAME, $encryptor);
+        $syrupJobFactory->setStorageApiClient($this->storageApiClient);
 
 
         //@TODO připravit konfiguraci
 
         $eventLogger = new EventLogger($this->storageApiClient, $this->s3client);
-        $this->jobFactory = new JobFactory($this->gdConfig, $this->scriptsPath);
+        $this->jobFactory = new JobFactory($queueFactory, $jobMapper, $syrupJobFactory);
         $this->jobFactory
-            ->setSharedStorage($this->sharedStorage)
-            ->setConfiguration($this->configuration)
             ->setStorageApiClient($this->storageApiClient)
+            ->setConfiguration($this->configuration);
+        $this->taskFactory = new Factory(
+            $this->gdConfig,
+            $this->scriptsPath,
+            $this->sharedStorage,
+            $this->restApi,
+            $this->jobFactory,
+            $this->s3client,
+            $this->temp,
+            $this->translator,
+            $this->logger,
+            new Search($elasticsearchClient, 'devel')
+        );
+        $this->taskFactory
             ->setEventLogger($eventLogger)
-            ->setTranslator($this->translator)
-            ->setTemp($this->temp)
-            ->setLogger($this->logger)
-            ->setS3Client($this->s3client)
-            ->setQueue($queueFactory);
-
+            ->setStorageApiClient($this->storageApiClient)
+            ->setConfiguration($this->configuration);
 
         // Cleanup
         $this->cleanup();
@@ -138,7 +162,7 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
 
     protected function cleanup()
     {
-        $domainUser = $this->sharedStorage->getDomainUser(GD_DOMAIN_NAME);
+        $domainUser = $this->sharedStorage->getDomainUser(GW_GD_DOMAIN_NAME);
         $this->restApi->login($domainUser->username, $domainUser->password);
         foreach ($this->storageApiClient->listBuckets() as $bucket) {
             $isConfigBucket = strstr($bucket['id'], 'sys.c-wr-gooddata-') !== false;
@@ -197,20 +221,28 @@ class AbstractTest extends \PHPUnit_Framework_TestCase
         }
     }
 
-    protected function prepareJobInfo($writerId, $command, $params)
+    protected function createJob()
     {
-        return [
-            'id' => rand(1, 128),
-            'batchId' => rand(1, 128),
-            'runId' => rand(1, 128),
-            'projectId' => rand(1, 128),
-            'writerId' => $writerId,
-            'token' => STORAGE_API_TOKEN,
-            'tokenId' => rand(1, 128),
-            'tokenDesc' => uniqid(),
-            'createdTime' => date('c'),
-            'command' => $command,
-            'parameters' => $params
-        ];
+        return new Job([
+            'id' => $this->storageApiClient->generateId(),
+            'runId' => $this->storageApiClient->generateId(),
+            'project' => [
+                'id' => '123',
+                'name' => 'Syrup TEST'
+            ],
+            'token' => [
+                'id' => '123',
+                'description' => 'fake token',
+                'token' => uniqid()
+            ],
+            'component' => 'syrup',
+            'command' => 'run',
+            'params' => [],
+            'process' => [
+                'host' => gethostname(),
+                'pid' => getmypid()
+            ],
+            'createdTime' => date('c')
+        ]);
     }
 }

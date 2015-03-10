@@ -10,7 +10,7 @@ use Keboola\Csv\CsvFile;
 use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Aws\Common\Client as AwsClient;
-use Keboola\GoodDataWriter\Writer\Job;
+use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\StorageApi\Table;
 
 class ExportReport extends AbstractTask
