@@ -6,9 +6,9 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
-use Keboola\GoodDataWriter\Exception\CsvHandlerException;
-use Keboola\GoodDataWriter\Exception\CsvHandlerNetworkException;
 use Keboola\StorageApi\Client;
+use Keboola\Syrup\Exception\ApplicationException;
+use Keboola\Syrup\Exception\UserException;
 use Monolog\Logger;
 use Symfony\Component\Process\Process;
 use Keboola\Temp\Temp;
@@ -184,8 +184,6 @@ class CsvHandler
             escapeshellarg($password),
             escapeshellarg($fileUrl)
         );
-        /*$uploadCommand = sprintf('curl -s -S -T - --retry 12 --user %s:%s %s',
-            escapeshellarg($username), escapeshellarg($password), escapeshellarg($fileUrl));*/
 
         $command = '(echo ' . escapeshellarg($headersCommand) . '; cat ' . escapeshellarg($filePath) . ' | gzip -d | tail -n +2 ';
         if ($transformationCommand) {
@@ -240,7 +238,7 @@ class CsvHandler
         }
 
         if ($appError) {
-            $e = new CsvHandlerNetworkException('Network Error');
+            $e = new ApplicationException('Network Error');
             $e->setData([
                 'log' => $errors,
                 'jobId' => $this->jobId,
@@ -250,7 +248,7 @@ class CsvHandler
         } else {
             $lastError = end($errors);
             $error = ($lastError && isset($lastError['error']))? $lastError['error'] : $currentError;
-            $e = new CsvHandlerException('CSV handling failed. ' . $error);
+            $e = new UserException('CSV handling failed. ' . $error);
             if (isset($error['command'])) {
                 $e->setData([
                     'command' => $lastError['command']

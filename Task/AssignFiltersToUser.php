@@ -6,9 +6,8 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\Syrup\Exception\UserException;
 
 class AssignFiltersToUser extends AbstractTask
 {
@@ -23,12 +22,12 @@ class AssignFiltersToUser extends AbstractTask
         ////
 
         if (is_array($params['email'])) {
-            throw new WrongParametersException($this->translator->trans('parameters.filters.email_is_array'));
+            throw new UserException($this->translator->trans('parameters.filters.email_is_array'));
         }
 
         $this->checkParams($params, ['writerId', 'email']);
         if (!isset($params['filters'])) {
-            throw new WrongParametersException($this->translator->trans('parameters.filters.required'));
+            throw new UserException($this->translator->trans('parameters.filters.required'));
         }
         $configuredFilters = [];
         foreach ($this->configuration->getFilters() as $f) {
@@ -38,11 +37,11 @@ class AssignFiltersToUser extends AbstractTask
             foreach ($params['filters'] as $f) {
                 if (!in_array($f, $configuredFilters)) {
                     $filters = is_array($f)? implode(', ', $f) : $f;
-                    throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $filters]));
+                    throw new UserException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $filters]));
                 }
             }
         } else {
-            throw new WrongParametersException($this->translator->trans('parameters.filters.not_array'));
+            throw new UserException($this->translator->trans('parameters.filters.not_array'));
         }
         $this->checkWriterExistence($params['writerId']);
 
@@ -64,12 +63,12 @@ class AssignFiltersToUser extends AbstractTask
         $params['email'] = strtolower($params['email']);
 
         if (!is_array($params['filters'])) {
-            throw new WrongParametersException($this->translator->trans('configuration.filters.not_array'));
+            throw new UserException($this->translator->trans('configuration.filters.not_array'));
         }
 
         $user = $this->configuration->getUser($params['email']);
         if ($user == false) {
-            throw new WrongParametersException($this->translator->trans('parameters.email_not_configured'));
+            throw new UserException($this->translator->trans('parameters.email_not_configured'));
         }
 
         $configuredFilters = [];
@@ -80,11 +79,11 @@ class AssignFiltersToUser extends AbstractTask
         $pidUris = [];
         foreach ($params['filters'] as $name) {
             if (!in_array($name, $configuredFilters)) {
-                throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $name]));
+                throw new UserException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $name]));
             }
             foreach ($this->configuration->getFiltersProjectsByFilter($name) as $fp) {
                 if (!$fp['uri']) {
-                    throw new WrongConfigurationException($this->translator->trans('configuration.filter.missing_uri %1', ['%1' => $name]));
+                    throw new UserException($this->translator->trans('configuration.filter.missing_uri %1', ['%1' => $name]));
                 }
                 $pidUris[$fp['pid']][] = $fp['uri'];
             }

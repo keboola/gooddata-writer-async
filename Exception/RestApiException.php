@@ -8,31 +8,17 @@
 
 namespace Keboola\GoodDataWriter\Exception;
 
-use Keboola\GoodDataWriter\GoodData\RestApi;
+use Keboola\Syrup\Exception\UserException;
 
-class RestApiException extends \Exception
+class RestApiException extends UserException
 {
-    private $details;
-
     public function __construct($message, $details = null, $code = 0, \Exception $previous = null)
     {
         if ($details) {
             $this->setDetails($details);
         }
 
-        parent::__construct($message, $code, $previous);
-    }
-
-    public function getDetails()
-    {
-        $result = [
-            'error' => $this->getMessage(),
-            'source' => 'Rest API'
-        ];
-        if (count($this->details)) {
-            $result['details'] = $this->details;
-        }
-        return $result;
+        parent::__construct($message, $previous);
     }
 
     public function setDetails($details)
@@ -42,11 +28,20 @@ class RestApiException extends \Exception
             $details = $decode ? $decode : [$details];
         }
 
-        $details = RestApi::parseError($details);
+        $details = self::parseError($details);
         foreach ($details as &$detail) {
-            $detail = RestApi::parseError($detail);
+            $detail = self::parseError($detail);
         }
 
-        $this->details = $details;
+        $this->data = $details;
+    }
+
+    public static function parseError($message)
+    {
+        if (isset($message['error']) && isset($message['error']['parameters']) && isset($message['error']['message'])) {
+            $message['error']['message'] = vsprintf($message['error']['message'], $message['error']['parameters']);
+            unset($message['error']['parameters']);
+        }
+        return $message;
     }
 }

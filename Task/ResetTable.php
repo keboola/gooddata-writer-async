@@ -6,7 +6,6 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
 
 class ResetTable extends AbstractTask
@@ -39,36 +38,23 @@ class ResetTable extends AbstractTask
         $projects = $this->configuration->getProjects();
 
         $result = [];
-        try {
-            $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
-            $updateOperations = [];
-            foreach ($projects as $project) {
-                if ($project['active']) {
-                    $result = $this->restApi->dropDataSet($project['pid'], $dataSetName);
-                    if ($result) {
-                        $updateOperations[$project['pid']] = $result;
-                    }
+        $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+
+        $updateOperations = [];
+        foreach ($projects as $project) {
+            if ($project['active']) {
+                $result = $this->restApi->dropDataSet($project['pid'], $dataSetName);
+                if ($result) {
+                    $updateOperations[$project['pid']] = $result;
                 }
             }
-            if (count($updateOperations)) {
-                $result['info'] = $updateOperations;
-            }
-
-            $this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 0);
-        } catch (\Exception $e) {
-            $error = $e->getMessage();
-
-            if ($e instanceof RestApiException) {
-                $error = $e->getDetails();
-            }
-
-            if (!($e instanceof RestApiException)) {
-                throw $e;
-            }
-
-            $result['error'] = $error;
         }
+        if (count($updateOperations)) {
+            $result['info'] = $updateOperations;
+        }
+
+        $this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 0);
 
         return $result;
     }

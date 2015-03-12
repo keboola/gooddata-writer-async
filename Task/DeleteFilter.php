@@ -8,9 +8,9 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\Syrup\Exception\UserException;
 
 class DeleteFilter extends AbstractTask
 {
@@ -22,13 +22,13 @@ class DeleteFilter extends AbstractTask
 
         if (isset($params['name'])) {
             if (!$this->configuration->getFilter($params['name'])) {
-                throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $params['name']]));
+                throw new UserException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $params['name']]));
             }
         } else {
             //@TODO backwards compatibility, REMOVE SOON
             $this->checkParams($params, ['uri']);
             if (!$this->configuration->checkFilterUri($params['uri'])) {
-                throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $params['uri']]));
+                throw new UserException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $params['uri']]));
             }
         }
 
@@ -58,7 +58,7 @@ class DeleteFilter extends AbstractTask
             // Delete filter only from particular project
             $this->checkParams($params, ['uri']);
             if (!$this->configuration->checkFilterUri($params['uri'])) {
-                throw new WrongParametersException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $params['uri']]));
+                throw new UserException($this->translator->trans('parameters.filters.not_exist %1', ['%1' => $params['uri']]));
             }
             $uris[] = $params['uri'];
         }

@@ -6,10 +6,9 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\Syrup\Exception\UserException;
 
 class AddUserToProject extends AbstractTask
 {
@@ -21,10 +20,10 @@ class AddUserToProject extends AbstractTask
 
         $allowedRoles = array_keys(RestApi::$userRoles);
         if (!in_array($params['role'], $allowedRoles)) {
-            throw new WrongParametersException($this->translator->trans('parameters.role %1', ['%1' => implode(', ', $allowedRoles)]));
+            throw new UserException($this->translator->trans('parameters.role %1', ['%1' => implode(', ', $allowedRoles)]));
         }
         if (!$this->configuration->getProject($params['pid'])) {
-            throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
+            throw new UserException($this->translator->trans('parameters.pid_not_configured'));
         }
 
         $bucketAttributes = $this->configuration->bucketAttributes();
@@ -61,7 +60,7 @@ class AddUserToProject extends AbstractTask
 
         $allowedRoles = array_keys(RestApi::$userRoles);
         if (!in_array($params['role'], $allowedRoles)) {
-            throw new WrongConfigurationException($this->translator->trans('parameters.role %1', ['%1' => implode(', ', $allowedRoles)]));
+            throw new UserException($this->translator->trans('parameters.role %1', ['%1' => implode(', ', $allowedRoles)]));
         }
 
         $this->restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);

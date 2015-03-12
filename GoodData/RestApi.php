@@ -8,7 +8,6 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
-use Guzzle\Common\Exception\RuntimeException;
 use Guzzle\Http\Client;
 use Guzzle\Http\Exception\ServerErrorResponseException;
 use Guzzle\Http\Exception\ClientErrorResponseException;
@@ -17,10 +16,9 @@ use Guzzle\Http\Curl\CurlHandle;
 use Guzzle\Http\Exception\CurlException;
 use Guzzle\Stream\PhpStreamRequestFactory;
 use Guzzle\Http\Message\RequestInterface;
-use Keboola\GoodDataWriter\Exception\JobProcessException;
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Exception\UserAlreadyExistsException;
-use Keboola\GoodDataWriter\Service\EventLogger;
+use Keboola\Syrup\Exception\UserException;
 use Monolog\Logger;
 use stdClass;
 
@@ -59,11 +57,6 @@ class RestApi
      * @var Logger
      */
     private $logger;
-
-    /**
-     * @var EventLogger
-     */
-    private $eventLogger;
 
     protected $authSst;
     protected $authTt;
@@ -130,23 +123,9 @@ class RestApi
         $this->client->setBaseUrl($baseUrl);
     }
 
-    public function setEventLogger(EventLogger $eventLogger)
-    {
-        $this->eventLogger = $eventLogger;
-    }
-
     public function getApiUrl()
     {
         return $this->apiUrl;
-    }
-
-    public static function parseError($message)
-    {
-        if (isset($message['error']) && isset($message['error']['parameters']) && isset($message['error']['message'])) {
-            $message['error']['message'] = vsprintf($message['error']['message'], $message['error']['parameters']);
-            unset($message['error']['parameters']);
-        }
-        return $message;
     }
 
     public static function getUserUri($uid)
@@ -408,9 +387,9 @@ class RestApi
             if ($userId) {
                 throw new UserAlreadyExistsException($userId);
             } else {
-                $details = $e->getDetails();
+                $details = $e->getData();
                 if (isset($details['details']['error']['errorClass']) && strpos($details['details']['error']['errorClass'], 'LoginNameAlreadyRegisteredException') !== null) {
-                    throw new RestApiException('Account already exists in another domain', $e->getDetails(), $e->getCode(), $e);
+                    throw new RestApiException('Account already exists in another domain', $e->getData(), $e->getCode(), $e);
                 } else {
                     throw $e;
                 }
@@ -851,13 +830,14 @@ class RestApi
                     $this->executeMaql($pid, $m);
                 } catch (RestApiException $e) {
                     if (!empty($update['moreDestructiveMaql'][$i])) {
-                        $this->executeMaql($pid, $update['moreDestructiveMaql'][$i]);
+                        $m = $update['moreDestructiveMaql'][$i];
+                        $this->executeMaql($pid, $m);
                     } else {
                         throw $e;
                     }
                 }
 
-                return $update['description'];
+                return ['description' => $update['description'], 'maql' => $m];
             }
         }
         return false;
@@ -919,7 +899,7 @@ class RestApi
 
             return false;
         } catch (RestApiException $e) {
-            $details = $e->getDetails();
+            $details = $e->getData();
             if (isset($details['details']['error']['validationErrors'])) {
                 $errors = [];
                 foreach ($details['details']['error']['validationErrors'] as $err) {
@@ -1159,20 +1139,20 @@ class RestApi
             } else {
                 $expression .= '[' . $this->getAttributeValueUri($gdAttribute, $value) . ']';
             }
-        } catch (JobProcessException $e) {
-            throw new JobProcessException('Attribute value is missing from the dataset. Add it or choose another one please. (' . $e->getMessage() . ')', $e);
+        } catch (UserException $e) {
+            throw new UserException('Attribute value is missing from the dataset. Add it or choose another one please. (' . $e->getMessage() . ')', $e);
         }
 
         if ($overId && $toId) {
             try {
                 $over = $this->getAttributeById($pid, $overId);
-            } catch (JobProcessException $e) {
-                throw new JobProcessException(sprintf("Attribute '%s' used for 'over' does not exist in project", $overId));
+            } catch (UserException $e) {
+                throw new UserException(sprintf("Attribute '%s' used for 'over' does not exist in project", $overId));
             }
             try {
                 $to = $this->getAttributeById($pid, $toId);
-            } catch (JobProcessException $e) {
-                throw new JobProcessException(sprintf("Attribute '%s' used for 'to' does not exist in project", $toId));
+            } catch (UserException $e) {
+                throw new UserException(sprintf("Attribute '%s' used for 'to' does not exist in project", $toId));
             }
 
             $expression = '(' . $expression . ') OVER [' . $over['meta']['uri'] . '] TO [' . $to['meta']['uri'] . ']';
@@ -1274,7 +1254,7 @@ class RestApi
         }
 
         if (null == $attrUri) {
-            throw new JobProcessException(sprintf('Attribute with %s = %s not found in project', $field, $search));
+            throw new UserException(sprintf('Attribute with %s = %s not found in project', $field, $search));
         } else {
             $result = $this->jsonRequest($attrUri);
             if (isset($result['attribute'])) {
@@ -1304,7 +1284,7 @@ class RestApi
             }
         }
 
-        throw new JobProcessException(sprintf("Value '%s' of attribute '%s' not found", $title, $attribute['meta']['identifier']));
+        throw new UserException(sprintf("Value '%s' of attribute '%s' not found", $title, $attribute['meta']['identifier']));
     }
 
     public function getWebDavUrl()
@@ -1688,21 +1668,6 @@ class RestApi
                 'component' => 'gooddata-writer',
                 'pid' => getmypid()
             ]);
-        }
-
-        if ($this->eventLogger && $this->username != 'gooddata@keboola.com') {
-            try {
-                $responseJson = $response? $response->json() : null;
-            } catch (RuntimeException $e) {
-                $responseJson = '-- skipped, not a json --';
-            }
-            $this->eventLogger->log(
-                $this->jobId,
-                $this->runId,
-                sprintf('Called Rest API: %s %s', $method, $uri),
-                ['params' => $params, 'response' => $responseJson],
-                $duration
-            );
         }
     }
 

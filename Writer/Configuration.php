@@ -9,11 +9,10 @@
 namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\GoodDataWriter\Exception\SharedStorageException;
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Service\StorageApiConfiguration;
 use Keboola\StorageApi\Client as StorageApiClient;
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\StorageApi\ClientException;
+use Keboola\Syrup\Exception\UserException;
 
 class Configuration extends StorageApiConfiguration
 {
@@ -194,13 +193,13 @@ class Configuration extends StorageApiConfiguration
             $attributes = self::parseBucketAttributes($bucket['attributes']);
             if ($checkError) {
                 if (!empty($attributes['error'])) {
-                    throw new WrongConfigurationException($attributes['error']);
+                    throw new UserException($attributes['error']);
                 }
             }
             return $attributes;
         } catch (ClientException $e) {
             if ($e->getCode() == 404) {
-                throw new WrongConfigurationException('Configuration bucket for \'' . $this->bucketId . '\' is missing');
+                throw new UserException('Configuration bucket for \'' . $this->bucketId . '\' is missing');
             } else {
                 throw $e;
             }
@@ -238,7 +237,7 @@ class Configuration extends StorageApiConfiguration
             $sharedData = $this->sharedStorage->getWriter($this->projectId, $this->writerId);
             unset($sharedData['feats']);
         } catch (SharedStorageException $e) {
-            throw new WrongParametersException('Parameter \'writerId\' does not correspond with any configured writer');
+            throw new UserException('Parameter \'writerId\' does not correspond with any configured writer');
         }
         return array_merge($sharedData, $attributes);
     }
@@ -295,7 +294,7 @@ class Configuration extends StorageApiConfiguration
         try {
             return $this->sapiGetTable($tableId);
         } catch (ClientException $e) {
-            throw new WrongConfigurationException("Table '$tableId' does not exist or is not accessible with the SAPI token");
+            throw new UserException("Table '$tableId' does not exist or is not accessible with the SAPI token");
         }
     }
 
@@ -328,7 +327,7 @@ class Configuration extends StorageApiConfiguration
         $configuredTables = [];
         foreach ($this->fetchTableRows($tableId) as $row) {
             if (!isset($row['id'])) {
-                throw new WrongConfigurationException('Configuration table ' . $tableId . ' is missing column id');
+                throw new UserException('Configuration table ' . $tableId . ' is missing column id');
             }
             if (!in_array($row['id'], $configuredTables)) {
                 $configuredTables[] = $row['id'];
@@ -423,7 +422,7 @@ class Configuration extends StorageApiConfiguration
             if (!empty($table['definition'])) {
                 $tableDefinition = json_decode($table['definition'], true);
                 if ($tableDefinition === null) {
-                    throw new WrongConfigurationException(sprintf("Definition of columns for table '%s' is not valid json", $table['id']));
+                    throw new UserException(sprintf("Definition of columns for table '%s' is not valid json", $table['id']));
                 }
                 foreach ($tableDefinition as $column) {
                     if ($column['type'] == 'CONNECTION_POINT') {
@@ -449,13 +448,13 @@ class Configuration extends StorageApiConfiguration
 
         $tableConfig = $this->getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
         if (!$tableConfig) {
-            throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
+            throw new UserException("Definition for table '$tableId' does not exist");
         }
 
         if ($tableConfig['definition']) {
             $tableConfig['columns'] = json_decode($tableConfig['definition'], true);
             if ($tableConfig['columns'] === null) {
-                throw new WrongConfigurationException("Definition of columns is not valid json");
+                throw new UserException("Definition of columns is not valid json");
             }
         } else {
             $tableConfig['columns'] = [];
@@ -492,12 +491,12 @@ class Configuration extends StorageApiConfiguration
 
         $tableRow = $this->getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId, false);
         if (!$tableRow) {
-            throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
+            throw new UserException("Definition for table '$tableId' does not exist");
         }
         if ($tableRow['definition']) {
             $definition = json_decode($tableRow['definition'], true);
             if ($definition === null) {
-                throw new WrongConfigurationException("Definition of columns for table '$tableId' is not valid json");
+                throw new UserException("Definition of columns for table '$tableId' is not valid json");
             }
         } else {
             $definition = [];
@@ -507,14 +506,14 @@ class Configuration extends StorageApiConfiguration
             // Update more columns
             foreach ($column as $columnData) {
                 if (!isset($columnData['name'])) {
-                    throw new WrongParametersException("One of the columns is missing 'name' parameter");
+                    throw new UserException("One of the columns is missing 'name' parameter");
                 }
                 $columnName = $columnData['name'];
                 unset($columnData['name']);
 
                 foreach (array_keys($columnData) as $key) {
                     if (!in_array($key, self::$columnDefinitions)) {
-                        throw new WrongParametersException(sprintf("Parameter '%s' is not valid for column definition", $key));
+                        throw new UserException(sprintf("Parameter '%s' is not valid for column definition", $key));
                     }
                 }
 
@@ -597,7 +596,7 @@ class Configuration extends StorageApiConfiguration
 
         $tableRow = $this->getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId, false);
         if (!$tableRow) {
-            throw new WrongConfigurationException("Definition for table '$tableId' does not exist");
+            throw new UserException("Definition for table '$tableId' does not exist");
         }
 
         $allowedParams = $this->tables[Configuration::DATA_SETS_TABLE_NAME]['columns'];
@@ -611,14 +610,14 @@ class Configuration extends StorageApiConfiguration
             // Update more values at once
             foreach (array_keys($name) as $key) {
                 if (!in_array($key, $allowedParams)) {
-                    throw new WrongParametersException(sprintf("Parameter '%s' is not valid for table definition", $key));
+                    throw new UserException(sprintf("Parameter '%s' is not valid for table definition", $key));
                 }
             }
             $tableRow = $name;
         } else {
             // Update one value
             if (!in_array($name, $allowedParams)) {
-                throw new WrongParametersException(sprintf("Parameter '%s' is not valid for table definition", $name));
+                throw new UserException(sprintf("Parameter '%s' is not valid for table definition", $name));
             }
             $tableRow[$name] = $value;
         }
@@ -652,7 +651,7 @@ class Configuration extends StorageApiConfiguration
         if ($dataSet['definition']) {
             $definition = json_decode($dataSet['definition'], true);
             if ($definition === null) {
-                throw new WrongConfigurationException("Definition of columns for table '$tableId' is not valid json");
+                throw new UserException("Definition of columns for table '$tableId' is not valid json");
             }
 
             // Remove definitions of non-existing columns
@@ -752,15 +751,15 @@ class Configuration extends StorageApiConfiguration
                                 $column['template'] = $dateDimensions[$columnDefinition['dateDimension']]['template'];
                             }
                         } else {
-                            throw new WrongConfigurationException("Date column '{$columnName}' does not have valid date dimension assigned");
+                            throw new UserException("Date column '{$columnName}' does not have valid date dimension assigned");
                         }
                         break;
                     case 'REFERENCE':
                         if ($columnDefinition['schemaReference']) {
                             try {
                                 $refTableDefinition = $this->getDataSet($columnDefinition['schemaReference']);
-                            } catch (WrongConfigurationException $e) {
-                                throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}'"
+                            } catch (UserException $e) {
+                                throw new UserException("Schema reference '{$columnDefinition['schemaReference']}'"
                                     . " of column '{$columnName}' does not exist");
                             }
                             if ($refTableDefinition) {
@@ -777,15 +776,15 @@ class Configuration extends StorageApiConfiguration
                                 if ($reference) {
                                     $column['reference'] = $reference;
                                 } else {
-                                    throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}' "
+                                    throw new UserException("Schema reference '{$columnDefinition['schemaReference']}' "
                                         . "of column '{$columnName}' does not have connection point");
                                 }
                             } else {
-                                throw new WrongConfigurationException("Schema reference '{$columnDefinition['schemaReference']}' "
+                                throw new UserException("Schema reference '{$columnDefinition['schemaReference']}' "
                                     . " of column '{$columnName}' does not exist");
                             }
                         } else {
-                            throw new WrongConfigurationException("Schema reference of column '{$columnName}' is empty");
+                            throw new UserException("Schema reference of column '{$columnName}' is empty");
                         }
 
                         break;
@@ -808,8 +807,8 @@ class Configuration extends StorageApiConfiguration
             if (!empty($dataSet['export'])) {
                 try {
                     $definition = $this->getDataSetDefinition($dataSet['id']);
-                } catch (WrongConfigurationException $e) {
-                    throw new WrongConfigurationException(sprintf('Wrong configuration of table \'%s\': %s', $dataSet['id'], $e->getMessage()));
+                } catch (UserException $e) {
+                    throw new UserException(sprintf('Wrong configuration of table \'%s\': %s', $dataSet['id'], $e->getMessage()));
                 }
 
                 $dataSets[$dataSet['id']] = [
@@ -833,7 +832,7 @@ class Configuration extends StorageApiConfiguration
                     if (in_array($c['schemaReferenceId'], $allIds)) {
                         $references[$tableId][] = $c['schemaReferenceId'];
                     } else {
-                        throw new WrongConfigurationException("Schema reference '{$c['schemaReferenceId']}' for table '{$tableId}' is not in tables to export");
+                        throw new UserException("Schema reference '{$c['schemaReferenceId']}' for table '{$tableId}' is not in tables to export");
                     }
                 }
             }
@@ -858,7 +857,7 @@ class Configuration extends StorageApiConfiguration
             $ttl--;
 
             if ($ttl <= 0) {
-                throw new WrongConfigurationException('Check of references failed with timeout. You probably have a recursion in references');
+                throw new UserException('Check of references failed with timeout. You probably have a recursion in references');
             }
         }
 
@@ -1170,7 +1169,7 @@ class Configuration extends StorageApiConfiguration
         $filter = [];
         foreach ($this->getProjectUsers() as $projectUser) {
             if (isset($projectUser['main'])) {
-                throw new WrongConfigurationException('Main user cannot be removed from main project');
+                throw new UserException('Main user cannot be removed from main project');
             }
 
             if ($projectUser['pid'] == $pid && strtolower($projectUser['email']) == strtolower($email)) {
@@ -1322,7 +1321,7 @@ class Configuration extends StorageApiConfiguration
     public function saveFilter($name, $attribute, $operator, $value, $over = null, $to = null)
     {
         if ($this->sapiTableExists($this->bucketId . '.' . self::FILTERS_TABLE_NAME) && $this->getFilter($name)) {
-            throw new WrongParametersException("Filter of that name already exists.");
+            throw new UserException("Filter of that name already exists.");
         }
 
         $data = [
@@ -1340,7 +1339,7 @@ class Configuration extends StorageApiConfiguration
     {
         if ($this->sapiTableExists($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME)
             && count($this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri))) {
-            throw new WrongParametersException("Filter is already assigned to the project.");
+            throw new UserException("Filter is already assigned to the project.");
         }
 
         $data = [
@@ -1388,13 +1387,13 @@ class Configuration extends StorageApiConfiguration
     {
         $attrArray = explode('.', $attr);
         if (count($attrArray) != 4) {
-            throw new WrongConfigurationException(sprintf("Attribute parameter '%s' has wrong format", $attr));
+            throw new UserException(sprintf("Attribute parameter '%s' has wrong format", $attr));
         }
         $tableId = sprintf('%s.%s.%s', $attrArray[0], $attrArray[1], $attrArray[2]);
 
         $sapiTable = $this->getSapiTable($tableId);
         if (!in_array($attrArray[3], $sapiTable['columns'])) {
-            throw new WrongParametersException(sprintf("Attribute parameter '%s' has wrong format, column '%s' not found in table '%s'", $attr, $attrArray[3], $tableId));
+            throw new UserException(sprintf("Attribute parameter '%s' has wrong format, column '%s' not found in table '%s'", $attr, $attrArray[3], $tableId));
         }
 
         return $tableId;

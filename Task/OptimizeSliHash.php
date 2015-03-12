@@ -38,13 +38,13 @@ class OptimizeSliHash extends AbstractTask
                 $wait = false;
                 $jobs = $this->jobFactory->getJobSearch()->getJobs([
                     'projectId' => $this->configuration->projectId,
-                    //'status' => Job::STATUS_PROCESSING,
+                    'status' => Job::STATUS_PROCESSING,
                     'query' => sprintf(
                         'params.writerId:"%s" AND -lockName:"%s.%s.%s"',
                         $this->configuration->writerId,
                         $this->configuration->projectId,
                         $this->configuration->writerId,
-                        Job::PRIMARY_QUEUE
+                        Job::SERVICE_QUEUE
                     )
                 ]);
                 foreach ($jobs as $jobData) {

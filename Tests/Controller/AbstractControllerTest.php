@@ -7,14 +7,15 @@ namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
+use Keboola\Syrup\Command\JobCommand;
+use Keboola\Syrup\Elasticsearch\Search;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
-use Keboola\GoodDataWriter\Command\ExecuteBatchCommand;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\StorageApi\Table as StorageApiTable;
-use Doctrine\Common\Annotations\AnnotationRegistry;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 abstract class AbstractControllerTest extends WebTestCase
 {
@@ -54,6 +55,8 @@ abstract class AbstractControllerTest extends WebTestCase
     protected $dataBucketId;
     protected $writerId;
     protected $gdDomain;
+    /** @var ContainerInterface */
+    protected $container;
 
 
     /**
@@ -63,6 +66,7 @@ abstract class AbstractControllerTest extends WebTestCase
     {
         $this->httpClient = static::createClient();
         $container = $this->httpClient->getContainer();
+        $this->container = $container;
 
         $uniqueIndex = uniqid();
         $this->writerId = self::WRITER_ID_PREFIX . $uniqueIndex;
@@ -160,8 +164,8 @@ abstract class AbstractControllerTest extends WebTestCase
 
         // Init job processing
         $application = new Application($this->httpClient->getKernel());
-        $application->add(new ExecuteBatchCommand());
-        $command = $application->find('gooddata-writer:execute-batch');
+        $application->add(new JobCommand());
+        $command = $application->find('syrup:run-job');
         $this->commandTester = new CommandTester($command);
 
 
@@ -317,16 +321,23 @@ abstract class AbstractControllerTest extends WebTestCase
             $this->configuration->clearCache();
         }
 
-        if (isset($responseJson['batch'])) {
+        if (isset($responseJson['id'])) {
             $this->commandTester->execute([
-                'command' => 'gooddata-writer:execute-batch',
-                'batchId' => $responseJson['batch']
+                'command' => 'syrup:run-job',
+                'jobId' => $responseJson['id']
             ]);
-            return $responseJson['batch'];
+            return $responseJson['id'];
         } else {
-            $this->assertTrue(false, sprintf("Response for writer call '%s' should contain 'batch' key.", $url));
+            $this->assertTrue(false, sprintf("Response for writer call '%s' should contain 'id' key.", $url));
         }
         return false;
+    }
+
+    protected function getJobFromElasticsearch($id)
+    {
+        /** @var Search $jobSearch */
+        $jobSearch = $this->container->get('gooddata_writer.elasticsearch.search');
+        return $jobSearch->getJob($id);
     }
 
     protected function createUser($ssoProvider = null)

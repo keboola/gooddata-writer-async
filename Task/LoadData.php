@@ -6,15 +6,13 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\JobProcessException;
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Exception\RestApiException;
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\CsvHandler;
 use Keboola\GoodDataWriter\GoodData\WebDav;
 use Keboola\GoodDataWriter\GoodData\Model;
-use Keboola\GoodDataWriter\Exception\WebDavException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\StorageApi\Event;
+use Keboola\Syrup\Exception\UserException;
 use Symfony\Component\Stopwatch\Stopwatch;
 
 class LoadData extends AbstractTask
@@ -26,7 +24,7 @@ class LoadData extends AbstractTask
 
         if (isset($params['tables'])) {
             if (!is_array($params['tables'])) {
-                throw new JobProcessException($this->translator->trans('parameters.tables_not_array'));
+                throw new UserException($this->translator->trans('parameters.tables_not_array'));
             }
         } else {
             $params['tables'] = [];
@@ -56,10 +54,10 @@ class LoadData extends AbstractTask
         $this->checkParams($params, ['pid', 'tableId']);
         $project = $this->configuration->getProject($params['pid']);
         if (!$project) {
-            throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
+            throw new UserException($this->translator->trans('parameters.pid_not_configured'));
         }
         if (empty($definitionFile)) {
-            throw new WrongConfigurationException($this->translator->trans('job_executor.data_set_definition_missing'));
+            throw new UserException($this->translator->trans('job_executor.data_set_definition_missing'));
         }
 
         $bucketAttributes = $this->configuration->bucketAttributes();
@@ -68,7 +66,7 @@ class LoadData extends AbstractTask
         $stopWatch = new Stopwatch();
 
         // Init
-        $tmpFolderName = basename($this->getTmpDir($job->getId()));
+        $tmpFolderName = basename($this->getTmpDir($job->getId())) . '/' . $taskId;
         $csvHandler = new CsvHandler($this->temp, $this->scriptsPath, $this->storageApiClient, $this->logger);
         $csvHandler->setJobId($job->getId());
         $csvHandler->setRunId($job->getRunId());
@@ -88,10 +86,14 @@ class LoadData extends AbstractTask
 
         $definition = $this->getDefinition($definitionFile);
 
-        $e = $stopWatch->stop($stopWatchId);
-        $this->logEvent('Data set definition from S3 downloaded', $job->getId(), $job->getRunId(), [
-            'definition' => $definitionFile
-        ], $e->getDuration());
+        $this->logEvent(
+            'Dataset definition fetched',
+            $taskId,
+            $job->getId(),
+            $job->getRunId(),
+            ['definition' => $definitionFile],
+            $stopWatch->stop($stopWatchId)->getDuration()
+        );
 
 
         // Get manifest
@@ -105,10 +107,14 @@ class LoadData extends AbstractTask
             $tmpFolderName . '/manifest.json',
             true
         );
-        $e = $stopWatch->stop($stopWatchId);
-        $this->logEvent('Manifest file for csv prepared', $job->getId(), $job->getRunId(), [
-            'manifest' => $this->logs['Manifest']
-        ], $e->getDuration());
+        $this->logEvent(
+            'Manifest prepared',
+            $taskId,
+            $job->getId(),
+            $job->getRunId(),
+            ['manifest' => $this->logs['Manifest']],
+            $stopWatch->stop($stopWatchId)->getDuration()
+        );
 
 
         try {
@@ -135,25 +141,22 @@ class LoadData extends AbstractTask
                 $this->configuration->noDateFacts
             );
             if (!$webDav->fileExists(sprintf('%s/%s.csv', $tmpFolderName, $datasetName))) {
-                throw new JobProcessException($this->translator->trans(
+                throw new UserException($this->translator->trans(
                     'error.csv_not_uploaded %1',
                     ['%1' => $webDavFileUrl]
                 ));
             }
 
-            $e = $stopWatch->stop($stopWatchId);
-            $this->logEvent('Csv file transferred to WebDav', $job->getId(), $job->getRunId(), [
-                'url' => $webDavFileUrl
-            ], $e->getDuration());
-
-            $stopWatchId = 'upload_manifest';
-            $stopWatch->start($stopWatchId);
-
             $webDav->upload($this->getTmpDir($job->getId()) . '/upload_info.json', $tmpFolderName);
-            $e = $stopWatch->stop($stopWatchId);
-            $this->logEvent('Manifest file for csv transferred to WebDav', $job->getId(), $job->getRunId(), [
-                'url' => $webDav->getUrl() . '/' . $tmpFolderName . '/upload_info.json'
-            ], $e->getDuration());
+
+            $this->logEvent(
+                'Csv transferred to GoodData',
+                $taskId,
+                $job->getId(),
+                $job->getRunId(),
+                ['data' => $webDavFileUrl, 'manifest' => $webDav->getUrl() . '/' . $tmpFolderName . '/upload_info.json'],
+                $stopWatch->stop($stopWatchId)->getDuration()
+            );
 
 
             // Run ETL task of dataSets
@@ -181,33 +184,32 @@ class LoadData extends AbstractTask
 
                 throw $e;
             }
-            $e = $stopWatch->stop($stopWatchId);
-            $this->logEvent('ETL task finished', $job->getId(), $job->getRunId(), [], $e->getDuration());
+            $this->logEvent(
+                'Csv processing in GoodData finished',
+                $taskId,
+                $job->getId(),
+                $job->getRunId(),
+                [],
+                $stopWatch->stop($stopWatchId)->getDuration()
+            );
         } catch (\Exception $e) {
-            $error = $e->getMessage();
+            $this->logEvent(
+                'Csv processing in GoodData failed',
+                $taskId,
+                $job->getId(),
+                $job->getRunId(),
+                ['error' => $e->getMessage()],
+                $stopWatch->isStarted($stopWatchId)? $stopWatch->stop($stopWatchId)->getDuration() : 0,
+                Event::TYPE_ERROR
+            );
 
-            if ($e instanceof RestApiException) {
-                $error = $e->getDetails();
-            }
-
-            $sw = $stopWatch->isStarted($stopWatchId)? $stopWatch->stop($stopWatchId) : null;
-            $this->logEvent('ETL task failed', $job->getId(), $job->getRunId(), [
-                'error' => $error
-            ], $sw? $sw->getDuration() : 0);
-
-            if (!($e instanceof RestApiException) && !($e instanceof WebDavException)) {
-                throw $e;
-            }
+            throw $e;
         }
 
         $result = [];
         if ($incrementalLoad) {
             $result['flags'] = ['incremental' => $this->translator->trans('result.flag.incremental %1', ['%1' => $incrementalLoad])];
         }
-        if (!empty($error)) {
-            $result['error'] = $error;
-        }
-
         return $result;
     }
 
@@ -219,10 +221,10 @@ class LoadData extends AbstractTask
             $filterColumn = $bucketAttributes['filterColumn'];
             $tableInfo = $this->configuration->getSapiTable($tableId);
             if (!in_array($filterColumn, $tableInfo['columns'])) {
-                throw new WrongConfigurationException($this->translator->trans('configuration.upload.filter_missing', ['%1' => $filterColumn]));
+                throw new UserException($this->translator->trans('configuration.upload.filter_missing', ['%1' => $filterColumn]));
             }
             if (!in_array($filterColumn, $tableInfo['indexedColumns'])) {
-                throw new WrongConfigurationException($this->translator->trans('configuration.upload.filter_index_missing', ['%1' => $filterColumn]));
+                throw new UserException($this->translator->trans('configuration.upload.filter_index_missing', ['%1' => $filterColumn]));
             }
         }
         return $filterColumn;

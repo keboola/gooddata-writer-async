@@ -6,7 +6,7 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Writer\JobStorage;
+use Keboola\GoodDataWriter\Job\Metadata\Job;
 
 class ProxyTest extends AbstractControllerTest
 {
@@ -47,13 +47,13 @@ class ProxyTest extends AbstractControllerTest
         $attrUri = $attr['attribute']['meta']['uri'];
 
         // repost attribute to GD
-        $batchId = $this->processJob('/proxy', array(
+        $batchId = $this->processJob('/proxy', [
             'writerId'  => $this->writerId,
             'query'     => $attrUri,
             'payload'   => $attr
-        ), 'POST');
+        ], 'POST');
 
         $jobStatus = $this->getWriterApi('/batch?batchId=' .$batchId . '&writerId=' . $this->writerId);
-        $this->assertEquals(JobStorage::JOB_STATUS_SUCCESS, $jobStatus['status']);
+        $this->assertEquals(Job::STATUS_SUCCESS, $jobStatus['status']);
     }
 }

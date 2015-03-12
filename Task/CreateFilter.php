@@ -6,9 +6,9 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\Syrup\Exception\UserException;
 
 class CreateFilter extends AbstractTask
 {
@@ -27,7 +27,7 @@ class CreateFilter extends AbstractTask
         }
 
         if ($this->configuration->getFilter($params['name'])) {
-            throw new WrongParametersException($this->translator->trans('parameters.filters.already_exists'));
+            throw new UserException($this->translator->trans('parameters.filters.already_exists'));
         }
 
         $result = [
@@ -40,7 +40,7 @@ class CreateFilter extends AbstractTask
 
         $this->configuration->getTableIdFromAttribute($params['attribute']);
         if ((isset($params['over']) && !isset($params['to'])) || (!isset($params['over']) && isset($params['to']))) {
-            throw new WrongParametersException($this->translator->trans('parameters.filters.over_to_missing'));
+            throw new UserException($this->translator->trans('parameters.filters.over_to_missing'));
         }
         if (isset($params['over']) && isset($params['to'])) {
             $this->configuration->getTableIdFromAttribute($params['over']);
@@ -65,7 +65,7 @@ class CreateFilter extends AbstractTask
         if ($filter) {
             foreach ($this->configuration->getFiltersProjectsByFilter($params['name']) as $fp) {
                 if ($fp == $params['pid']) {
-                    throw new WrongParametersException($this->translator->trans('parameters.filters.already_exists'));
+                    throw new UserException($this->translator->trans('parameters.filters.already_exists'));
                 }
             }
         }
@@ -79,7 +79,7 @@ class CreateFilter extends AbstractTask
         $overAttrId = null;
         $toAttrId = null;
         if ((isset($params['over']) && !isset($params['to'])) || (!isset($params['over']) && isset($params['to']))) {
-            throw new WrongParametersException($this->translator->trans('parameters.filters.over_to_missing'));
+            throw new UserException($this->translator->trans('parameters.filters.over_to_missing'));
         }
         if (isset($params['over']) && isset($params['to'])) {
             $overTableId = $this->configuration->getTableIdFromAttribute($params['over']);

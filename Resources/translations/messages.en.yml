@@ -82,15 +82,6 @@ parameters:
     required: Parameter 'writerId' is required
     not_found: Parameter 'writerId' does not correspond with any configured writer
 
-queue:
-  batch_postponed: Batch execution postponed
-  error: Queue process error
-  error_max_retries: Queue process error (Maximum retries exceeded)
-  in_use %1: Batch '%1' cannot be executed, another job already in progress in the same queue
-  maintenance: Writer is undergoing maintenance
-  message_deleted: Deleted message
-  message_received: Received message
-
 rest_api:
   reports_list_bad_response: Bad format of response, missing 'query.entries' key
 

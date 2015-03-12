@@ -6,10 +6,10 @@
 
 namespace Keboola\GoodDataWriter\Service;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\StorageApi\Table as StorageApiTable;
 use Keboola\StorageApi\ClientException;
+use Keboola\Syrup\Exception\UserException;
 
 abstract class StorageApiConfiguration
 {
@@ -84,7 +84,7 @@ abstract class StorageApiConfiguration
             // Ignore if table does not exist
             if (!in_array($e->getCode(), [400, 404])) {
                 if ($e->getCode() == 403) {
-                    throw new WrongConfigurationException('Your token does not have access to table ' . $tableId);
+                    throw new UserException('Your token does not have access to table ' . $tableId);
                 }
                 throw $e;
             }
@@ -148,7 +148,7 @@ abstract class StorageApiConfiguration
             return $table;
         } catch (\Keboola\StorageApi\ClientException $e) {
             if ($e->getCode() == 403) {
-                throw new WrongConfigurationException('Your token does not have access to table ' . $tableId);
+                throw new UserException('Your token does not have access to table ' . $tableId);
             }
             throw $e;
         }
@@ -269,7 +269,7 @@ abstract class StorageApiConfiguration
 
         // Allow tables to have more columns then according to definitions
         if (count(array_diff($this->tables[$tableName]['columns'], $columns))) {
-            throw new WrongConfigurationException(sprintf(
+            throw new UserException(sprintf(
                 "Table '%s' appears to be wrongly configured. Contains columns: '%s' but should contain columns: '%s'",
                 $tableName,
                 implode(',', $columns),
@@ -366,7 +366,7 @@ abstract class StorageApiConfiguration
                 $this->cache[$cacheKey] = $this->storageApiClient->getTable($tableId);
             } catch (\Keboola\StorageApi\ClientException $e) {
                 if ($e->getCode() == 403) {
-                    throw new WrongConfigurationException('Your token does not have access to table ' . $tableId);
+                    throw new UserException('Your token does not have access to table ' . $tableId);
                 }
                 throw $e;
             }
@@ -390,7 +390,7 @@ abstract class StorageApiConfiguration
                 $csv = $this->storageApiClient->exportTable($tableId, null, $options);
             } catch (\Keboola\StorageApi\ClientException $e) {
                 if ($e->getCode() == 403) {
-                    throw new WrongConfigurationException('Your token does not have access to table ' . $tableId);
+                    throw new UserException('Your token does not have access to table ' . $tableId);
                 }
                 throw $e;
             }

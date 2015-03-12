@@ -6,9 +6,9 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\Syrup\Exception\UserException;
 
 class DeleteWriter extends AbstractTask
 {
@@ -32,7 +32,7 @@ class DeleteWriter extends AbstractTask
     {
         $this->initRestApi($job);
         if (!$this->configuration->bucketId) {
-            throw new WrongConfigurationException('Writer has been already deleted.');
+            throw new UserException('Writer has been already deleted.');
         }
 
         $this->restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);

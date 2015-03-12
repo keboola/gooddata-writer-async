@@ -6,7 +6,6 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Service\S3Client;
@@ -16,6 +15,8 @@ use Keboola\GoodDataWriter\Job\Metadata\JobFactory;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\StorageApi\Client as StorageApiClient;
+use Keboola\StorageApi\Event;
+use Keboola\Syrup\Exception\UserException;
 use Monolog\Logger;
 use Symfony\Component\Translation\TranslatorInterface;
 use Keboola\Temp\Temp;
@@ -116,7 +117,7 @@ abstract class AbstractTask
             if (!empty($bucketAttributes['gd']['apiUrl'])) {
                 $this->restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
             }
-        } catch (WrongConfigurationException $e) {
+        } catch (UserException $e) {
             // Ignore
         }
     }
@@ -210,21 +211,18 @@ abstract class AbstractTask
         return $this->logs;
     }
 
-    public function logEvent($message, $jobId, $runId, $params = [], $duration = null)
+    public function logEvent($message, $taskId, $jobId, $runId, $params = [], $duration = null, $type = Event::TYPE_INFO)
     {
-        $this->eventLogger->log($jobId, $runId, $message, $params, $duration);
+        $className = current(array_slice(explode('\\', get_class($this)), -1)); //@TODO self::class in PHP 5.5
+        $message = sprintf('Task %d (%s): %s', $taskId, $className, $message);
+        $this->eventLogger->log($jobId, $runId, $message, $params, $duration, $type);
     }
 
-    /**
-     * @param array $params
-     * @param array $required
-     * @throws WrongConfigurationException
-     */
     protected function checkParams($params, $required)
     {
         foreach ($required as $k) {
             if (empty($params[$k])) {
-                throw new WrongConfigurationException($this->translator->trans('parameters.required %1', ['%1' => $k]));
+                throw new UserException($this->translator->trans('parameters.required %1', ['%1' => $k]));
             }
         }
     }
@@ -235,7 +233,7 @@ abstract class AbstractTask
         $projectId = $tokenInfo['owner']['id'];
 
         if (!$this->sharedStorage->writerExists($projectId, $writerId)) {
-            throw new WrongConfigurationException($this->translator->trans('parameters.writerId.not_found'));
+            throw new UserException($this->translator->trans('parameters.writerId.not_found'));
         }
     }
 }

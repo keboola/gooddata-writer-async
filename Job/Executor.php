@@ -12,9 +12,9 @@ use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\Syrup\Elasticsearch\JobMapper;
 use Keboola\Syrup\Exception\MaintenanceException;
+use Keboola\Syrup\Exception\UserException;
 use Keboola\Temp\Temp;
 
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Service\EventLogger;
 use Keboola\GoodDataWriter\Service\S3Client;
 
@@ -88,7 +88,7 @@ class Executor extends \Keboola\Syrup\Job\Executor
         }
 
         if (!isset($jobParams['tasks']) || !count($jobParams['tasks'])) {
-            throw new WrongParametersException(sprintf('Job %s has no tasks', $job->getId()));
+            throw new UserException(sprintf('Job %s has no tasks', $job->getId()));
         }
 
         $results = [];
@@ -101,9 +101,32 @@ class Executor extends \Keboola\Syrup\Job\Executor
                 throw new \Exception(sprintf('Job %s has task %d without params', $job->getId(), $i));
             }
 
-            $taskClass = $this->taskFactory->create($task['name']);
-            $results[$i] = $taskClass->run($job, $i, $task['params'], isset($task['definition']) ? $task['definition'] : null);
-            $logs[$i] = $taskClass->getLogs();
+            try {
+                $taskClass = $this->taskFactory->create($task['name']);
+                $results[$i] = $taskClass->run(
+                    $job,
+                    $i,
+                    $task['params'],
+                    isset($task['definition']) ? $task['definition'] : null
+                );
+                $logs[$i] = $taskClass->getLogs();
+            } catch (\Exception $e) {
+                if ($e instanceof UserException) {
+                    $message = $e->getMessage();
+                    if (substr($e->getMessage(), 0, 12) == 'User error: ') {
+                        $message = substr($e->getMessage(), 12);
+                    }
+                    throw new UserException(
+                        sprintf('Task %d (%s): %s', $i, ucfirst($task['name']), $message),
+                        $e,
+                        $e->getData()
+                    );
+                } else {
+                    throw $e;
+                }
+            }
+
+            $eventLogger->log($job->getId(), $job->getRunId(), sprintf('Task %d (%s) finished', $i, $task['name']), $task['params']);
         }
         $job->setResult($results);
         $job->setAttribute('logs', $logs);

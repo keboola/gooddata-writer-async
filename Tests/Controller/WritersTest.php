@@ -6,9 +6,10 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
+use Keboola\GoodDataWriter\Elasticsearch\Search;
+use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\GoodDataWriter\Writer\Configuration;
-use Keboola\GoodDataWriter\Writer\JobStorage;
+use Keboola\Syrup\Exception\UserException;
 
 class WritersTest extends AbstractControllerTest
 {
@@ -22,7 +23,7 @@ class WritersTest extends AbstractControllerTest
         $bucketAttributes = false;
         try {
             $bucketAttributes = $this->configuration->bucketAttributes();
-        } catch (WrongConfigurationException $e) {
+        } catch (UserException $e) {
             $this->fail("Writer configuration is not valid.");
         }
 
@@ -137,20 +138,22 @@ class WritersTest extends AbstractControllerTest
         $this->assertArrayHasKey('pid', $responseJson['writer']['gd'], "Response for writer call '/writers?writerId=' should contain 'writer.gd.pid' key.");
         $this->assertEquals($bucketAttributes['gd']['pid'], $responseJson['writer']['gd']['pid'], "Writer should have project given as request parameter");
 
+        /** @var Search $jobSearch */
+        $jobSearch = $this->container->get('gooddata_writer.elasticsearch.search');
         $i = 0;
         do {
             $this->assertLessThanOrEqual(10, $i, 'Waited for getting access to existing project too long');
             sleep($i * 10);
             $jobsFinished = true;
-            $jobs = $this->getWriterApi('/jobs?writerId=' . $existingProjectWriterId);
-            foreach ($jobs['jobs'] as $job) {
-                if (!JobStorage::isJobFinished($job['status'])) {
+            $jobs = $jobSearch->getJobs(['projectId' => $this->configuration->projectId, 'query' => sprintf('params.writerId:"%s"', $existingProjectWriterId)]);
+            foreach ($jobs as $job) {
+                if (!Job::isJobFinished($job['status'])) {
                     $this->commandTester->execute([
-                        'command' => 'gooddata-writer:execute-batch',
-                        'batchId' => $job['batchId']
+                        'command' => 'syrup:run-job',
+                        'jobId' => $job['id']
                     ]);
-                    $jobInfo = $this->getWriterApi('/jobs?writerId=' . $existingProjectWriterId . '&jobId=' . $job->getId());
-                    if ($jobInfo['status'] != JobStorage::JOB_STATUS_SUCCESS) {
+                    $jobInfo = $jobSearch->getJob($job['id']);
+                    if ($jobInfo['status'] != Job::STATUS_SUCCESS) {
                         $jobsFinished = false;
                     }
                 }

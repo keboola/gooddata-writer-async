@@ -7,9 +7,8 @@
 
 namespace Keboola\GoodDataWriter\Tests\Unit\Task;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Task\CreateWriter;
+use Keboola\Syrup\Exception\UserException;
 
 class CreateWriterTest extends AbstractTaskTest
 {
@@ -23,14 +22,14 @@ class CreateWriterTest extends AbstractTaskTest
         try {
             $task->prepare(['writerId' => 'dfs-dsf.fds'], $this->restApi);
             $this->fail();
-        } catch (WrongParametersException $e) {
+        } catch (UserException $e) {
         }
 
         // Writer name should not be longer then fifty chars
         try {
             $task->prepare(['writerId' => 'dfsdsffdsdfsdsffdsdfsdsffdsdfsdsffdsdfsdsffdsdfsdsffds'], $this->restApi);
             $this->fail();
-        } catch (WrongParametersException $e) {
+        } catch (UserException $e) {
         }
 
         $params = $task->prepare(['writerId' => $this->configuration->writerId, 'users' => 'u1,u2,u3']);
@@ -79,7 +78,7 @@ class CreateWriterTest extends AbstractTaskTest
         $bucketAttributes = false;
         try {
             $bucketAttributes = $this->configuration->bucketAttributes();
-        } catch (WrongConfigurationException $e) {
+        } catch (UserException $e) {
             $this->fail("Writer configuration is not valid.");
         }
 

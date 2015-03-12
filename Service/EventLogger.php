@@ -28,11 +28,11 @@ class EventLogger
         $this->s3Client = $s3Client;
     }
 
-    public function log($jobId, $runId, $message, $params = [], $duration = null)
+    public function log($jobId, $runId, $message, $params = [], $duration = null, $type = StorageApiEvent::TYPE_INFO)
     {
         $event = new StorageApiEvent();
         $event
-            ->setType(StorageApiEvent::TYPE_INFO)
+            ->setType($type)
             ->setMessage($message)
             ->setComponent('gooddata-writer') //@TODO load from config
             ->setConfigurationId($jobId)

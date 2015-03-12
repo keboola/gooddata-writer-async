@@ -6,10 +6,9 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\JobProcessException;
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Exception\UserAlreadyExistsException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\Syrup\Exception\UserException;
 
 class CreateUser extends AbstractTask
 {
@@ -19,7 +18,7 @@ class CreateUser extends AbstractTask
         $this->checkParams($params, ['writerId', 'firstName', 'lastName', 'email', 'password']);
         $this->checkWriterExistence($params['writerId']);
         if (strlen($params['password']) < 7) {
-            throw new WrongParametersException($this->translator->trans('parameters.password_length'));
+            throw new UserException($this->translator->trans('parameters.password_length'));
         }
         $this->configuration->checkUsersTable();
 
@@ -57,7 +56,7 @@ class CreateUser extends AbstractTask
             $userId = $e->getMessage();
             $alreadyExists = true;
             if (!$userId) {
-                throw new JobProcessException($this->translator->trans('error.user.in_other_domain'));
+                throw new UserException($this->translator->trans('error.user.in_other_domain'));
             }
         }
 

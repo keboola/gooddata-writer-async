@@ -6,8 +6,8 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\Syrup\Exception\UserException;
 
 class RemoveUserFromProject extends AbstractTask
 {
@@ -17,10 +17,10 @@ class RemoveUserFromProject extends AbstractTask
         $this->checkParams($params, ['writerId', 'pid', 'email']);
         $this->checkWriterExistence($params['writerId']);
         if (!$this->configuration->getProject($params['pid'])) {
-            throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
+            throw new UserException($this->translator->trans('parameters.pid_not_configured'));
         }
         if (!$this->configuration->isProjectUser($params['email'], $params['pid'])) {
-            throw new WrongParametersException($this->translator->trans('parameters.email_not_configured'));
+            throw new UserException($this->translator->trans('parameters.email_not_configured'));
         }
         $this->configuration->checkProjectsTable();
         $this->configuration->checkProjectUsersTable();
@@ -44,7 +44,7 @@ class RemoveUserFromProject extends AbstractTask
         $this->restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
 
         if (!$this->configuration->isProjectUser($params['email'], $params['pid'])) {
-            throw new WrongParametersException($this->translator->trans('parameters.email_not_configured_in_project'));
+            throw new UserException($this->translator->trans('parameters.email_not_configured_in_project'));
         }
 
         $userId = false;

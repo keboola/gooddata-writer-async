@@ -6,12 +6,12 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Unit\Writer;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\StorageApi\Client;
 use Keboola\Syrup\Encryption\Encryptor;
 use Keboola\StorageApi\Table as StorageApiTable;
+use Keboola\Syrup\Exception\UserException;
 
 class ConfigurationTest extends \PHPUnit_Framework_TestCase
 {
@@ -228,7 +228,7 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
         // checkUsersTable()
         try {
             $this->configuration->checkUsersTable();
-        } catch (WrongConfigurationException $e) {
+        } catch (UserException $e) {
             $this->fail();
         }
         $this->storageApiClient->deleteTableColumn($configBucketId . '.users', 'email');
@@ -236,7 +236,7 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
         try {
             $this->configuration->checkUsersTable();
             $this->fail();
-        } catch (WrongConfigurationException $e) {
+        } catch (UserException $e) {
         }
     }
 
@@ -300,7 +300,7 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
         // checkProjectsTable()
         try {
             $this->configuration->checkProjectsTable();
-        } catch (WrongConfigurationException $e) {
+        } catch (UserException $e) {
             $this->fail();
         }
         $this->storageApiClient->deleteTableColumn($configBucketId . '.projects', 'active');
@@ -308,7 +308,7 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
         try {
             $this->configuration->checkProjectsTable();
             $this->fail();
-        } catch (WrongConfigurationException $e) {
+        } catch (UserException $e) {
         }
     }
 
@@ -368,7 +368,7 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
         // checkProjectsUsersTable()
         try {
             $this->configuration->checkProjectUsersTable();
-        } catch (WrongConfigurationException $e) {
+        } catch (UserException $e) {
             $this->fail();
         }
         $this->storageApiClient->deleteTableColumn($configBucketId . '.project_users', 'role');
@@ -376,7 +376,7 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
         try {
             $this->configuration->checkProjectUsersTable();
             $this->fail();
-        } catch (WrongConfigurationException $e) {
+        } catch (UserException $e) {
         }
     }
 
@@ -457,7 +457,7 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
         // checkFiltersTable()
         try {
             $this->configuration->checkFiltersTable();
-        } catch (WrongConfigurationException $e) {
+        } catch (UserException $e) {
             $this->fail();
         }
         $this->storageApiClient->deleteTableColumn($configBucketId . '.filters', 'operator');
@@ -465,7 +465,7 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
         try {
             $this->configuration->checkFiltersTable();
             $this->fail();
-        } catch (WrongConfigurationException $e) {
+        } catch (UserException $e) {
         }
     }
 

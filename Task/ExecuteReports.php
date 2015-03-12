@@ -6,9 +6,9 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\Syrup\Exception\UserException;
 
 class ExecuteReports extends AbstractTask
 {
@@ -21,11 +21,11 @@ class ExecuteReports extends AbstractTask
 
         $project = $this->configuration->getProject($params['pid']);
         if (!$project) {
-            throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
+            throw new UserException($this->translator->trans('parameters.pid_not_configured'));
         }
 
         if (!$project['active']) {
-            throw new WrongParametersException($this->translator->trans(
+            throw new UserException($this->translator->trans(
                 'configuration.project.not_active %1',
                 ['%1' => $params['pid']]
             ));
@@ -37,7 +37,7 @@ class ExecuteReports extends AbstractTask
 
             foreach ($reports as $reportLink) {
                 if (!preg_match('/^\/gdc\/md\/' . $params['pid'] . '\//', $reportLink)) {
-                    throw new WrongParametersException($this->translator->trans(
+                    throw new UserException($this->translator->trans(
                         'parameters.report.not_valid %1',
                         ['%1' => $reportLink]
                     ));
@@ -61,7 +61,7 @@ class ExecuteReports extends AbstractTask
         $this->checkParams($params, ['pid']);
         $project = $this->configuration->getProject($params['pid']);
         if (!$project) {
-            throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
+            throw new UserException($this->translator->trans('parameters.pid_not_configured'));
         }
         $bucketAttributes = $this->configuration->bucketAttributes();
         $this->configuration->checkProjectsTable();
@@ -70,7 +70,7 @@ class ExecuteReports extends AbstractTask
         if (!empty($params['reports'])) {
             foreach ((array)$params['reports'] as $reportUri) {
                 if (!preg_match('/^\/gdc\/md\/' . $project['pid'] . '\//', $reportUri)) {
-                    throw new WrongParametersException($this->translator->trans(
+                    throw new UserException($this->translator->trans(
                         'parameters.report.not_valid %1',
                         ['%1' => $reportUri]
                     ));

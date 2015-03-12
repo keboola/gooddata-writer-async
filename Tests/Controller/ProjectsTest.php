@@ -7,7 +7,7 @@
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\GoodData\Model;
-use Keboola\GoodDataWriter\Writer\JobStorage;
+use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\StorageApi\Table as StorageApiTable;
 use Keboola\GoodDataWriter\GoodData\WebDav;
 
@@ -67,20 +67,20 @@ class ProjectsTest extends AbstractControllerTest
 
         // Prepare data
         $table = new StorageApiTable($this->storageApi, $this->dataBucketId . '.' . $filteredTableName, null, 'id');
-        $table->setHeader(array('id', 'name', 'pid'));
+        $table->setHeader(['id', 'name', 'pid']);
         $table->addIndex('pid');
-        $table->setFromArray(array(
-            array('u1', 'User 1', 'x'),
-            array('u2', 'User 2', $clonedPid)
-        ));
+        $table->setFromArray([
+            ['u1', 'User 1', 'x'],
+            ['u2', 'User 2', $clonedPid]
+        ]);
         $table->save();
 
         $table = new StorageApiTable($this->storageApi, $this->dataBucketId . '.' . $notFilteredTableName, null, 'id');
-        $table->setHeader(array('id', 'name'));
-        $table->setFromArray(array(
-            array('x1', 'X 1'),
-            array('x2', 'X 2')
-        ));
+        $table->setHeader(['id', 'name']);
+        $table->setFromArray([
+            ['x1', 'X 1'],
+            ['x2', 'X 2']
+        ]);
         $table->save();
 
 
@@ -88,35 +88,35 @@ class ProjectsTest extends AbstractControllerTest
         $this->configuration->updateBucketAttribute('filterColumn', 'pid');
         $this->configuration->updateDataSetsFromSapi();
 
-        $this->configuration->updateColumnsDefinition($this->dataBucketId . '.' . $filteredTableName, array(
-            array(
+        $this->configuration->updateColumnsDefinition($this->dataBucketId . '.' . $filteredTableName, [
+            [
                 'name' => 'id',
                 'gdName' => 'Id',
                 'type' => 'CONNECTION_POINT'
-            ),
-            array(
+            ],
+            [
                 'name' => 'name',
                 'gdName' => 'Name',
                 'type' => 'ATTRIBUTE'
-            ),
-            array(
+            ],
+            [
                 'name' => 'pid',
                 'gdName' => '',
                 'type' => 'IGNORE'
-            )
-        ));
-        $this->configuration->updateColumnsDefinition($this->dataBucketId . '.' . $notFilteredTableName, array(
-            array(
+            ]
+        ]);
+        $this->configuration->updateColumnsDefinition($this->dataBucketId . '.' . $notFilteredTableName, [
+            [
                 'name' => 'id',
                 'gdName' => 'Id',
                 'type' => 'CONNECTION_POINT'
-            ),
-            array(
+            ],
+            [
                 'name' => 'name',
                 'gdName' => 'Name',
                 'type' => 'ATTRIBUTE'
-            )
-        ));
+            ]
+        ]);
 
 
 
@@ -124,10 +124,10 @@ class ProjectsTest extends AbstractControllerTest
          * Upload single project
          */
         // Test if upload went only to clone
-        $batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.' . $filteredTableName, 'pid' => $clonedPid));
+        $batchId = $this->processJob('/upload-table', ['tableId' => $this->dataBucketId . '.' . $filteredTableName, 'pid' => $clonedPid]);
         $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
         $this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
-        $this->assertEquals(JobStorage::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
+        $this->assertEquals(Job::STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
 
         $bucketAttributes = $this->configuration->bucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -153,25 +153,25 @@ class ProjectsTest extends AbstractControllerTest
          * Filtered tables
          */
         // Test if upload of not-filtered table without 'ignoreFilter' attribute fails
-        $batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.' . $notFilteredTableName));
+        $batchId = $this->processJob('/upload-table', ['tableId' => $this->dataBucketId . '.' . $notFilteredTableName]);
         $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
         $this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
-        $this->assertEquals(JobStorage::JOB_STATUS_ERROR, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
+        $this->assertEquals(Job::STATUS_ERROR, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
 
         // Now add the attribute and try if it succeeds
         $this->configuration->updateDataSetDefinition($this->dataBucketId . '.' . $notFilteredTableName, 'ignoreFilter', 1);
 
-        $batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.' . $notFilteredTableName));
+        $batchId = $this->processJob('/upload-table', ['tableId' => $this->dataBucketId . '.' . $notFilteredTableName]);
         $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
         $this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
-        $this->assertEquals(JobStorage::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
+        $this->assertEquals(Job::STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
 
 
         // Upload and test filtered tables
-        $batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.' . $filteredTableName));
+        $batchId = $this->processJob('/upload-table', ['tableId' => $this->dataBucketId . '.' . $filteredTableName]);
         $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
         $this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
-        $this->assertEquals(JobStorage::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
+        $this->assertEquals(Job::STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
 
         $bucketAttributes = $this->configuration->bucketAttributes();
         $webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -181,9 +181,9 @@ class ProjectsTest extends AbstractControllerTest
         $checkFilteredProjectLoad = false;
         foreach ($response['jobs'] as $job) {
             if ($job['command'] == 'loadData') {
-                $csv = $webDav->get(sprintf('%s/%s.csv', $job->getId(), Model::getId($job['dataset'])));
+                $csv = $webDav->get(sprintf('%s/%s.csv', $job['id'], Model::getId($job['dataset'])));
                 if (!$csv) {
-                    $this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/%s.csv' should exist.", $job->getId(), Model::getId($job['dataset'])));
+                    $this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/%s.csv' should exist.", $job['id'], Model::getId($job['dataset'])));
                 }
                 $rowsNumber = 0;
                 foreach (explode("\n", $csv) as $row) {
@@ -217,7 +217,7 @@ class ProjectsTest extends AbstractControllerTest
         $newPid = (string)$bucketAttributes['gd']['pid'];
         $this->assertNotEquals($newPid, $oldPid, 'Project reset failed');
 
-        $this->processJob('/reset-project', array('removeClones' => true));
+        $this->processJob('/reset-project', ['removeClones' => true]);
         $allProjects = $this->configuration->getProjects();
         $this->assertCount(1, $allProjects, 'Reset of project clones failed');
     }

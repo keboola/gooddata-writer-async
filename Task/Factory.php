@@ -100,8 +100,6 @@ class Factory
             throw new UserException(sprintf("Task '%1' does not exist", $className));
         }
 
-        $this->restApi->setEventLogger($this->eventLogger);
-
         /** @var \Keboola\GoodDataWriter\Task\AbstractTask $task */
         $task = new $taskClass(
             $this->gdConfig,

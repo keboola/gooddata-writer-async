@@ -11,6 +11,7 @@ use Guzzle\Common\Exception\InvalidArgumentException;
 use Keboola\GoodDataWriter\Elasticsearch\Search;
 use Keboola\GoodDataWriter\Task\Factory;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\Syrup\Exception\UserException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -29,11 +30,7 @@ use Keboola\GoodDataWriter\Service\S3Client;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 
-use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Exception\GraphTtlException;
-use Keboola\GoodDataWriter\Exception\JobProcessException;
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 
 class ApiController extends \Keboola\Syrup\Controller\ApiController
 {
@@ -97,7 +94,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         });
 
         if (isset($this->params['queue']) && !in_array($this->params['queue'], [Job::PRIMARY_QUEUE, Job::SECONDARY_QUEUE])) {
-            throw new WrongParametersException($this->translator->trans(
+            throw new UserException($this->translator->trans(
                 'parameters.queue %1',
                 ['%1' => Job::PRIMARY_QUEUE . ', ' . Job::SECONDARY_QUEUE]
             ));
@@ -153,10 +150,10 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
     public function postWritersAction()
     {
         if (!$this->writerId) {
-            throw new WrongConfigurationException($this->translator->trans('parameters.required %1', ['%1' => 'writerId']));
+            throw new UserException($this->translator->trans('parameters.required %1', ['%1' => 'writerId']));
         }
         if ($this->getSharedStorage()->writerExists($this->projectId, $this->writerId)) {
-            throw new WrongParametersException($this->translator->trans('parameters.writerId.exists'));
+            throw new UserException($this->translator->trans('parameters.writerId.exists'));
         }
 
         $job = $this->getJob(Job::SERVICE_QUEUE);
@@ -164,26 +161,20 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $taskName = 'createWriter';
         $task = $this->getTaskClass($taskName);
 
-        try {
-            /** @var RestApi $restApi */
-            $restApi = $this->container->get('gooddata_writer.rest_api');
-            if (!$restApi->ping()) {
-                return $this->createMaintenanceResponse();
-            }
-            try {
-                $bucketAttributes = $this->getConfiguration()->bucketAttributes();
-                if (!empty($bucketAttributes['gd']['apiUrl'])) {
-                    $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
-                }
-            } catch (WrongConfigurationException $e) {
-                // ignore non-existing config bucket
-            }
-            $params = $task->prepare($this->params, $restApi);
-        } catch (RestApiException $e) {
-            $e = new JobProcessException($e->getMessage(), $e);
-            $e->setData($e->getData());
-            throw $e;
+        /** @var RestApi $restApi */
+        $restApi = $this->container->get('gooddata_writer.rest_api');
+        if (!$restApi->ping()) {
+            return $this->createMaintenanceResponse();
         }
+        try {
+            $bucketAttributes = $this->getConfiguration()->bucketAttributes();
+            if (!empty($bucketAttributes['gd']['apiUrl'])) {
+                $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+            }
+        } catch (UserException $e) {
+            // ignore non-existing config bucket
+        }
+        $params = $task->prepare($this->params, $restApi);
 
         $job->addTask($taskName, $params);
 
@@ -215,7 +206,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         foreach ($this->params as $key => $value) {
             if ($key != 'writerId') {
                 if (in_array($key, $reservedAttrs)) {
-                    throw new WrongParametersException($this->translator->trans('parameters.writer_attr %1', ['%1' => implode(', ', $reservedAttrs)]));
+                    throw new UserException($this->translator->trans('parameters.writer_attr %1', ['%1' => implode(', ', $reservedAttrs)]));
                 }
                 if (is_array($value)) {
                     $value = json_encode($value);
@@ -446,7 +437,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $this->checkWriterExistence();
 
         if (!$this->getSharedStorage()->projectBelongsToWriter($this->projectId, $this->writerId, $this->params['pid'])) {
-            throw new WrongParametersException($this->translator->trans('parameters.sso_wrong_pid'));
+            throw new UserException($this->translator->trans('parameters.sso_wrong_pid'));
         }
 
         if (!empty($this->params['createUser']) && $this->params['createUser'] == 1 && !$this->getConfiguration()->getUser($this->params['email'])) {
@@ -459,7 +450,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             do {
                 $jobData = $jobSearch->getJob($jsonResult['job']);
                 if (!$jobData) {
-                    throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
+                    throw new UserException(sprintf("Job '%d' not found", $this->params['jobId']));
                 }
                 if (isset($jobData['status']) && Job::isJobFinished($jobData['status'])) {
                     $jobFinished = true;
@@ -472,13 +463,13 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
             if ($jobData['status'] == Job::STATUS_SUCCESS) {
                 if (!empty($jobData['result']['alreadyExists'])) {
-                    throw new JobProcessException($this->translator->trans('result.cancelled'));
+                    throw new UserException($this->translator->trans('result.cancelled'));
                 }
                 // Do nothing
             } elseif ($jobData['status'] == Job::STATUS_CANCELLED) {
-                throw new JobProcessException($this->translator->trans('result.cancelled'));
+                throw new UserException($this->translator->trans('result.cancelled'));
             } else {
-                $e = new JobProcessException(!empty($jobData['result']['error'])? $jobData['result']['error'] : $this->translator->trans('result.unknown'));
+                $e = new UserException(!empty($jobData['result']['error'])? $jobData['result']['error'] : $this->translator->trans('result.unknown'));
                 $e->setData(['result' => $jobData['result'], 'logs' => $jobData['logs']]);
                 throw $e;
             }
@@ -491,7 +482,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             do {
                 $jobData = $jobSearch->getJob($jsonResult['job']);
                 if (!$jobData) {
-                    throw new WrongParametersException(sprintf("Job '%d' not found", $this->params['jobId']));
+                    throw new UserException(sprintf("Job '%d' not found", $this->params['jobId']));
                 }
                 if (isset($jobData['status']) && Job::isJobFinished($jobData['status'])) {
                     $jobFinished = true;
@@ -505,16 +496,16 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             if ($jobData['status'] == Job::STATUS_SUCCESS) {
                 // Do nothing
             } elseif ($jobData['status'] == Job::STATUS_CANCELLED) {
-                throw new JobProcessException($this->translator->trans('result.cancelled'));
+                throw new UserException($this->translator->trans('result.cancelled'));
             } else {
-                $e = new JobProcessException(!empty($jobData['result']['error'])? $jobData['result']['error'] : $this->translator->trans('result.unknown'));
+                $e = new UserException(!empty($jobData['result']['error'])? $jobData['result']['error'] : $this->translator->trans('result.unknown'));
                 $e->setData(['result' => $jobData['result'], 'logs' => $jobData['logs']]);
                 throw $e;
             }
         }
 
         if (!$this->getSharedStorage()->userBelongsToWriter($this->projectId, $this->writerId, $this->params['email'])) {
-            throw new WrongParametersException($this->translator->trans('parameters.sso_wrong_email'));
+            throw new UserException($this->translator->trans('parameters.sso_wrong_email'));
         }
 
         $targetUrl = isset($this->params['targetUrl'])? $this->params['targetUrl'] : '/#s=/gdc/projects/' . $this->params['pid'];
@@ -586,7 +577,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                 'query' => $query->getQuery(),
             ]);
         } catch (InvalidArgumentException $e) {
-            throw new WrongParametersException($this->translator->trans('parameters.query'));
+            throw new UserException($this->translator->trans('parameters.query'));
         }
 
         /** @var RestApi $restApi */
@@ -601,15 +592,11 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
         }
 
-        try {
-            $return = $restApi->get($url);
+        $return = $restApi->get($url);
 
-            return $this->createApiResponse([
-                'response' => $return
-            ]);
-        } catch (RestApiException $e) {
-            throw new WrongParametersException($e->getMessage(), $e);
-        }
+        return $this->createApiResponse([
+            'response' => $return
+        ]);
     }
 
 
@@ -941,7 +928,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
                     $dimension = $column['schemaReference'];
                     if (!isset($dateDimensions[$dimension])) {
-                        throw new WrongParametersException($this->translator->trans('configuration.dimension_not_found %d %c', ['%d' => $dimension, '%c' => $column['name']]));
+                        throw new UserException($this->translator->trans('configuration.dimension_not_found %d %c', ['%d' => $dimension, '%c' => $column['name']]));
                     }
 
                     if (!$dateDimensions[$dimension]['isExported'] && !in_array($dimension, $dateDimensionsToLoad)) {
@@ -960,52 +947,47 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             }
         }
 
-        try {
-            /** @var RestApi $restApi */
-            $restApi = $this->container->get('gooddata_writer.rest_api');
-            if (!$restApi->ping()) {
-                return $this->createMaintenanceResponse();
-            }
 
-            $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-            if (!empty($bucketAttributes['gd']['apiUrl'])) {
-                $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
-            }
+        /** @var RestApi $restApi */
+        $restApi = $this->container->get('gooddata_writer.rest_api');
+        if (!$restApi->ping()) {
+            return $this->createMaintenanceResponse();
+        }
 
-            $jobData = null;
-            $tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
-            foreach ($projectsToUse as $pid) {
-                $dataSetName = !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'];
-                $dataSetId = Model::getDatasetId($dataSetName);
+        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+        if (!empty($bucketAttributes['gd']['apiUrl'])) {
+            $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+        }
 
-                // Make decision about creating / updating of data set
-                $existingDataSets = $restApi->getDataSets($pid);
-                $dataSetExists = in_array($dataSetId, array_keys($existingDataSets));
-                $lastGoodDataUpdate = empty($existingDataSets[$dataSetId]['lastChangeDate'])? null : Model::getTimestampFromApiDate($existingDataSets[$dataSetId]['lastChangeDate']);
-                $lastConfigurationUpdate = empty($tableConfiguration['lastChangeDate'])? null : strtotime($tableConfiguration['lastChangeDate']);
-                $doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
+        $jobData = null;
+        $tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
+        foreach ($projectsToUse as $pid) {
+            $dataSetName = !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'];
+            $dataSetId = Model::getDatasetId($dataSetName);
 
-                if (!$dataSetExists || $doUpdate) {
-                    $params = [
-                        'pid' => $pid,
-                        'tableId' => $this->params['tableId']
-                    ];
-                    $job->addTask('updateModel', $params, $definition);
-                }
+            // Make decision about creating / updating of data set
+            $existingDataSets = $restApi->getDataSets($pid);
+            $dataSetExists = in_array($dataSetId, array_keys($existingDataSets));
+            $lastGoodDataUpdate = empty($existingDataSets[$dataSetId]['lastChangeDate'])? null : Model::getTimestampFromApiDate($existingDataSets[$dataSetId]['lastChangeDate']);
+            $lastConfigurationUpdate = empty($tableConfiguration['lastChangeDate'])? null : strtotime($tableConfiguration['lastChangeDate']);
+            $doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
 
+            if (!$dataSetExists || $doUpdate) {
                 $params = [
                     'pid' => $pid,
                     'tableId' => $this->params['tableId']
                 ];
-                if (isset($this->params['incrementalLoad'])) {
-                    $params['incrementalLoad'] = $this->params['incrementalLoad'];
-                }
-                $job->addTask('loadData', $params, $definition);
+                $job->addTask('updateModel', $params, $definition);
             }
-        } catch (RestApiException $e) {
-            $e = new JobProcessException($e->getMessage(), $e);
-            $e->setData($e->getData());
-            throw $e;
+
+            $params = [
+                'pid' => $pid,
+                'tableId' => $this->params['tableId']
+            ];
+            if (isset($this->params['incrementalLoad'])) {
+                $params['incrementalLoad'] = $this->params['incrementalLoad'];
+            }
+            $job->addTask('loadData', $params, $definition);
         }
         $job->uploadDefinitions($this->s3Client);
 
@@ -1048,7 +1030,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
                         $dimension = $column['schemaReference'];
                         if (!isset($dateDimensions[$dimension])) {
-                            throw new WrongParametersException($this->translator->trans(
+                            throw new UserException($this->translator->trans(
                                 'configuration.dimension_not_found %d %c %t',
                                 ['%d' => $dimension, '%c' => $column['name'], '%t' => $dataSet['tableId']]
                             ));
@@ -1072,53 +1054,48 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         }
 
 
-        try {
-            /** @var RestApi $restApi */
-            $restApi = $this->container->get('gooddata_writer.rest_api');
-            if (!$restApi->ping()) {
-                return $this->createMaintenanceResponse();
-            }
-            $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-            if (!empty($bucketAttributes['gd']['apiUrl'])) {
-                $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
-            }
-            $existingDataSets = [];
 
-            foreach ($sortedDataSets as $dataSet) {
-                foreach ($projectsToUse as $pid) {
-                    $dataSetId = Model::getDatasetId($dataSet['title']);
+        /** @var RestApi $restApi */
+        $restApi = $this->container->get('gooddata_writer.rest_api');
+        if (!$restApi->ping()) {
+            return $this->createMaintenanceResponse();
+        }
+        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+        if (!empty($bucketAttributes['gd']['apiUrl'])) {
+            $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+        }
+        $existingDataSets = [];
 
-                    // Make decision about creating / updating of data set
-                    if (!isset($existingDataSets[$pid])) {
-                        $existingDataSets[$pid] = $restApi->getDataSets($pid);
-                    }
-                    $dataSetExists = in_array($dataSetId, array_keys($existingDataSets[$pid]));
-                    $lastGoodDataUpdate = empty($existingDataSets[$pid][$dataSetId]['lastChangeDate'])? null : Model::getTimestampFromApiDate($existingDataSets[$pid][$dataSetId]['lastChangeDate']);
-                    $lastConfigurationUpdate = empty($dataSet['lastChangeDate'])? null : strtotime($dataSet['lastChangeDate']);
-                    $doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
+        foreach ($sortedDataSets as $dataSet) {
+            foreach ($projectsToUse as $pid) {
+                $dataSetId = Model::getDatasetId($dataSet['title']);
 
-                    if (!$dataSetExists || $doUpdate) {
-                        $params = [
-                            'pid' => $pid,
-                            'tableId' => $dataSet['tableId']
-                        ];
-                        $job->addTask('updateModel', $params, $dataSet['definition']);
-                    }
+                // Make decision about creating / updating of data set
+                if (!isset($existingDataSets[$pid])) {
+                    $existingDataSets[$pid] = $restApi->getDataSets($pid);
+                }
+                $dataSetExists = in_array($dataSetId, array_keys($existingDataSets[$pid]));
+                $lastGoodDataUpdate = empty($existingDataSets[$pid][$dataSetId]['lastChangeDate'])? null : Model::getTimestampFromApiDate($existingDataSets[$pid][$dataSetId]['lastChangeDate']);
+                $lastConfigurationUpdate = empty($dataSet['lastChangeDate'])? null : strtotime($dataSet['lastChangeDate']);
+                $doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
 
+                if (!$dataSetExists || $doUpdate) {
                     $params = [
                         'pid' => $pid,
                         'tableId' => $dataSet['tableId']
                     ];
-                    if (isset($this->params['incrementalLoad'])) {
-                        $params['incrementalLoad'] = $this->params['incrementalLoad'];
-                    }
-                    $job->addTask('loadData', $params, $dataSet['definition']);
+                    $job->addTask('updateModel', $params, $dataSet['definition']);
                 }
+
+                $params = [
+                    'pid' => $pid,
+                    'tableId' => $dataSet['tableId']
+                ];
+                if (isset($this->params['incrementalLoad'])) {
+                    $params['incrementalLoad'] = $this->params['incrementalLoad'];
+                }
+                $job->addTask('loadData', $params, $dataSet['definition']);
             }
-        } catch (RestApiException $e) {
-            $e = new JobProcessException($e->getMessage(), $e);
-            $e->setData($e->getData());
-            throw $e;
         }
 
         // Execute reports
@@ -1294,7 +1271,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $this->checkParams(['writerId', 'tableId']);
         $this->checkWriterExistence();
         if (!in_array($this->params['tableId'], $this->getConfiguration()->getOutputSapiTables())) {
-            throw new WrongParametersException($this->translator->trans('parameters.tableId'));
+            throw new UserException($this->translator->trans('parameters.tableId'));
         }
 
         $tableId = $this->params['tableId'];
@@ -1371,12 +1348,12 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $dimensions = $this->getConfiguration()->getDateDimensions();
         if (isset($dimensions[$this->params['name']])) {
             if (!empty($dimensions[$this->params['name']]['isExported'])) {
-                throw new WrongParametersException($this->translator->trans('error.dimension_uploaded'));
+                throw new UserException($this->translator->trans('error.dimension_uploaded'));
             }
             $this->getConfiguration()->deleteDateDimension($this->params['name']);
             return $this->createApiResponse();
         } else {
-            throw new WrongParametersException($this->translator->trans('parameters.dimension_name'));
+            throw new UserException($this->translator->trans('parameters.dimension_name'));
         }
     }
 
@@ -1435,7 +1412,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
     private function getConfiguration()
     {
         if (!$this->writerId) {
-            throw new WrongParametersException($this->translator->trans('parameters.writerId.required'));
+            throw new UserException($this->translator->trans('parameters.writerId.required'));
         }
         if (!$this->configuration) {
             $this->configuration = new Configuration($this->storageApi, $this->getSharedStorage());
@@ -1456,7 +1433,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
     {
         if (!$this->jobFactory) {
             $this->jobFactory = $this->container->get('gooddata_writer.job_factory');
-            $this->jobFactory->setConfiguration($this->configuration);
+            $this->jobFactory->setConfiguration($this->getConfiguration());
             $this->jobFactory->setStorageApiClient($this->storageApi);
         }
         return $this->jobFactory;
@@ -1503,7 +1480,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
     {
         foreach ($required as $k) {
             if (empty($this->params[$k])) {
-                throw new WrongParametersException($this->translator->trans('parameters.required %1', ['%1' => $k]));
+                throw new UserException($this->translator->trans('parameters.required %1', ['%1' => $k]));
             }
         }
     }
@@ -1511,7 +1488,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
     private function checkWriterExistence()
     {
         if (!$this->getSharedStorage()->writerExists($this->projectId, $this->writerId)) {
-            throw new WrongParametersException($this->translator->trans('parameters.writerId.not_found'));
+            throw new UserException($this->translator->trans('parameters.writerId.not_found'));
         }
     }
 
@@ -1523,7 +1500,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         foreach ($this->getConfiguration()->getProjects() as $project) {
             if ($project['active']) {
                 if (in_array($project['pid'], $projects)) {
-                    throw new WrongConfigurationException($this->translator->trans('configuration.project.duplicated %1', ['%1' => $project['pid']]));
+                    throw new UserException($this->translator->trans('configuration.project.duplicated %1', ['%1' => $project['pid']]));
                 }
                 if (!isset($this->params['pid']) || $project['pid'] == $this->params['pid']) {
                     $projects[] = $project['pid'];
@@ -1531,7 +1508,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             }
         }
         if (isset($params['pid']) && !count($projects)) {
-            throw new WrongConfigurationException($this->translator->trans('parameters.pid_not_configured'));
+            throw new UserException($this->translator->trans('parameters.pid_not_configured'));
         }
         return $projects;
     }

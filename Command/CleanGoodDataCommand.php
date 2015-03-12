@@ -57,7 +57,10 @@ class CleanGoodDataCommand extends ContainerAwareCommand
             } catch (RestApiException $e) {
                 $log->info('Could not delete project', [
                     'project' => $project,
-                    'exception' => $e->getDetails()
+                    'exception' => [
+                        'message' => $e->getMessage(),
+                        'data' => $e->getData()
+                    ]
                 ]);
             }
             $pids[] = $project['pid'];
@@ -75,7 +78,10 @@ class CleanGoodDataCommand extends ContainerAwareCommand
             } catch (RestApiException $e) {
                 $log->info('Could not delete user', [
                     'user' => $user,
-                    'exception' => $e->getDetails()
+                    'exception' => [
+                        'message' => $e->getMessage(),
+                        'data' => $e->getData()
+                    ]
                 ]);
             }
             $uids[] = $user['uid'];

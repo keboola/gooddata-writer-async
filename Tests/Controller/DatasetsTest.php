@@ -5,10 +5,10 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
+use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\WebDav;
-use Keboola\GoodDataWriter\Writer\JobStorage;
 use Keboola\StorageApi\Table as StorageApiTable;
 
 class DatasetsTest extends AbstractControllerTest
@@ -25,10 +25,9 @@ class DatasetsTest extends AbstractControllerTest
         /**
          * Upload single table
          */
-        $batchId = $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.categories'));
-        $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-        $lastJob = end($response['jobs']);
-        $jobId = $lastJob['id'];
+        $jobId = $this->processJob('/upload-table', ['tableId' => $this->dataBucketId . '.categories']);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $loadDataTaskId = count($job->getParams()['tasks']) - 1;
 
         // Check existence of datasets in the project
         $data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
@@ -37,7 +36,7 @@ class DatasetsTest extends AbstractControllerTest
         $this->assertCount(1, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with one value.");
         $this->assertEquals('dataset.categories', $data['dataSetsInfo']['sets'][0]['meta']['identifier'], "GoodData project should contain dataSet 'Categories'.");
 
-        $csv = $webDav->get(sprintf('%s/categories.csv', $jobId));
+        $csv = $webDav->get(sprintf('%s/%d/categories.csv', $jobId, $loadDataTaskId));
 
         if (!$csv) {
             $this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/categories.csv' should exist.", $jobId));
@@ -111,81 +110,70 @@ class DatasetsTest extends AbstractControllerTest
         /**
          * Multi load
          */
-        $batchId = $this->processJob('/load-data-multi', array('tables' => array($this->dataBucketId . '.products', $this->dataBucketId . '.categories')));
-        $responseJson = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-        $this->assertArrayHasKey('status', $responseJson, "Response for GoodData API call '/batch' should contain 'status' key.");
-        $this->assertEquals('success', $responseJson['status'], "Batch '$batchId' should have status 'success'.");
+        $jobId = $this->processJob('/load-data-multi', ['tables' => [$this->dataBucketId . '.products', $this->dataBucketId . '.categories']]);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertEquals('success', $job->getStatus(), "Job'$jobId' should have status 'success'.");
 
         /**
          * Check if upload table contains updateModel when needed
          */
         $tableId = $this->dataBucketId . '.products';
-        $response = $this->postWriterApi('/upload-table', array(
-            'writerId' => $this->writerId,
-            'tableId' => $tableId
-        ));
+        $jobId = $this->postWriterApi('/upload-table', ['writerId' => $this->writerId, 'tableId' => $tableId]);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertCount(1, $job->getParams()['tasks'], 'Upload table should contain only one task (loadData)');
+        $this->assertEquals('loadData', $job->getParams()['tasks'][0]['name']);
 
-        $batch = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $response['batch']);
-        $this->assertCount(1, $batch['jobs'], 'Upload table should contain only loadData job');
+        $this->configuration->updateColumnsDefinition($tableId, 'id', ['gdName' => 'ID']);
 
-        $this->configuration->updateColumnsDefinition($tableId, 'id', array('gdName' => 'ID'));
-
-        $response = $this->postWriterApi('/upload-table', array(
-            'writerId' => $this->writerId,
-            'tableId' => $tableId
-        ));
-        $batch = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $response['batch']);
-        $this->assertCount(2, $batch['jobs'], 'Upload table should contain updateModel and loadData job');
+        $jobId = $this->postWriterApi('/upload-table', ['writerId' => $this->writerId, 'tableId' => $tableId]);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertCount(2, $job->getParams()['tasks'], 'Upload table should contain two tasks (updateModel and loadData)');
+        $this->assertEquals('updateModel', $job->getParams()['tasks'][0]['name']);
+        $this->assertEquals('loadData', $job->getParams()['tasks'][1]['name']);
 
         $table = new StorageApiTable($this->storageApi, 'sys.c-wr-gooddata-' . $this->writerId . '.data_sets', null, 'id');
-        $table->setHeader(array('id', 'lastChangeDate'));
-        $table->setFromArray(array(
-            array($tableId, date('c', time()-86400))
-        ));
+        $table->setHeader(['id', 'lastChangeDate']);
+        $table->setFromArray([
+            [$tableId, date('c', time()-86400)]
+        ]);
         $table->setIncremental(true);
         $table->setPartial(true);
         $table->save();
 
-        $response = $this->postWriterApi('/upload-table', array(
-            'writerId' => $this->writerId,
-            'tableId' => $tableId
-        ));
-        $batch = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $response['batch']);
-        $this->assertCount(1, $batch['jobs'], 'Upload table should contain only loadData job');
+        $jobId = $this->postWriterApi('/upload-table', ['writerId' => $this->writerId, 'tableId' => $tableId]);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertCount(1, $job->getParams()['tasks'], 'Upload table should contain only one task (loadData)');
+        $this->assertEquals('loadData', $job->getParams()['tasks'][0]['name']);
 
 
         /**
          * Check if upload project contains updateModel when needed
          */
-        $response = $this->postWriterApi('/upload-project', array(
-            'writerId' => $this->writerId
-        ));
+        $jobId = $this->postWriterApi('/upload-project', ['writerId' => $this->writerId]);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertCount(3, $job->getParams()['tasks'], 'Upload project should contain three tasks (2x loadData + executeReports)');
+        $this->assertEquals('loadData', $job->getParams()['tasks'][0]['name']);
+        $this->assertEquals('loadData', $job->getParams()['tasks'][1]['name']);
+        $this->assertEquals('executeReports', $job->getParams()['tasks'][2]['name']);
 
-        $batch = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $response['batch']);
-        $this->assertCount(3, $batch['jobs'], 'Upload project should contain two loadData jobs');
+        $this->configuration->updateColumnsDefinition($tableId, 'id', ['gdName' => 'ID']);
 
-        $this->configuration->updateColumnsDefinition($tableId, 'id', array('gdName' => 'ID'));
-
-        $response = $this->postWriterApi('/upload-project', array(
-            'writerId' => $this->writerId
-        ));
-        $batch = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $response['batch']);
-        $this->assertCount(4, $batch['jobs'], 'Upload project should contain one updateModel and two loadData jobs');
+        $jobId = $this->postWriterApi('/upload-project', ['writerId' => $this->writerId]);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertCount(4, $job->getParams()['tasks'], 'Upload project should contain four tasks (2x loadData + updateModel + executeReports)');
 
         $table = new StorageApiTable($this->storageApi, 'sys.c-wr-gooddata-' . $this->writerId . '.data_sets', null, 'id');
-        $table->setHeader(array('id', 'lastChangeDate'));
-        $table->setFromArray(array(
-            array($tableId, date('c', time()-86400))
-        ));
+        $table->setHeader(['id', 'lastChangeDate']);
+        $table->setFromArray([
+            [$tableId, date('c', time()-86400)]
+        ]);
         $table->setIncremental(true);
         $table->setPartial(true);
         $table->save();
 
-        $response = $this->postWriterApi('/upload-project', array(
-            'writerId' => $this->writerId
-        ));
-        $batch = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $response['batch']);
-        $this->assertCount(3, $batch['jobs'], 'Upload project should contain two loadData jobs');
+        $jobId = $this->postWriterApi('/upload-project', ['writerId' => $this->writerId]);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertCount(3, $job->getParams()['tasks'], 'Upload project should contain two loadData jobs');
 
 
 
@@ -203,7 +191,7 @@ class DatasetsTest extends AbstractControllerTest
         $this->assertArrayHasKey('tables', $responseJson, "Response for writer call '/tables' should contain 'tables' key.");
 
         // Filter out tables not belonging to this test
-        $tables = array();
+        $tables = [];
         foreach ($responseJson['tables'] as $t) {
             if ($t['bucket'] == $this->dataBucketId) {
                 $tables[] = $t;
@@ -213,7 +201,7 @@ class DatasetsTest extends AbstractControllerTest
         $this->assertCount(2, $tables, "Response for writer call '/tables' should contain two configured tables.");
         foreach ($tables as $table) {
             $this->assertArrayHasKey('name', $table, sprintf("Table '%s' should have 'type' attribute.", $table['id']));
-            $this->assertTrue(in_array($table['name'], array('Products', 'Categories')), sprintf("Table '%s' does not belong to configured tables.", $table['id']));
+            $this->assertTrue(in_array($table['name'], ['Products', 'Categories']), sprintf("Table '%s' does not belong to configured tables.", $table['id']));
             $this->assertArrayHasKey('export', $table, sprintf("Table '%s' should have 'export' attribute.", $table['id']));
             $this->assertArrayHasKey('isExported', $table, sprintf("Table '%s' should have 'isExported' attribute.", $table['id']));
         }
@@ -249,11 +237,11 @@ class DatasetsTest extends AbstractControllerTest
         $testName = uniqid('test-name');
 
         // Change gdName of table
-        $this->postWriterApi('/tables', array(
+        $this->postWriterApi('/tables', [
             'writerId' => $this->writerId,
             'tableId' => $tableId,
             'name' => $testName
-        ));
+        ]);
 
         // Check if GD name was changed
         $responseJson = $this->getWriterApi('/tables?writerId=' . $this->writerId);
@@ -274,11 +262,11 @@ class DatasetsTest extends AbstractControllerTest
         $this->assertNotEmpty($lastChangeDate, "Change of name did not set 'lastChangeDate' attribute");
 
         // Change gdName again and check if lastChangeDate changed
-        $this->postWriterApi('/tables', array(
+        $this->postWriterApi('/tables', [
             'writerId' => $this->writerId,
             'tableId' => $tableId,
             'name' => $testName . '2'
-        ));
+        ]);
 
         $responseJson = $this->getWriterApi('/tables?writerId=' . $this->writerId);
         $lastChangeDateAfterUpdate = null;
@@ -293,11 +281,11 @@ class DatasetsTest extends AbstractControllerTest
 
 
         // Change gdName back
-        $this->postWriterApi('/tables', array(
+        $this->postWriterApi('/tables', [
             'writerId' => $this->writerId,
             'tableId' => $tableId,
             'name' => 'categories'
-        ));
+        ]);
 
 
         /**
@@ -306,12 +294,12 @@ class DatasetsTest extends AbstractControllerTest
         $tableId = $this->dataBucketId . '.products';
         $columnName = 'id';
         $newGdName = 'test' . uniqid();
-        $this->postWriterApi('/tables', array(
+        $this->postWriterApi('/tables', [
             'writerId' => $this->writerId,
             'tableId' => $tableId,
             'column' => $columnName,
             'gdName' => $newGdName
-        ));
+        ]);
         $responseJson = $this->getWriterApi('/tables?writerId=' . $this->writerId . '&tableId=' . $tableId);
 
         $this->assertArrayHasKey('table', $responseJson, "Response for writer call '/tables&tableId=' should contain 'table' key.");
@@ -334,20 +322,20 @@ class DatasetsTest extends AbstractControllerTest
         $newGdName1 = 'test' . uniqid();
         $columnName2 = 'name';
         $newGdName2 = 'test' . uniqid();
-        $this->postWriterApi('/tables', array(
+        $this->postWriterApi('/tables', [
             'writerId' => $this->writerId,
             'tableId' => $tableId,
-            'columns' => array(
-                array(
+            'columns' => [
+                [
                     'name' => $columnName1,
                     'gdName' => $newGdName1,
-                ),
-                array(
+                ],
+                [
                     'name' => $columnName2,
                     'gdName' => $newGdName2,
-                )
-            )
-        ));
+                ]
+            ]
+        ]);
         $responseJson = $this->getWriterApi('/tables?writerId=' . $this->writerId . '&tableId=' . $tableId);
         $this->assertArrayHasKey('table', $responseJson, "Response for writer call '/tables&tableId=' should contain 'table' key.");
         $this->assertArrayHasKey('columns', $responseJson['table'], "Response for writer call '/tables&tableId=' should contain 'table.columns' key.");
@@ -371,16 +359,12 @@ class DatasetsTest extends AbstractControllerTest
          * Set column to ignore and check outgoing csv
          */
         $tableId = $this->dataBucketId . '.products';
-        $this->configuration->updateColumnsDefinition($tableId, 'price', array('type' => 'IGNORE'));
-        $batchId = $this->processJob('/upload-table', array('tableId' => $tableId));
+        $this->configuration->updateColumnsDefinition($tableId, 'price', ['type' => 'IGNORE']);
+        $jobId = $this->processJob('/upload-table', ['tableId' => $tableId]);
 
-        $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-        $lastJob = end($response['jobs']);
-        $jobId = $lastJob['id'];
-
-        $csv = $webDav->get(sprintf('%s/products.csv', $jobId));
+        $csv = $webDav->get(sprintf('%s/%d/products.csv', $jobId, 1));
         if (!$csv) {
-            $this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/products.csv' should exist.", $jobId));
+            $this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/%d/products.csv' should exist.", $jobId, 1));
         }
         $rows = StorageApiClient::parseCsv($csv);
         foreach ($rows as $row) {
@@ -409,17 +393,16 @@ class DatasetsTest extends AbstractControllerTest
         /**
          * Upload table with model changes
          */
-        $batchId = $this->processJob('/upload-table', array('tableId' => $tableId));
-        $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-        $this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
-        $this->assertEquals(JobStorage::JOB_STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
+        $jobId = $this->processJob('/upload-table', ['tableId' => $tableId]);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertEquals(Job::STATUS_SUCCESS, $job->getStatus(), "Upload table should end with success.");
 
 
         /**
          * Reset table and remove dataset from GoodData
          */
         $tableId = $this->dataBucketId . '.products';
-        $this->processJob('/reset-table', array('tableId' => $tableId));
+        $this->processJob('/reset-table', ['tableId' => $tableId]);
         $data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
         $this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
         $this->assertArrayHasKey('sets', $data['dataSetsInfo'], "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo.sets' key.");
@@ -446,12 +429,12 @@ class DatasetsTest extends AbstractControllerTest
         // Create dimension
         $dimensionName = 'TestDate';
         $templateName = 'keboola';
-        $this->postWriterApi('/date-dimensions', array(
+        $this->postWriterApi('/date-dimensions', [
             'writerId' => $this->writerId,
             'name' => $dimensionName,
             'includeTime' => true,
             'template' => $templateName
-        ));
+        ]);
 
         // Get dimensions
         $responseJson = $this->getWriterApi('/date-dimensions?writerId=' . $this->writerId . '&usage');
@@ -465,10 +448,10 @@ class DatasetsTest extends AbstractControllerTest
 
 
         // Upload created date do GoodData
-        $jobId = $this->processJob('/upload-date-dimension', array('tableId' => $tableId, 'name' => $dimensionName));
+        $jobId = $this->processJob('/upload-date-dimension', ['tableId' => $tableId, 'name' => $dimensionName]);
         $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $jobId);
         $this->assertArrayHasKey('status', $response, "Response for writer call '/batch?batchId=' should contain key 'job.status'.");
-        $this->assertEquals(JobStorage::JOB_STATUS_SUCCESS, $response['status'], "Result of request /upload-date-dimension should be 'success'.");
+        $this->assertEquals(Job::STATUS_SUCCESS, $response['status'], "Result of request /upload-date-dimension should be 'success'.");
 
         $data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
         $this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");
@@ -495,11 +478,11 @@ class DatasetsTest extends AbstractControllerTest
 
         // Drop dimension
         $dimensionName = 'TestDate_' . uniqid();
-        $this->postWriterApi('/date-dimensions', array(
+        $this->postWriterApi('/date-dimensions', [
             'writerId' => $this->writerId,
             'name' => $dimensionName,
             'includeTime' => true
-        ));
+        ]);
         $this->callWriterApi('/date-dimensions?writerId=' . $this->writerId . '&name=' . $dimensionName, 'DELETE');
         $responseJson = $this->getWriterApi('/date-dimensions?writerId=' . $this->writerId);
         $this->assertCount(2, $responseJson['dimensions'], "Response for writer call '/date-dimensions' should contain one dimension.");

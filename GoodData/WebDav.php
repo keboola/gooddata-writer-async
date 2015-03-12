@@ -8,7 +8,7 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
-use Keboola\GoodDataWriter\Exception\WebDavException;
+use Keboola\Syrup\Exception\UserException;
 use Symfony\Component\Process\Process;
 
 class WebDav
@@ -17,12 +17,6 @@ class WebDav
     protected $username;
     protected $password;
 
-    /**
-     * @param $username
-     * @param $password
-     * @param null $url
-     * @throws WebDavException
-     */
     public function __construct($username, $password)
     {
         $this->username = $username;
@@ -35,15 +29,6 @@ class WebDav
     }
 
 
-    /**
-     * @param $uri
-     * @param null $method
-     * @param null $arguments
-     * @param null $prepend
-     * @param null $append
-     * @return string
-     * @throws WebDavException
-     */
     protected function request($uri, $method = null, $arguments = null, $prepend = null, $append = null)
     {
         $url = $this->url . '/' . $uri;
@@ -82,7 +67,7 @@ class WebDav
             sleep($i * 60);
         }
 
-        throw new WebDavException($error? $error : $output);
+        throw new UserException($error? $error : $output);
     }
 
 
@@ -97,14 +82,11 @@ class WebDav
 
     /**
      * Upload compressed json and csv files from sourceFolder to targetFolder
-     * @param $file
-     * @param $davFolder
-     * @throws WebDavException
      */
     public function upload($file, $davFolder)
     {
         if (!file_exists($file)) {
-            throw new WebDavException(sprintf("File '%s' for WebDav upload does not exist.", $file));
+            throw new UserException(sprintf("File '%s' for WebDav upload does not exist.", $file));
         }
         $fileInfo = pathinfo($file);
 
@@ -116,8 +98,8 @@ class WebDav
                 '-T - --header ' . escapeshellarg('Content-encoding: gzip'),
                 'cat ' . escapeshellarg($file) . ' | gzip -c | '
             );
-        } catch (WebDavException $e) {
-            throw new WebDavException("WebDav error when uploading to '" . $fileUri . '". ' . $e->getMessage());
+        } catch (UserException $e) {
+            throw new UserException("WebDav error when uploading to '" . $fileUri . '". ' . $e->getMessage());
         }
     }
 
@@ -127,7 +109,7 @@ class WebDav
         try {
             $this->request($file, 'PROPFIND');
             return true;
-        } catch (WebDavException $e) {
+        } catch (UserException $e) {
             if (strpos($e->getMessage(), '404 Not Found') !== false || strpos($e->getMessage(), 'curl: (22)') !== false) {
                 return false;
             } else {
@@ -137,30 +119,19 @@ class WebDav
     }
 
 
-    /**
-     * @param $folderName
-     * @param bool $relative
-     * @param array $extensions
-     * @return array
-     * @throws WebDavException
-     */
     public function listFiles($folderName, $relative = false, $extensions = [])
     {
-        try {
-            $result = $this->request(
-                $folderName,
-                'PROPFIND',
-                ' --data ' . escapeshellarg('<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname /></d:prop></d:propfind>')
-                . ' -L -H ' . escapeshellarg('Content-Type: application/xml') . ' -H ' . escapeshellarg('Depth: 1')
-            );
-        } catch (WebDavException $e) {
-            throw new WebDavException($e->getMessage());
-        }
+        $result = $this->request(
+            $folderName,
+            'PROPFIND',
+            ' --data ' . escapeshellarg('<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname /></d:prop></d:propfind>')
+            . ' -L -H ' . escapeshellarg('Content-Type: application/xml') . ' -H ' . escapeshellarg('Depth: 1')
+        );
 
         libxml_use_internal_errors(true);
         $responseXML = simplexml_load_string($result, null, LIBXML_NOBLANKS | LIBXML_NOCDATA);
         if ($responseXML === false) {
-            throw new WebDavException('WebDav returned bad result when asked for error logs.');
+            throw new UserException('WebDav returned bad result when asked for error logs.');
         }
 
         $responseXML->registerXPathNamespace('D', 'urn:DAV');
@@ -203,7 +174,7 @@ class WebDav
             }
         }
 
-        foreach ($this->listFiles($folderName, true, array('log')) as $file) {
+        foreach ($this->listFiles($folderName, true, ['log']) as $file) {
             $errors[$file] = $this->get($folderName . '/' . $file);
         }
 
@@ -228,9 +199,6 @@ class WebDav
 
     /**
      * Get content of a file from WebDav
-     * @param $fileUri
-     * @throws WebDavException
-     * @return mixed
      */
     public function get($fileUri)
     {
@@ -239,8 +207,8 @@ class WebDav
                 $fileUri,
                 'GET'
             );
-        } catch (WebDavException $e) {
-            throw new WebDavException("WebDav error when uploading to '" . $fileUri . '". ' . $e->getMessage());
+        } catch (UserException $e) {
+            throw new UserException("WebDav error when uploading to '" . $fileUri . '". ' . $e->getMessage(), $e);
         }
     }
 }

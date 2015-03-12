@@ -6,13 +6,13 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Exception\UserAlreadyExistsException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
+use Keboola\Syrup\Exception\UserException;
 
 class CreateWriter extends AbstractTask
 {
@@ -24,10 +24,10 @@ class CreateWriter extends AbstractTask
 
         $this->checkParams($params, ['writerId']);
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $params['writerId'])) {
-            throw new WrongParametersException($this->translator->trans('parameters.writerId.format'));
+            throw new UserException($this->translator->trans('parameters.writerId.format'));
         }
         if (strlen($params['writerId']) > 50) {
-            throw new WrongParametersException($this->translator->trans('parameters.writerId.length'));
+            throw new UserException($this->translator->trans('parameters.writerId.length'));
         }
 
         $result = [];
@@ -37,13 +37,13 @@ class CreateWriter extends AbstractTask
 
         if (!empty($params['username']) || !empty($params['password']) || !empty($params['pid'])) {
             if (empty($params['username'])) {
-                throw new WrongParametersException($this->translator->trans('parameters.username_missing'));
+                throw new UserException($this->translator->trans('parameters.username_missing'));
             }
             if (empty($params['password'])) {
-                throw new WrongParametersException($this->translator->trans('parameters.password_missing'));
+                throw new UserException($this->translator->trans('parameters.password_missing'));
             }
             if (empty($params['pid'])) {
-                throw new WrongParametersException($this->translator->trans('parameters.pid_missing'));
+                throw new UserException($this->translator->trans('parameters.pid_missing'));
             }
 
             $result['pid'] = $params['pid'];
@@ -106,7 +106,7 @@ class CreateWriter extends AbstractTask
                 try {
                     $this->restApi->inviteUserToProject($this->getDomainUser()->username, $projectPid, RestApi::USER_ROLE_ADMIN);
                 } catch (RestApiException $e) {
-                    $details = $e->getDetails();
+                    $details = $e->getData();
                     if ($e->getCode() != 400 || !isset($details['details']['error']['message']) || strpos($details['details']['error']['message'], 'already member') === false) {
                         throw $e;
                     }
@@ -163,13 +163,13 @@ class CreateWriter extends AbstractTask
         try {
             $this->restApi->login($params['username'], $params['password']);
         } catch (\Exception $e) {
-            throw new WrongParametersException($this->translator->trans('parameters.gd.credentials'));
+            throw new UserException($this->translator->trans('parameters.gd.credentials'));
         }
         if (!$this->restApi->hasAccessToProject($params['pid'])) {
-            throw new WrongParametersException($this->translator->trans('parameters.gd.project_inaccessible'));
+            throw new UserException($this->translator->trans('parameters.gd.project_inaccessible'));
         }
         if (!in_array('admin', $this->restApi->getUserRolesInProject($params['username'], $params['pid']))) {
-            throw new WrongParametersException($this->translator->trans('parameters.gd.user_not_admin'));
+            throw new UserException($this->translator->trans('parameters.gd.user_not_admin'));
         }
     }
 }

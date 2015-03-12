@@ -7,11 +7,11 @@
 namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\Csv\CsvFile;
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Aws\Common\Client as AwsClient;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\StorageApi\Table;
+use Keboola\Syrup\Exception\UserException;
 
 class ExportReport extends AbstractTask
 {
@@ -42,7 +42,7 @@ class ExportReport extends AbstractTask
         $this->configuration->checkProjectsTable();
 
         if (!preg_match('/^([^\.]+)\.([^\.]+)\.([^\.]+)$/', $params['table'])) {
-            throw new WrongParametersException($this->translator->trans('parameters.report.table_not_valid %1', ['%1' => $params['table']]));
+            throw new UserException($this->translator->trans('parameters.report.table_not_valid %1', ['%1' => $params['table']]));
         }
 
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);

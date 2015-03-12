@@ -6,9 +6,9 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
+use Keboola\Syrup\Exception\UserException;
 
 class WaitForInvitation extends AbstractTask
 {
@@ -36,7 +36,7 @@ class WaitForInvitation extends AbstractTask
 
         } else {
             if ($params['try'] > 5) {
-                throw new WrongConfigurationException($this->translator->trans('wait_for_invitation.lasts_too_long'));
+                throw new UserException($this->translator->trans('wait_for_invitation.lasts_too_long'));
             }
 
             $job = $this->jobFactory->create(Job::SERVICE_QUEUE);

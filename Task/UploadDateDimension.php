@@ -8,13 +8,12 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
 use Keboola\GoodDataWriter\Exception\RestApiException;
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\GoodData\WebDav;
 use Keboola\GoodDataWriter\GoodData\Model;
-use Keboola\GoodDataWriter\Exception\WebDavException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\StorageApi\Event;
+use Keboola\Syrup\Exception\UserException;
 use Symfony\Component\Stopwatch\Stopwatch;
 
 class UploadDateDimension extends AbstractTask
@@ -28,7 +27,7 @@ class UploadDateDimension extends AbstractTask
 
         $dateDimensions = $this->configuration->getDateDimensions();
         if (!in_array($params['name'], array_keys($dateDimensions))) {
-            throw new WrongParametersException($this->translator->trans('parameters.dimension_name'));
+            throw new UserException($this->translator->trans('parameters.dimension_name'));
         }
 
         return [
@@ -47,7 +46,7 @@ class UploadDateDimension extends AbstractTask
         $this->checkParams($params, ['pid', 'name']);
         $project = $this->configuration->getProject($params['pid']);
         if (!$project) {
-            throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
+            throw new UserException($this->translator->trans('parameters.pid_not_configured'));
         }
 
         $stopWatch = new Stopwatch();
@@ -56,7 +55,7 @@ class UploadDateDimension extends AbstractTask
 
         $dateDimensions = $this->configuration->getDateDimensions();
         if (!in_array($params['name'], array_keys($dateDimensions))) {
-            throw new WrongConfigurationException($this->translator->trans('parameters.dimension_name'));
+            throw new UserException($this->translator->trans('parameters.dimension_name'));
         }
 
         // Init
@@ -74,7 +73,7 @@ class UploadDateDimension extends AbstractTask
             $this->restApi->createDateDimension($params['pid'], $params['name'], $includeTime, $template);
 
             $e = $stopWatch->stop($stopWatchId);
-            $this->logEvent('Rest API called', $job->getId(), $job->getRunId(), [], $e->getDuration());
+            $this->logEvent('Date dimension created', $taskId, $job->getId(), $job->getRunId(), [], $e->getDuration());
 
             if ($includeTime) {
                 // Upload to WebDav
@@ -98,7 +97,7 @@ class UploadDateDimension extends AbstractTask
                 $dimensionsToUpload[] = $params['name'];
 
                 $e = $stopWatch->stop($stopWatchId);
-                $this->logEvent('Time dimension data uploaded to WebDav', $job->getId(), $job->getRunId(), [
+                $this->logEvent('Time dimension data uploaded to GoodData', $taskId, $job->getId(), $job->getRunId(), [
                     'destination' => $webDav->getUrl() . '/uploads/' . $tmpFolderNameDimension
                 ], $e->getDuration());
 
@@ -125,30 +124,31 @@ class UploadDateDimension extends AbstractTask
                 }
 
                 $e = $stopWatch->stop($stopWatchId);
-                $this->logEvent('Time dimension ETL task finished', $job->getId(), $job->getRunId(), [], $e->getDuration());
+                $this->logEvent(
+                    'Time dimension data processing finished',
+                    $taskId,
+                    $job->getId(),
+                    $job->getRunId(),
+                    [],
+                    $e->getDuration()
+                );
             }
 
         } catch (\Exception $e) {
-            $error = $e->getMessage();
-            $event = $stopWatch->stop($stopWatchId);
+            $this->logEvent(
+                'Time dimension data processing failed',
+                $taskId,
+                $job->getId(),
+                $job->getRunId(),
+                ['error' => $e->getMessage()],
+                $stopWatch->stop($stopWatchId)->getDuration(),
+                Event::TYPE_ERROR
+            );
 
-            if ($e instanceof RestApiException) {
-                $error = $e->getDetails();
-            }
-            $this->logEvent('Time dimension ETL task failed', $job->getId(), $job->getRunId(), [], $event->getDuration());
-
-            if (!($e instanceof RestApiException) && !($e instanceof WebDavException)) {
-                throw $e;
-            }
+            throw $e;
         }
 
-        $result = [];
-        if (empty($error)) {
-            $this->configuration->setDateDimensionIsExported($params['name'], true);
-        } else {
-            $result['error'] = $error;
-        }
-
-        return $result;
+        $this->configuration->setDateDimensionIsExported($params['name'], true);
+        return [];
     }
 }

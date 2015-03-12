@@ -6,10 +6,9 @@
 
 namespace Keboola\GoodDataWriter\Task;
 
-use Keboola\GoodDataWriter\Exception\WrongConfigurationException;
-use Keboola\GoodDataWriter\Exception\RestApiException;
-use Keboola\GoodDataWriter\Exception\WrongParametersException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\StorageApi\Event;
+use Keboola\Syrup\Exception\UserException;
 use Symfony\Component\Stopwatch\Stopwatch;
 
 class UpdateModel extends AbstractTask
@@ -35,10 +34,10 @@ class UpdateModel extends AbstractTask
         $this->checkParams($params, ['pid', 'tableId']);
         $project = $this->configuration->getProject($params['pid']);
         if (!$project) {
-            throw new WrongParametersException($this->translator->trans('parameters.pid_not_configured'));
+            throw new UserException($this->translator->trans('parameters.pid_not_configured'));
         }
         if (!$definitionFile) {
-            throw new WrongConfigurationException($this->translator->trans('job_executor.data_set_definition_missing'));
+            throw new UserException($this->translator->trans('job_executor.data_set_definition_missing'));
         }
 
         $bucketAttributes = $this->configuration->bucketAttributes();
@@ -58,10 +57,14 @@ class UpdateModel extends AbstractTask
 
         $definition = $this->getDefinition($definitionFile);
 
-        $e = $stopWatch->stop($stopWatchId);
-        $this->logEvent('Definition downloaded from s3', $job->getId(), $job->getRunId(), [
-            'file' => $definitionFile
-        ], $e->getDuration());
+        $this->logEvent(
+            'Definition downloaded',
+            $taskId,
+            $job->getId(),
+            $job->getRunId(),
+            ['file' => $definitionFile],
+            $stopWatch->stop($stopWatchId)->getDuration()
+        );
 
         $updateOperations = [];
         $ldmChange = false;
@@ -70,9 +73,9 @@ class UpdateModel extends AbstractTask
             $stopWatchId = 'GoodData';
             $stopWatch->start($stopWatchId);
 
-            $result = $this->restApi->updateDataSet($params['pid'], $definition, $this->configuration->noDateFacts);
-            if ($result) {
-                $updateOperations[] = $result;
+            $updateResult = $this->restApi->updateDataSet($params['pid'], $definition, $this->configuration->noDateFacts);
+            if ($updateResult) {
+                $updateOperations[] = $updateResult['description'];
                 $ldmChange = true;
             }
 
@@ -81,37 +84,45 @@ class UpdateModel extends AbstractTask
                 $this->configuration->updateDataSetDefinition($params['tableId'], 'isExported', 1);
             }
 
-            $e = $stopWatch->stop($stopWatchId);
-            $this->logEvent('LDM API called', $job->getId(), $job->getRunId(), [
-                'operations' => $updateOperations
-            ], $e->getDuration());
+            if ($ldmChange) {
+                $this->logEvent(
+                    'Model updated',
+                    $taskId,
+                    $job->getId(),
+                    $job->getRunId(),
+                    ['maql' => $updateResult['maql']],
+                    $stopWatch->stop($stopWatchId)->getDuration()
+                );
+            } else {
+                $this->logEvent(
+                    'Model has not been changed',
+                    $taskId,
+                    $job->getId(),
+                    $job->getRunId()
+                );
+            }
 
         } catch (\Exception $e) {
-            $error = $e->getMessage();
-            $event = $stopWatch->stop($stopWatchId);
+            $this->logEvent(
+                'Model update failed',
+                $taskId,
+                $job->getId(),
+                $job->getRunId(),
+                ['error' => $e->getMessage()],
+                $stopWatch->stop($stopWatchId)->getDuration(),
+                Event::TYPE_ERROR
+            );
 
-            if ($e instanceof RestApiException) {
-                $error = $e->getDetails();
-            }
-            $this->logEvent('Model update failed', $job->getId(), $job->getRunId(), [], $event->getDuration());
-
-            if (!($e instanceof RestApiException)) {
-                throw $e;
-            }
+            throw $e;
         }
 
         $result = [];
-        if (!empty($error)) {
-            $result['error'] = $error;
-        }
         if (count($updateOperations)) {
             $result['info'] = $updateOperations;
         }
         if ($ldmChange) {
-            $result['ldmChange'] = true;  //@TODO remove after UI update
             $result['flags'] = ['ldm' => $this->translator->trans('result.flag.ldm')];
         }
-
         return $result;
     }
 }
