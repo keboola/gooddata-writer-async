@@ -122,7 +122,7 @@ class WritersTest extends AbstractControllerTest
         /**
          * Create writer with existing project
          */
-        $existingPid = $bucketAttributes['gd']['pid'];
+        /*$existingPid = $bucketAttributes['gd']['pid'];
         $existingProjectWriterId = self::WRITER_ID_PREFIX . 'exist_' . uniqid();
         $this->processJob('/writers', [
             'writerId' => $existingProjectWriterId,
@@ -139,7 +139,7 @@ class WritersTest extends AbstractControllerTest
         $this->assertEquals($bucketAttributes['gd']['pid'], $responseJson['writer']['gd']['pid'], "Writer should have project given as request parameter");
 
         /** @var Search $jobSearch */
-        $jobSearch = $this->container->get('gooddata_writer.elasticsearch.search');
+        /*$jobSearch = $this->container->get('gooddata_writer.elasticsearch.search');
         $i = 0;
         do {
             $this->assertLessThanOrEqual(10, $i, 'Waited for getting access to existing project too long');
@@ -166,7 +166,7 @@ class WritersTest extends AbstractControllerTest
         $bucketAttributes = $configuration->bucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
         $projectInfo = $this->restApi->get('/gdc/md/' . $existingPid);
-        $this->assertArrayHasKey('about', $projectInfo, "Writer created from existing project should have working credentials to the project");
+        $this->assertArrayHasKey('about', $projectInfo, "Writer created from existing project should have working credentials to the project");*/
 
 
         /**

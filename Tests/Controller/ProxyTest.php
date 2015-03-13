@@ -12,7 +12,7 @@ class ProxyTest extends AbstractControllerTest
 {
     public function testProxy()
     {
-        $user = $this->createUser();
+        $this->createUser();
 
         /**
          * Get proxy
@@ -47,13 +47,12 @@ class ProxyTest extends AbstractControllerTest
         $attrUri = $attr['attribute']['meta']['uri'];
 
         // repost attribute to GD
-        $batchId = $this->processJob('/proxy', [
+        $jobId = $this->processJob('/proxy', [
             'writerId'  => $this->writerId,
             'query'     => $attrUri,
             'payload'   => $attr
         ], 'POST');
-
-        $jobStatus = $this->getWriterApi('/batch?batchId=' .$batchId . '&writerId=' . $this->writerId);
-        $this->assertEquals(Job::STATUS_SUCCESS, $jobStatus['status']);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertEquals(Job::STATUS_SUCCESS, $job->getStatus());
     }
 }

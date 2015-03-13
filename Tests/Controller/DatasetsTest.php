@@ -36,10 +36,10 @@ class DatasetsTest extends AbstractControllerTest
         $this->assertCount(1, $data['dataSetsInfo']['sets'], "Response for GoodData API call '/data/sets' should contain key 'dataSetsInfo.sets' with one value.");
         $this->assertEquals('dataset.categories', $data['dataSetsInfo']['sets'][0]['meta']['identifier'], "GoodData project should contain dataSet 'Categories'.");
 
-        $csv = $webDav->get(sprintf('%s/%d/categories.csv', $jobId, $loadDataTaskId));
+        $csv = $webDav->get(sprintf('%s/%d/%s.categories.csv', $jobId, $loadDataTaskId, $this->dataBucketId));
 
         if (!$csv) {
-            $this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/categories.csv' should exist.", $jobId));
+            $this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/%d/%s.categories.csv' should exist.", $jobId, $loadDataTaskId, $this->dataBucketId));
         }
         $rows = StorageApiClient::parseCsv($csv);
         $this->assertEquals(2, count($rows), "Csv of main project should contain two rows.");
@@ -112,7 +112,7 @@ class DatasetsTest extends AbstractControllerTest
          */
         $jobId = $this->processJob('/load-data-multi', ['tables' => [$this->dataBucketId . '.products', $this->dataBucketId . '.categories']]);
         $job = $this->getJobFromElasticsearch($jobId);
-        $this->assertEquals('success', $job->getStatus(), "Job'$jobId' should have status 'success'.");
+        $this->assertEquals(Job::STATUS_SUCCESS, $job->getStatus());
 
         /**
          * Check if upload table contains updateModel when needed
@@ -362,9 +362,9 @@ class DatasetsTest extends AbstractControllerTest
         $this->configuration->updateColumnsDefinition($tableId, 'price', ['type' => 'IGNORE']);
         $jobId = $this->processJob('/upload-table', ['tableId' => $tableId]);
 
-        $csv = $webDav->get(sprintf('%s/%d/products.csv', $jobId, 1));
+        $csv = $webDav->get(sprintf('%s/%d/%s.products.csv', $jobId, 1, $this->dataBucketId));
         if (!$csv) {
-            $this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/%d/products.csv' should exist.", $jobId, 1));
+            $this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/%d/%s.products.csv' should exist.", $jobId, 1, $this->dataBucketId));
         }
         $rows = StorageApiClient::parseCsv($csv);
         foreach ($rows as $row) {
@@ -449,9 +449,8 @@ class DatasetsTest extends AbstractControllerTest
 
         // Upload created date do GoodData
         $jobId = $this->processJob('/upload-date-dimension', ['tableId' => $tableId, 'name' => $dimensionName]);
-        $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $jobId);
-        $this->assertArrayHasKey('status', $response, "Response for writer call '/batch?batchId=' should contain key 'job.status'.");
-        $this->assertEquals(Job::STATUS_SUCCESS, $response['status'], "Result of request /upload-date-dimension should be 'success'.");
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertEquals(Job::STATUS_SUCCESS, $job->getStatus());
 
         $data = $this->restApi->get('/gdc/md/' . $bucketAttributes['gd']['pid'] . '/data/sets');
         $this->assertArrayHasKey('dataSetsInfo', $data, "Response for GoodData API call '/data/sets' should contain 'dataSetsInfo' key.");

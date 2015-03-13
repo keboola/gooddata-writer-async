@@ -9,6 +9,11 @@ use Keboola\StorageApi\Table as StorageApiTable;
 
 class FiltersTest extends AbstractControllerTest
 {
+    /**
+     * @throws \Exception
+     * @throws \Keboola\StorageApi\ClientException
+     * @throws \Keboola\StorageApi\TableException
+     */
     public function testFilters()
     {
         $bucketAttributes = $this->configuration->bucketAttributes();
@@ -23,12 +28,12 @@ class FiltersTest extends AbstractControllerTest
          * Create filter
          */
         $filterName = 'filter';
-        $this->processJob('/filters', array(
+        $this->processJob('/filters', [
             'pid' => $pid,
             'name' => $filterName,
             'attribute' => $this->dataBucketId . '.products.name',
             'value' => 'Product 1'
-        ));
+        ]);
 
         // Check result
         $filterList = $this->configuration->getFilters();
@@ -52,11 +57,11 @@ class FiltersTest extends AbstractControllerTest
         $this->assertGreaterThan(0, $filters, "Writer should have at least one filter.");
         $filter = $filters[0];
 
-        $this->processJob('/filters-users', array(
+        $this->processJob('/filters-users', [
             'pid' => $pid,
-            'filters' => array($filter['name']),
+            'filters' => [$filter['name']],
             'email' => $user['email']
-        ));
+        ]);
 
         // Check configuration
         $this->assertCount(1, $this->configuration->getFiltersUsers(), 'List of users from getFiltersUsers() should contain the test user');
@@ -78,9 +83,9 @@ class FiltersTest extends AbstractControllerTest
         $fp = $this->configuration->getFiltersProjectsByPid($pid);
         $oldFilterProject = current($fp);
 
-        $this->processJob('/sync-filters', array(
+        $this->processJob('/sync-filters', [
             'pid' => $pid
-        ));
+        ]);
 
         $fp = $this->configuration->getFiltersProjectsByPid($pid);
         $newFilterProject = current($fp);
@@ -141,7 +146,7 @@ class FiltersTest extends AbstractControllerTest
          * Delete filter
          */
         $filter = $filterList[0];
-        $this->processJob('/filters?writerId=' . $this->writerId . '&name=' . $filter['name'], array(), 'DELETE');
+        $this->processJob('/filters?writerId=' . $this->writerId . '&name=' . $filter['name'], [], 'DELETE');
         $this->assertFalse($this->configuration->getFilter($filter['name']), 'Writer should have no filter configured');
         $this->assertEmpty($this->configuration->getFiltersProjects(), 'Writer should have no filter-project relation configured');
         $this->assertEmpty($this->configuration->getFiltersUsers(), 'Writer should have no filter-user relation configured');
@@ -151,50 +156,48 @@ class FiltersTest extends AbstractControllerTest
          * Filter with OVER .. TO ..
          */
         $table = new StorageApiTable($this->storageApi, $this->dataBucketId . '.users', null, 'id');
-        $table->setHeader(array('id', 'name'));
-        $table->setFromArray(array(array('u1', 'User 1'), array('u2', 'User 2')));
+        $table->setHeader(['id', 'name']);
+        $table->setFromArray([['u1', 'User 1'], ['u2', 'User 2']]);
         $table->save();
         $this->configuration->updateDataSetDefinition($this->dataBucketId . '.users', 'name', 'Users');
         $this->configuration->updateDataSetDefinition($this->dataBucketId . '.users', 'export', '1');
-        $this->configuration->updateColumnsDefinition($this->dataBucketId . '.users', array(
-            array('name' => 'id', 'gdName' => 'Id', 'type' => 'CONNECTION_POINT'),
-            array('name' => 'name', 'gdName' => 'Name', 'type' => 'ATTRIBUTE')
-        ));
-        $this->processJob('/upload-table', array('tableId' => $this->dataBucketId . '.users'));
+        $this->configuration->updateColumnsDefinition($this->dataBucketId . '.users', [
+            ['name' => 'id', 'gdName' => 'Id', 'type' => 'CONNECTION_POINT'],
+            ['name' => 'name', 'gdName' => 'Name', 'type' => 'ATTRIBUTE']
+        ]);
+        $this->processJob('/upload-table', ['tableId' => $this->dataBucketId . '.users']);
 
-        $this->processJob('/filters', array(
+        $this->processJob('/filters', [
             'pid' => $pid,
             'name' => 'Over-To Filter',
             'attribute' => $this->dataBucketId . '.users.name',
             'value' => 'User 1',
             'over' => $this->dataBucketId . '.users.id',
             'to' => $this->dataBucketId . '.products.id'
-        ));
+        ]);
 
 
         /**
          * Filter with IN
          */
-        $batchId = $this->processJob('/filters', array(
+        $jobId = $this->processJob('/filters', [
             'pid' => $pid,
             'name' => 'Filter IN',
             'attribute' => $this->dataBucketId . '.products.name',
             'operator' => 'IN',
             'value' => 'Product 1'
-        ));
-        $responseJson = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-        $this->assertArrayHasKey('status', $responseJson, "Response for GoodData API call '/batch' should contain 'status' key.");
-        $this->assertEquals('success', $responseJson['status'], "Batch '$batchId' should have status 'success'.");
+        ]);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertEquals(Job::STATUS_SUCCESS, $job->getStatus());
 
-        $batchId = $this->processJob('/filters', array(
+        $jobId = $this->processJob('/filters', [
             'pid' => $pid,
             'name' => 'Filter IN 2',
             'attribute' => $this->dataBucketId . '.products.name',
             'operator' => 'IN',
-            'value' => array('Product 1', 'Product 2')
-        ));
-        $responseJson = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-        $this->assertArrayHasKey('status', $responseJson, "Response for GoodData API call '/batch' should contain 'status' key.");
-        $this->assertEquals('success', $responseJson['status'], "Batch '$batchId' should have status 'success'.");
+            'value' => ['Product 1', 'Product 2']
+        ]);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertEquals(Job::STATUS_SUCCESS, $job->getStatus());
     }
 }

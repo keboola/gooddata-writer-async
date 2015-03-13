@@ -7,8 +7,8 @@
  */
 namespace Keboola\GoodDataWriter\GoodData;
 
+use Keboola\Syrup\Exception\ApplicationException;
 use Symfony\Component\Process\Process;
-use Keboola\Syrup\Exception\SyrupComponentException;
 use Keboola\Temp\Temp;
 
 class SSO
@@ -20,10 +20,10 @@ class SSO
     {
         $temp->initRunFolder();
         $jsonFile = sprintf('%s/%s-%s.json', $temp->getTmpFolder(), date('Ymd-His'), uniqid());
-        $signData = array(
+        $signData = [
             'email' => $email,
             'validity' => time() + $validity
-        );
+        ];
         file_put_contents($jsonFile, json_encode($signData));
 
         $command = sprintf(
@@ -66,14 +66,14 @@ class SSO
             sleep($i * 60);
         }
 
-        $e = new SyrupComponentException(500, 'SSO link generation failed. ' . $error);
-        $e->setData(array(
+        $e = new ApplicationException('SSO link generation failed. ' . $error);
+        $e->setData([
             'targetUrl' => $targetUrl,
             'email' => $email,
             'validity' => $validity,
             'command' => $command,
             'result' => $output
-        ));
+        ]);
         throw $e;
     }
 }

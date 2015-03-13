@@ -237,12 +237,12 @@ class Model
     /**
      * Create manifest for data load
      */
-    public static function getDataLoadManifest($definition, $incrementalLoad, $noDateFacts = false)
+    public static function getDataLoadManifest($tableId, $definition, $incrementalLoad, $noDateFacts = false)
     {
         $dataSetName = self::getId($definition['name']);
         $manifest = array(
             'dataSetSLIManifest' => array(
-                'file' => $dataSetName . '.csv',
+                'file' => $tableId . '.csv',
                 'dataSet' => 'dataset.' . $dataSetName,
                 'parts' => []
             )

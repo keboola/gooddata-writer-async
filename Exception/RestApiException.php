@@ -12,28 +12,22 @@ use Keboola\Syrup\Exception\UserException;
 
 class RestApiException extends UserException
 {
-    public function __construct($message, $details = null, $code = 0, \Exception $previous = null)
+    public function __construct($message, \Exception $previous = null, $data = null)
     {
-        if ($details) {
-            $this->setDetails($details);
-        }
-
         parent::__construct($message, $previous);
+        if ($data) {
+            $this->setData($data);
+        }
     }
 
-    public function setDetails($details)
+    public function setData(array $data)
     {
-        if (!is_array($details)) {
-            $decode = json_decode($details, true);
-            $details = $decode ? $decode : [$details];
+        $data = self::parseError($data);
+        foreach ($data as &$d) {
+            $d = self::parseError($d);
         }
 
-        $details = self::parseError($details);
-        foreach ($details as &$detail) {
-            $detail = self::parseError($detail);
-        }
-
-        $this->data = $details;
+        $this->data = $data;
     }
 
     public static function parseError($message)

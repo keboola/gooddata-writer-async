@@ -6,7 +6,6 @@
 
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
-use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\StorageApi\Table as StorageApiTable;
 use Keboola\GoodDataWriter\GoodData\WebDav;
@@ -124,10 +123,9 @@ class ProjectsTest extends AbstractControllerTest
          * Upload single project
          */
         // Test if upload went only to clone
-        $batchId = $this->processJob('/upload-table', ['tableId' => $this->dataBucketId . '.' . $filteredTableName, 'pid' => $clonedPid]);
-        $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-        $this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
-        $this->assertEquals(Job::STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
+        $jobId = $this->processJob('/upload-table', ['tableId' => $this->dataBucketId . '.' . $filteredTableName, 'pid' => $clonedPid]);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertEquals(Job::STATUS_SUCCESS, $job->getStatus());
 
         $bucketAttributes = $this->configuration->bucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -153,25 +151,22 @@ class ProjectsTest extends AbstractControllerTest
          * Filtered tables
          */
         // Test if upload of not-filtered table without 'ignoreFilter' attribute fails
-        $batchId = $this->processJob('/upload-table', ['tableId' => $this->dataBucketId . '.' . $notFilteredTableName]);
-        $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-        $this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
-        $this->assertEquals(Job::STATUS_ERROR, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
+        $jobId = $this->processJob('/upload-table', ['tableId' => $this->dataBucketId . '.' . $notFilteredTableName]);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertEquals(Job::STATUS_ERROR, $job->getStatus());
 
         // Now add the attribute and try if it succeeds
         $this->configuration->updateDataSetDefinition($this->dataBucketId . '.' . $notFilteredTableName, 'ignoreFilter', 1);
 
-        $batchId = $this->processJob('/upload-table', ['tableId' => $this->dataBucketId . '.' . $notFilteredTableName]);
-        $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-        $this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
-        $this->assertEquals(Job::STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
+        $jobId = $this->processJob('/upload-table', ['tableId' => $this->dataBucketId . '.' . $notFilteredTableName]);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertEquals(Job::STATUS_SUCCESS, $job->getStatus());
 
 
         // Upload and test filtered tables
-        $batchId = $this->processJob('/upload-table', ['tableId' => $this->dataBucketId . '.' . $filteredTableName]);
-        $response = $this->getWriterApi('/batch?writerId=' . $this->writerId . '&batchId=' . $batchId);
-        $this->assertArrayHasKey('status', $response, "Response for writer call '/batch' should contain key 'status'.");
-        $this->assertEquals(Job::STATUS_SUCCESS, $response['status'], "Response for writer call '/batch' should contain key 'status' with value 'success'.");
+        $jobId = $this->processJob('/upload-table', ['tableId' => $this->dataBucketId . '.' . $filteredTableName]);
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertEquals(Job::STATUS_SUCCESS, $job->getStatus());
 
         $bucketAttributes = $this->configuration->bucketAttributes();
         $webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
@@ -179,11 +174,12 @@ class ProjectsTest extends AbstractControllerTest
 
         $checkMainProjectLoad = false;
         $checkFilteredProjectLoad = false;
-        foreach ($response['jobs'] as $job) {
-            if ($job['command'] == 'loadData') {
-                $csv = $webDav->get(sprintf('%s/%s.csv', $job['id'], Model::getId($job['dataset'])));
+        foreach ($job->getParams()['tasks'] as $i => $task) {
+            if ($task['name'] == 'loadData') {
+                $fileUri = sprintf('%s/%d/%s.csv', $job->getId(), $i, $task['params']['tableId']);
+                $csv = $webDav->get($fileUri);
                 if (!$csv) {
-                    $this->assertTrue(false, sprintf("Data csv file in WebDav '/uploads/%s/%s.csv' should exist.", $job['id'], Model::getId($job['dataset'])));
+                    $this->assertTrue(false, sprintf("Data csv file in WebDav '%s' should exist.", $fileUri));
                 }
                 $rowsNumber = 0;
                 foreach (explode("\n", $csv) as $row) {
@@ -192,7 +188,7 @@ class ProjectsTest extends AbstractControllerTest
                     }
                 }
 
-                if ($job['parameters']['pid'] == $bucketAttributes['gd']['pid']) {
+                if ($task['params']['pid'] == $bucketAttributes['gd']['pid']) {
                     $this->assertEquals(3, $rowsNumber, "Csv of main project should contain two rows with header.");
                     $checkMainProjectLoad = true;
                 } else {
@@ -201,8 +197,8 @@ class ProjectsTest extends AbstractControllerTest
                 }
             }
         }
-        $this->assertTrue($checkMainProjectLoad, 'Data load of main project was not found in the batch');
-        $this->assertTrue($checkFilteredProjectLoad, 'Data load of filtered project was not found in the batch');
+        $this->assertTrue($checkMainProjectLoad, 'Data load task of main project was not found in the job');
+        $this->assertTrue($checkFilteredProjectLoad, 'Data load task of filtered project was not found in the job');
 
 
 

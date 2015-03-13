@@ -99,7 +99,7 @@ class LoadData extends AbstractTask
         // Get manifest
         $stopWatchId = 'get_manifest';
         $stopWatch->start($stopWatchId);
-        $manifest = Model::getDataLoadManifest($definition, $incrementalLoad, $this->configuration->noDateFacts);
+        $manifest = Model::getDataLoadManifest($params['tableId'], $definition, $incrementalLoad, $this->configuration->noDateFacts);
         file_put_contents($this->getTmpDir($job->getId()) . '/upload_info.json', json_encode($manifest));
         $this->logs['Manifest'] = $this->s3Client->uploadFile(
             $this->getTmpDir($job->getId()) . '/upload_info.json',
@@ -127,8 +127,7 @@ class LoadData extends AbstractTask
 
             $webDav->prepareFolder($tmpFolderName);
 
-            $datasetName = Model::getId($definition['name']);
-            $webDavFileUrl = sprintf('%s/%s/%s.csv', $webDav->getUrl(), $tmpFolderName, $datasetName);
+            $webDavFileUrl = sprintf('%s/%s/%s.csv', $webDav->getUrl(), $tmpFolderName, $params['tableId']);
             $csvHandler->runUpload(
                 $bucketAttributes['gd']['username'],
                 $bucketAttributes['gd']['password'],
@@ -140,7 +139,7 @@ class LoadData extends AbstractTask
                 $params['pid'],
                 $this->configuration->noDateFacts
             );
-            if (!$webDav->fileExists(sprintf('%s/%s.csv', $tmpFolderName, $datasetName))) {
+            if (!$webDav->fileExists(sprintf('%s/%s.csv', $tmpFolderName, $params['tableId']))) {
                 throw new UserException($this->translator->trans(
                     'error.csv_not_uploaded %1',
                     ['%1' => $webDavFileUrl]
@@ -176,9 +175,9 @@ class LoadData extends AbstractTask
                             sprintf('%s/etl.log', $tmpFolderName),
                             true
                         );
-                        $e->setDetails([$this->logs['ETL task error']]);
+                        $e->setData([$this->logs['ETL task error']]);
                     } else {
-                        $e->setDetails(file_get_contents($debugFile));
+                        $e->setData(file_get_contents($debugFile));
                     }
                 }
 

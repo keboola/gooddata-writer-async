@@ -77,12 +77,14 @@ class Factory
 
     public function setConfiguration(Configuration $configuration)
     {
+        $this->jobFactory->setConfiguration($configuration);
         $this->configuration = $configuration;
         return $this;
     }
 
     public function setStorageApiClient(Client $client)
     {
+        $this->jobFactory->setStorageApiClient($client);
         $this->storageApiClient = $client;
         return $this;
     }

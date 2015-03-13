@@ -90,7 +90,7 @@ class ReportsTest extends AbstractControllerTest
 
     public function testReports()
     {
-        $user = $this->createUser();
+        $this->createUser();
 
         // Check of GoodData
         $bucketAttributes = $this->configuration->bucketAttributes();
@@ -110,38 +110,22 @@ class ReportsTest extends AbstractControllerTest
         $this->reportDefinition = str_replace("%attribute2%", $attribute2['attribute']['content']['displayForms'][0]['meta']['uri'], $this->reportDefinition);
 
         // Post report definition to GD project
-        $batchId = $this->processJob('/proxy', [
-            'writerId'  => $this->writerId,
-            'query'     => '/gdc/md/' . $pid . '/obj',
-            'payload'   => json_decode($this->reportDefinition, true)
-        ], 'POST');
-        $jobStatus = $this->getWriterApi('/batch?batchId=' .$batchId . '&writerId=' . $this->writerId);
-
-        $this->assertEquals(Job::STATUS_SUCCESS, $jobStatus['jobs'][0]['status'], "Error posting report definition to project");
-        $reportDefinitionUri = $jobStatus['jobs'][0]['result']['response']['uri'];
+        $result = $this->restApi->post('/gdc/md/' . $pid . '/obj', json_decode($this->reportDefinition, true));
+        $reportDefinitionUri = $result['uri'];
 
         // Post report
         $this->report = str_replace("%reportDefinition%", $reportDefinitionUri, $this->report);
-
-        $batchId = $this->processJob('/proxy', [
-            'writerId'  => $this->writerId,
-            'query'     => '/gdc/md/' . $pid . '/obj',
-            'payload'   => json_decode($this->report, true)
-        ], 'POST');
-        $jobStatus = $this->getWriterApi('/batch?batchId=' .$batchId . '&writerId=' . $this->writerId);
-
-        $reportUri = $jobStatus['jobs'][0]['result']['response']['uri'];
+        $result = $this->restApi->post('/gdc/md/' . $pid . '/obj', json_decode($this->report, true));
+        $reportUri = $result['uri'];
 
         $tableId = $this->configuration->bucketId . '.' . 'reportExport';
-
-        $batchId = $this->processJob('/export-report', [
+        $jobId = $this->processJob('/export-report', [
             'writerId'  => $this->writerId,
             'pid'       => $pid,
             'report'    => $reportUri,
             'table'     => $tableId
         ], 'POST');
-        $jobStatus = $this->getWriterApi('/batch?batchId=' .$batchId . '&writerId=' . $this->writerId);
-
-        $this->assertEquals('success', $jobStatus['status'], "Error exporting report.");
+        $job = $this->getJobFromElasticsearch($jobId);
+        $this->assertEquals(Job::STATUS_SUCCESS, $job->getStatus());
     }
 }

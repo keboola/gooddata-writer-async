@@ -389,7 +389,7 @@ class RestApi
             } else {
                 $details = $e->getData();
                 if (isset($details['details']['error']['errorClass']) && strpos($details['details']['error']['errorClass'], 'LoginNameAlreadyRegisteredException') !== null) {
-                    throw new RestApiException('Account already exists in another domain', $e->getData(), $e->getCode(), $e);
+                    throw new RestApiException('Account already exists in another domain', $e, $e->getData());
                 } else {
                     throw $e;
                 }
@@ -621,12 +621,21 @@ class RestApi
                 ]
             ]
         ];
-        $result = $this->jsonRequest($uri, 'POST', $params);
+        try {
+            $result = $this->jsonRequest($uri, 'POST', $params);
 
-        if (isset($result['createdInvitations']['uri']) && count($result['createdInvitations']['uri'])) {
-            return current($result['createdInvitations']['uri']);
-        } else {
-            throw new RestApiException('Error in invitation to project');
+            if (isset($result['createdInvitations']['uri']) && count($result['createdInvitations']['uri'])) {
+                return current($result['createdInvitations']['uri']);
+            } else {
+                throw new RestApiException('Error in invitation to project');
+            }
+        } catch (RestApiException $e) {
+            if (isset($e->getData()['error']['message'])
+                && strpos($e->getData()['error']['message'], 'is already member') !== false) {
+                return true;
+            } else {
+                throw $e;
+            }
         }
     }
 
@@ -906,7 +915,7 @@ class RestApi
                     $errors[] = vsprintf($err['validationError']['message'], $err['validationError']['parameters']);
                 }
                 if (count($errors)) {
-                    $e->setDetails($errors);
+                    $e->setData($errors);
                 }
             }
             throw $e;
@@ -1465,7 +1474,7 @@ class RestApi
                         // TT token expired
                         $this->refreshToken();
                     } else {
-                        throw new RestApiException("Error occurred while downloading file. Status code ". $statusCode, 500, $e);
+                        throw new RestApiException("Error occurred while downloading file. Status code ". $statusCode, $e);
                     }
                 } elseif ($e instanceof ServerErrorResponseException) {
                     if ($statusCode == 503) {
@@ -1587,7 +1596,7 @@ class RestApi
                                         $message = $responseJson['message'];
                                     }
                                 }
-                                throw new RestApiException($message);
+                                throw new RestApiException($message, $e);
                             } else {
                                 $this->login($this->username, $this->password);
                             }
@@ -1601,19 +1610,23 @@ class RestApi
                                 $message .= ' (' . $responseJson['error']['message'] . ')';
                             }
                         }
-                        throw new RestApiException($message, $response, $request->getResponse()->getStatusCode());
+                        throw new RestApiException($message, $e, $responseJson);
                     } elseif ($responseObject && $responseObject->getStatusCode() == 410) {
-                        throw new RestApiException('Rest API url ' . $uri . ' is not reachable, GoodData project has been probably deleted.', $response, $request->getResponse()->getStatusCode());
+                        throw new RestApiException(
+                            'GoodData API url ' . $uri . ' is not reachable, GoodData project has been probably deleted.',
+                            $e,
+                            $responseJson
+                        );
                     } else {
-                        if ($responseJson !== false) {
-                            // Include parameters directly to error message
-                            if (isset($responseJson['error']) && isset($responseJson['error']['parameters']) && isset($responseJson['error']['message'])) {
-                                $responseJson['error']['message'] = vsprintf($responseJson['error']['message'], $responseJson['error']['parameters']);
-                                unset($responseJson['error']['parameters']);
-                            }
-                            $response = json_encode($responseJson);
+                        if (!$responseJson) {
+                            $responseJson = $request->getResponse()->json();
                         }
-                        throw new RestApiException('API error ' . $request->getResponse()->getStatusCode(), $response, $request->getResponse()->getStatusCode());
+
+                        throw new RestApiException(
+                            'GoodData API error ' . $request->getResponse()->getStatusCode(),
+                            $e,
+                            $responseJson
+                        );
                     }
                 } elseif ($e instanceof ServerErrorResponseException) {
                     if ($responseObject && $responseObject->getStatusCode() == 503) {
@@ -1640,7 +1653,8 @@ class RestApi
 
         /** @var $response \Guzzle\Http\Message\Response */
         $statusCode = $request ? $request->getResponse()->getStatusCode() : null;
-        throw new RestApiException('GoodData API error ' . $statusCode, $response, $statusCode, $exception);
+        $responseJson = $request->getResponse()->json();
+        throw new RestApiException('GoodData API error ' . $statusCode, $exception, $responseJson);
     }
 
     protected function log($uri, $method, $params, $headers, RequestInterface $request = null, $duration = 0)
@@ -1682,7 +1696,7 @@ class RestApi
         $this->password = $password;
 
         if (!$this->username || !$this->password) {
-            throw new RestApiException('Rest API login failed, missing username or password');
+            throw new RestApiException('GoodData API login failed, missing username or password');
         }
 
         try {
@@ -1694,12 +1708,12 @@ class RestApi
                 ]
             ], [], false);
         } catch (RestApiException $e) {
-            throw new RestApiException('Rest API Login failed', $e->getMessage());
+            throw new RestApiException('GoodData API Login failed', $e);
         }
 
         $this->authSst = $this->findCookie($response, 'GDCAuthSST');
         if (!$this->authSst) {
-            throw new RestApiException('Rest API login failed');
+            throw new RestApiException('GoodData API login failed');
         }
 
         $this->refreshToken();
@@ -1711,7 +1725,7 @@ class RestApi
         try {
             $response = $this->request('/gdc/account/token', 'GET', [], [], false);
         } catch (RestApiException $e) {
-            throw new RestApiException('Refresh token failed', $e->getMessage());
+            throw new RestApiException('Refresh token failed', $e);
         }
 
         $this->authTt = $this->findCookie($response, 'GDCAuthTT');

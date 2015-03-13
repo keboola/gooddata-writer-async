@@ -114,9 +114,9 @@ class UploadDateDimension extends AbstractTask
                     if ($logSaved) {
                         if (filesize($debugFile) > 1024 * 1024) {
                             $this->logs['ETL task error'] = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $params['pid'], $dataSetName), true);
-                            $e->setDetails([$this->logs['ETL task error']]);
+                            $e->setData([$this->logs['ETL task error']]);
                         } else {
-                            $e->setDetails(file_get_contents($debugFile));
+                            $e->setData(file_get_contents($debugFile));
                         }
                     }
 

@@ -66,7 +66,7 @@ class LoadDataMulti extends AbstractTask
         $definition = $this->getDefinition($definitionFile);
 
         // Init
-        $tmpFolderName = basename($this->getTmpDir($job->getId()));
+        $tmpFolderName = basename($this->getTmpDir($job->getId())) . '/' . $taskId;
         $csvHandler = new CsvHandler($this->temp, $this->scriptsPath, $this->storageApiClient, $this->logger);
         $csvHandler->setJobId($job->getId());
         $csvHandler->setRunId($job->getRunId());
@@ -82,13 +82,18 @@ class LoadDataMulti extends AbstractTask
             $def['incrementalLoad'] = !empty($def['dataset']['incrementalLoad']) ? $def['dataset']['incrementalLoad'] : 0;
             $def['filterColumn'] = $this->getFilterColumn($tableId, $def['dataset'], $bucketAttributes);
             $def['filterColumn'] = ($def['filterColumn'] && empty($project['main'])) ? $def['filterColumn'] : false;
-            $manifest[] = Model::getDataLoadManifest($def['columns'], $def['incrementalLoad'], $this->configuration->noDateFacts);
+            $manifest[] = Model::getDataLoadManifest($tableId, $def['columns'], $def['incrementalLoad'], $this->configuration->noDateFacts);
         }
         $manifest = ['dataSetSLIManifestList' => $manifest];
 
 
         file_put_contents($this->getTmpDir($job->getId()) . '/upload_info.json', json_encode($manifest));
-        $this->logs['Manifest'] = $this->s3Client->uploadFile($this->getTmpDir($job->getId()) . '/upload_info.json', 'text/plain', $tmpFolderName . '/manifest.json', true);
+        $this->logs['Manifest'] = $this->s3Client->uploadFile(
+            $this->getTmpDir($job->getId()) . '/upload_info.json',
+            'text/plain',
+            $tmpFolderName . '/manifest.json',
+            true
+        );
         $this->logEvent(
             'Manifest prepared',
             $taskId,
@@ -108,8 +113,7 @@ class LoadDataMulti extends AbstractTask
                 $stopWatchId = 'transfer_csv_' . $tableId;
                 $stopWatch->start($stopWatchId);
 
-                $datasetName = Model::getId($d['columns']['name']);
-                $webDavFileUrl = sprintf('%s/%s/%d/%s.csv', $webDav->getUrl(), $tmpFolderName, $taskId, $datasetName);
+                $webDavFileUrl = sprintf('%s/%s/%s.csv', $webDav->getUrl(), $tmpFolderName, $tableId);
                 try {
                     $csvHandler->runUpload(
                         $bucketAttributes['gd']['username'],
@@ -123,14 +127,14 @@ class LoadDataMulti extends AbstractTask
                         $this->configuration->noDateFacts
                     );
                 } catch (UserException $e) {
-                    throw new UserException(sprintf("Error during upload of dataset '%s': %s", $datasetName, $e->getMessage()), $e);
+                    throw new UserException(sprintf("Error during upload of dataset '%s': %s", $tableId, $e->getMessage()), $e);
                 }
-                if (!$webDav->fileExists(sprintf('%s/%d/%s.csv', $tmpFolderName, $taskId, $datasetName))) {
+                if (!$webDav->fileExists(sprintf('%s/%s.csv', $tmpFolderName, $tableId))) {
                     throw new UserException($this->translator->trans('error.csv_not_uploaded %1', ['%1' => $webDavFileUrl]));
                 }
 
                 $this->logEvent(
-                    'Csv for dataset '.$datasetName.' transferred to GoodData',
+                    'Csv for '.$tableId.' transferred to GoodData',
                     $taskId,
                     $job->getId(),
                     $job->getRunId(),
@@ -165,10 +169,15 @@ class LoadDataMulti extends AbstractTask
                 $logSaved = $webDav->saveLogs($tmpFolderName, $debugFile);
                 if ($logSaved) {
                     if (filesize($debugFile) > 1024 * 1024) {
-                        $this->logs['ETL task error'] = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/etl.log', $tmpFolderName), true);
-                        $e->setDetails([$this->logs['ETL task error']]);
+                        $this->logs['ETL task error'] = $this->s3Client->uploadFile(
+                            $debugFile,
+                            'text/plain',
+                            sprintf('%s/etl.log', $tmpFolderName),
+                            true
+                        );
+                        $e->setData([$this->logs['ETL task error']]);
                     } else {
-                        $e->setDetails(file_get_contents($debugFile));
+                        $e->setData(file_get_contents($debugFile));
                     }
                 }
 
