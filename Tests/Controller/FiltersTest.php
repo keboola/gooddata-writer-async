@@ -5,6 +5,7 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
+use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\StorageApi\Table as StorageApiTable;
 
 class FiltersTest extends AbstractControllerTest

@@ -130,12 +130,13 @@ abstract class AbstractTaskTest extends \PHPUnit_Framework_TestCase
         );
         $syrupJobFactory = new \Keboola\Syrup\Job\Metadata\JobFactory(GW_APP_NAME, $encryptor);
         $syrupJobFactory->setStorageApiClient($this->storageApiClient);
+        $jobSearch = new \Keboola\GoodDataWriter\Elasticsearch\Search($elasticsearchClient, 'devel', GW_APP_NAME);
 
 
         //@TODO připravit konfiguraci
 
         $eventLogger = new EventLogger($this->storageApiClient, $this->s3client);
-        $this->jobFactory = new JobFactory($queueFactory, $jobMapper, $syrupJobFactory);
+        $this->jobFactory = new JobFactory($queueFactory, $jobMapper, $syrupJobFactory, $jobSearch);
         $this->jobFactory
             ->setStorageApiClient($this->storageApiClient)
             ->setConfiguration($this->configuration);

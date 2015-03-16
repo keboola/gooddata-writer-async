@@ -8,6 +8,7 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
+use Guzzle\Common\Exception\RuntimeException;
 use Guzzle\Http\Client;
 use Guzzle\Http\Exception\ServerErrorResponseException;
 use Guzzle\Http\Exception\ClientErrorResponseException;
@@ -1619,7 +1620,11 @@ class RestApi
                         );
                     } else {
                         if (!$responseJson) {
-                            $responseJson = $request->getResponse()->json();
+                            try {
+                                $responseJson = $request->getResponse()->json();
+                            } catch (RuntimeException $e) {
+                                $responseJson = [htmlentities($request->getResponse()->getBody(true))];
+                            }
                         }
 
                         throw new RestApiException(

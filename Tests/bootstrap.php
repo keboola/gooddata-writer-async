@@ -36,6 +36,7 @@ defined('GW_GD_DOMAIN_PASSWORD') || define('GW_GD_DOMAIN_PASSWORD', getenv('GW_G
 defined('GW_GD_SSO_PROVIDER') || define('GW_GD_SSO_PROVIDER', getenv('GW_GD_SSO_PROVIDER')? getenv('GW_GD_SSO_PROVIDER') : 'dev.keboola.com');
 defined('GW_OTHER_DOMAIN_USER') || define('GW_OTHER_DOMAIN_USER', getenv('GW_OTHER_DOMAIN_USER')? getenv('GW_OTHER_DOMAIN_USER') : 'user@email.com');
 defined('GW_PGP_PASSPHRASE') || define('GW_PGP_PASSPHRASE', getenv('GW_PGP_PASSPHRASE')? getenv('GW_PGP_PASSPHRASE') : '');
+defined('GD_INVITATION_EMAIL_PASSWORD') || define('GD_INVITATION_EMAIL_PASSWORD', getenv('GD_INVITATION_EMAIL_PASSWORD')? getenv('GD_INVITATION_EMAIL_PASSWORD') : '');
 define('GW_SCRIPTS_PATH', realpath(__DIR__ . '/../GoodData'));
 
 $loader = require_once __DIR__ . '/../vendor/autoload.php';
@@ -92,7 +93,7 @@ $paramsYaml = \Symfony\Component\Yaml\Yaml::dump([
         'gdwr_invitations' => [
             'domain' => GW_GD_DOMAIN_NAME,
             'email' =>'gooddata-robot@keboola.com',
-            'password' => ''
+            'password' => GD_INVITATION_EMAIL_PASSWORD
         ],
         'gdwr_key_passphrase' => GW_PGP_PASSPHRASE,
         'gdwr_scripts_path' => GW_SCRIPTS_PATH,
