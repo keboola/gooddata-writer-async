@@ -8,14 +8,14 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
+use Fetch\Server;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Monolog\Logger;
-use Symfony\Component\Process\Process;
 
 class InvitationsHandler
 {
     /**
-     * @var \Fetch\Server
+     * @var Server
      */
     private $server;
     /**
@@ -31,43 +31,22 @@ class InvitationsHandler
      */
     private $logger;
 
-    private $gdUsername;
-    private $gdPassword;
-    private $emailUsername;
-    private $emailPassword;
-
-    public function __construct(array $config, SharedStorage $sharedStorage, RestApi $restApi, Logger $logger)
+    public function __construct(SharedStorage $sharedStorage, RestApi $restApi, Logger $logger)
     {
-        if (!isset($config['domain'])) {
-            throw new \Exception("Key 'domain' is missing from invitations config");
-        }
-        if (!isset($config['email'])) {
-            throw new \Exception("Key 'email' is missing from invitations config");
-        }
-        if (!isset($config['password'])) {
-            throw new \Exception("Key 'password' is missing from invitations config");
-        }
-
         $this->sharedStorage = $sharedStorage;
-        $domainUser = $sharedStorage->getDomainUser($config['domain']);
-        $this->gdUsername = $domainUser->username;
-        $this->gdPassword = $domainUser->password;
-        $this->emailUsername = $config['email'];
-        $this->emailPassword = $config['password'];
 
-        $this->server = new \Fetch\Server('imap.gmail.com/ssl', 993);
-        $this->server->setAuthentication($config['email'], $config['password']);
-
-        $domainUser = $this->sharedStorage->getDomainUser($config['domain']);
+        $this->server = new Server('imap.gmail.com/ssl', 993);
 
         $this->restApi = $restApi;
-        $restApi->login($domainUser->username, $domainUser->password);
 
         $this->logger = $logger;
     }
 
-    public function run()
+    public function run($emUsername, $emPassword, $gdUsername, $gdPassword)
     {
+        $this->restApi->login($gdUsername, $gdPassword);
+        $this->server->setAuthentication($emUsername, $emPassword);
+
         $messages = $this->server->getMessages();
         /** @var $message \Fetch\Message */
         foreach ($messages as $message) {
@@ -83,26 +62,28 @@ class InvitationsHandler
                                 throw new \Exception('ERROR');
                             }
                             if ($result['invitation']['content']['status'] == 'ACCEPTED') {
-                                return true;
+                                // Do nothing
+                            } else {
+                                $this->restApi->post(
+                                    '/gdc/account/invitations/' . $invitationId,
+                                    ['invitationStatusAccept' => ['status' => 'ACCEPTED']]
+                                );
+
+                                $logData = [
+                                    'pid' => substr(
+                                        $result['invitation']['links']['project'],
+                                        strrpos($result['invitation']['links']['project'], '/') + 1
+                                    ),
+                                    'sender' => $result['invitation']['meta']['author']['email'],
+                                    'createDate' => $result['invitation']['meta']['created']
+                                ];
+                                $this->sharedStorage->logInvitation($logData);
+                                $this->logger->info('Invitation processed', $logData);
                             }
-
-                            $this->restApi->post(
-                                '/gdc/account/invitations/' . $invitationId,
-                                ['invitationStatusAccept' => ['status' => 'ACCEPTED']]
-                            );
-
-                            $this->sharedStorage->logInvitation([
-                                'pid' => substr(
-                                    $result['invitation']['links']['project'],
-                                    strrpos($result['invitation']['links']['project'], '/') + 1
-                                ),
-                                'sender' => $result['invitation']['meta']['author']['email'],
-                                'createDate' => $result['invitation']['meta']['created']
-                            ]);
 
                             $message->moveToMailBox('Accepted');
                         } catch (\Exception $e) {
-                            $this->logger->alert('Invitation failed: ' . $e->getMessage(), ['exception' => $e]);
+                            $this->logger->error('Invitation failed: ' . $e->getMessage(), ['exception' => $e]);
                             $message->moveToMailBox('Failed');
                         }
                         break;

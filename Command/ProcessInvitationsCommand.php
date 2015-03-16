@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Command;
 
 use Keboola\GoodDataWriter\GoodData\InvitationsHandler;
+use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -26,14 +27,20 @@ class ProcessInvitationsCommand extends ContainerAwareCommand
     {
         $config = $this->getContainer()->getParameter('gdwr_invitations');
 
+        /** @var SharedStorage $sharedStorage */
+        $sharedStorage = $this->getContainer()->get('gooddata_writer.shared_storage');
+        $domainUser = $sharedStorage->getDomainUser($config['domain']);
+
         $startTime = time();
         do {
-            $server = new \Fetch\Server('imap.gmail.com/ssl', 993);
-            $server->setAuthentication($config['email'], $config['password']);
-
             /** @var InvitationsHandler $invitationsHandler */
             $invitationsHandler = $this->getContainer()->get('gooddata_writer.invitations_handler');
-            $invitationsHandler->run();
+            $invitationsHandler->run(
+                $config['email'],
+                $config['password'],
+                $domainUser->username,
+                $domainUser->password
+            );
 
             sleep(10);
         } while ((time() - $startTime) < 300);

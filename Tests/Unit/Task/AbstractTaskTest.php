@@ -22,7 +22,8 @@ use Keboola\Syrup\Elasticsearch\ComponentIndex;
 use Keboola\Syrup\Elasticsearch\JobMapper;
 use Keboola\Syrup\Elasticsearch\Search;
 use Keboola\Syrup\Service\Queue\QueueFactory;
-use Monolog\Handler\NullHandler;
+use Monolog\Handler\StreamHandler;
+use Monolog\Logger;
 use Symfony\Component\Translation\Translator;
 use Keboola\Syrup\Encryption\Encryptor;
 use Keboola\Syrup\Aws\S3\Uploader;
@@ -84,7 +85,6 @@ abstract class AbstractTaskTest extends \PHPUnit_Framework_TestCase
     {
         parent::setUp();
 
-        $appName = 'gooddata-writer';
         $this->scriptsPath = __DIR__ . '/../GoodData';
         $this->userAgent = 'gooddata-writer (testing)';
         $this->gdConfig = [
@@ -109,10 +109,10 @@ abstract class AbstractTaskTest extends \PHPUnit_Framework_TestCase
         ]);
 
         $this->sharedStorage = new SharedStorage($db, $encryptor);
-        $this->logger = new \Monolog\Logger($appName);
-        $this->logger->pushHandler(new NullHandler());
-        $this->restApi = new RestApi($appName, $this->logger);
-        $this->temp = new \Keboola\Temp\Temp($appName);
+        $this->logger = new \Monolog\Logger(GW_APP_NAME);
+        $this->logger->pushHandler(new StreamHandler(STDERR, Logger::ALERT));
+        $this->restApi = new RestApi(GW_APP_NAME, $this->logger);
+        $this->temp = new \Keboola\Temp\Temp(GW_APP_NAME);
         $this->translator = new Translator('en');
         $this->s3uploader = new Uploader($s3Config);
         $this->s3client = new S3Client($s3Config);

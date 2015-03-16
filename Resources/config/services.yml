@@ -34,7 +34,7 @@ services:
 
     gooddata_writer.invitations_handler:
         class: Keboola\GoodDataWriter\GoodData\InvitationsHandler
-        arguments: [%gdwr_invitations%, @gooddata_writer.shared_storage, @gooddata_writer.rest_api, @logger]
+        arguments: [@gooddata_writer.shared_storage, @gooddata_writer.rest_api, @logger]
 
     gooddata_writer.job_executor:
         class: Keboola\GoodDataWriter\Job\Executor
