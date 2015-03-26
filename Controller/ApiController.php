@@ -583,10 +583,10 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         }
 
         $bucketAttributes = $this->getConfiguration()->bucketAttributes();
-        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
         if (!empty($bucketAttributes['gd']['apiUrl'])) {
             $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
         }
+        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
         try {
             $return = $restApi->get($url);
@@ -967,10 +967,10 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                 return $this->createMaintenanceResponse();
             }
 
-            $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
             if (!empty($bucketAttributes['gd']['apiUrl'])) {
                 $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
             }
+            $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
             $jobData = null;
             $tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
@@ -1092,13 +1092,13 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         try {
             /** @var RestApi $restApi */
             $restApi = $this->container->get('gooddata_writer.rest_api');
+            if (!empty($bucketAttributes['gd']['apiUrl'])) {
+                $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+            }
             if (!$restApi->ping()) {
                 return $this->createMaintenanceResponse();
             }
             $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-            if (!empty($bucketAttributes['gd']['apiUrl'])) {
-                $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
-            }
             $existingDataSets = [];
 
             foreach ($sortedDataSets as $dataSet) {
