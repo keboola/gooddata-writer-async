@@ -95,27 +95,9 @@ class LoadData extends AbstractTask
             $stopWatch->stop($stopWatchId)->getDuration()
         );
 
-
         // Get manifest
-        $stopWatchId = 'get_manifest';
-        $stopWatch->start($stopWatchId);
         $manifest = Model::getDataLoadManifest($params['tableId'], $definition, $incrementalLoad, $this->configuration->noDateFacts);
         file_put_contents($this->getTmpDir($job->getId()) . '/upload_info.json', json_encode($manifest));
-        $this->logs['Manifest'] = $this->s3Client->uploadFile(
-            $this->getTmpDir($job->getId()) . '/upload_info.json',
-            'text/plain',
-            $tmpFolderName . '/manifest.json',
-            true
-        );
-        $this->logEvent(
-            'Manifest prepared',
-            $taskId,
-            $job->getId(),
-            $job->getRunId(),
-            ['manifest' => $this->logs['Manifest']],
-            $stopWatch->stop($stopWatchId)->getDuration()
-        );
-
 
         try {
             // Upload to WebDav
@@ -169,13 +151,12 @@ class LoadData extends AbstractTask
                 $logSaved = $webDav->saveLogs($tmpFolderName, $debugFile);
                 if ($logSaved) {
                     if (filesize($debugFile) > 1024 * 1024) {
-                        $this->logs['ETL task error'] = $this->s3Client->uploadFile(
+                        $e->setData([$this->s3Client->uploadFile(
                             $debugFile,
                             'text/plain',
                             sprintf('%s/etl.log', $tmpFolderName),
                             true
-                        );
-                        $e->setData([$this->logs['ETL task error']]);
+                        )]);
                     } else {
                         $e->setData(file_get_contents($debugFile));
                     }

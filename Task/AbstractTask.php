@@ -69,8 +69,6 @@ abstract class AbstractTask
      */
     protected $eventLogger;
 
-    protected $logs;
-
     private $tmpDir;
 
     protected $scriptsPath;
@@ -103,8 +101,6 @@ abstract class AbstractTask
         $this->gdSsoProvider = isset($gdConfig['ssoProvider'])? $gdConfig['ssoProvider'] : Model::SSO_PROVIDER;
         $this->gdProjectNamePrefix = isset($gdConfig['projectNamePrefix'])? $gdConfig['projectNamePrefix'] : Model::PROJECT_NAME_PREFIX;
         $this->gdUsernameDomain = isset($gdConfig['usernameDomain'])? $gdConfig['usernameDomain'] : Model::USERNAME_DOMAIN;
-
-        $this->logs = [];
     }
 
     protected function initRestApi(Job $job)
@@ -204,11 +200,6 @@ abstract class AbstractTask
     {
         $this->scriptsPath = $scriptsPath;
         return $this;
-    }
-
-    public function getLogs()
-    {
-        return $this->logs;
     }
 
     public function logEvent($message, $taskId, $jobId, $runId, $params = [], $duration = null, $type = Event::TYPE_INFO)

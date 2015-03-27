@@ -113,8 +113,11 @@ class UploadDateDimension extends AbstractTask
                     $logSaved = $webDav->saveLogs($tmpFolderDimension, $debugFile);
                     if ($logSaved) {
                         if (filesize($debugFile) > 1024 * 1024) {
-                            $this->logs['ETL task error'] = $this->s3Client->uploadFile($debugFile, 'text/plain', sprintf('%s/%s/%s-etl.log', $tmpFolderName, $params['pid'], $dataSetName), true);
-                            $e->setData([$this->logs['ETL task error']]);
+                            $e->setData($this->s3Client->uploadFile(
+                                $debugFile,
+                                'text/plain',
+                                sprintf('%s/%s/%s-etl.log', $tmpFolderName, $params['pid'], $dataSetName), true)
+                            );
                         } else {
                             $e->setData(file_get_contents($debugFile));
                         }

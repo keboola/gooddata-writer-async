@@ -92,7 +92,6 @@ class Executor extends \Keboola\Syrup\Job\Executor
         }
 
         $results = [];
-        $logs = [];
         foreach ($jobParams['tasks'] as $i => $task) {
             if (!isset($task['name'])) {
                 throw new \Exception(sprintf('Job %s has task %d without name', $job->getId(), $i));
@@ -109,7 +108,6 @@ class Executor extends \Keboola\Syrup\Job\Executor
                     $task['params'],
                     isset($task['definition']) ? $task['definition'] : null
                 );
-                $logs[$i] = $taskClass->getLogs();
             } catch (\Exception $e) {
                 if ($e instanceof UserException) {
                     $message = $e->getMessage();
@@ -128,9 +126,7 @@ class Executor extends \Keboola\Syrup\Job\Executor
 
             $eventLogger->log($job->getId(), $job->getRunId(), sprintf('Task %d (%s) finished', $i, $task['name']), $task['params']);
         }
-        $job->setResult($results);
-        $job->setAttribute('logs', $logs);
 
-        $this->jobMapper->update($job);
+        return $results;
     }
 }

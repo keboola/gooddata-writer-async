@@ -75,8 +75,6 @@ class LoadDataMulti extends AbstractTask
 
 
         // Get manifest
-        $stopWatchId = 'get_manifest';
-        $stopWatch->start($stopWatchId);
         $manifest = [];
         foreach ($definition as $tableId => &$def) {
             $def['incrementalLoad'] = !empty($def['dataset']['incrementalLoad']) ? $def['dataset']['incrementalLoad'] : 0;
@@ -85,23 +83,7 @@ class LoadDataMulti extends AbstractTask
             $manifest[] = Model::getDataLoadManifest($tableId, $def['columns'], $def['incrementalLoad'], $this->configuration->noDateFacts);
         }
         $manifest = ['dataSetSLIManifestList' => $manifest];
-
-
         file_put_contents($this->getTmpDir($job->getId()) . '/upload_info.json', json_encode($manifest));
-        $this->logs['Manifest'] = $this->s3Client->uploadFile(
-            $this->getTmpDir($job->getId()) . '/upload_info.json',
-            'text/plain',
-            $tmpFolderName . '/manifest.json',
-            true
-        );
-        $this->logEvent(
-            'Manifest prepared',
-            $taskId,
-            $job->getId(),
-            $job->getRunId(),
-            ['manifest' => $this->logs['Manifest']],
-            $stopWatch->stop($stopWatchId)->getDuration()
-        );
 
         try {
             // Upload to WebDav
@@ -169,13 +151,12 @@ class LoadDataMulti extends AbstractTask
                 $logSaved = $webDav->saveLogs($tmpFolderName, $debugFile);
                 if ($logSaved) {
                     if (filesize($debugFile) > 1024 * 1024) {
-                        $this->logs['ETL task error'] = $this->s3Client->uploadFile(
+                        $e->setData([$this->s3Client->uploadFile(
                             $debugFile,
                             'text/plain',
                             sprintf('%s/etl.log', $tmpFolderName),
                             true
-                        );
-                        $e->setData([$this->logs['ETL task error']]);
+                        )]);
                     } else {
                         $e->setData(file_get_contents($debugFile));
                     }
