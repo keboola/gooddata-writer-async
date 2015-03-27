@@ -160,21 +160,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
         $taskName = 'createWriter';
         $task = $this->getTaskClass($taskName);
-
-        /** @var RestApi $restApi */
-        $restApi = $this->container->get('gooddata_writer.rest_api');
-        if (!$restApi->ping()) {
-            return $this->createMaintenanceResponse();
-        }
-        try {
-            $bucketAttributes = $this->getConfiguration()->bucketAttributes();
-            if (!empty($bucketAttributes['gd']['apiUrl'])) {
-                $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
-            }
-        } catch (UserException $e) {
-            // ignore non-existing config bucket
-        }
-        $params = $task->prepare($this->params, $restApi);
+        $params = $task->prepare($this->params);
 
         $job->addTask($taskName, $params);
 
@@ -426,11 +412,8 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     public function getSsoAction()
     {
-        /** @var RestApi $restApi */
-        $restApi = $this->container->get('gooddata_writer.rest_api');
-        if (!$restApi->ping()) {
-            return $this->createMaintenanceResponse();
-        }
+        // Check if there is no maintenance
+        $this->getGoodDataApi(false);
 
         // Init parameters
         $this->checkParams(['writerId', 'email', 'pid']);
@@ -580,22 +563,11 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             throw new UserException($this->translator->trans('parameters.query'));
         }
 
-        /** @var RestApi $restApi */
-        $restApi = $this->container->get('gooddata_writer.rest_api');
-        if (!$restApi->ping()) {
-            return $this->createMaintenanceResponse();
-        }
-
-        $bucketAttributes = $this->getConfiguration()->bucketAttributes();
-        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-        if (!empty($bucketAttributes['gd']['apiUrl'])) {
-            $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
-        }
-
-        $return = $restApi->get($url);
+        $restApi = $this->getGoodDataApi();
+        $response = $restApi->get($url);
 
         return $this->createApiResponse([
-            'response' => $return
+            'response' => $response
         ]);
     }
 
@@ -909,7 +881,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $this->checkParams(['writerId', 'tableId']);
         $this->checkWriterExistence();
 
-        $bucketAttributes = $this->getConfiguration()->bucketAttributes();
+        $restApi = $this->getGoodDataApi();
 
         $definition = $this->getConfiguration()->getDataSetDefinition($this->params['tableId']);
         $projectsToUse = $this->getProjectsToUse();
@@ -947,17 +919,6 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             }
         }
 
-
-        /** @var RestApi $restApi */
-        $restApi = $this->container->get('gooddata_writer.rest_api');
-        if (!$restApi->ping()) {
-            return $this->createMaintenanceResponse();
-        }
-
-        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-        if (!empty($bucketAttributes['gd']['apiUrl'])) {
-            $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
-        }
 
         $jobData = null;
         $tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
@@ -1007,7 +968,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $this->checkParams(['writerId']);
         $this->checkWriterExistence();
 
-        $bucketAttributes = $this->getConfiguration()->bucketAttributes();
+        $restApi = $this->getGoodDataApi();
         $projectsToUse = $this->getProjectsToUse();
 
         $this->getConfiguration()->getDateDimensions();
@@ -1054,16 +1015,6 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         }
 
 
-
-        /** @var RestApi $restApi */
-        $restApi = $this->container->get('gooddata_writer.rest_api');
-        if (!$restApi->ping()) {
-            return $this->createMaintenanceResponse();
-        }
-        $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
-        if (!empty($bucketAttributes['gd']['apiUrl'])) {
-            $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
-        }
         $existingDataSets = [];
 
         foreach ($sortedDataSets as $dataSet) {
@@ -1437,6 +1388,24 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             $this->jobFactory->setStorageApiClient($this->storageApi);
         }
         return $this->jobFactory;
+    }
+
+    private function getGoodDataApi($login = true)
+    {
+        /** @var RestApi $restApi */
+        $restApi = $this->container->get('gooddata_writer.rest_api');
+
+        $bucketAttributes = $this->getConfiguration()->bucketAttributes();
+        if (!empty($bucketAttributes['gd']['apiUrl'])) {
+            $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+        }
+        if (!$restApi->ping()) {
+            return $this->createMaintenanceResponse();
+        }
+        if ($login) {
+            $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
+        }
+        return $restApi;
     }
 
 

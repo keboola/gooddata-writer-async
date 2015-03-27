@@ -17,7 +17,7 @@ use Keboola\Syrup\Exception\UserException;
 class CreateWriter extends AbstractTask
 {
 
-    public function prepare($params, RestApi $restApi = null)
+    public function prepare($params)
     {
         $tokenInfo = $this->storageApiClient->getLogData();
         $projectId = $tokenInfo['owner']['id'];
