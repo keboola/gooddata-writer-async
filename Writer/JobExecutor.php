@@ -155,8 +155,8 @@ class JobExecutor
                 $this->restApi->setEventLogger($this->eventLogger);
                 try {
                     $bucketAttributes = $configuration->bucketAttributes();
-                    if (!empty($bucketAttributes['gd']['apiUrl'])) {
-                        $this->restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+                    if (!empty($bucketAttributes['gd']['backendUrl'])) {
+                        $this->restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
                     }
                 } catch (WrongConfigurationException $e) {
                     // Ignore
