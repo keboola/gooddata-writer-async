@@ -116,8 +116,9 @@ class UploadDateDimension extends AbstractTask
                             $e->setData($this->s3Client->uploadFile(
                                 $debugFile,
                                 'text/plain',
-                                sprintf('%s/%s/%s-etl.log', $tmpFolderName, $params['pid'], $dataSetName), true)
-                            );
+                                sprintf('%s/%s/%s-etl.log', $tmpFolderName, $params['pid'], $dataSetName),
+                                true
+                            ));
                         } else {
                             $e->setData(file_get_contents($debugFile));
                         }

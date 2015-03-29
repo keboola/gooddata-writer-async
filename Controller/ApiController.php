@@ -1396,8 +1396,8 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $restApi = $this->container->get('gooddata_writer.rest_api');
 
         $bucketAttributes = $this->getConfiguration()->bucketAttributes();
-        if (!empty($bucketAttributes['gd']['apiUrl'])) {
-            $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+        if (!empty($bucketAttributes['gd']['backendUrl'])) {
+            $restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
         }
         if (!$restApi->ping()) {
             return $this->createMaintenanceResponse();

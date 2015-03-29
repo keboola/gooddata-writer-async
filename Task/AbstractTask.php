@@ -110,8 +110,8 @@ abstract class AbstractTask
 
         try {
             $bucketAttributes = $this->configuration->bucketAttributes();
-            if (!empty($bucketAttributes['gd']['apiUrl'])) {
-                $this->restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+            if (!empty($bucketAttributes['gd']['backendUrl'])) {
+                $this->restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
             }
         } catch (UserException $e) {
             // Ignore
