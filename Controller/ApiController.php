@@ -162,8 +162,8 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             }
             try {
                 $bucketAttributes = $this->getConfiguration()->bucketAttributes();
-                if (!empty($bucketAttributes['gd']['apiUrl'])) {
-                    $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+                if (!empty($bucketAttributes['gd']['backendUrl'])) {
+                    $restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
                 }
             } catch (WrongConfigurationException $e) {
                 // ignore non-existing config bucket
@@ -583,8 +583,8 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         }
 
         $bucketAttributes = $this->getConfiguration()->bucketAttributes();
-        if (!empty($bucketAttributes['gd']['apiUrl'])) {
-            $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+        if (!empty($bucketAttributes['gd']['backendUrl'])) {
+            $restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
         }
         $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
@@ -967,8 +967,8 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                 return $this->createMaintenanceResponse();
             }
 
-            if (!empty($bucketAttributes['gd']['apiUrl'])) {
-                $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+            if (!empty($bucketAttributes['gd']['backendUrl'])) {
+                $restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
             }
             $restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
@@ -1092,8 +1092,8 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         try {
             /** @var RestApi $restApi */
             $restApi = $this->container->get('gooddata_writer.rest_api');
-            if (!empty($bucketAttributes['gd']['apiUrl'])) {
-                $restApi->setBaseUrl($bucketAttributes['gd']['apiUrl']);
+            if (!empty($bucketAttributes['gd']['backendUrl'])) {
+                $restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
             }
             if (!$restApi->ping()) {
                 return $this->createMaintenanceResponse();
