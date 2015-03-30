@@ -11,6 +11,7 @@ use Guzzle\Common\Exception\InvalidArgumentException;
 use Keboola\GoodDataWriter\Elasticsearch\Search;
 use Keboola\GoodDataWriter\Task\Factory;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\Syrup\Exception\ApplicationException;
 use Keboola\Syrup\Exception\UserException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -1480,5 +1481,210 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             throw new UserException($this->translator->trans('parameters.pid_not_configured'));
         }
         return $projects;
+    }
+
+    /**
+     * @deprecated
+     */
+
+    /**
+     * Get Jobs
+     * Allow filtering by days, command and tableId
+     *
+     * @Route("/jobs")
+     * @Method({"GET"})
+     */
+    public function getJobsAction()
+    {
+        $this->checkParams(['writerId']);
+        $this->checkWriterExistence();
+        if (empty($this->params['jobId'])) {
+            $days = isset($this->params['days']) ? $this->params['days'] : 3;
+            $tableId = empty($this->params['tableId']) ? null : $this->params['tableId'];
+            $command = empty($this->params['command']) ? null : $this->params['command'];
+            $tokenId = empty($this->params['tokenId']) ? null : $this->params['tokenId'];
+            $status = empty($this->params['status']) ? null : $this->params['status'];
+            $jobs = $this->getSharedStorage()->fetchJobs($this->projectId, $this->writerId, $days);
+            $result = [];
+            foreach ($jobs as $job) {
+                if ((empty($command) || $command == $job['command']) && (empty($tokenId) || $tokenId == $job['tokenId'])
+                    && (empty($status) || $status == $job['status'])) {
+                    if (empty($tableId) || (!empty($job['parameters']['tableId']) && $job['parameters']['tableId'] == $tableId)) {
+                        $result[] = self::jobToApiResponse($job, $this->s3Client);
+                    }
+                }
+            }
+            return $this->createApiResponse([
+                'jobs' => $result
+            ]);
+        } else {
+            if (is_array($this->params['jobId'])) {
+                throw new UserException($this->translator->trans('parameters.jobId_number'));
+            }
+            $job = $this->getSharedStorage()->fetchJob($this->params['jobId'], $this->projectId, $this->writerId);
+            if (!$job) {
+                throw new UserException($this->translator->trans('parameters.job'));
+            }
+            $job = self::jobToApiResponse($job, $this->s3Client);
+            return $this->createJsonResponse($job);
+        }
+    }
+    /**
+     * Get Batch
+     *
+     * @Route("/batch")
+     * @Method({"GET"})
+     */
+    public function getBatchAction()
+    {
+        $this->checkParams(['writerId', 'batchId']);
+        $this->checkWriterExistence();
+        $jobs = $this->getSharedStorage()->fetchBatch($this->params['batchId'], $this->projectId, $this->writerId);
+        if (!count($jobs)) {
+            throw new UserException(sprintf("Batch '%d' not found", $this->params['batchId']));
+        }
+        $batch = self::batchToApiResponse($this->params['batchId'], $jobs);
+        return $this->createJsonResponse($batch);
+    }
+
+    public static function jobToApiResponse(array $job, S3Client $s3Client = null)
+    {
+        if (isset($job['parameters']['accessToken'])) {
+            $job['parameters']['accessToken'] = '***';
+        }
+        if (isset($job['parameters']['password'])) {
+            $job['parameters']['password'] = '***';
+        }
+        $logs = is_array($job['logs']) ? $job['logs'] : [];
+        if (!empty($job['definition'])) {
+            $logs['DataSet Definition'] = $job['definition'];
+        }
+        // Find private links and make them accessible
+        if ($s3Client) {
+            foreach ($logs as &$log) {
+                if (is_array($log)) {
+                    foreach ($log as &$v) {
+                        $url = parse_url($v);
+                        if (empty($url['host'])) {
+                            $v = $s3Client->getPublicLink($v);
+                        }
+                    }
+                } else {
+                    $url = parse_url($log);
+                    if (empty($url['host'])) {
+                        $log = $s3Client->getPublicLink($log);
+                    }
+                }
+            }
+        }
+        $result = [
+            'id' => (int) $job['id'],
+            'batchId' => (int) $job['batchId'],
+            'runId' => (int) $job['runId'],
+            'projectId' => (int) $job['projectId'],
+            'writerId' => (string) $job['writerId'],
+            'queueId' => !empty($job['queueId']) ? $job['queueId'] : sprintf('%s.%s.%s', $job['projectId'], $job['writerId'], Job::PRIMARY_QUEUE),
+            'token' => [
+                'id' => (int) $job['tokenId'],
+                'description' => $job['tokenDesc'],
+            ],
+            'createdTime' => date('c', strtotime($job['createdTime'])),
+            'startTime' => !empty($job['startTime']) ? date('c', strtotime($job['startTime'])) : null,
+            'endTime' => !empty($job['endTime']) ? date('c', strtotime($job['endTime'])) : null,
+            'command' => $job['command'],
+            'dataset' => $job['dataset'],
+            'parameters' => $job['parameters'],
+            'result' => $job['result'],
+            'gdWriteStartTime' => false,
+            'status' => $job['status'],
+            'logs' => $logs
+        ];
+        return $result;
+    }
+
+    public static function batchToApiResponse($batchId, array $jobs, S3Client $s3Client = null)
+    {
+        $data = [
+            'batchId' => (int)$batchId,
+            'projectId' => null,
+            'writerId' => null,
+            'queueId' => null,
+            'createdTime' => date('c'),
+            'startTime' => date('c'),
+            'endTime' => null,
+            'status' => null,
+            'jobs' => []
+        ];
+        $cancelledJobs = 0;
+        $waitingJobs = 0;
+        $processingJobs = 0;
+        $errorJobs = 0;
+        $successJobs = 0;
+        foreach ($jobs as $job) {
+            $job = self::jobToApiResponse($job, $s3Client);
+            if (!$data['projectId']) {
+                $data['projectId'] = $job['projectId'];
+            } elseif ($data['projectId'] != $job['projectId']) {
+                throw new ApplicationException(sprintf(
+                    'ProjectId of job %s: %s does not match projectId %s of previous job.',
+                    $job['id'],
+                    $job['projectId'],
+                    $data['projectId']
+                ));
+            }
+            if (!$data['writerId']) {
+                $data['writerId'] = $job['writerId'];
+            } elseif ($data['writerId'] != $job['writerId']) {
+                throw new ApplicationException(sprintf(
+                    'WriterId of job %s: %s does not match writerId %s of previous job.',
+                    $job['id'],
+                    $job['projectId'],
+                    $data['projectId']
+                ));
+            }
+            if ($job['queueId'] && $job['queueId'] != Job::PRIMARY_QUEUE) {
+                $data['queueId'] = $job['queueId'];
+            }
+            if ($job['createdTime'] < $data['createdTime']) {
+                $data['createdTime'] = $job['createdTime'];
+            }
+            if ($job['startTime'] < $data['startTime']) {
+                $data['startTime'] = $job['startTime'];
+            }
+            if ($job['endTime'] > $data['endTime']) {
+                $data['endTime'] = $job['endTime'];
+            }
+            $data['jobs'][] = $job;
+            if ($job['status'] == Job::STATUS_WAITING) {
+                $waitingJobs++;
+            } elseif ($job['status'] == Job::STATUS_PROCESSING) {
+                $processingJobs++;
+            } elseif ($job['status'] == Job::STATUS_CANCELLED) {
+                $cancelledJobs++;
+            } elseif ($job['status'] == Job::STATUS_ERROR) {
+                $errorJobs++;
+                $data['result'][$job['id']] = $job['result'];
+            } else {
+                $successJobs++;
+            }
+        }
+        if (!$data['queueId']) {
+            $data['queueId'] = sprintf('%s.%s.%s', $data['projectId'], $data['writerId'], Job::PRIMARY_QUEUE);
+        }
+        if ($cancelledJobs > 0) {
+            $data['status'] = Job::STATUS_CANCELLED;
+        } elseif ($processingJobs > 0) {
+            $data['status'] = Job::STATUS_PROCESSING;
+        } elseif ($waitingJobs > 0) {
+            $data['status'] = Job::STATUS_WAITING;
+        } elseif ($errorJobs > 0) {
+            $data['status'] = Job::STATUS_ERROR;
+        } else {
+            $data['status'] = Job::STATUS_SUCCESS;
+        }
+        if ($data['status'] == Job::STATUS_WAITING && $data['startTime']) {
+            $data['startTime'] = null;
+        }
+        return $data;
     }
 }

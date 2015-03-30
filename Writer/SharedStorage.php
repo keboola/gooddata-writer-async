@@ -287,4 +287,87 @@ class SharedStorage
             [$data['pid'], $data['sender'], $data['createDate'], date('c'), $data['status'], isset($data['error'])? $data['error'] : null]
         );
     }
+
+
+    /**
+     * @deprecated
+     */
+    public function fetchJobs($projectId, $writerId, $days = 7)
+    {
+        $query = $this->db->createQueryBuilder()
+            ->select('*')
+            ->from('jobs')
+            ->where('projectId = ?')
+            ->andWhere('writerId = ?')
+            ->setParameters([
+                $projectId,
+                $writerId
+            ]);
+        if ($days) {
+            $query->andWhere('createdTime >= DATE_SUB(NOW(), INTERVAL ? DAY)')
+                ->setParameter(2, $days);
+        }
+        $result = [];
+        foreach ($query->execute()->fetchAll() as $job) {
+            $result[] = $this->decodeJob($job);
+        }
+        return $result;
+    }
+    /**
+     * @deprecated
+     */
+    public function fetchJob($jobId, $projectId = null, $writerId = null)
+    {
+        $query = $this->db->createQueryBuilder()
+            ->select('*')
+            ->from('jobs')
+            ->where('id = ?')
+            ->setParameter(0, $jobId);
+        if ($writerId && $projectId) {
+            $query->andWhere('projectId = ?')
+                ->andWhere('writerId = ?')
+                ->setParameter(1, $projectId)
+                ->setParameter(2, $writerId);
+        }
+        $result = $query->execute()->fetchAll();
+        return count($result)? $this->decodeJob(current($result)) : false;
+    }
+    /**
+     * @deprecated
+     */
+    public function fetchBatch($batchId, $projectId = null, $writerId = null)
+    {
+        $query = $this->db->createQueryBuilder()
+            ->select('*')
+            ->from('jobs')
+            ->where('batchId = ?')
+            ->setParameter(0, $batchId);
+        if ($writerId && $projectId) {
+            $query->andWhere('projectId = ?')
+                ->andWhere('writerId = ?')
+                ->setParameter(1, $projectId)
+                ->setParameter(2, $writerId);
+        }
+        $result = [];
+        foreach ($query->execute()->fetchAll() as $job) {
+            $result[] = $this->decodeJob($job);
+        }
+        return $result;
+    }
+    /**
+     * @deprecated
+     */
+    private function decodeJob($job)
+    {
+        $keysToDecode = ['parameters', 'result', 'logs', 'debug'];
+        foreach ($keysToDecode as $key) {
+            if (isset($job[$key])) {
+                $decodedParameters = json_decode($job[$key], true);
+                if (is_array($decodedParameters)) {
+                    $job[$key] = $decodedParameters;
+                }
+            }
+        }
+        return $job;
+    }
 }
