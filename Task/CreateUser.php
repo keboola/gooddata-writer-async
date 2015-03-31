@@ -8,6 +8,7 @@ namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\Exception\UserAlreadyExistsException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\Syrup\Exception\UserException;
 
 class CreateUser extends AbstractTask
@@ -20,7 +21,7 @@ class CreateUser extends AbstractTask
         if (strlen($params['password']) < 7) {
             throw new UserException($this->translator->trans('parameters.password_length'));
         }
-        $this->configuration->checkUsersTable();
+        $this->configuration->checkTable(Configuration::USERS_TABLE_NAME);
 
         return [
             'firstName' => $params['firstName'],

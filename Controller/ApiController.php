@@ -9,6 +9,7 @@ namespace Keboola\GoodDataWriter\Controller;
 use Guzzle\Http\Url;
 use Guzzle\Common\Exception\InvalidArgumentException;
 use Keboola\GoodDataWriter\Elasticsearch\Search;
+use Keboola\GoodDataWriter\StorageApi\CachedClient;
 use Keboola\GoodDataWriter\Task\Factory;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\Syrup\Exception\ApplicationException;
@@ -26,8 +27,8 @@ use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\GoodData\SSO;
 use Keboola\GoodDataWriter\Model\Graph;
-use Keboola\GoodDataWriter\Service\EventLogger;
-use Keboola\GoodDataWriter\Service\S3Client;
+use Keboola\GoodDataWriter\StorageApi\EventLogger;
+use Keboola\GoodDataWriter\Aws\S3Client;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 
@@ -51,7 +52,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
      */
     private $translator;
     /**
-     * @var EventLogger
+     * @var \Keboola\GoodDataWriter\StorageApi\EventLogger
      */
     private $eventLogger;
 
@@ -257,7 +258,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                 'writer' => $this->getConfiguration()->getWriterToApi()
             ]);
         } else {
-            $configuration = new Configuration($this->storageApi, $this->getSharedStorage());
+            $configuration = new Configuration(new CachedClient($this->storageApi), $this->getSharedStorage());
             return $this->createApiResponse([
                 'writers' => $configuration->getWritersToApi()
             ]);
@@ -1364,7 +1365,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             throw new UserException($this->translator->trans('parameters.writerId.required'));
         }
         if (!$this->configuration) {
-            $this->configuration = new Configuration($this->storageApi, $this->getSharedStorage());
+            $this->configuration = new Configuration(new CachedClient($this->storageApi), $this->getSharedStorage());
             $this->configuration->setWriterId($this->writerId);
         }
         return $this->configuration;
@@ -1462,7 +1463,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
     protected function getProjectsToUse()
     {
-        $this->configuration->checkProjectsTable();
+        $this->configuration->checkTable(Configuration::PROJECTS_TABLE_NAME);
         $projects = [];
         foreach ($this->getConfiguration()->getProjects() as $project) {
             if ($project['active']) {

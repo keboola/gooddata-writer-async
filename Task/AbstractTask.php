@@ -7,8 +7,8 @@
 namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\GoodData\Model;
-use Keboola\GoodDataWriter\Service\EventLogger;
-use Keboola\GoodDataWriter\Service\S3Client;
+use Keboola\GoodDataWriter\StorageApi\EventLogger;
+use Keboola\GoodDataWriter\Aws\S3Client;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\GoodDataWriter\Job\Metadata\JobFactory;
@@ -65,7 +65,7 @@ abstract class AbstractTask
      */
     private $domainUser;
     /**
-     * @var \Keboola\GoodDataWriter\Service\EventLogger
+     * @var \Keboola\GoodDataWriter\StorageApi\EventLogger
      */
     protected $eventLogger;
 

@@ -10,12 +10,11 @@ namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\GoodDataWriter\Exception\SharedStorageException;
 use Keboola\GoodDataWriter\GoodData\Model;
-use Keboola\GoodDataWriter\Service\StorageApiConfiguration;
-use Keboola\StorageApi\Client as StorageApiClient;
+use Keboola\GoodDataWriter\StorageApi\CachedClient;
 use Keboola\StorageApi\ClientException;
 use Keboola\Syrup\Exception\UserException;
 
-class Configuration extends StorageApiConfiguration
+class Configuration
 {
     const WRITER_NAME = 'gooddata';
 
@@ -27,6 +26,8 @@ class Configuration extends StorageApiConfiguration
     const FILTERS_PROJECTS_TABLE_NAME = 'filters_projects';
     const DATE_DIMENSIONS_TABLE_NAME = 'date_dimensions';
     const DATA_SETS_TABLE_NAME = 'data_sets';
+
+    protected $cache = [];
 
     /**
      * Definition serves for automatic configuration of Storage API tables
@@ -79,9 +80,9 @@ class Configuration extends StorageApiConfiguration
         'format', 'dateDimension', 'sortLabel', 'sortOrder'];
 
 
-    /**
-     * @var SharedStorage
-     */
+    /** @var CachedClient */
+    private $cachedClient;
+    /** @var SharedStorage */
     private $sharedStorage;
 
     public $bucketId;
@@ -98,12 +99,12 @@ class Configuration extends StorageApiConfiguration
      * Prepare configuration
      * Get bucket attributes for Rest API calls
      */
-    public function __construct(StorageApiClient $storageApiClient, SharedStorage $sharedStorage)
+    public function __construct(CachedClient $client, SharedStorage $sharedStorage)
     {
-        parent::__construct($storageApiClient);
+        $this->cachedClient = $client;
         $this->sharedStorage = $sharedStorage;
 
-        $logData = $this->storageApiClient->getLogData();
+        $logData = $this->cachedClient->getClient()->getLogData();
         $this->projectId = $logData['owner']['id'];
         if (!empty($logData['owner']['features'])) {
             if (in_array('gdwr-academy', $logData['owner']['features'])) {
@@ -116,7 +117,7 @@ class Configuration extends StorageApiConfiguration
     public function setWriterId($writerId)
     {
         $this->writerId = $writerId;
-        $this->tokenInfo = $this->storageApiClient->getLogData();
+        $this->tokenInfo = $this->cachedClient->getClient()->getLogData();
         $this->projectId = $this->tokenInfo['owner']['id'];
 
         try {
@@ -133,6 +134,12 @@ class Configuration extends StorageApiConfiguration
         }
     }
 
+    public function clearCache()
+    {
+        $this->cache = [];
+        $this->cachedClient->clearCache();
+    }
+
 
     /********************
      ********************
@@ -144,9 +151,9 @@ class Configuration extends StorageApiConfiguration
      */
     public function createBucket($writerId)
     {
-        $this->storageApiClient->createBucket('wr-gooddata-' . $writerId, 'sys', 'GoodData Writer Configuration');
-        $this->storageApiClient->setBucketAttribute('sys.c-wr-gooddata-' . $writerId, 'writer', self::WRITER_NAME);
-        $this->storageApiClient->setBucketAttribute('sys.c-wr-gooddata-' . $writerId, 'writerId', $writerId);
+        $this->cachedClient->getClient()->createBucket('wr-gooddata-' . $writerId, 'sys', 'GoodData Writer Configuration');
+        $this->cachedClient->getClient()->setBucketAttribute('sys.c-wr-gooddata-' . $writerId, 'writer', self::WRITER_NAME);
+        $this->cachedClient->getClient()->setBucketAttribute('sys.c-wr-gooddata-' . $writerId, 'writerId', $writerId);
         $this->bucketId = 'sys.c-wr-gooddata-' . $writerId;
     }
 
@@ -190,7 +197,7 @@ class Configuration extends StorageApiConfiguration
     public function getBucketAttributes($checkError = true)
     {
         try {
-            $bucket = $this->storageApiClient->getBucket($this->bucketId);
+            $bucket = $this->cachedClient->getBucket($this->bucketId);
             $attributes = self::parseBucketAttributes($bucket['attributes']);
             if ($checkError) {
                 if (!empty($attributes['error'])) {
@@ -213,11 +220,11 @@ class Configuration extends StorageApiConfiguration
     public function updateBucketAttribute($key, $value = null, $protected = null)
     {
         if ($value !== null) {
-            $this->storageApiClient->setBucketAttribute($this->bucketId, $key, $value, $protected);
+            $this->cachedClient->getClient()->setBucketAttribute($this->bucketId, $key, $value, $protected);
         } else {
-            $this->storageApiClient->deleteBucketAttribute($this->bucketId, $key);
+            $this->cachedClient->getClient()->deleteBucketAttribute($this->bucketId, $key);
         }
-        $this->cache['bucketInfo.' . $this->bucketId][$key] = $value; //@TODO
+        $this->cachedClient->clearCache();
     }
 
     /**
@@ -225,10 +232,10 @@ class Configuration extends StorageApiConfiguration
      */
     public function deleteBucket()
     {
-        foreach ($this->sapiListTables($this->bucketId) as $table) {
-            $this->storageApiClient->dropTable($table['id']);
+        foreach ($this->cachedClient->listTables($this->bucketId) as $table) {
+            $this->cachedClient->getClient()->dropTable($table['id']);
         }
-        $this->storageApiClient->dropBucket($this->bucketId);
+        $this->cachedClient->getClient()->dropBucket($this->bucketId);
     }
 
     public function getWriterToApi()
@@ -247,7 +254,7 @@ class Configuration extends StorageApiConfiguration
     public function getWritersToApi()
     {
         $buckets = [];
-        foreach ($this->sapiListBuckets() as $bucket) {
+        foreach ($this->cachedClient->listBuckets() as $bucket) {
             $buckets[$bucket['id']] = $bucket;
         }
 
@@ -278,7 +285,7 @@ class Configuration extends StorageApiConfiguration
     public function getOutputSapiTables()
     {
         $result = [];
-        foreach ($this->sapiListTables() as $table) {
+        foreach ($this->cachedClient->listTables() as $table) {
             if (substr($table['id'], 0, 4) == 'out.') {
                 $result[] = $table['id'];
             }
@@ -293,7 +300,7 @@ class Configuration extends StorageApiConfiguration
     public function getSapiTable($tableId)
     {
         try {
-            return $this->sapiGetTable($tableId);
+            return $this->cachedClient->getTable($tableId);
         } catch (ClientException $e) {
             throw new UserException("Table '$tableId' does not exist or is not accessible with the SAPI token");
         }
@@ -320,13 +327,13 @@ class Configuration extends StorageApiConfiguration
         }
 
         $tableId = $this->bucketId . '.' . self::DATA_SETS_TABLE_NAME;
-        if (!$this->sapiTableExists($tableId)) {
-            $this->createConfigTable(self::DATA_SETS_TABLE_NAME);
+        if (!$this->cachedClient->tableExists($tableId)) {
+            $this->createTable(self::DATA_SETS_TABLE_NAME);
         }
 
         $outputTables = $this->getOutputSapiTables();
         $configuredTables = [];
-        foreach ($this->fetchTableRows($tableId) as $row) {
+        foreach ($this->cachedClient->exportTable($tableId) as $row) {
             if (!isset($row['id'])) {
                 throw new UserException('Configuration table ' . $tableId . ' is missing column id');
             }
@@ -343,8 +350,7 @@ class Configuration extends StorageApiConfiguration
             }
         }
         if (count($add)) {
-            $this->updateConfigTable(self::DATA_SETS_TABLE_NAME, $add);
-            $this->clearCache();
+            $this->saveTable(self::DATA_SETS_TABLE_NAME, $add, true);
         }
 
         $this->cache[$cacheKey] = true;
@@ -392,7 +398,7 @@ class Configuration extends StorageApiConfiguration
 
         $outputTables = $this->getOutputSapiTables();
         $result = [];
-        foreach ($this->getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
+        foreach ($this->fetchTable(self::DATA_SETS_TABLE_NAME) as $table) {
             if (in_array($table['id'], $outputTables)) {
                 $title = empty($table['name']) ? $table['id'] : $table['name'];
                 $result[] = [
@@ -421,7 +427,7 @@ class Configuration extends StorageApiConfiguration
         $this->updateDataSetsFromSapi();
 
         $tables = [];
-        foreach ($this->getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
+        foreach ($this->fetchTable(self::DATA_SETS_TABLE_NAME) as $table) {
             $hasConnectionPoint = false;
             if (!empty($table['definition'])) {
                 $tableDefinition = json_decode($table['definition'], true);
@@ -450,7 +456,7 @@ class Configuration extends StorageApiConfiguration
     {
         $this->updateDataSetFromSapi($tableId);
 
-        $data = $this->getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
+        $data = $this->fetchTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
         if (!$data) {
             throw new UserException("Definition for table '$tableId' does not exist");
         }
@@ -497,7 +503,7 @@ class Configuration extends StorageApiConfiguration
     {
         $this->updateDataSetFromSapi($tableId);
 
-        $tableRow = $this->getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId, false);
+        $tableRow = $this->fetchTableRow(self::DATA_SETS_TABLE_NAME, $tableId, false);
         if (!$tableRow) {
             throw new UserException("Definition for table '$tableId' does not exist");
         }
@@ -539,7 +545,7 @@ class Configuration extends StorageApiConfiguration
 
         $tableRow['definition'] = json_encode($definition);
         $tableRow['lastChangeDate'] = date('c');
-        $this->updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableRow);
+        $this->updateTableRow(self::DATA_SETS_TABLE_NAME, $tableRow);
     }
 
 
@@ -587,7 +593,7 @@ class Configuration extends StorageApiConfiguration
             unset($data['format']);
             unset($data['dateDimension']);
             unset($data['dataType']);
-            unset($data['dataTypeSgeize']);
+            unset($data['dataTypeSize']);
             unset($data['sortLabel']);
             unset($data['sortOrder']);
         }
@@ -602,7 +608,7 @@ class Configuration extends StorageApiConfiguration
     {
         $this->updateDataSetFromSapi($tableId);
 
-        $tableRow = $this->getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId, false);
+        $tableRow = $this->fetchTableRow(self::DATA_SETS_TABLE_NAME, $tableId, false);
         if (!$tableRow) {
             throw new UserException("Definition for table '$tableId' does not exist");
         }
@@ -632,7 +638,7 @@ class Configuration extends StorageApiConfiguration
 
         $tableRow['id'] = $tableId;
         $tableRow['lastChangeDate'] = date('c');
-        $this->updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableRow);
+        $this->updateTableRow(self::DATA_SETS_TABLE_NAME, $tableRow);
     }
 
 
@@ -649,7 +655,7 @@ class Configuration extends StorageApiConfiguration
 
         $anythingChanged = false;
         $table = $this->getSapiTable($tableId);
-        $dataSet = $this->getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
+        $dataSet = $this->fetchTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
         if (!$dataSet) {
             $dataSet = array_fill_keys($this->tables[self::DATA_SETS_TABLE_NAME]['columns'], null);
             $dataSet['id'] = $tableId;
@@ -684,8 +690,7 @@ class Configuration extends StorageApiConfiguration
         if ($anythingChanged) {
             $dataSet['definition'] = json_encode($definition);
             $dataSet['lastChangeDate'] = date('c');
-            $this->updateConfigTableRow(self::DATA_SETS_TABLE_NAME, $dataSet);
-            $this->clearCache();
+            $this->updateTableRow(self::DATA_SETS_TABLE_NAME, $dataSet);
         }
 
         $this->cache[$cacheKey] = true;
@@ -888,12 +893,12 @@ class Configuration extends StorageApiConfiguration
         }
 
         $tableId = $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME;
-        if (!$this->sapiTableExists($tableId)) {
-            $this->createConfigTable(self::DATE_DIMENSIONS_TABLE_NAME);
+        if (!$this->cachedClient->tableExists($tableId)) {
+            $this->createTable(self::DATE_DIMENSIONS_TABLE_NAME);
             return [];
         } else {
             $data = [];
-            foreach ($this->getConfigTable(self::DATE_DIMENSIONS_TABLE_NAME) as $row) {
+            foreach ($this->fetchTable(self::DATE_DIMENSIONS_TABLE_NAME) as $row) {
                 $row['includeTime'] = (bool)$row['includeTime'];
                 $row['isExported'] = (bool)$row['isExported'];
                 $data[$row['name']] = $row;
@@ -936,7 +941,7 @@ class Configuration extends StorageApiConfiguration
             'template' => $template,
             'isExported' => null
         ];
-        $this->updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
+        $this->updateTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
     }
 
     public function setDateDimensionIsExported($name, $isExported = true)
@@ -945,8 +950,7 @@ class Configuration extends StorageApiConfiguration
             'name' => $name,
             'isExported' => $isExported? 1 : 0
         ];
-        $this->updateConfigTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
-        $this->clearCache();
+        $this->updateTableRow(self::DATE_DIMENSIONS_TABLE_NAME, $data);
     }
 
     /**
@@ -954,8 +958,7 @@ class Configuration extends StorageApiConfiguration
      */
     public function deleteDateDimension($name)
     {
-        $this->deleteTableRows($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME, 'name', $name);
-        $this->clearCache();
+        $this->cachedClient->deleteTableRows($this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME, 'name', $name);
     }
 
 
@@ -973,7 +976,7 @@ class Configuration extends StorageApiConfiguration
     public function getProjects()
     {
         $bucketAttributes = $this->getBucketAttributes();
-        $projects = $this->getConfigTable(self::PROJECTS_TABLE_NAME);
+        $projects = $this->fetchTable(self::PROJECTS_TABLE_NAME);
         if (isset($bucketAttributes['gd']['pid'])) {
             array_unshift($projects, ['pid' => $bucketAttributes['gd']['pid'], 'active' => true, 'main' => true]);
         }
@@ -983,6 +986,7 @@ class Configuration extends StorageApiConfiguration
 
     /**
      * Get project if exists
+     * @return array|bool
      */
     public function getProject($pid)
     {
@@ -994,23 +998,9 @@ class Configuration extends StorageApiConfiguration
         return false;
     }
 
-
-    /**
-     * Check configuration table of projects
-     */
-    public function checkProjectsTable()
-    {
-        $tableId = $this->bucketId . '.' . self::PROJECTS_TABLE_NAME;
-        if ($this->sapiTableExists($tableId)) {
-            $table = $this->getSapiTable($tableId);
-            $this->checkConfigTable(self::PROJECTS_TABLE_NAME, $table['columns']);
-        }
-    }
-
     public function resetProjectsTable()
     {
-        $this->resetConfigTable(self::PROJECTS_TABLE_NAME);
-        $this->clearCache();
+        $this->truncateTable(self::PROJECTS_TABLE_NAME);
     }
 
 
@@ -1023,7 +1013,7 @@ class Configuration extends StorageApiConfiguration
             'pid' => $pid,
             'active' => 1
         ];
-        $this->updateConfigTableRow(self::PROJECTS_TABLE_NAME, $data);
+        $this->updateTableRow(self::PROJECTS_TABLE_NAME, $data);
     }
 
 
@@ -1040,7 +1030,7 @@ class Configuration extends StorageApiConfiguration
     public function getUsers()
     {
         $bucketAttributes = $this->getBucketAttributes();
-        $users = $this->getConfigTable(self::USERS_TABLE_NAME);
+        $users = $this->fetchTable(self::USERS_TABLE_NAME);
         if (isset($bucketAttributes['gd']['username']) && isset($bucketAttributes['gd']['uid'])) {
             array_unshift($users, [
                 'email' => $bucketAttributes['gd']['username'],
@@ -1054,6 +1044,7 @@ class Configuration extends StorageApiConfiguration
 
     /**
      * Get user if exists
+     * @return array|bool
      */
     public function getUser($email)
     {
@@ -1063,18 +1054,6 @@ class Configuration extends StorageApiConfiguration
             }
         }
         return false;
-    }
-
-    /**
-     * Check configuration table of users
-     */
-    public function checkUsersTable()
-    {
-        $tableId = $this->bucketId . '.' . self::USERS_TABLE_NAME;
-        if ($this->sapiTableExists($tableId)) {
-            $table = $this->getSapiTable($tableId);
-            $this->checkConfigTable(self::USERS_TABLE_NAME, $table['columns']);
-        }
     }
 
     /**
@@ -1097,7 +1076,7 @@ class Configuration extends StorageApiConfiguration
     public function getProjectUsers($pid = null)
     {
         $bucketAttributes = $this->getBucketAttributes();
-        $projectUsers = $this->getConfigTable(self::PROJECT_USERS_TABLE_NAME);
+        $projectUsers = $this->fetchTable(self::PROJECT_USERS_TABLE_NAME);
         if (!count($projectUsers) && isset($bucketAttributes['gd']['pid']) && isset($bucketAttributes['gd']['username'])) {
             array_unshift($projectUsers, [
                 'id' => 0,
@@ -1126,19 +1105,6 @@ class Configuration extends StorageApiConfiguration
     }
 
     /**
-     * Check configuration table of users
-     */
-    public function checkProjectUsersTable()
-    {
-        $tableId = $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME;
-        if ($this->sapiTableExists($tableId)) {
-            $table = $this->getSapiTable($tableId);
-            $this->checkConfigTable(self::PROJECT_USERS_TABLE_NAME, $table['columns']);
-        }
-    }
-
-
-    /**
      * Save user to configuration
      */
     public function saveUser($email, $uid)
@@ -1147,7 +1113,7 @@ class Configuration extends StorageApiConfiguration
             'email' => strtolower($email),
             'uid' => $uid
         ];
-        $this->updateConfigTableRow(self::USERS_TABLE_NAME, $data);
+        $this->updateTableRow(self::USERS_TABLE_NAME, $data);
     }
 
 
@@ -1164,7 +1130,7 @@ class Configuration extends StorageApiConfiguration
             'role' => $role,
             'action' => $action
         ];
-        $this->updateConfigTableRow(self::PROJECT_USERS_TABLE_NAME, $data);
+        $this->updateTableRow(self::PROJECT_USERS_TABLE_NAME, $data);
     }
 
     /**
@@ -1187,14 +1153,7 @@ class Configuration extends StorageApiConfiguration
             return;
         }
 
-        $this->storageApiClient->deleteTableRows(
-            $this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME,
-            [
-                'whereColumn' => 'id',
-                'whereValues' => $filter,
-            ]
-        );
-        $this->clearCache();
+        $this->cachedClient->deleteTableRows($this->bucketId . '.' . self::PROJECT_USERS_TABLE_NAME, 'id', $filter);
     }
 
 
@@ -1205,24 +1164,13 @@ class Configuration extends StorageApiConfiguration
      * @section Filters
      ********************/
 
-    public function checkFiltersTable()
-    {
-        $tableId = $this->bucketId . '.' . self::FILTERS_TABLE_NAME;
-        if ($this->sapiTableExists($tableId)) {
-            $table = $this->getSapiTable($tableId);
-            $this->checkConfigTable(self::FILTERS_TABLE_NAME, $table['columns']);
-        }
-    }
-
-
-
     /**
      * Get all filters
      */
     public function getFilters($names = [])
     {
-        $filters = count($names)? $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_TABLE_NAME, 'name', $names)
-            : $this->getConfigTable(self::FILTERS_TABLE_NAME);
+        $filters = count($names)? $this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_TABLE_NAME, 'name', $names)
+            : $this->fetchTable(self::FILTERS_TABLE_NAME);
         foreach ($filters as &$filter) {
             if (in_array(substr($filter['value'], 0, 1), ['[', '{'])) {
                 $filter['value'] = json_decode($filter['value'], true);
@@ -1244,7 +1192,7 @@ class Configuration extends StorageApiConfiguration
     public function getFiltersForUser($email)
     {
         $filters = [];
-        foreach ($this->fetchTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'email', $email) as $fu) {
+        foreach ($this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'email', $email) as $fu) {
             $filters[] = $fu['filter'];
         }
 
@@ -1256,7 +1204,7 @@ class Configuration extends StorageApiConfiguration
     public function getFiltersForProject($pid)
     {
         $filters = [];
-        foreach ($this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'pid', $pid) as $fp) {
+        foreach ($this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'pid', $pid) as $fp) {
             $filters[] = $fp['filter'];
         }
 
@@ -1269,21 +1217,21 @@ class Configuration extends StorageApiConfiguration
      */
     public function getFiltersProjects()
     {
-        return $this->getConfigTable(self::FILTERS_PROJECTS_TABLE_NAME);
+        return $this->fetchTable(self::FILTERS_PROJECTS_TABLE_NAME);
     }
     /**
      * Get filters_projects by pid
      */
     public function getFiltersProjectsByPid($pid)
     {
-        return $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'pid', $pid);
+        return $this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'pid', $pid);
     }
     /**
      * Get filters_projects by filter
      */
     public function getFiltersProjectsByFilter($filter)
     {
-        return $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'filter', $filter);
+        return $this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'filter', $filter);
     }
 
 
@@ -1292,21 +1240,21 @@ class Configuration extends StorageApiConfiguration
      */
     public function getFiltersUsers()
     {
-        return $this->getConfigTable(self::FILTERS_USERS_TABLE_NAME);
+        return $this->fetchTable(self::FILTERS_USERS_TABLE_NAME);
     }
     /**
      * Get filters_users by email
      */
     public function getFiltersUsersByEmail($email)
     {
-        return $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'email', $email);
+        return $this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'email', $email);
     }
     /**
      * Get filters_users by filter
      */
     public function getFiltersUsersByFilter($filter)
     {
-        return $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'filter', $filter);
+        return $this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'filter', $filter);
     }
 
 
@@ -1326,7 +1274,7 @@ class Configuration extends StorageApiConfiguration
      */
     public function saveFilter($name, $attribute, $operator, $value, $over = null, $to = null)
     {
-        if ($this->sapiTableExists($this->bucketId . '.' . self::FILTERS_TABLE_NAME) && $this->getFilter($name)) {
+        if ($this->cachedClient->tableExists($this->bucketId . '.' . self::FILTERS_TABLE_NAME) && $this->getFilter($name)) {
             throw new UserException("Filter of that name already exists.");
         }
 
@@ -1338,12 +1286,12 @@ class Configuration extends StorageApiConfiguration
             'over' => $over,
             'to' => $to
         ];
-        $this->updateConfigTableRow(self::FILTERS_TABLE_NAME, $data);
+        $this->updateTableRow(self::FILTERS_TABLE_NAME, $data);
     }
 
     public function saveFiltersProjects($uri, $filter, $pid)
     {
-        if ($this->sapiTableExists($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME)
+        if ($this->cachedClient->tableExists($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME)
             && count($this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri))) {
             throw new UserException("Filter is already assigned to the project.");
         }
@@ -1353,7 +1301,7 @@ class Configuration extends StorageApiConfiguration
             'filter' => $filter,
             'pid' => $pid
         ];
-        $this->updateConfigTableRow(self::FILTERS_PROJECTS_TABLE_NAME, $data);
+        $this->updateTableRow(self::FILTERS_PROJECTS_TABLE_NAME, $data);
     }
 
     /**
@@ -1361,7 +1309,7 @@ class Configuration extends StorageApiConfiguration
      */
     public function saveFiltersUsers(array $filters, $email)
     {
-        $this->deleteTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'email', $email);
+        $this->cachedClient->deleteTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'email', $email);
         if (count($filters)) {
             $data = [];
             foreach ($filters as $f) {
@@ -1371,22 +1319,20 @@ class Configuration extends StorageApiConfiguration
                     'email' => $email
                 ];
             }
-            $this->updateConfigTable(self::FILTERS_USERS_TABLE_NAME, $data);
+            $this->saveTable(self::FILTERS_USERS_TABLE_NAME, $data, true);
         }
     }
 
     public function deleteFilter($name)
     {
-        $this->deleteTableRows($this->bucketId . '.' . self::FILTERS_TABLE_NAME, 'name', $name);
-        $this->deleteTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'filter', $name);
-        $this->deleteTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'filter', $name);
-        $this->clearCache();
+        $this->cachedClient->deleteTableRows($this->bucketId . '.' . self::FILTERS_TABLE_NAME, 'name', $name);
+        $this->cachedClient->deleteTableRows($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'filter', $name);
+        $this->cachedClient->deleteTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'filter', $name);
     }
 
     public function deleteFilterFromProject($uri)
     {
-        $this->deleteTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri);
-        $this->clearCache();
+        $this->cachedClient->deleteTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri);
     }
 
     public function getTableIdFromAttribute($attr)
@@ -1403,5 +1349,139 @@ class Configuration extends StorageApiConfiguration
         }
 
         return $tableId;
+    }
+
+
+
+    /**
+     * Save SAPI table
+     */
+    protected function saveTable($tableName, array $data = [], $incremental = true, $partial = true)
+    {
+        if (!isset($this->tables[$tableName])) {
+            return false;
+        }
+
+        return $this->cachedClient->saveTable(
+            $this->bucketId . '.' . $tableName,
+            count($data) ? array_keys($data[0]) : $this->tables[$tableName]['columns'],
+            $data,
+            $this->tables[$tableName]['primaryKey'],
+            $this->tables[$tableName]['indices'],
+            $incremental,
+            $partial
+        );
+    }
+
+
+    /**
+     * Create configuration table
+     */
+    protected function createTable($tableName)
+    {
+        if ($this->cachedClient->tableExists($this->bucketId . '.' . $tableName)) {
+            return false;
+        }
+
+        try {
+            return $this->saveTable($tableName, [], false, false);
+        } catch (ClientException $e) {
+            if (!in_array($e->getCode(), [400, 404])) {
+                throw $e;
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Empty configuration table
+     */
+    public function truncateTable($tableName)
+    {
+        return $this->saveTable($tableName, [], false, false);
+    }
+
+    /**
+     * Update row of configuration table
+     */
+    protected function updateTableRow($tableName, $data)
+    {
+        return $this->saveTable($tableName, [$data]);
+    }
+
+    public function checkTable($tableName)
+    {
+        $tableId = $this->bucketId . '.' . $tableName;
+        if ($this->cachedClient->tableExists($tableId)) {
+            $table = $this->getSapiTable($tableId);
+            $this->checkTableConfiguration($tableName, $table['columns']);
+        }
+    }
+
+    /**
+     * Check if configuration table contains all required columns
+     */
+    protected function checkTableConfiguration($tableName, $columns)
+    {
+        if (!isset($this->tables[$tableName])) {
+            return false;
+        }
+
+        // Allow tables to have more columns then according to definitions
+        if (count(array_diff($this->tables[$tableName]['columns'], $columns))) {
+            throw new UserException(sprintf(
+                "Table '%s' appears to be wrongly configured. Contains columns: '%s' but should contain columns: '%s'",
+                $tableName,
+                implode(',', $columns),
+                implode(',', $this->tables[$tableName]['columns'])
+            ));
+        }
+
+        return true;
+    }
+
+    /**
+     * Get all rows from configuration table
+     */
+    protected function fetchTable($tableName)
+    {
+        if (!isset($this->tables[$tableName])) {
+            return false;
+        }
+
+        try {
+            $table = $this->cachedClient->exportTable($this->bucketId . '.' . $tableName);
+        } catch (ClientException $e) {
+            if ($e->getCode() == 404) {
+                $this->createTable($tableName);
+                $table = [];
+            } else {
+                throw $e;
+            }
+        }
+
+        if (count($table)) {
+            $this->checkTableConfiguration($tableName, array_keys(current($table)));
+        }
+
+        return $table;
+    }
+
+    /**
+     * Get row from configuration table
+     */
+    protected function fetchTableRow($tableName, $id, $cache = true)
+    {
+        if (!isset($this->tables[$tableName])) {
+            return false;
+        }
+
+        $result = $this->cachedClient->exportTable(
+            $this->bucketId . '.' . $tableName,
+            $this->tables[$tableName]['primaryKey'],
+            $id,
+            $cache
+        );
+        return count($result) ? current($result) : false;
     }
 }

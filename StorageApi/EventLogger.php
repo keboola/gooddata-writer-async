@@ -6,8 +6,9 @@
  * Time: 10:01
  */
 
-namespace Keboola\GoodDataWriter\Service;
+namespace Keboola\GoodDataWriter\StorageApi;
 
+use Keboola\GoodDataWriter\Aws\S3Client;
 use Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\StorageApi\Event as StorageApiEvent;
 

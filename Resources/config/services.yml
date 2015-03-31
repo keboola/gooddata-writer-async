@@ -3,7 +3,7 @@ parameters:
 services:
 
     gooddata_writer.s3_client:
-        class: Keboola\GoodDataWriter\Service\S3Client
+        class: Keboola\GoodDataWriter\Aws\S3Client
         arguments: [%uploader%]
 
     gooddata_writer.rest_api.log_formatter:

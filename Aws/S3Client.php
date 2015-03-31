@@ -4,7 +4,7 @@
  * @date 2013-07-22
  */
 
-namespace Keboola\GoodDataWriter\Service;
+namespace Keboola\GoodDataWriter\Aws;
 
 use Aws\Common\Enum\ClientOptions;
 use Aws\S3\S3Client as Client;
@@ -27,20 +27,20 @@ class S3Client
 
     protected function getClient()
     {
-        return Client::factory(array(
+        return Client::factory([
             'key' => $this->config['aws-access-key'],
             'secret' => $this->config['aws-secret-key'],
             ClientOptions::BACKOFF => BackoffPlugin::factory()
-        ));
+        ]);
     }
 
     public function downloadFile($url)
     {
         $lastDashPos = strrpos($url, '/');
-        $result = $this->client->getObject(array(
+        $result = $this->client->getObject([
             'Bucket' => $this->config['s3-upload-path'] . '/' . substr($url, 0, $lastDashPos),
             'Key' => substr($url, $lastDashPos + 1)
-        ));
+        ]);
 
         return (string)$result['Body'];
     }
@@ -77,14 +77,14 @@ class S3Client
     public function uploadString($name, $content, $contentType = 'text/plain', $publicLink = false)
     {
         $s3FileName = 'kb-gooddata-writer/' . date('Y/m/d/') . $name;
-        $this->client->getConfig()->set('curl.options', array('body_as_string' => true));
-        $this->client->putObject(array(
+        $this->client->getConfig()->set('curl.options', ['body_as_string' => true]);
+        $this->client->putObject([
             'Bucket' => $this->config['s3-upload-path'],
             'Key'    => $s3FileName,
             'Body'   => $content,
             'ACL'    => CannedAcl::AUTHENTICATED_READ,
             'ContentType'   => $contentType
-        ));
+        ]);
         return $publicLink ? $this->getPublicLink($s3FileName) : $s3FileName;
     }
 

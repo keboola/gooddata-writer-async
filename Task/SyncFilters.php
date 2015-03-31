@@ -10,6 +10,7 @@ namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\GoodDataWriter\Writer\Configuration;
 
 class SyncFilters extends AbstractTask
 {
@@ -31,7 +32,7 @@ class SyncFilters extends AbstractTask
     public function run(Job $job, $taskId, array $params = [], $definitionFile = null)
     {
         $this->initRestApi($job);
-        $this->configuration->checkFiltersTable();
+        $this->configuration->checkTable(Configuration::FILTERS_TABLE_NAME);
         $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 

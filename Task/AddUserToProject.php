@@ -8,6 +8,7 @@ namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\Syrup\Exception\UserException;
 
 class AddUserToProject extends AbstractTask
@@ -27,9 +28,9 @@ class AddUserToProject extends AbstractTask
         }
 
         $bucketAttributes = $this->configuration->getBucketAttributes();
-        $this->configuration->checkProjectsTable();
-        $this->configuration->checkUsersTable();
-        $this->configuration->checkProjectUsersTable();
+        $this->configuration->checkTable(Configuration::PROJECTS_TABLE_NAME);
+        $this->configuration->checkTable(Configuration::USERS_TABLE_NAME);
+        $this->configuration->checkTable(Configuration::PROJECT_USERS_TABLE_NAME);
 
         if (empty($params['pid'])) {
             $params['pid'] = $bucketAttributes['gd']['pid'];

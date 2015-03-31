@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\Syrup\Exception\UserException;
 
 class RemoveUserFromProject extends AbstractTask
@@ -22,8 +23,8 @@ class RemoveUserFromProject extends AbstractTask
         if (!$this->configuration->isProjectUser($params['email'], $params['pid'])) {
             throw new UserException($this->translator->trans('parameters.email_not_configured'));
         }
-        $this->configuration->checkProjectsTable();
-        $this->configuration->checkProjectUsersTable();
+        $this->configuration->checkTable(Configuration::PROJECTS_TABLE_NAME);
+        $this->configuration->checkTable(Configuration::PROJECT_USERS_TABLE_NAME);
 
         return [
             'pid' => $params['pid'],

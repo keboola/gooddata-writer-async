@@ -7,8 +7,8 @@
 namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\GoodData\RestApi;
-use Keboola\GoodDataWriter\Service\EventLogger;
-use Keboola\GoodDataWriter\Service\S3Client;
+use Keboola\GoodDataWriter\StorageApi\EventLogger;
+use Keboola\GoodDataWriter\Aws\S3Client;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\GoodDataWriter\Job\Metadata\JobFactory;
@@ -32,7 +32,7 @@ class Factory
     private $temp;
     /** @var Logger */
     private $logger;
-    /** @var S3Client */
+    /** @var \Keboola\GoodDataWriter\Aws\S3Client */
     private $s3Client;
     /** @var RestApi */
     private $restApi;

@@ -8,6 +8,7 @@ namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\Elasticsearch\Search;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\GoodDataWriter\StorageApi\CachedClient;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\Syrup\Exception\UserException;
 
@@ -69,7 +70,7 @@ class WritersTest extends AbstractControllerTest
             'users' => $user1 . ',' . $user2,
             'description' => $description
         ]);
-        $this->configuration = new Configuration($this->storageApi, $this->sharedStorage);
+        $this->configuration = new Configuration(new CachedClient($this->storageApi), $this->sharedStorage);
         $this->configuration->setWriterId($writerId);
 
         // Check invitations existence in GD
@@ -161,7 +162,7 @@ class WritersTest extends AbstractControllerTest
             $i++;
         } while (!$jobsFinished);
 
-        $configuration = new Configuration($this->storageApi, $this->sharedStorage);
+        $configuration = new Configuration(new CachedClient($this->storageApi), $this->sharedStorage);
         $configuration->setWriterId($existingProjectWriterId);
         $bucketAttributes = $configuration->bucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);

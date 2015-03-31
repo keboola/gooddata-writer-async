@@ -10,6 +10,7 @@ use Keboola\Csv\CsvFile;
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Aws\Common\Client as AwsClient;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\StorageApi\Table;
 use Keboola\Syrup\Exception\UserException;
 
@@ -39,7 +40,7 @@ class ExportReport extends AbstractTask
         $this->checkParams($params, ['report', 'table']);
 
         $bucketAttributes = $this->configuration->getBucketAttributes();
-        $this->configuration->checkProjectsTable();
+        $this->configuration->checkTable(Configuration::PROJECTS_TABLE_NAME);
 
         if (!preg_match('/^([^\.]+)\.([^\.]+)\.([^\.]+)$/', $params['table'])) {
             throw new UserException($this->translator->trans('parameters.report.table_not_valid %1', ['%1' => $params['table']]));

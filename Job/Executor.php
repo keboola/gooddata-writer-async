@@ -7,6 +7,7 @@
 namespace Keboola\GoodDataWriter\Job;
 
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\GoodDataWriter\StorageApi\CachedClient;
 use Keboola\GoodDataWriter\Task\Factory;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
@@ -15,8 +16,8 @@ use Keboola\Syrup\Exception\MaintenanceException;
 use Keboola\Syrup\Exception\UserException;
 use Keboola\Temp\Temp;
 
-use Keboola\GoodDataWriter\Service\EventLogger;
-use Keboola\GoodDataWriter\Service\S3Client;
+use Keboola\GoodDataWriter\StorageApi\EventLogger;
+use Keboola\GoodDataWriter\Aws\S3Client;
 
 class Executor extends \Keboola\Syrup\Job\Executor
 {
@@ -71,7 +72,7 @@ class Executor extends \Keboola\Syrup\Job\Executor
 
         $eventLogger = new EventLogger($this->storageApi, $this->s3Client);
 
-        $configuration = new Configuration($this->storageApi, $this->sharedStorage);
+        $configuration = new Configuration(new CachedClient($this->storageApi), $this->sharedStorage);
         $configuration->setWriterId($jobParams['writerId']);
 
         $this->taskFactory

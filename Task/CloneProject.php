@@ -8,6 +8,7 @@ namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\GoodDataWriter\Writer\Configuration;
 
 class CloneProject extends AbstractTask
 {
@@ -18,7 +19,7 @@ class CloneProject extends AbstractTask
         $this->checkWriterExistence($params['writerId']);
 
         $bucketAttributes = $this->configuration->getBucketAttributes();
-        $this->configuration->checkProjectsTable();
+        $this->configuration->checkTable(Configuration::PROJECTS_TABLE_NAME);
 
         if (empty($params['accessToken'])) {
             $params['accessToken'] = $this->gdAccessToken;

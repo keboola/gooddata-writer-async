@@ -8,6 +8,7 @@ namespace Keboola\GoodDataWriter\Task;
 
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
+use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\Syrup\Exception\UserException;
 
 class ExecuteReports extends AbstractTask
@@ -17,7 +18,7 @@ class ExecuteReports extends AbstractTask
     {
         $this->checkParams($params, ['writerId', 'pid']);
         $this->checkWriterExistence($params['writerId']);
-        $this->configuration->checkProjectsTable();
+        $this->configuration->checkTable(Configuration::PROJECTS_TABLE_NAME);
 
         $project = $this->configuration->getProject($params['pid']);
         if (!$project) {
@@ -64,7 +65,7 @@ class ExecuteReports extends AbstractTask
             throw new UserException($this->translator->trans('parameters.pid_not_configured'));
         }
         $bucketAttributes = $this->configuration->getBucketAttributes();
-        $this->configuration->checkProjectsTable();
+        $this->configuration->checkTable(Configuration::PROJECTS_TABLE_NAME);
 
         // reports uri validation
         if (!empty($params['reports'])) {

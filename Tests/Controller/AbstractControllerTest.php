@@ -6,6 +6,7 @@
 namespace Keboola\GoodDataWriter\Tests\Controller;
 
 use Keboola\GoodDataWriter\Exception\RestApiException;
+use Keboola\GoodDataWriter\StorageApi\CachedClient;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Keboola\Syrup\Command\JobCommand;
 use Keboola\Syrup\Elasticsearch\Search;
@@ -173,7 +174,7 @@ abstract class AbstractControllerTest extends WebTestCase
         $this->processJob('/writers', []);
 
         // Reset configuration
-        $this->configuration = new Configuration($this->storageApi, $this->sharedStorage);
+        $this->configuration = new Configuration(new CachedClient($this->storageApi), $this->sharedStorage);
         $this->configuration->setWriterId($this->writerId);
     }
 
@@ -256,7 +257,7 @@ abstract class AbstractControllerTest extends WebTestCase
         ]);
 
         // Reset configuration
-        $this->configuration = new Configuration($this->storageApi, $this->sharedStorage);
+        $this->configuration = new Configuration(new CachedClient($this->storageApi), $this->sharedStorage);
         $this->configuration->setWriterId($this->writerId);
     }
 

@@ -7,7 +7,7 @@
 
 namespace Keboola\GoodDataWriter\Job\Metadata;
 
-use Keboola\GoodDataWriter\Service\S3Client;
+use Keboola\GoodDataWriter\Aws\S3Client;
 
 class Job extends \Keboola\Syrup\Job\Metadata\Job
 {

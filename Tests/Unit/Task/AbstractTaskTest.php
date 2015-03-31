@@ -12,8 +12,9 @@ use Keboola\GoodDataWriter\GoodData\RestApi;
 use Keboola\GoodDataWriter\Exception\RestApiException;
 use Keboola\GoodDataWriter\Job\Metadata\Job;
 use Keboola\GoodDataWriter\Job\Metadata\JobFactory;
-use Keboola\GoodDataWriter\Service\EventLogger;
-use Keboola\GoodDataWriter\Service\S3Client;
+use Keboola\GoodDataWriter\StorageApi\CachedClient;
+use Keboola\GoodDataWriter\StorageApi\EventLogger;
+use Keboola\GoodDataWriter\Aws\S3Client;
 use Keboola\GoodDataWriter\Task\Factory;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
@@ -48,7 +49,7 @@ abstract class AbstractTaskTest extends \PHPUnit_Framework_TestCase
      */
     protected $translator;
     /**
-     * @var S3Client
+     * @var \Keboola\GoodDataWriter\Aws\S3Client
      */
     protected $s3client;
     /**
@@ -118,7 +119,7 @@ abstract class AbstractTaskTest extends \PHPUnit_Framework_TestCase
         $this->s3client = new S3Client($s3Config);
 
         $this->storageApiClient = new StorageApiClient(['token' => GW_STORAGE_API_TOKEN]);
-        $this->configuration = new Configuration($this->storageApiClient, $this->sharedStorage);
+        $this->configuration = new Configuration(new CachedClient($this->storageApiClient), $this->sharedStorage);
         $this->configuration->projectId = rand(1, 128);
         $this->configuration->writerId = uniqid();
 
