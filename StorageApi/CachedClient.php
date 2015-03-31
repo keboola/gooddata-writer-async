@@ -127,9 +127,9 @@ class CachedClient
         if ($whereColumn) {
             $options = [
                 'whereColumn' => $whereColumn,
-                'whereValues' => is_array($whereValue) ? implode('.', $whereValue) : $whereValue
+                'whereValues' => is_array($whereValue) ? $whereValue : [$whereValue]
             ];
-            $cacheKey .= '.'.$whereColumn.'.'.$options['whereValues'];
+            $cacheKey .= '.'.$whereColumn.'.'.implode('.', $options['whereValues']);
         } else {
             $options = [];
         }
@@ -138,10 +138,16 @@ class CachedClient
             try {
                 $csv = $this->client->exportTable($tableId, null, $options);
             } catch (ClientException $e) {
-                if ($e->getCode() == 403) {
-                    throw new UserException('Your token does not have access to table ' . $tableId);
+                switch ($e->getCode()) {
+                    case 403:
+                        throw new UserException('Your token does not have access to table ' . $tableId);
+                        break;
+                    case 404:
+                        return [];
+                        break;
+                    default:
+                        throw $e;
                 }
-                throw $e;
             }
             $this->cache[$cacheKey] = Client::parseCsv($csv, true);
         }

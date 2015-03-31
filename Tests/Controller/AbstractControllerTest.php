@@ -206,55 +206,52 @@ abstract class AbstractControllerTest extends WebTestCase
 
 
         // Prepare Writer configuration
-        $this->configuration->saveDateDimension('ProductDate', true);
-
-        $this->configuration->updateDataSetDefinition($this->dataBucketId . '.categories', 'name', 'Categories');
-        $this->configuration->updateDataSetDefinition($this->dataBucketId . '.categories', 'export', '1');
-        $this->configuration->updateColumnsDefinition($this->dataBucketId . '.categories', [
-            [
-                'name' => 'id',
-                'gdName' => 'Id',
-                'type' => 'CONNECTION_POINT'
-            ],
-            [
-                'name' => 'name',
-                'gdName' => 'Name',
-                'type' => 'ATTRIBUTE'
-            ]
+        $table = new StorageApiTable($this->storageApi, $this->bucketId . '.date_dimensions', null, 'name');
+        $table->setHeader($this->configuration->tables[Configuration::DATE_DIMENSIONS_TABLE_NAME]['columns']);
+        $table->setFromArray([
+            ['ProductDate', 1, 0, '']
         ]);
+        $table->save();
 
-        $this->configuration->updateDataSetDefinition($this->dataBucketId . '.products', 'name', 'Products');
-        $this->configuration->updateDataSetDefinition($this->dataBucketId . '.products', 'export', '1');
-        $this->configuration->updateColumnsDefinition($this->dataBucketId . '.products', [
-            [
-                'name' => 'id',
-                'gdName' => 'Id',
-                'type' => 'CONNECTION_POINT'
-            ],
-            [
-                'name' => 'name',
-                'gdName' => 'Name',
-                'type' => 'ATTRIBUTE'
-            ],
-            [
-                'name' => 'price',
-                'gdName' => 'Price',
-                'type' => 'FACT'
-            ],
-            [
-                'name' => 'date',
-                'gdName' => '',
-                'type' => 'DATE',
-                'format' => 'yyyy-MM-dd HH:mm:ss',
-                'dateDimension' => 'ProductDate'
-            ],
-            [
-                'name' => 'category',
-                'gdName' => '',
-                'type' => 'REFERENCE',
-                'schemaReference' => $this->dataBucketId . '.categories'
-            ]
+        $table = new StorageApiTable($this->storageApi, $this->bucketId . '.data_sets', null, 'tableId');
+        $table->setHeader($this->configuration->tables[Configuration::DATA_SETS_TABLE_NAME]['columns']);
+        $table->setFromArray([
+            [$this->dataBucketId.'.categories', 'Categories', 1, 0, '', 0, 0, json_encode([
+                'id' => [
+                    'type' => 'CONNECTION_POINT',
+                    'gdName' => 'Id'
+                ],
+                'name' => [
+                    'type' => 'ATTRIBUTE',
+                    'gdName' => 'Name'
+                ]
+            ])],
+            [$this->dataBucketId.'.products', 'Products', 1, 0, '', 0, 0, json_encode([
+                'id' => [
+                    'type' => 'CONNECTION_POINT',
+                    'gdName' => 'Id'
+                ],
+                'name' => [
+                    'type' => 'ATTRIBUTE',
+                    'gdName' => 'Name'
+                ],
+                'price' => [
+                    'type' => 'FACT',
+                    'gdName' => 'Price'
+                ],
+                'date' => [
+                    'type' => 'DATE',
+                    'format' => 'yyyy-MM-dd HH:mm:ss',
+                    'dateDimension' => 'ProductDate'
+                ],
+                'category' => [
+                    'type' => 'REFERENCE',
+                    'gdName' => 'Name',
+                    'schemaReference' => $this->dataBucketId . '.categories'
+                ]
+            ])]
         ]);
+        $table->save();
 
         // Reset configuration
         $this->configuration = new Configuration(new CachedClient($this->storageApi), $this->sharedStorage);

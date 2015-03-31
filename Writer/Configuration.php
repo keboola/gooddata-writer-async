@@ -1264,7 +1264,7 @@ class Configuration
      */
     public function checkFilterUri($uri)
     {
-        $filters = $this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri);
+        $filters = $this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri);
         return count($filters) > 0;
     }
 
@@ -1292,7 +1292,7 @@ class Configuration
     public function saveFiltersProjects($uri, $filter, $pid)
     {
         if ($this->cachedClient->tableExists($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME)
-            && count($this->fetchTableRows($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri))) {
+            && count($this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri))) {
             throw new UserException("Filter is already assigned to the project.");
         }
 

@@ -11,7 +11,7 @@
 	],
 	"require": {
         "php": ">=5.3.5",
-        "keboola/syrup": "~2.1",
+        "keboola/syrup": "~2.2",
         "tedivm/fetch": "0.6.*"
 	},
 	"require-dev": {
