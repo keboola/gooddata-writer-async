@@ -22,7 +22,7 @@ class WritersTest extends AbstractControllerTest
         // Check writer configuration
         $bucketAttributes = false;
         try {
-            $bucketAttributes = $this->configuration->bucketAttributes();
+            $bucketAttributes = $this->configuration->getBucketAttributes();
         } catch (UserException $e) {
             $this->fail("Writer configuration is not valid.");
         }
@@ -73,7 +73,7 @@ class WritersTest extends AbstractControllerTest
         $this->configuration->setWriterId($writerId);
 
         // Check invitations existence in GD
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
         $userProjectsInfo = $this->restApi->get('/gdc/projects/' . $bucketAttributes['gd']['pid'] . '/invitations');
         $this->assertArrayHasKey('invitations', $userProjectsInfo, "Response for GoodData API project invitations call should contain 'invitations' key.");

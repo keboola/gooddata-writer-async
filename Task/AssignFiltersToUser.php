@@ -89,7 +89,7 @@ class AssignFiltersToUser extends AbstractTask
             }
         }
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
         foreach ($pidUris as $pid => $uris) {

@@ -17,7 +17,7 @@ class CloneProject extends AbstractTask
         $this->checkParams($params, ['writerId']);
         $this->checkWriterExistence($params['writerId']);
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->configuration->checkProjectsTable();
 
         if (empty($params['accessToken'])) {
@@ -47,7 +47,7 @@ class CloneProject extends AbstractTask
 
         $this->checkParams($params, ['accessToken', 'name', 'pidSource']);
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
 
         // Check access to source project
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);

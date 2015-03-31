@@ -77,7 +77,7 @@ class CreateWriterTest extends AbstractTaskTest
         // Check writer configuration
         $bucketAttributes = false;
         try {
-            $bucketAttributes = $this->configuration->bucketAttributes();
+            $bucketAttributes = $this->configuration->getBucketAttributes();
         } catch (UserException $e) {
             $this->fail("Writer configuration is not valid.");
         }

@@ -63,7 +63,7 @@ class DeleteFilter extends AbstractTask
             $uris[] = $params['uri'];
         }
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
         foreach ($uris as $uri) {

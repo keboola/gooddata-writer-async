@@ -13,14 +13,17 @@ use Symfony\Component\Process\Process;
 
 class WebDav
 {
-    protected $url = 'https://na1-di.gooddata.com/uploads';
+    protected $url = 'https://secure-di.gooddata.com/uploads';
     protected $username;
     protected $password;
 
-    public function __construct($username, $password)
+    public function __construct($username, $password, $url = '')
     {
         $this->username = $username;
         $this->password = $password;
+        if ($url) {
+            $this->url = $url;
+        }
     }
 
     public function getUrl()

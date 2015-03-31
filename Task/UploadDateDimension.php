@@ -51,7 +51,7 @@ class UploadDateDimension extends AbstractTask
 
         $stopWatch = new Stopwatch();
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
 
         $dateDimensions = $this->configuration->getDateDimensions();
         if (!in_array($params['name'], array_keys($dateDimensions))) {

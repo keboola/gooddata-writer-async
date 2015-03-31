@@ -37,7 +37,7 @@ class ResetProject extends AbstractTask
 
         $projectName = sprintf(Model::PROJECT_NAME_TEMPLATE, $this->gdProjectNamePrefix, $this->configuration->tokenInfo['owner']['name'], $this->configuration->writerId);
         $accessToken = !empty($params['accessToken']) ? $params['accessToken'] : $this->gdAccessToken;
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
 
         $oldPid = $bucketAttributes['gd']['pid'];
         $userId = $bucketAttributes['gd']['uid'];

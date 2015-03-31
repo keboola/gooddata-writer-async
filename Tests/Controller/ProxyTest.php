@@ -39,7 +39,7 @@ class ProxyTest extends AbstractControllerTest
         $this->prepareData();
         $this->processJob('/upload-project');
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $pid = $bucketAttributes['gd']['pid'];
 
         $attr = $this->getAttributeByTitle($pid, 'Id (Categories)');

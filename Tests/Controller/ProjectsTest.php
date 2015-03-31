@@ -35,7 +35,7 @@ class ProjectsTest extends AbstractControllerTest
 
 
         // Check of GoodData
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
         $projectInfo = $this->restApi->getProject($clonedPid);
         $this->assertArrayHasKey('project', $projectInfo, "Response for GoodData API project call should contain 'project' key.");
@@ -127,7 +127,7 @@ class ProjectsTest extends AbstractControllerTest
         $job = $this->getJobFromElasticsearch($jobId);
         $this->assertEquals(Job::STATUS_SUCCESS, $job->getStatus());
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
         $data = $this->restApi->get('/gdc/md/' . $mainPid . '/data/sets');
@@ -168,7 +168,7 @@ class ProjectsTest extends AbstractControllerTest
         $job = $this->getJobFromElasticsearch($jobId);
         $this->assertEquals(Job::STATUS_SUCCESS, $job->getStatus());
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 
@@ -205,11 +205,11 @@ class ProjectsTest extends AbstractControllerTest
         /**
          * reset project
          */
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $oldPid = (string)$bucketAttributes['gd']['pid'];
 
         $this->processJob('/reset-project');
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $newPid = (string)$bucketAttributes['gd']['pid'];
         $this->assertNotEquals($newPid, $oldPid, 'Project reset failed');
 

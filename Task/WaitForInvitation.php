@@ -26,7 +26,7 @@ class WaitForInvitation extends AbstractTask
     {
         $this->initRestApi($job);
         $this->checkParams($params, ['try']);
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
 
         $this->restApi->login($this->getDomainUser()->username, $this->getDomainUser()->password);
         if ($this->restApi->hasAccessToProject($bucketAttributes['gd']['pid'])) {

@@ -30,10 +30,9 @@ class ResetTable extends AbstractTask
         $this->initRestApi($job);
         $this->checkParams($params, ['tableId']);
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
 
         $tableDefinition = $this->configuration->getDataSet($params['tableId']);
-        $dataSetName = !empty($tableDefinition['name']) ? $tableDefinition['name'] : $tableDefinition['id'];
 
         $projects = $this->configuration->getProjects();
 
@@ -44,7 +43,7 @@ class ResetTable extends AbstractTask
         $updateOperations = [];
         foreach ($projects as $project) {
             if ($project['active']) {
-                $result = $this->restApi->dropDataSet($project['pid'], $dataSetName);
+                $result = $this->restApi->dropDataSet($project['pid'], $tableDefinition['title']);
                 if ($result) {
                     $updateOperations[$project['pid']] = $result;
                 }

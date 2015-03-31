@@ -109,7 +109,7 @@ abstract class AbstractTask
         $this->restApi->setRunId($job->getRunId());
 
         try {
-            $bucketAttributes = $this->configuration->bucketAttributes();
+            $bucketAttributes = $this->configuration->getBucketAttributes();
             if (!empty($bucketAttributes['gd']['backendUrl'])) {
                 $this->restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
             }

@@ -9,6 +9,7 @@
 namespace Keboola\GoodDataWriter\Writer;
 
 use Keboola\GoodDataWriter\Exception\SharedStorageException;
+use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\Service\StorageApiConfiguration;
 use Keboola\StorageApi\Client as StorageApiClient;
 use Keboola\StorageApi\ClientException;
@@ -186,7 +187,7 @@ class Configuration extends StorageApiConfiguration
         return $result;
     }
 
-    public function bucketAttributes($checkError = true)
+    public function getBucketAttributes($checkError = true)
     {
         try {
             $bucket = $this->storageApiClient->getBucket($this->bucketId);
@@ -232,7 +233,7 @@ class Configuration extends StorageApiConfiguration
 
     public function getWriterToApi()
     {
-        $attributes = $this->bucketAttributes(false);
+        $attributes = $this->getBucketAttributes(false);
         try {
             $sharedData = $this->sharedStorage->getWriter($this->projectId, $this->writerId);
             unset($sharedData['feats']);
@@ -371,7 +372,7 @@ class Configuration extends StorageApiConfiguration
 
         return [
             'id' => $tableId,
-            'name' => empty($dataSet['name']) ? $tableId : $dataSet['name'],
+            'name' => empty($dataSet['name']) ? $tableId : $dataSet['name'], //TODO remove
             'export' => (bool)$dataSet['export'],
             'isExported' => (bool)$dataSet['isExported'],
             'lastChangeDate' => $dataSet['lastChangeDate'] ? $dataSet['lastChangeDate'] : null,
@@ -390,22 +391,25 @@ class Configuration extends StorageApiConfiguration
         $this->updateDataSetsFromSapi();
 
         $outputTables = $this->getOutputSapiTables();
-        $tables = [];
+        $result = [];
         foreach ($this->getConfigTable(self::DATA_SETS_TABLE_NAME) as $table) {
             if (in_array($table['id'], $outputTables)) {
-                $tables[] = [
+                $title = empty($table['name']) ? $table['id'] : $table['name'];
+                $result[] = [
                     'id' => $table['id'],
                     'bucket' => substr($table['id'], 0, strrpos($table['id'], '.')),
-                    'name' => empty($table['name']) ? $table['id'] : $table['name'],
+                    'name' => $title,
+                    'title' => $title,
                     'export' => (bool)$table['export'],
                     'isExported' => (bool)$table['isExported'],
                     'lastChangeDate' => $table['lastChangeDate'],
                     'incrementalLoad' => $table['incrementalLoad'] ? (int)$table['incrementalLoad'] : false,
-                    'ignoreFilter' => (bool)$table['ignoreFilter']
+                    'ignoreFilter' => (bool)$table['ignoreFilter'],
+                    'identifier' => !empty($table['identifier']) ? $table['identifier'] : Model::getDatasetId($title)
                 ];
             }
         }
-        return $tables;
+        return $result;
     }
 
 
@@ -446,21 +450,25 @@ class Configuration extends StorageApiConfiguration
     {
         $this->updateDataSetFromSapi($tableId);
 
-        $tableConfig = $this->getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
-        if (!$tableConfig) {
+        $data = $this->getConfigTableRow(self::DATA_SETS_TABLE_NAME, $tableId);
+        if (!$data) {
             throw new UserException("Definition for table '$tableId' does not exist");
         }
 
-        if ($tableConfig['definition']) {
-            $tableConfig['columns'] = json_decode($tableConfig['definition'], true);
-            if ($tableConfig['columns'] === null) {
+        if ($data['definition']) {
+            $data['columns'] = json_decode($data['definition'], true);
+            if ($data['columns'] === null) {
                 throw new UserException("Definition of columns is not valid json");
             }
         } else {
-            $tableConfig['columns'] = [];
+            $data['columns'] = [];
+        }
+        $data['title'] = !empty($data['name']) ? $data['name'] : $data['id'];
+        if (empty($data['identifier'])) {
+            $data['identifier'] = Model::getDatasetId($data['title']);
         }
 
-        return $tableConfig;
+        return $data;
     }
 
 
@@ -691,11 +699,12 @@ class Configuration extends StorageApiConfiguration
 
         $gdDefinition = $this->getDataSet($tableId);
         $dateDimensions = null; // fetch only when needed
-        $dataSetName = !empty($gdDefinition['name']) ? $gdDefinition['name'] : $gdDefinition['id'];
         $sourceTable = $this->getSapiTable($tableId);
 
         $result = [
-            'name' => $dataSetName,
+            'tableId' => $tableId,
+            'title' => $gdDefinition['title'],
+            'identifier' => $gdDefinition['identifier'],
             'columns' => []
         ];
 
@@ -713,9 +722,7 @@ class Configuration extends StorageApiConfiguration
 
             $column = [
                 'name' => $columnName,
-                'title' => (!empty($columnDefinition['gdName']) ? $columnDefinition['gdName'] : $columnName) . ' (' . $dataSetName . ')',
-                //@TODO 'title' => (!empty($columnDefinition['gdName']) ? $columnDefinition['gdName'] : $columnName)
-                //@TODO    . (!empty($gdDefinition['addTitleToColumns'])? ' (' . $dataSetName . ')' : ''),
+                'title' => (!empty($columnDefinition['gdName']) ? $columnDefinition['gdName'] : $columnName) . ' (' . $gdDefinition['title'] . ')',
                 'type' => !empty($columnDefinition['type']) ? $columnDefinition['type'] : 'IGNORE'
             ];
             if (!empty($columnDefinition['dataType'])) {
@@ -763,8 +770,7 @@ class Configuration extends StorageApiConfiguration
                                     . " of column '{$columnName}' does not exist");
                             }
                             if ($refTableDefinition) {
-                                $refTableName = !empty($refTableDefinition['name']) ? $refTableDefinition['name'] : $refTableDefinition['id'];
-                                $column['schemaReference'] = $refTableName;
+                                $column['schemaReference'] = $refTableDefinition['title'];
                                 $column['schemaReferenceId'] = $refTableDefinition['id'];
                                 $reference = null;
                                 foreach ($refTableDefinition['columns'] as $cName => $c) {
@@ -802,7 +808,6 @@ class Configuration extends StorageApiConfiguration
     public function getSortedDataSets()
     {
         $dataSets = [];
-        // Include data set if not excluded and is included or if we do not want included only then look to export flag
         foreach ($this->getDataSets() as $dataSet) {
             if (!empty($dataSet['export'])) {
                 try {
@@ -813,9 +818,10 @@ class Configuration extends StorageApiConfiguration
 
                 $dataSets[$dataSet['id']] = [
                     'tableId' => $dataSet['id'],
-                    'title' => $definition['name'],
+                    'title' => $definition['title'],
                     'definition' => $definition,
-                    'lastChangeDate' => $dataSet['lastChangeDate']
+                    'lastChangeDate' => $dataSet['lastChangeDate'],
+                    'identifier' => $dataSet['identifier']
                 ];
             }
         }
@@ -966,7 +972,7 @@ class Configuration extends StorageApiConfiguration
      */
     public function getProjects()
     {
-        $bucketAttributes = $this->bucketAttributes();
+        $bucketAttributes = $this->getBucketAttributes();
         $projects = $this->getConfigTable(self::PROJECTS_TABLE_NAME);
         if (isset($bucketAttributes['gd']['pid'])) {
             array_unshift($projects, ['pid' => $bucketAttributes['gd']['pid'], 'active' => true, 'main' => true]);
@@ -1033,7 +1039,7 @@ class Configuration extends StorageApiConfiguration
      */
     public function getUsers()
     {
-        $bucketAttributes = $this->bucketAttributes();
+        $bucketAttributes = $this->getBucketAttributes();
         $users = $this->getConfigTable(self::USERS_TABLE_NAME);
         if (isset($bucketAttributes['gd']['username']) && isset($bucketAttributes['gd']['uid'])) {
             array_unshift($users, [
@@ -1090,7 +1096,7 @@ class Configuration extends StorageApiConfiguration
      */
     public function getProjectUsers($pid = null)
     {
-        $bucketAttributes = $this->bucketAttributes();
+        $bucketAttributes = $this->getBucketAttributes();
         $projectUsers = $this->getConfigTable(self::PROJECT_USERS_TABLE_NAME);
         if (!count($projectUsers) && isset($bucketAttributes['gd']['pid']) && isset($bucketAttributes['gd']['username'])) {
             array_unshift($projectUsers, [

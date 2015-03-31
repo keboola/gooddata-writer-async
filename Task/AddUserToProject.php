@@ -26,7 +26,7 @@ class AddUserToProject extends AbstractTask
             throw new UserException($this->translator->trans('parameters.pid_not_configured'));
         }
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->configuration->checkProjectsTable();
         $this->configuration->checkUsersTable();
         $this->configuration->checkProjectUsersTable();
@@ -54,7 +54,7 @@ class AddUserToProject extends AbstractTask
         $params['email'] = strtolower($params['email']);
 
         if (empty($params['pid'])) {
-            $bucketAttributes = $this->configuration->bucketAttributes();
+            $bucketAttributes = $this->configuration->getBucketAttributes();
             $params['pid'] = $bucketAttributes['gd']['pid'];
         }
 

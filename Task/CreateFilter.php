@@ -72,9 +72,8 @@ class CreateFilter extends AbstractTask
 
         $tableId = $this->configuration->getTableIdFromAttribute($params['attribute']);
         $tableDefinition = $this->configuration->getDataSet($tableId);
-        $tableName = empty($tableDefinition['name'])? $tableId : $tableDefinition['name'];
         $attrName = substr($params['attribute'], strrpos($params['attribute'], '.') + 1);
-        $attrId = Model::getAttributeId($tableName, $attrName);
+        $attrId = Model::getAttributeId($tableDefinition['title'], $attrName);
 
         $overAttrId = null;
         $toAttrId = null;
@@ -84,18 +83,16 @@ class CreateFilter extends AbstractTask
         if (isset($params['over']) && isset($params['to'])) {
             $overTableId = $this->configuration->getTableIdFromAttribute($params['over']);
             $overTableDefinition = $this->configuration->getDataSet($overTableId);
-            $overTableName = empty($overTableDefinition['name'])? $overTableId : $overTableDefinition['name'];
             $overAttrName = substr($params['over'], strrpos($params['over'], '.') + 1);
-            $overAttrId = Model::getAttributeId($overTableName, $overAttrName);
+            $overAttrId = Model::getAttributeId($overTableDefinition['title'], $overAttrName);
 
             $toTableId = $this->configuration->getTableIdFromAttribute($params['to']);
             $toTableDefinition = $this->configuration->getDataSet($toTableId);
-            $toTableName = empty($toTableDefinition['name'])? $toTableId : $toTableDefinition['name'];
             $toAttrName = substr($params['to'], strrpos($params['to'], '.') + 1);
-            $toAttrId = Model::getAttributeId($toTableName, $toAttrName);
+            $toAttrId = Model::getAttributeId($toTableDefinition['title'], $toAttrName);
         }
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
         $filterUri = $this->restApi->createFilter($params['name'], $attrId, $params['operator'], $params['value'], $params['pid'], $overAttrId, $toAttrId);

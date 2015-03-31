@@ -63,7 +63,7 @@ class ExecuteReports extends AbstractTask
         if (!$project) {
             throw new UserException($this->translator->trans('parameters.pid_not_configured'));
         }
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->configuration->checkProjectsTable();
 
         // reports uri validation

@@ -93,7 +93,7 @@ class ReportsTest extends AbstractControllerTest
         $this->createUser();
 
         // Check of GoodData
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
         // Upload data

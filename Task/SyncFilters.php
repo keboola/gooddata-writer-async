@@ -32,7 +32,7 @@ class SyncFilters extends AbstractTask
     {
         $this->initRestApi($job);
         $this->configuration->checkFiltersTable();
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
         // Delete all filters from project
@@ -52,23 +52,20 @@ class SyncFilters extends AbstractTask
             if (in_array($f['name'], $filtersToCreate)) {
                 $tableId = $this->configuration->getTableIdFromAttribute($f['attribute']);
                 $tableDefinition = $this->configuration->getDataSet($tableId);
-                $tableName = empty($tableDefinition['name'])? $tableId : $tableDefinition['name'];
                 $attrName = substr($f['attribute'], strrpos($f['attribute'], '.') + 1);
-                $attrId = Model::getAttributeId($tableName, $attrName);
+                $attrId = Model::getAttributeId($tableDefinition['title'], $attrName);
 
                 $overAttrId = $toAttrId = null;
                 if (!empty($f['over']) && !empty($f['to'])) {
                     $overTableId = $this->configuration->getTableIdFromAttribute($f['over']);
                     $overTableDefinition = $this->configuration->getDataSet($overTableId);
-                    $overTableName = empty($overTableDefinition['name'])? $overTableId : $overTableDefinition['name'];
                     $overAttrName = substr($f['over'], strrpos($f['over'], '.') + 1);
-                    $overAttrId = Model::getAttributeId($overTableName, $overAttrName);
+                    $overAttrId = Model::getAttributeId($overTableDefinition['title'], $overAttrName);
 
                     $toTableId = $this->configuration->getTableIdFromAttribute($f['to']);
                     $toTableDefinition = $this->configuration->getDataSet($toTableId);
-                    $toTableName = empty($toTableDefinition['name'])? $toTableId : $toTableDefinition['name'];
                     $toAttrName = substr($f['to'], strrpos($f['to'], '.') + 1);
-                    $toAttrId = Model::getAttributeId($toTableName, $toAttrName);
+                    $toAttrId = Model::getAttributeId($toTableDefinition['title'], $toAttrName);
                 }
 
                 $filterUris[$f['name']] = $this->restApi->createFilter(

@@ -59,7 +59,7 @@ class LoadDataMulti extends AbstractTask
             throw new UserException($this->translator->trans('job_executor.data_set_definition_missing'));
         }
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
 
         $stopWatch = new Stopwatch();
 
@@ -179,7 +179,7 @@ class LoadDataMulti extends AbstractTask
                 $job->getId(),
                 $job->getRunId(),
                 ['error' => $e->getMessage()],
-                $stopWatch->isStarted($stopWatchId)? $stopWatch->stop($stopWatchId)->getDuration() : 0,
+                !empty($stopWatchId) && $stopWatch->isStarted($stopWatchId)? $stopWatch->stop($stopWatchId)->getDuration() : 0,
                 Event::TYPE_ERROR
             );
             throw $e;

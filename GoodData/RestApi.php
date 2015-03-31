@@ -151,6 +151,12 @@ class RestApi
         return $this->get(sprintf('/gdc/projects/%s', $pid));
     }
 
+    public function getUploadUrl($pid)
+    {
+        $data = $this->getProject($pid);
+        return $data['project']['links']['uploads'];
+    }
+
     /**
      * @param $pid
      * @return array
@@ -792,7 +798,7 @@ class RestApi
         }
         $dataSetFound = false;
         foreach ($model['projectModel']['datasets'] as &$dataSet) {
-            if ($dataSet['dataset']['identifier'] == Model::getDatasetId($definition['name'])) {
+            if ($dataSet['dataset']['identifier'] == $definition['identifier']) {
                 $dataSetFound = true;
                 $dataSet['dataset'] = $dataSetModel;
                 break;

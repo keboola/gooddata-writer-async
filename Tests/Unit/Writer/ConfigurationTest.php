@@ -662,8 +662,8 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
 
         // getDataSetDefinition()
         $data = $this->configuration->getDataSetDefinition($tableId);
-        $this->assertArrayHasKey('name', $data);
-        $this->assertEquals('Products', $data['name']);
+        $this->assertArrayHasKey('title', $data);
+        $this->assertEquals('Products', $data['title']);
         $this->assertArrayHasKey('columns', $data);
         $this->assertTrue(is_array($data['columns']));
         $this->assertCount(5, $data['columns']);

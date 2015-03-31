@@ -17,7 +17,7 @@ class FiltersTest extends AbstractControllerTest
      */
     public function testFilters()
     {
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $pid = $bucketAttributes['gd']['pid'];
 
         // Upload data

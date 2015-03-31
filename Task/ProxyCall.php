@@ -33,7 +33,7 @@ class ProxyCall extends AbstractTask
         $this->initRestApi($job);
         $this->checkParams($params, ['query', 'payload']);
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
         $response = $this->restApi->post($params['query'], $params['payload']);
 

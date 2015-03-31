@@ -893,7 +893,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $dateDimensionsToLoad = [];
         $dateDimensions = [];
         if ($definition['columns']) {
-            foreach ($definition['columns'] as $column) {
+            foreach ($definition['columns'] as $columnName => $column) {
                 if ($column['type'] == 'DATE') {
                     if (!$dateDimensions) {
                         $dateDimensions = $this->getConfiguration()->getDateDimensions();
@@ -901,7 +901,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
                     $dimension = $column['schemaReference'];
                     if (!isset($dateDimensions[$dimension])) {
-                        throw new UserException($this->translator->trans('configuration.dimension_not_found %d %c', ['%d' => $dimension, '%c' => $column['name']]));
+                        throw new UserException($this->translator->trans('configuration.dimension_not_found %d %c', ['%d' => $dimension, '%c' => $columnName]));
                     }
 
                     if (!$dateDimensions[$dimension]['isExported'] && !in_array($dimension, $dateDimensionsToLoad)) {
@@ -924,13 +924,11 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $jobData = null;
         $tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
         foreach ($projectsToUse as $pid) {
-            $dataSetName = !empty($tableConfiguration['name']) ? $tableConfiguration['name'] : $tableConfiguration['id'];
-            $dataSetId = Model::getDatasetId($dataSetName);
-
             // Make decision about creating / updating of data set
             $existingDataSets = $restApi->getDataSets($pid);
-            $dataSetExists = in_array($dataSetId, array_keys($existingDataSets));
-            $lastGoodDataUpdate = empty($existingDataSets[$dataSetId]['lastChangeDate'])? null : Model::getTimestampFromApiDate($existingDataSets[$dataSetId]['lastChangeDate']);
+            $dataSetExists = in_array($tableConfiguration['identifier'], array_keys($existingDataSets));
+            $lastGoodDataUpdate = empty($existingDataSets[$tableConfiguration['identifier']]['lastChangeDate'])? null
+                : Model::getTimestampFromApiDate($existingDataSets[$tableConfiguration['identifier']]['lastChangeDate']);
             $lastConfigurationUpdate = empty($tableConfiguration['lastChangeDate'])? null : strtotime($tableConfiguration['lastChangeDate']);
             $doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
 
@@ -984,7 +982,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $dateDimensions = [];
         foreach ($sortedDataSets as $dataSet) {
             if ($dataSet['definition']['columns']) {
-                foreach ($dataSet['definition']['columns'] as $column) {
+                foreach ($dataSet['definition']['columns'] as $columnName => $column) {
                     if ($column['type'] == 'DATE') {
                         if (!$dateDimensions) {
                             $dateDimensions = $this->getConfiguration()->getDateDimensions();
@@ -994,7 +992,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
                         if (!isset($dateDimensions[$dimension])) {
                             throw new UserException($this->translator->trans(
                                 'configuration.dimension_not_found %d %c %t',
-                                ['%d' => $dimension, '%c' => $column['name'], '%t' => $dataSet['tableId']]
+                                ['%d' => $dimension, '%c' => $columnName, '%t' => $dataSet['tableId']]
                             ));
                         }
 
@@ -1020,14 +1018,13 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
         foreach ($sortedDataSets as $dataSet) {
             foreach ($projectsToUse as $pid) {
-                $dataSetId = Model::getDatasetId($dataSet['title']);
-
                 // Make decision about creating / updating of data set
                 if (!isset($existingDataSets[$pid])) {
                     $existingDataSets[$pid] = $restApi->getDataSets($pid);
                 }
-                $dataSetExists = in_array($dataSetId, array_keys($existingDataSets[$pid]));
-                $lastGoodDataUpdate = empty($existingDataSets[$pid][$dataSetId]['lastChangeDate'])? null : Model::getTimestampFromApiDate($existingDataSets[$pid][$dataSetId]['lastChangeDate']);
+                $dataSetExists = in_array($dataSet['identifier'], array_keys($existingDataSets[$pid]));
+                $lastGoodDataUpdate = empty($existingDataSets[$pid][$dataSet['identifier']]['lastChangeDate'])? null
+                    : Model::getTimestampFromApiDate($existingDataSets[$pid][$dataSet['identifier']]['lastChangeDate']);
                 $lastConfigurationUpdate = empty($dataSet['lastChangeDate'])? null : strtotime($dataSet['lastChangeDate']);
                 $doUpdate = $dataSetExists && $lastConfigurationUpdate && (!$lastGoodDataUpdate || $lastGoodDataUpdate < $lastConfigurationUpdate);
 
@@ -1396,7 +1393,7 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         /** @var RestApi $restApi */
         $restApi = $this->container->get('gooddata_writer.rest_api');
 
-        $bucketAttributes = $this->getConfiguration()->bucketAttributes();
+        $bucketAttributes = $this->getConfiguration()->getBucketAttributes();
         if (!empty($bucketAttributes['gd']['backendUrl'])) {
             $restApi->setBaseUrl($bucketAttributes['gd']['backendUrl']);
         }

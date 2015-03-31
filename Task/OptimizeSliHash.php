@@ -58,7 +58,7 @@ class OptimizeSliHash extends AbstractTask
             $job->setStatus(Job::STATUS_PROCESSING);
             $this->jobFactory->update($job);
 
-            $bucketAttributes = $this->configuration->bucketAttributes();
+            $bucketAttributes = $this->configuration->getBucketAttributes();
             $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
             $this->restApi->optimizeSliHash($bucketAttributes['gd']['pid']);
 

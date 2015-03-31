@@ -38,7 +38,7 @@ class ExportReport extends AbstractTask
         $this->initRestApi($job);
         $this->checkParams($params, ['report', 'table']);
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->configuration->checkProjectsTable();
 
         if (!preg_match('/^([^\.]+)\.([^\.]+)\.([^\.]+)$/', $params['table'])) {

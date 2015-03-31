@@ -17,7 +17,7 @@ class DatasetsTest extends AbstractControllerTest
     public function testDatasets()
     {
         $this->prepareData();
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
         $webDav = new WebDav($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 

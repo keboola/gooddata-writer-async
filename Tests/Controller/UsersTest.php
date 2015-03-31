@@ -26,7 +26,7 @@ class UsersTest extends AbstractControllerTest
         $this->assertTrue($userFound, 'User does not exist in GoodData');
 
         // Check of GoodData
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
 
 
@@ -63,7 +63,7 @@ class UsersTest extends AbstractControllerTest
         ]);
 
         // Check GoodData
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
         $userProjectsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/users');
         $this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");
@@ -190,7 +190,7 @@ class UsersTest extends AbstractControllerTest
         ]);
 
         // Check GoodData
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->restApi->login($bucketAttributes['gd']['username'], $bucketAttributes['gd']['password']);
         $userProjectsInfo = $this->restApi->get('/gdc/projects/' . $project['pid'] . '/users');
         $this->assertArrayHasKey('users', $userProjectsInfo, "Response for GoodData API project users call should contain 'users' key.");

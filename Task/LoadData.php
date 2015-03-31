@@ -60,7 +60,7 @@ class LoadData extends AbstractTask
             throw new UserException($this->translator->trans('job_executor.data_set_definition_missing'));
         }
 
-        $bucketAttributes = $this->configuration->bucketAttributes();
+        $bucketAttributes = $this->configuration->getBucketAttributes();
         $this->configuration->updateDataSetsFromSapi();
 
         $stopWatch = new Stopwatch();
