@@ -31,6 +31,11 @@ class ProcessInvitationsCommand extends ContainerAwareCommand
         $sharedStorage = $this->getContainer()->get('gooddata_writer.shared_storage');
         $domainUser = $sharedStorage->getDomainUser($config['domain']);
 
+        $lock = $sharedStorage->getLock('ProcessInvitations');
+        if (!$lock->lock()) {
+            return;
+        }
+
         $startTime = time();
         do {
             /** @var InvitationsHandler $invitationsHandler */
@@ -44,5 +49,7 @@ class ProcessInvitationsCommand extends ContainerAwareCommand
 
             sleep(10);
         } while ((time() - $startTime) < 300);
+
+        $lock->unlock();
     }
 }
