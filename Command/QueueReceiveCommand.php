@@ -1,7 +1,7 @@
 <?php
 namespace Keboola\GoodDataWriter\Command;
 
-use Keboola\GoodDataWriter\Writer\QueueUnavailableException;
+use Keboola\GoodDataWriter\Exception\QueueUnavailableException;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
