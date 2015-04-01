@@ -8,79 +8,88 @@
 
 namespace Keboola\GoodDataWriter\GoodData;
 
+use Fetch\Server;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
-use Symfony\Component\Process\Process;
+use Monolog\Logger;
 
 class InvitationsHandler
 {
-    const SCRIPT_NAME = 'accept-invitations.rb';
-
-    private $scriptPath;
-    private $gdUsername;
-    private $gdPassword;
-    private $emailUsername;
-    private $emailPassword;
+    /**
+     * @var Server
+     */
+    private $server;
+    /**
+     * @var SharedStorage
+     */
     private $sharedStorage;
+    /**
+     * @var RestApi
+     */
+    private $restApi;
+    /**
+     * @var Logger
+     */
+    private $logger;
 
-    public function __construct($scriptsPath, $config, SharedStorage $sharedStorage)
+    public function __construct(SharedStorage $sharedStorage, RestApi $restApi, Logger $logger)
     {
-        if (!isset($config['domain'])) {
-            throw new \Exception("Key 'domain' is missing from invitations config");
-        }
-        if (!isset($config['email'])) {
-            throw new \Exception("Key 'email' is missing from invitations config");
-        }
-        if (!isset($config['password'])) {
-            throw new \Exception("Key 'password' is missing from invitations config");
-        }
-
         $this->sharedStorage = $sharedStorage;
-        $domainUser = $sharedStorage->getDomainUser($config['domain']);
-        $this->gdUsername = $domainUser->username;
-        $this->gdPassword = $domainUser->password;
-        $this->emailUsername = $config['email'];
-        $this->emailPassword = $config['password'];
-        $this->scriptPath = $scriptsPath . '/' . self::SCRIPT_NAME;
-        if (!file_exists($this->scriptPath)) {
-            throw new \Exception('Script for accepting invitations does not exist');
-        }
-        if (isset($config['ruby_path'])) {
-            $this->rubyPath = $config['ruby_path'];
-            if (!file_exists($this->rubyPath)) {
-                throw new \Exception('Ruby on path defined in parameters.yml does not exist');
-            }
-        } else {
-            $this->rubyPath = 'ruby';
-        }
+
+        $this->server = new Server('imap.gmail.com/ssl', 993);
+
+        $this->restApi = $restApi;
+
+        $this->logger = $logger;
     }
 
-    public function run()
+    public function run($emUsername, $emPassword, $gdUsername, $gdPassword)
     {
-        $process = new Process(sprintf(
-            '%s %s --gd_username=%s --gd_password=%s --email_username=%s --email_password=%s',
-            $this->rubyPath,
-            $this->scriptPath,
-            escapeshellarg($this->gdUsername),
-            escapeshellarg($this->gdPassword),
-            escapeshellarg($this->emailUsername),
-            escapeshellarg($this->emailPassword)
-        ));
-        $process->setTimeout(null);
-        $process->run();
-        $error = $process->getErrorOutput();
+        $this->restApi->login($gdUsername, $gdPassword);
+        $this->server->setAuthentication($emUsername, $emPassword);
 
-        if ($process->isSuccessful() && !$error) {
-            $result = $process->getOutput();
-            if ($result) {
-                foreach (explode("\n", $result) as $row) {
-                    $json = json_decode($row, true);
-                    if ($json && !empty($json['pid']) && !empty($json['sender']) && !empty($json['createDate']) && !empty($json['status'])) {
-                        $this->sharedStorage->logInvitation($json);
+        $messages = $this->server->getMessages();
+        /** @var $message \Fetch\Message */
+        foreach ($messages as $message) {
+            $sender = current($message->getHeaders()->from);
+            if ($sender->mailbox == 'invitation' && $sender->host == 'gooddata.com') {
+                $body = $message->getMessageBody();
+                foreach (explode("\n", $body) as $row) {
+                    if (strpos($row, 'https://secure.gooddata.com') === 0) {
+                        try {
+                            $invitationId = substr($row, strrpos($row, '/') + 1);
+                            $result = $this->restApi->get('/gdc/account/invitations/' . $invitationId);
+                            if (!isset($result['invitation']['content']['status'])) {
+                                throw new \Exception('ERROR');
+                            }
+                            if ($result['invitation']['content']['status'] == 'ACCEPTED') {
+                                // Do nothing
+                            } else {
+                                $this->restApi->post(
+                                    '/gdc/account/invitations/' . $invitationId,
+                                    ['invitationStatusAccept' => ['status' => 'ACCEPTED']]
+                                );
+
+                                $logData = [
+                                    'pid' => substr(
+                                        $result['invitation']['links']['project'],
+                                        strrpos($result['invitation']['links']['project'], '/') + 1
+                                    ),
+                                    'sender' => $result['invitation']['meta']['author']['email'],
+                                    'createDate' => $result['invitation']['meta']['created']
+                                ];
+                                $this->sharedStorage->logInvitation($logData);
+                                $this->logger->info('Invitation processed', $logData);
+                            }
+
+                            $message->moveToMailBox('Accepted');
+                        } catch (\Exception $e) {
+                            $this->logger->error('Invitation failed: ' . $e->getMessage(), ['exception' => $e]);
+                            $message->moveToMailBox('Failed');
+                        }
+                        break;
                     }
                 }
             }
-        } else {
-            throw new \Exception($error? $error : 'No error output');
         }
     }
 }

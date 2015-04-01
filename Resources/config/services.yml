@@ -29,8 +29,8 @@ services:
     arguments: [@doctrine.dbal.default_connection, @syrup.encryptor]
 
   gooddata_writer.invitations_handler:
-      class: Keboola\GoodDataWriter\GoodData\InvitationsHandler
-      arguments: [%gdwr_scripts_path%, %gdwr_invitations%, @gooddata_writer.shared_storage]
+    class: Keboola\GoodDataWriter\GoodData\InvitationsHandler
+    arguments: [@gooddata_writer.shared_storage, @gooddata_writer.rest_api, @logger]
 
   gooddata_writer.job_executor:
     class: Keboola\GoodDataWriter\Writer\JobExecutor

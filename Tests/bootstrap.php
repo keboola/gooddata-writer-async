@@ -59,3 +59,4 @@ $stmt->closeCursor();
 
 $encryptor = new Encryptor(ENCRYPTION_KEY);
 $db->insert('domains', array('name' => GD_DOMAIN_NAME, 'username' => GD_DOMAIN_USER, 'password' => $encryptor->encrypt(GD_DOMAIN_PASSWORD), 'uid' => GD_DOMAIN_UID));
+
