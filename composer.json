@@ -1,15 +1,15 @@
 {
-	"name": "keboola/gooddata-writer",
-	"type": "symfony-bundle",
-	"description": "Keboola GoodData Writer",
-	"keywords": [],
-	"authors": [
-		{
-			"name": "Jakub Matějka",
-			"email": "jakub@keboola.com"
-		}
-	],
-	"require": {
+    "name": "keboola/gooddata-writer",
+    "type": "symfony-bundle",
+    "description": "Keboola GoodData Writer",
+    "keywords": [],
+    "authors": [
+        {
+            "name": "Jakub Matějka",
+            "email": "jakub@keboola.com"
+        }
+    ],
+    "require": {
         "php": ">=5.3.5",
         "keboola/syrup": "~2.2",
         "tedivm/fetch": "0.6.*"

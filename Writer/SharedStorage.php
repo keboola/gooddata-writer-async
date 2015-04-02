@@ -284,7 +284,7 @@ class SharedStorage
     {
         $this->db->executeUpdate(
             'REPLACE INTO project_invitations SET pid=?, sender=?, created_time=?, accepted_time=?, status=?, error=?',
-            [$data['pid'], $data['sender'], $data['createDate'], date('c'), $data['status'], isset($data['error'])? $data['error'] : null]
+            [$data['pid'], $data['sender'], $data['createDate'], date('c'), 'ok', isset($data['error'])? $data['error'] : null]
         );
     }
 

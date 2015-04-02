@@ -2,9 +2,7 @@ test.sh
 parameters.yml
 parameters_shared.yml
 .idea
-.bundle
 composer.phar
 console
 tmp
-Tests/config/config.php
 Command/DebugCommand.php

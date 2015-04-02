@@ -2,6 +2,7 @@ parameters:
 
 services:
 
+<<<<<<< HEAD
     gooddata_writer.s3_client:
         class: Keboola\GoodDataWriter\Aws\S3Client
         arguments: [%uploader%]

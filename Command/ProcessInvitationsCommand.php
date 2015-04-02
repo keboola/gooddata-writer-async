@@ -6,8 +6,10 @@
  */
 namespace Keboola\GoodDataWriter\Command;
 
+use Doctrine\DBAL\Connection;
 use Keboola\GoodDataWriter\GoodData\InvitationsHandler;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
+use Keboola\Syrup\Service\Db\Lock;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -31,6 +33,14 @@ class ProcessInvitationsCommand extends ContainerAwareCommand
         $sharedStorage = $this->getContainer()->get('gooddata_writer.shared_storage');
         $domainUser = $sharedStorage->getDomainUser($config['domain']);
 
+        /** @var Connection $conn */
+        $conn = $this->getContainer()->get('doctrine.dbal.lock_connection');
+        $conn->exec('SET wait_timeout = 31536000;');
+        $lock = new Lock($conn, 'ProcessInvitations');
+        if (!$lock->lock()) {
+            return;
+        }
+
         $startTime = time();
         do {
             /** @var InvitationsHandler $invitationsHandler */
@@ -44,5 +54,7 @@ class ProcessInvitationsCommand extends ContainerAwareCommand
 
             sleep(10);
         } while ((time() - $startTime) < 300);
+
+        $lock->unlock();
     }
 }

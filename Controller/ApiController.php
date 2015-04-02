@@ -921,7 +921,6 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             }
         }
 
-
         $jobData = null;
         $tableConfiguration = $this->getConfiguration()->getDataSet($this->params['tableId']);
         foreach ($projectsToUse as $pid) {
@@ -1016,7 +1015,6 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
 
         $existingDataSets = [];
-
         foreach ($sortedDataSets as $dataSet) {
             foreach ($projectsToUse as $pid) {
                 // Make decision about creating / updating of data set
