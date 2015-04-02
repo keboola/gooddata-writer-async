@@ -53,11 +53,10 @@ class InvitationsHandler
             $sender = current($message->getHeaders()->from);
             if ($sender->mailbox == 'invitation' && $sender->host == 'gooddata.com') {
                 $body = $message->getMessageBody();
-                foreach (explode("\n", $body) as $row) {
+                foreach (preg_split('/\r\n|[\r\n]/', $body) as $row) {
                     if (strpos($row, 'https://secure.gooddata.com') === 0) {
                         try {
-                            $invitationId = substr($row, strrpos($row, '/') + 1);
-                            echo 'Processing invitation ' . $invitationId . PHP_EOL;
+                            $invitationId = trim(substr($row, strrpos($row, '/') + 1));
                             $result = $this->restApi->get('/gdc/account/invitations/' . $invitationId);
                             if (!isset($result['invitation']['content']['status'])) {
                                 throw new \Exception('ERROR');
