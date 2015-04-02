@@ -11,6 +11,7 @@ namespace Keboola\GoodDataWriter\Writer;
 use Keboola\GoodDataWriter\Exception\SharedStorageException;
 use Keboola\GoodDataWriter\GoodData\Model;
 use Keboola\GoodDataWriter\StorageApi\CachedClient;
+use Keboola\StorageApi\Client;
 use Keboola\StorageApi\ClientException;
 use Keboola\Syrup\Exception\UserException;
 
@@ -1483,5 +1484,78 @@ class Configuration
             $cache
         );
         return count($result) ? current($result) : false;
+    }
+
+
+    public function migrateDatasets()
+    {
+        $table = Client::parseCsv($this->cachedClient->getClient()->exportTable($this->bucketId.'.data_sets'));
+        $resultTable = [];
+        foreach ($table as $row) {
+            $dataSetName = !empty($row['name']) ? $row['name'] : $row['id'];
+            $result = [
+                'tableId' => $row['id'],
+                'identifier' => Model::getDatasetId($dataSetName),
+                'title' => $dataSetName,
+                'export' => $row['export'],
+                'isExported' => $row['isExported'],
+                'lastChangeDate' => $row['lastChangeDate'],
+                'incrementalLoad' => $row['incrementalLoad'],
+                'ignoreFilter' => $row['ignoreFilter'],
+                'definition' => []
+            ];
+            $definition = json_decode($row['definition'], true);
+            foreach ($definition as $col => $def) {
+                switch ($def['type']) {
+                    case 'CONNECTION_POINT':
+                    case 'ATTRIBUTE':
+                        $identifier = Model::getAttributeId($dataSetName, $col);
+                        break;
+                    case 'FACT':
+                        $identifier = Model::getFactId($dataSetName, $col);
+                        break;
+                    case 'LABEL':
+                    case 'HYPERLINK':
+                        $identifier = Model::getLabelId($dataSetName, $col);
+                        break;
+                    default:
+                        $identifier = null;
+                }
+                $result['definition'][$col] = [];
+                if (isset($def['type']) && $def['type'] != 'IGNORE') {
+                    $result['definition'][$col]['type'] = $def['type'];
+                    $result['definition'][$col]['identifier'] = $identifier;
+                    $result['definition'][$col]['title'] = (isset($def['gdName']) ? $def['gdName'] : $col).'('.$dataSetName.')';
+                }
+                if (isset($def['dataType'])) {
+                    $result['definition'][$col]['dataType'] = $def['dataType'];
+                    if (isset($def['dataTypeSize'])) {
+                        $result['definition'][$col]['dataTypeSize'] = $def['dataTypeSize'];
+                    }
+                }
+                if (isset($def['schemaReference'])) {
+                    $result['definition'][$col]['schemaReference'] = $def['schemaReference'];
+                }
+                if (isset($def['reference'])) {
+                    $result['definition'][$col]['reference'] = $def['reference'];
+                }
+                if (isset($def['format'])) {
+                    $result['definition'][$col]['format'] = $def['format'];
+                }
+                if (isset($def['dateDimension'])) {
+                    $result['definition'][$col]['dateDimension'] = $def['dateDimension'];
+                }
+                if (isset($def['sortLabel'])) {
+                    $result['definition'][$col]['sortLabel'] = $def['sortLabel'];
+                    if (isset($def['sortOrder'])) {
+                        $result['definition'][$col]['sortOrder'] = $def['sortOrder'];
+                    }
+                }
+            }
+            $result['definition'] = json_encode($result['definition']);
+            $resultTable[] = $result;
+        }
+        $this->cachedClient->getClient()->dropTable($this->bucketId.'.data_sets');
+        $this->saveTable('data_sets', $resultTable, false, false);
     }
 }

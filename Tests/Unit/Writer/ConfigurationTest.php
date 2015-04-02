@@ -6,6 +6,7 @@
  */
 namespace Keboola\GoodDataWriter\Tests\Unit\Writer;
 
+use Keboola\Csv\CsvFile;
 use Keboola\GoodDataWriter\StorageApi\CachedClient;
 use Keboola\GoodDataWriter\Writer\Configuration;
 use Keboola\GoodDataWriter\Writer\SharedStorage;
@@ -814,4 +815,138 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
         $data = $this->configuration->getDateDimensions();
         $this->assertFalse($data['ProductDate']['isExported']);
     }
+
+    /*public function testConfigurationMigration()
+    {
+        $writerId = uniqid();
+        $this->storageApiClient->createBucket('wr-gooddata-'.$writerId, 'sys', 'test');
+        $this->storageApiClient->createTable('sys.c-wr-gooddata-'.$writerId, 'data_sets', new CsvFile(__DIR__.'/data_sets_migration.csv'));
+        $this->configuration->setWriterId($writerId);
+        $this->configuration->migrateDatasets();
+        $data = Client::parseCsv($this->storageApiClient->exportTable('sys.c-wr-gooddata-'.$writerId.'.data_sets'));
+        foreach ($data as $i => $table) {
+            if ($i == 0) {
+                $this->assertArrayHasKey('tableId', $table);
+                $this->assertArrayHasKey('identifier', $table);
+                $this->assertArrayHasKey('title', $table);
+                $this->assertArrayHasKey('export', $table);
+                $this->assertArrayHasKey('isExported', $table);
+                $this->assertArrayHasKey('lastChangeDate', $table);
+                $this->assertArrayHasKey('incrementalLoad', $table);
+                $this->assertArrayHasKey('ignoreFilter', $table);
+                $this->assertArrayHasKey('definition', $table);
+            }
+            $this->assertTrue(in_array($table['tableId'], ['out.c-main.categories', 'out.c-main.products', 'out.c-main.users']));
+            $columns = json_decode($table['definition'], true);
+            switch ($table['tableId']) {
+                case 'out.c-main.categories':
+                    $this->assertEquals('dataset.categories', $table['identifier']);
+                    $this->assertEquals('Categories', $table['title']);
+                    $this->assertNotEmpty($table['export']);
+                    $this->assertNotEmpty($table['isExported']);
+                    $this->assertEquals('2014-08-25T13:15:36+02:00', $table['lastChangeDate']);
+                    $this->assertEmpty($table['incrementalLoad']);
+                    $this->assertEmpty($table['ignoreFilter']);
+                    foreach ($columns as $name => $def) {
+                        switch($name) {
+                            case 'id':
+                                $this->assertArrayHasKey('type', $def);
+                                $this->assertArrayHasKey('identifier', $def);
+                                $this->assertArrayHasKey('title', $def);
+                                $this->assertCount(3, $def);
+                                $this->assertEquals('CONNECTION_POINT', $def['type']);
+                                $this->assertEquals('attr.categories.id', $def['identifier']);
+                                $this->assertEquals('id', $def['title']);
+                                break;
+                            case 'name':
+                                $this->assertEquals('ATTRIBUTE', $def['type']);
+                                $this->assertEquals('attr.categories.name', $def['identifier']);
+                                $this->assertEquals('name', $def['title']);
+                                break;
+                            default:
+                                $this->fail();
+                        }
+                    }
+                    break;
+                case 'out.c-main.products':
+                    $this->assertEquals('dataset.products', $table['identifier']);
+                    $this->assertEquals('Products', $table['title']);
+                    $this->assertNotEmpty($table['export']);
+                    $this->assertNotEmpty($table['isExported']);
+                    $this->assertEquals('2014-08-25T13:15:34+02:00', $table['lastChangeDate']);
+                    $this->assertNotEmpty($table['incrementalLoad']);
+                    $this->assertEmpty($table['ignoreFilter']);
+                    foreach ($columns as $name => $def) {
+                        switch($name) {
+                            case 'id':
+                                $this->assertEquals('attr.products.id', $def['identifier']);
+                                break;
+                            case 'name':
+                                $this->assertEquals('attr.products.name', $def['identifier']);
+                                $this->assertArrayHasKey('dataType', $def);
+                                $this->assertEquals('VARCHAR', $def['dataType']);
+                                $this->assertArrayHasKey('dataTypeSize', $def);
+                                $this->assertEquals(64, $def['dataTypeSize']);
+                                break;
+                            case 'category':
+                                $this->assertArrayHasKey('schemaReference', $def);
+                                break;
+                            case 'date':
+                                $this->assertArrayHasKey('format', $def);
+                                $this->assertArrayHasKey('dateDimension', $def);
+                                break;
+                            case 'price':
+                                $this->assertEquals('fact.products.price', $def['identifier']);
+                                break;
+                            case 'info':
+                                $this->assertEquals('label.products.info', $def['identifier']);
+                                $this->assertArrayHasKey('reference', $def);
+                                $this->assertEquals('url', $def['reference']);
+                                break;
+                            case 'url':
+                                $this->assertEquals('attr.products.url', $def['identifier']);
+                                break;
+                            default:
+                                $this->fail();
+                        }
+                    }
+                    break;
+                case 'out.c-main.users':
+                    $this->assertEquals('dataset.eshopusers', $table['identifier']);
+                    $this->assertEquals('E-shop Users', $table['title']);
+                    $this->assertNotEmpty($table['export']);
+                    $this->assertNotEmpty($table['isExported']);
+                    $this->assertEquals('2014-12-30T19:35:57+01:00', $table['lastChangeDate']);
+                    $this->assertEmpty($table['incrementalLoad']);
+                    $this->assertNotEmpty($table['ignoreFilter']);
+                    foreach ($columns as $name => $def) {
+                        switch($name) {
+                            case 'id':
+                                $this->assertEquals('attr.eshopusers.id', $def['identifier']);
+                                break;
+                            case 'name':
+                                $this->assertEquals('attr.eshopusers.name', $def['identifier']);
+                                break;
+                            case 'date':
+                                $this->assertEmpty($def);
+                                break;
+                            case 'address':
+                                $this->assertEmpty($def);
+                                break;
+                            case 'latitude':
+                                $this->assertEmpty($def);
+                                break;
+                            case 'longitude':
+                                $this->assertEmpty($def);
+                                break;
+                            default:
+                                $this->fail();
+                        }
+                    }
+                    break;
+                default:
+                    $this->fail();
+            }
+        }
+    }*/
 }
