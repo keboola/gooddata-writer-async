@@ -82,7 +82,7 @@ class Model
         return $date->getTimestamp();
     }
 
-    public function getImplicitConnectionPointId($tableName)
+    public static function getImplicitConnectionPointId($tableName)
     {
         return sprintf('attr.%s.factsof', self::getId($tableName));
     }

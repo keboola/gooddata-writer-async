@@ -334,7 +334,7 @@ class Configuration
 
         $outputTables = $this->getOutputSapiTables();
         $configuredTables = [];
-        foreach ($this->cachedClient->exportTable($tableId) as $row) {
+        foreach ($this->fetchTable(self::DATA_SETS_TABLE_NAME) as $row) {
             if (!isset($row['id'])) {
                 throw new UserException('Configuration table ' . $tableId . ' is missing column id');
             }
