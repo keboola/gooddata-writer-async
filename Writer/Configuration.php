@@ -327,16 +327,11 @@ class Configuration
             return;
         }
 
-        $tableId = $this->bucketId . '.' . self::DATA_SETS_TABLE_NAME;
-        if (!$this->cachedClient->tableExists($tableId)) {
-            $this->createTable(self::DATA_SETS_TABLE_NAME);
-        }
-
         $outputTables = $this->getOutputSapiTables();
         $configuredTables = [];
         foreach ($this->fetchTable(self::DATA_SETS_TABLE_NAME) as $row) {
             if (!isset($row['id'])) {
-                throw new UserException('Configuration table ' . $tableId . ' is missing column id');
+                throw new UserException('Configuration table ' . $this->bucketId . '.' . self::DATA_SETS_TABLE_NAME . ' is missing column id');
             }
             if (!in_array($row['id'], $configuredTables)) {
                 $configuredTables[] = $row['id'];
@@ -893,20 +888,14 @@ class Configuration
             return $this->getDateDimensionsWithUsage();
         }
 
-        $tableId = $this->bucketId . '.' . self::DATE_DIMENSIONS_TABLE_NAME;
-        if (!$this->cachedClient->tableExists($tableId)) {
-            $this->createTable(self::DATE_DIMENSIONS_TABLE_NAME);
-            return [];
-        } else {
-            $data = [];
-            foreach ($this->fetchTable(self::DATE_DIMENSIONS_TABLE_NAME) as $row) {
-                $row['includeTime'] = (bool)$row['includeTime'];
-                $row['isExported'] = (bool)$row['isExported'];
-                $data[$row['name']] = $row;
-            }
-
-            return $data;
+        $data = [];
+        foreach ($this->fetchTable(self::DATE_DIMENSIONS_TABLE_NAME) as $row) {
+            $row['includeTime'] = (bool)$row['includeTime'];
+            $row['isExported'] = (bool)$row['isExported'];
+            $data[$row['name']] = $row;
         }
+
+        return $data;
     }
 
 
@@ -1170,7 +1159,7 @@ class Configuration
      */
     public function getFilters($names = [])
     {
-        $filters = count($names)? $this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_TABLE_NAME, 'name', $names)
+        $filters = count($names)? $this->fetchTable(self::FILTERS_TABLE_NAME, 'name', $names)
             : $this->fetchTable(self::FILTERS_TABLE_NAME);
         foreach ($filters as &$filter) {
             if (in_array(substr($filter['value'], 0, 1), ['[', '{'])) {
@@ -1193,7 +1182,7 @@ class Configuration
     public function getFiltersForUser($email)
     {
         $filters = [];
-        foreach ($this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'email', $email) as $fu) {
+        foreach ($this->fetchTable(self::FILTERS_USERS_TABLE_NAME, 'email', $email) as $fu) {
             $filters[] = $fu['filter'];
         }
 
@@ -1205,7 +1194,7 @@ class Configuration
     public function getFiltersForProject($pid)
     {
         $filters = [];
-        foreach ($this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'pid', $pid) as $fp) {
+        foreach ($this->fetchTable(self::FILTERS_PROJECTS_TABLE_NAME, 'pid', $pid) as $fp) {
             $filters[] = $fp['filter'];
         }
 
@@ -1225,14 +1214,14 @@ class Configuration
      */
     public function getFiltersProjectsByPid($pid)
     {
-        return $this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'pid', $pid);
+        return $this->fetchTable(self::FILTERS_PROJECTS_TABLE_NAME, 'pid', $pid);
     }
     /**
      * Get filters_projects by filter
      */
     public function getFiltersProjectsByFilter($filter)
     {
-        return $this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'filter', $filter);
+        return $this->fetchTable(self::FILTERS_PROJECTS_TABLE_NAME, 'filter', $filter);
     }
 
 
@@ -1248,14 +1237,14 @@ class Configuration
      */
     public function getFiltersUsersByEmail($email)
     {
-        return $this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'email', $email);
+        return $this->fetchTable(self::FILTERS_USERS_TABLE_NAME, 'email', $email);
     }
     /**
      * Get filters_users by filter
      */
     public function getFiltersUsersByFilter($filter)
     {
-        return $this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_USERS_TABLE_NAME, 'filter', $filter);
+        return $this->fetchTable(self::FILTERS_USERS_TABLE_NAME, 'filter', $filter);
     }
 
 
@@ -1265,7 +1254,7 @@ class Configuration
      */
     public function checkFilterUri($uri)
     {
-        $filters = $this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri);
+        $filters = $this->fetchTable(self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri);
         return count($filters) > 0;
     }
 
@@ -1292,8 +1281,7 @@ class Configuration
 
     public function saveFiltersProjects($uri, $filter, $pid)
     {
-        if ($this->cachedClient->tableExists($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME)
-            && count($this->cachedClient->exportTable($this->bucketId . '.' . self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri))) {
+        if (count($this->fetchTable(self::FILTERS_PROJECTS_TABLE_NAME, 'uri', $uri))) {
             throw new UserException("Filter is already assigned to the project.");
         }
 
@@ -1444,14 +1432,14 @@ class Configuration
     /**
      * Get all rows from configuration table
      */
-    protected function fetchTable($tableName)
+    protected function fetchTable($tableName, $column = null, $value = null, $cache = true)
     {
         if (!isset($this->tables[$tableName])) {
             return false;
         }
 
         try {
-            $table = $this->cachedClient->exportTable($this->bucketId . '.' . $tableName);
+            $table = $this->cachedClient->exportTable($this->bucketId . '.' . $tableName, $column, $value, $cache);
         } catch (ClientException $e) {
             if ($e->getCode() == 404) {
                 $this->createTable($tableName);
@@ -1477,12 +1465,7 @@ class Configuration
             return false;
         }
 
-        $result = $this->cachedClient->exportTable(
-            $this->bucketId . '.' . $tableName,
-            $this->tables[$tableName]['primaryKey'],
-            $id,
-            $cache
-        );
+        $result = $this->fetchTable($tableName, $this->tables[$tableName]['primaryKey'], $id, $cache);
         return count($result) ? current($result) : false;
     }
 
