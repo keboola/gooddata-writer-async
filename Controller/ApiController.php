@@ -1519,9 +1519,39 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             }
             $job = $this->getSharedStorage()->fetchJob($this->params['jobId'], $this->projectId, $this->writerId);
             if (!$job) {
-                throw new UserException($this->translator->trans('parameters.job'));
+                // Fallback for ES jobs
+                /** @var Search $jobSearch */
+                $jobSearch = $this->container->get('gooddata_writer.elasticsearch.search');
+                $job = $jobSearch->getJob($this->params['jobId']);
+                if (!$job) {
+                    throw new UserException($this->translator->trans('parameters.job'));
+                }
+                $params = $job->getParams();
+                $job = [
+                    'id' => (int) $job->getId(),
+                    'batchId' => (int) $job->getId(),
+                    'runId' => (int) $job->getRunId(),
+                    'projectId' => (int) $job->getProject()['id'],
+                    'writerId' => isset($params['writerId']) ? $params['writerId'] : null,
+                    'queueId' => $job->getLockName(),
+                    'token' => [
+                        'id' => (int) $job->getToken()['id'],
+                        'description' => $job->getToken()['description'],
+                    ],
+                    'createdTime' => $job->getCreatedTime(),
+                    'startTime' => $job->getStartTime(),
+                    'endTime' => $job->getEndTime(),
+                    'command' => $job->getCommand(),
+                    'dataset' => null,
+                    'parameters' => $params,
+                    'result' => $job->getResult(),
+                    'gdWriteStartTime' => false,
+                    'status' => $job->getStatus(),
+                    'logs' => []
+                ];
+            } else {
+                $job = self::jobToApiResponse($job, $this->s3Client);
             }
-            $job = self::jobToApiResponse($job, $this->s3Client);
             return $this->createJsonResponse($job);
         }
     }
@@ -1537,9 +1567,38 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $this->checkWriterExistence();
         $jobs = $this->getSharedStorage()->fetchBatch($this->params['batchId'], $this->projectId, $this->writerId);
         if (!count($jobs)) {
-            throw new UserException(sprintf("Batch '%d' not found", $this->params['batchId']));
+            // Fallback for ES jobs
+            /** @var Search $jobSearch */
+            $jobSearch = $this->container->get('gooddata_writer.elasticsearch.search');
+            $job = $jobSearch->getJob($this->params['batchId']);
+            if (!$job) {
+                throw new UserException(sprintf("Batch '%d' not found", $this->params['batchId']));
+            }
+            $params = $job->getParams();
+            $batch = [
+                'batchId' => (int) $job->getId(),
+                'runId' => (int) $job->getRunId(),
+                'projectId' => (int) $job->getProject()['id'],
+                'writerId' => isset($params['writerId']) ? $params['writerId'] : null,
+                'queueId' => $job->getLockName(),
+                'token' => [
+                    'id' => (int) $job->getToken()['id'],
+                    'description' => $job->getToken()['description'],
+                ],
+                'createdTime' => $job->getCreatedTime(),
+                'startTime' => $job->getStartTime(),
+                'endTime' => $job->getEndTime(),
+                'command' => $job->getCommand(),
+                'dataset' => null,
+                'jobs' => isset($params['tasks']) ? $params['tasks'] : [],
+                'result' => $job->getResult(),
+                'gdWriteStartTime' => false,
+                'status' => $job->getStatus(),
+                'logs' => []
+            ];
+        } else {
+            $batch = self::batchToApiResponse($this->params['batchId'], $jobs);
         }
-        $batch = self::batchToApiResponse($this->params['batchId'], $jobs);
         return $this->createJsonResponse($batch);
     }
 
