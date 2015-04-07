@@ -22,6 +22,7 @@
 	},
 	"scripts": {
 		"post-install-cmd": [
+			"bash git/setup.sh",
 			"Keboola\\Syrup\\DeploymentHandler\\ScriptHandler::getParameters",
 			"Keboola\\Syrup\\DeploymentHandler\\ScriptHandler::getSharedParameters",
 			"Sensio\\Bundle\\DistributionBundle\\Composer\\ScriptHandler::buildBootstrap",
