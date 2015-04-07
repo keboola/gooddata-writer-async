@@ -92,6 +92,12 @@ class ResetProject extends AbstractTask
         }
 
         $this->configuration->updateBucketAttribute('gd.pid', $newPid);
+        $this->sharedStorage->saveProject(
+            $this->configuration->projectId,
+            $this->configuration->writerId,
+            $newPid,
+            $accessToken
+        );
 
         foreach ($this->configuration->getDataSets() as $dataSet) {
             $this->configuration->updateDataSetDefinition($dataSet['id'], [
