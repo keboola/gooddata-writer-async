@@ -133,7 +133,7 @@ $db->insert('domains', [
     'uid' => GW_GD_DOMAIN_UID
 ]);
 $db->insert('queues', [
-    'id' => 'default',
+    'id' => GW_APP_NAME,
     'access_key' => GW_AWS_ACCESS_KEY,
     'secret_key' => GW_AWS_SECRET_KEY,
     'region' => 'us-east-1',

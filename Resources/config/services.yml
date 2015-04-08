@@ -48,6 +48,7 @@ services:
     gooddata_writer.job_factory:
         class: Keboola\GoodDataWriter\Job\Metadata\JobFactory
         arguments:
+            - %app_name%
             - @syrup.queue_factory
             - @syrup.elasticsearch.current_component_job_mapper
             - @syrup.job_factory

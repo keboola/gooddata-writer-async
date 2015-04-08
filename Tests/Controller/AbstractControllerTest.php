@@ -213,7 +213,7 @@ abstract class AbstractControllerTest extends WebTestCase
         ]);
         $table->save();
 
-        $table = new StorageApiTable($this->storageApi, $this->bucketId . '.data_sets', null, 'tableId');
+        $table = new StorageApiTable($this->storageApi, $this->bucketId . '.data_sets', null, 'id');
         $table->setHeader($this->configuration->tables[Configuration::DATA_SETS_TABLE_NAME]['columns']);
         $table->setFromArray([
             [$this->dataBucketId.'.categories', 'Categories', 1, 0, '', 0, 0, json_encode([

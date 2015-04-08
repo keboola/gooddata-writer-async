@@ -37,12 +37,13 @@ class JobFactory
     protected $jobSearch;
 
     public function __construct(
+        $appName,
         QueueFactory $queueFactory,
         JobMapper $jobMapper,
         SyrupJobFactory $jobFactory,
         Search $jobSearch
     ) {
-        $this->queue = $queueFactory->get();
+        $this->queue = $queueFactory->get($appName);
         $this->jobMapper = $jobMapper;
         $this->syrupJobFactory = $jobFactory;
         $this->jobSearch = $jobSearch;
