@@ -1,5 +1,5 @@
 {
-    "name": "keboola/gooddata-writer",
+    "name": "keboola/gooddata-writer-async",
     "type": "symfony-bundle",
     "description": "Keboola GoodData Writer",
     "keywords": [],
@@ -41,7 +41,7 @@
 	},
 	"target-dir": "Keboola/GoodDataWriter",
 	"extra": {
-		"syrup-app-name": "gooddata-writer",
+		"syrup-app-name": "gooddata-writer-async",
 		"symfony-app-dir": "vendor/keboola/syrup/app",
 		"symfony-web-dir": "vendor/keboola/syrup/web"
 	}
