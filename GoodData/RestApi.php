@@ -1126,7 +1126,7 @@ class RestApi
 
         if ($taskResponse['wTaskStatus']['status'] == 'ERROR') {
             $messages = isset($taskResponse['wTaskStatus']['messages']) ? $taskResponse['wTaskStatus']['messages'] : null;
-            throw new RestApiException('Task /ldm/manage2 finished with error', $messages);
+            throw new RestApiException('Task /ldm/manage2 finished with error', null, $messages);
         }
 
         return $taskResponse;
@@ -1372,7 +1372,7 @@ class RestApi
 
         if ($taskResponse['wTaskStatus']['status'] == 'ERROR') {
             $messages = isset($taskResponse['wTaskStatus']['messages']) ? $taskResponse['wTaskStatus']['messages'] : null;
-            throw new RestApiException('SLI hash optimization failed. See logs for details', $messages);
+            throw new RestApiException('SLI hash optimization failed. See logs for details', null, $messages);
         }
     }
 
