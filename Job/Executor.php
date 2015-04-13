@@ -116,7 +116,6 @@ class Executor extends \Keboola\Syrup\Job\Executor
                     if (substr($e->getMessage(), 0, 12) == 'User error: ') {
                         $message = substr($e->getMessage(), 12);
                     }
-                    $eventLogger->log($job->getId(), $job->getRunId(), $message, $e->getData(), null, Event::TYPE_ERROR);
                     throw new UserException(
                         sprintf('Task %d (%s): %s', $i, ucfirst($task['name']), $message),
                         $e,

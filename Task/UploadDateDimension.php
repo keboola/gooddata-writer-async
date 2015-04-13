@@ -139,12 +139,16 @@ class UploadDateDimension extends AbstractTask
             }
 
         } catch (\Exception $e) {
+            $params = ['error' => $e->getMessage()];
+            if ($e instanceof UserException) {
+                $params['details'] = $e->getData();
+            }
             $this->logEvent(
                 'Time dimension data processing failed',
                 $taskId,
                 $job->getId(),
                 $job->getRunId(),
-                ['error' => $e->getMessage()],
+                $params,
                 $stopWatch->stop($stopWatchId)->getDuration(),
                 Event::TYPE_ERROR
             );
