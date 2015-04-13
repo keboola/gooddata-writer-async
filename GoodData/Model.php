@@ -166,7 +166,7 @@ class Model
                     if (!empty($column['sortLabel'])) {
                         $attribute['sortOrder'] = [
                             'attributeSortOrder' => [
-                                'label' => self::getLabelId($tableDefinition['title'], $column['name'].'.'.self::getId($column['sortLabel'])),
+                                'label' => self::getLabelId($tableDefinition['title'], $column['name']).'.'.self::getId($column['sortLabel']),
                                 'direction' => (!empty($column['sortOrder']) && $column['sortOrder'] == 'DESC') ? 'DESC' : 'ASC'
                             ]
                         ];
