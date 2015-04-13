@@ -103,6 +103,15 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         }
         $this->paramQueue = isset($this->params['queue']) ? $this->params['queue'] : Job::PRIMARY_QUEUE;
 
+        // Set runId
+        if ($request->headers->has('X-KBC-RunId')) {
+            $kbcRunId = $this->storageApi->generateRunId($request->headers->get('X-KBC-RunId'));
+        } else {
+            $kbcRunId = $this->storageApi->generateRunId();
+        }
+        $this->storageApi->setRunId($kbcRunId);
+
+
         $tokenInfo = $this->storageApi->getLogData();
         $this->projectId = $tokenInfo['owner']['id'];
         $this->writerId = empty($this->params['writerId']) ? null : $this->params['writerId'];
