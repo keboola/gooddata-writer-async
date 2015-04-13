@@ -103,12 +103,16 @@ class UpdateModel extends AbstractTask
             }
 
         } catch (\Exception $e) {
+            $params = ['error' => $e->getMessage()];
+            if ($e instanceof UserException) {
+                $params['details'] = $e->getData();
+            }
             $this->logEvent(
                 'Model update failed',
                 $taskId,
                 $job->getId(),
                 $job->getRunId(),
-                ['error' => $e->getMessage()],
+                $params,
                 $stopWatch->stop($stopWatchId)->getDuration(),
                 Event::TYPE_ERROR
             );

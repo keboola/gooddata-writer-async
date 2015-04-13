@@ -173,12 +173,16 @@ class LoadData extends AbstractTask
                 $stopWatch->stop($stopWatchId)->getDuration()
             );
         } catch (\Exception $e) {
+            $params = ['error' => $e->getMessage()];
+            if ($e instanceof UserException) {
+                $params['details'] = $e->getData();
+            }
             $this->logEvent(
                 'Csv processing in GoodData failed',
                 $taskId,
                 $job->getId(),
                 $job->getRunId(),
-                ['error' => $e->getMessage()],
+                $params,
                 $stopWatch->isStarted($stopWatchId)? $stopWatch->stop($stopWatchId)->getDuration() : 0,
                 Event::TYPE_ERROR
             );
