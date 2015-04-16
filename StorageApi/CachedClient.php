@@ -154,12 +154,21 @@ class CachedClient
         return $this->cache[$cacheKey];
     }
 
+    public function createTable($tableId, $primaryKey, $columns, $indices = [])
+    {
+        $table = new Table($this->client, $tableId, null, $primaryKey);
+        $table->setHeader($columns);
+        if (count($indices)) {
+            $table->setIndices($indices);
+        }
+        $table->save();
+    }
+
     public function saveTable(
         $tableId,
         array $header,
         array $data = [],
         $primaryKey = null,
-        array $indices = [],
         $incremental = true,
         $partial = true
     ) {
@@ -168,9 +177,6 @@ class CachedClient
             $table->setHeader($header);
             if (count($data)) {
                 $table->setFromArray($data);
-            }
-            if (count($indices) && !$this->client->tableExists($tableId)) {
-                $table->setIndices($indices);
             }
             $table->setIncremental($incremental);
             $table->setPartial($partial);
