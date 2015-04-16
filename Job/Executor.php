@@ -95,6 +95,7 @@ class Executor extends \Keboola\Syrup\Job\Executor
 
         $results = [];
         foreach ($jobParams['tasks'] as $i => $task) {
+            $startTime = time();
             if (!isset($task['name'])) {
                 throw new \Exception(sprintf('Job %s has task %d without name', $job->getId(), $i));
             }
@@ -126,7 +127,14 @@ class Executor extends \Keboola\Syrup\Job\Executor
                 }
             }
 
-            $eventLogger->log($job->getId(), $job->getRunId(), sprintf('Task %d (%s) finished', $i, $task['name']), $task['params']);
+            $eventLogger->log(
+                $job->getId(),
+                $job->getRunId(),
+                sprintf('Task %d (%s) finished', $i, $task['name']),
+                $task['params'],
+                time() - $startTime,
+                Event::TYPE_SUCCESS
+            );
         }
 
         return $results;
