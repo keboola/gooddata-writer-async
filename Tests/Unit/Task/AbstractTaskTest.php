@@ -137,7 +137,7 @@ abstract class AbstractTaskTest extends \PHPUnit_Framework_TestCase
         //@TODO připravit konfiguraci
 
         $eventLogger = new EventLogger($this->storageApiClient, $this->s3client);
-        $this->jobFactory = new JobFactory($queueFactory, $jobMapper, $syrupJobFactory, $jobSearch);
+        $this->jobFactory = new JobFactory(GW_APP_NAME, $queueFactory, $jobMapper, $syrupJobFactory, $jobSearch);
         $this->jobFactory
             ->setStorageApiClient($this->storageApiClient)
             ->setConfiguration($this->configuration);

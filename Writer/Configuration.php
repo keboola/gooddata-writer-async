@@ -1351,12 +1351,20 @@ class Configuration
             return false;
         }
 
+        if (!$this->cachedClient->tableExists($this->bucketId . '.' . $tableName)) {
+            $this->cachedClient->createTable(
+                $this->bucketId . '.' . $tableName,
+                $this->tables[$tableName]['primaryKey'],
+                $this->tables[$tableName]['columns'],
+                $this->tables[$tableName]['indices']
+            );
+        }
+
         return $this->cachedClient->saveTable(
             $this->bucketId . '.' . $tableName,
             count($data) ? array_keys($data[0]) : $this->tables[$tableName]['columns'],
             $data,
             $this->tables[$tableName]['primaryKey'],
-            $this->tables[$tableName]['indices'],
             $incremental,
             $partial
         );
