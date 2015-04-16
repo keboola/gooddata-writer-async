@@ -131,7 +131,7 @@ class Executor extends \Keboola\Syrup\Job\Executor
                 $job->getId(),
                 $job->getRunId(),
                 sprintf('Task %d (%s) finished', $i, $task['name']),
-                $task['params'],
+                $results[$i],
                 time() - $startTime,
                 Event::TYPE_SUCCESS
             );
