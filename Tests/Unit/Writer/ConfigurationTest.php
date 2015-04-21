@@ -146,7 +146,7 @@ class ConfigurationTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue($writerIdAttr);
 
         // updateBucketAttribute()
-        $testAttrName = uniqid();
+        $testAttrName = 'attrTest'.rand(1, 255);
         $this->configuration->updateBucketAttribute($testAttrName, $testAttrName);
 
         // getWriterToApi()
