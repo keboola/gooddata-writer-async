@@ -1445,10 +1445,23 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
 
     private function createPollResponse($jobId)
     {
+        /** @var \Symfony\Component\Routing\RequestContext $context */
+        $context = $this->container->get('router')->getContext();
         return $this->createJsonResponse([
+            'id' => (int)$jobId,
+            'url' => sprintf(
+                'https://%s%s/gooddata-writer/syrup-job?writerId=%s&jobId=%s',
+                $context->getHost(),
+                $context->getBaseUrl(),
+                $this->getConfiguration()->writerId,
+                $jobId
+            )
+        ], 202);
+
+        /*return $this->createJsonResponse([
             'id' => $jobId,
             'url' => $this->getJobUrl($jobId)
-        ], 202);
+        ], 202);*/
     }
 
     private function checkParams($required)
@@ -1491,6 +1504,88 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
     /**
      * @deprecated
      */
+
+    /**
+     * Get Syrup Job BC
+     *
+     * @Route("/legacy-jobs")
+     * @Method({"GET"})
+     */
+    public function getLegacyJobsAction()
+    {
+        $this->checkParams(['writerId']);
+        $this->checkWriterExistence();
+
+        if (empty($this->params['jobId'])) {
+            $days = isset($this->params['days']) ? $this->params['days'] : 3;
+            $tableId = empty($this->params['tableId']) ? null : $this->params['tableId'];
+            $command = empty($this->params['command']) ? null : $this->params['command'];
+            $tokenId = empty($this->params['tokenId']) ? null : $this->params['tokenId'];
+            $status = empty($this->params['status']) ? null : $this->params['status'];
+            $jobs = $this->getSharedStorage()->fetchJobs($this->projectId, $this->writerId, $days);
+            $result = [];
+            foreach ($jobs as $job) {
+                if ((empty($command) || $command == $job['command']) && (empty($tokenId) || $tokenId == $job['tokenId'])
+                    && (empty($status) || $status == $job['status'])) {
+                    if (empty($tableId) || (!empty($job['parameters']['tableId']) && $job['parameters']['tableId'] == $tableId)) {
+                        $result[] = self::jobToApiResponse($job, $this->s3Client);
+                    }
+                }
+            }
+            return $this->createApiResponse([
+                'jobs' => $result
+            ]);
+        } else {
+            if (is_array($this->params['jobId'])) {
+                throw new UserException($this->translator->trans('parameters.jobId_number'));
+            }
+            /** @var Search $jobSearch */
+            $jobSearch = $this->container->get('gooddata_writer.elasticsearch.search');
+            $job = $jobSearch->getJob($this->params['jobId']);
+            if (!$job) {
+                throw new UserException($this->translator->trans('parameters.job'));
+            }
+
+            $jobData = $job->getData();
+            $jobData['_index'] = $job->getIndex();
+            $jobData['_type'] = $job->getType();
+            unset($jobData['token']['token']);
+
+
+            $jobData['batchId'] = $job->getId();
+            $jobData['queueId'] = $job->getLockName();
+            $jobData['projectId'] = $this->getConfiguration()->projectId;
+            $jobData['writerId'] = $this->getConfiguration()->writerId;
+            $jobData['dataset'] = null;
+            $jobData['gdWriteStartTime'] = null;
+            $jobData['logs'] = [];
+
+            $jobData['jobs'] = [];
+            foreach ($job->getParams()['tasks'] as $i => $j) {
+                $jobData['jobs'][] = [
+                    'id' => $job->getId(),
+                    'batchId' => $jobData['batchId'],
+                    'runId' => $jobData['runId'],
+                    'projectId' => $jobData['projectId'],
+                    'writerId' => $jobData['writerId'],
+                    'queueId' => $jobData['queueId'],
+                    'token' => $jobData['token'],
+                    'createdTime' => $jobData['createdTime'],
+                    'startTime' => $jobData['startTime'],
+                    'endTime' => $jobData['endTime'],
+                    'command' => $jobData['command'],
+                    'dataset' => null,
+                    'parameters' => !empty($j['params']) ? $j['params'] : [],
+                    'result' => !empty($jobData['result'][$i]) ? $jobData['result'][$i] : [],
+                    'gdWriteStartTime' => null,
+                    'status' => $jobData['status'],
+                    'logs' => []
+                ];
+            }
+
+            return $this->createJsonResponse($jobData);
+        }
+    }
 
     /**
      * Get Jobs
