@@ -1449,8 +1449,10 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
         $context = $this->container->get('router')->getContext();
         return $this->createJsonResponse([
             'id' => (int)$jobId,
+            'batch' => (int)$jobId,
+            'job' => (int)$jobId,
             'url' => sprintf(
-                'https://%s%s/gooddata-writer/syrup-job?writerId=%s&jobId=%s',
+                'https://%s%s/gooddata-writer/legacy-jobs?writerId=%s&jobId=%s',
                 $context->getHost(),
                 $context->getBaseUrl(),
                 $this->getConfiguration()->writerId,
