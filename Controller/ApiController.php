@@ -1452,9 +1452,10 @@ class ApiController extends \Keboola\Syrup\Controller\ApiController
             'batch' => (int)$jobId,
             'job' => (int)$jobId,
             'url' => sprintf(
-                'https://%s%s/gooddata-writer/legacy-jobs?writerId=%s&jobId=%s',
+                'https://%s%s/%s/legacy-jobs?writerId=%s&jobId=%s',
                 $context->getHost(),
                 $context->getBaseUrl(),
+                $this->componentName,
                 $this->getConfiguration()->writerId,
                 $jobId
             )
